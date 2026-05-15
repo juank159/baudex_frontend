@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
 
@@ -27,12 +29,23 @@ class QuickCreateCustomerDialog extends StatefulWidget {
 }
 
 class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
+  // Defaults idénticos al formulario completo de clientes
+  // (`customer_form_controller.dart:196`) para que un cliente creado
+  // rápido desde el form de factura tenga el mismo tratamiento que uno
+  // creado por el flujo largo. Antes el quick-dialog no enviaba estos
+  // campos y el cliente quedaba con `creditLimit=0` → cualquier factura
+  // a crédito posterior reventaba con "LÍMITE DE CRÉDITO EXCEDIDO".
+  static const double _defaultCreditLimit = 3000000;
+  static const int _defaultPaymentTerms = 30;
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _firstNameCtrl;
   final _lastNameCtrl = TextEditingController();
   final _documentNumberCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  late final TextEditingController _creditLimitCtrl;
+  late final TextEditingController _paymentTermsCtrl;
 
   DocumentType _documentType = DocumentType.cc;
   bool _saving = false;
@@ -41,6 +54,12 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
   void initState() {
     super.initState();
     _firstNameCtrl = TextEditingController(text: widget.prefilledName ?? '');
+    _creditLimitCtrl = TextEditingController(
+      text: AppFormatters.formatNumber(_defaultCreditLimit.toInt()),
+    );
+    _paymentTermsCtrl = TextEditingController(
+      text: _defaultPaymentTerms.toString(),
+    );
   }
 
   @override
@@ -50,6 +69,8 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
     _documentNumberCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
+    _creditLimitCtrl.dispose();
+    _paymentTermsCtrl.dispose();
     super.dispose();
   }
 
@@ -69,6 +90,14 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
         ? emailInput
         : 'cliente.${documentNumber.toLowerCase()}@local.baudex';
 
+    // Crédito y términos: si el usuario los dejó vacíos o inválidos
+    // caemos al default para no crear un cliente "roto" que después no
+    // pueda comprar a crédito.
+    final creditLimitValue =
+        AppFormatters.parseNumber(_creditLimitCtrl.text) ?? _defaultCreditLimit;
+    final paymentTermsValue =
+        int.tryParse(_paymentTermsCtrl.text.trim()) ?? _defaultPaymentTerms;
+
     try {
       final useCase = Get.find<CreateCustomerUseCase>();
       final result = await useCase(
@@ -80,6 +109,8 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
           documentType: _documentType,
           documentNumber: documentNumber,
           status: CustomerStatus.active,
+          creditLimit: creditLimitValue,
+          paymentTerms: paymentTermsValue,
         ),
       );
 
@@ -294,7 +325,116 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
             return null;
           },
         ),
+        const SizedBox(height: 16),
+        _buildCreditSection(),
       ],
+    );
+  }
+
+  /// Sección de crédito: límite + días de plazo. Pre-rellenada con los
+  /// mismos defaults del form completo de clientes para que cualquier
+  /// cliente creado por aquí pueda inmediatamente comprar a crédito.
+  /// El usuario puede ajustarlos o dejarlos como están.
+  Widget _buildCreditSection() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.credit_score_outlined,
+                size: 16,
+                color: ElegantLightTheme.primaryBlue,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'Crédito',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: ElegantLightTheme.primaryBlue,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '— condiciones para facturas a crédito',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ElegantLightTheme.textSecondary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 360;
+              final limitField = _elegantField(
+                controller: _creditLimitCtrl,
+                label: 'Límite de crédito',
+                icon: Icons.attach_money,
+                hint: 'Ej: 3.000.000',
+                keyboardType: TextInputType.number,
+                inputFormatters: [PriceInputFormatter()],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  final n = AppFormatters.parseNumber(v);
+                  if (n == null || n < 0) return 'Inválido';
+                  return null;
+                },
+              );
+              final termsField = _elegantField(
+                controller: _paymentTermsCtrl,
+                label: 'Plazo (días)',
+                icon: Icons.event_outlined,
+                hint: '30',
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  final n = int.tryParse(v.trim());
+                  if (n == null || n < 0) return 'Inválido';
+                  return null;
+                },
+              );
+              if (isNarrow) {
+                return Column(
+                  children: [
+                    limitField,
+                    const SizedBox(height: 10),
+                    termsField,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: limitField),
+                  const SizedBox(width: 10),
+                  SizedBox(width: 120, child: termsField),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 

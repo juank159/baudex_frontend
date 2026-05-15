@@ -122,7 +122,7 @@ class ProductPresentationsController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         return false;
       },
@@ -140,7 +140,7 @@ class ProductPresentationsController extends GetxController
         Get.snackbar(
           'Creada',
           'Presentación "${presentation.name}" creada correctamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         return true;
       },
@@ -184,7 +184,7 @@ class ProductPresentationsController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         return false;
       },
@@ -208,7 +208,7 @@ class ProductPresentationsController extends GetxController
         Get.snackbar(
           'Actualizada',
           'Presentación "${presentation.name}" actualizada',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         return true;
       },
@@ -232,7 +232,7 @@ class ProductPresentationsController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         return false;
       },
@@ -241,7 +241,7 @@ class ProductPresentationsController extends GetxController
         Get.snackbar(
           'Eliminada',
           'Presentación eliminada correctamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         return true;
       },

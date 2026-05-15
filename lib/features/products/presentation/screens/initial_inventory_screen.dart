@@ -134,7 +134,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
                       Get.snackbar(
                         'Guardado',
                         'Borrador guardado correctamente',
-                        snackPosition: SnackPosition.BOTTOM,
+                        snackPosition: SnackPosition.TOP,
                         backgroundColor: ElegantLightTheme.successGreen,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 2),

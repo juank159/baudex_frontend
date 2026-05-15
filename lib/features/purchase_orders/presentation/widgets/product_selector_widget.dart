@@ -607,7 +607,11 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
       if (mounted) {
         setState(() {
           _searchResults.clear();
-          _searchResults.addAll(results.take(8));
+          // Sin cap: mostramos TODOS los matches que devuelve el
+          // controller (búsqueda 100% offline contra ISAR). El contenedor
+          // ya limita la altura visual a 300px con `ListView.builder`
+          // virtualizado, así que la lista escala sin lag.
+          _searchResults.addAll(results);
           _isSearching = false;
           _selectedIndex =
               _searchResults.isNotEmpty ? 0 : -1; // Auto-seleccionar el primero

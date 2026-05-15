@@ -894,7 +894,7 @@ class CustomerFormScreen extends GetView<CustomerFormController> {
               Get.snackbar(
                 'Formulario limpiado',
                 'Todos los campos han sido limpiados',
-                snackPosition: SnackPosition.BOTTOM,
+                snackPosition: SnackPosition.TOP,
                 backgroundColor: Colors.green,
                 colorText: Colors.white,
                 duration: const Duration(seconds: 2),

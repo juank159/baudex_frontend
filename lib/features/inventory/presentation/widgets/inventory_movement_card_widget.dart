@@ -543,7 +543,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
         Get.snackbar(
           'Información',
           'Referencia: ${movement.referenceType} - ${movement.referenceId}',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
         break;
     }

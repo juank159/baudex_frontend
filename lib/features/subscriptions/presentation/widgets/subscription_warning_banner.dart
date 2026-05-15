@@ -168,7 +168,7 @@ class SubscriptionWarningBanner extends StatelessWidget {
     Get.snackbar(
       'Contacta para renovar',
       'WhatsApp: ${SubscriptionContactInfo.whatsappDisplay}\nEmail: ${SubscriptionContactInfo.email}',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.green.shade50,
       colorText: Colors.green.shade800,
       duration: const Duration(seconds: 8),

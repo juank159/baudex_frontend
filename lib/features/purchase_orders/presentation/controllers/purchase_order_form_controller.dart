@@ -11,9 +11,11 @@ import '../../domain/usecases/update_purchase_order_usecase.dart';
 import '../../domain/usecases/get_purchase_order_by_id_usecase.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../../../suppliers/domain/entities/supplier.dart';
+import '../../../suppliers/data/repositories/supplier_offline_repository.dart';
 import '../../../suppliers/domain/usecases/search_suppliers_usecase.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
+import '../../../products/data/repositories/product_offline_repository.dart';
 import 'purchase_orders_controller.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../settings/domain/entities/organization.dart';
@@ -1497,30 +1499,87 @@ class PurchaseOrderFormController extends GetxController
 
   // ==================== SEARCH METHODS ====================
 
+  /// Búsqueda 100% offline contra ISAR. NUNCA golpea el server.
+  /// Va directo al `SupplierOfflineRepository` para bypassear el
+  /// `SupplierRepositoryImpl`, que prefiere API cuando hay red.
   Future<List<Supplier>> searchSuppliers(String query) async {
+    if (query.trim().isEmpty) return <Supplier>[];
     try {
-      final params = SearchSuppliersParams(searchTerm: query, limit: 10);
-      final result = await searchSuppliersUseCase(params);
+      List<Supplier> suppliers = const [];
 
-      return result.fold((failure) {
-        print('❌ Error buscando proveedores: ${failure.message}');
-        return <Supplier>[];
-      }, (suppliers) => suppliers);
+      if (Get.isRegistered<SupplierOfflineRepository>()) {
+        final result = await Get.find<SupplierOfflineRepository>()
+            .searchSuppliers(query, limit: null);
+        result.fold(
+          (failure) {
+            print('⚠️ Offline supplier repo falló: ${failure.message}');
+          },
+          (list) => suppliers = list,
+        );
+      }
+
+      // Fallback defensivo si por algún motivo el offline repo no está.
+      if (suppliers.isEmpty && !Get.isRegistered<SupplierOfflineRepository>()) {
+        final params = SearchSuppliersParams(searchTerm: query, limit: null);
+        final result = await searchSuppliersUseCase(params);
+        result.fold(
+          (failure) {
+            print('❌ Error buscando proveedores (fallback): ${failure.message}');
+          },
+          (list) => suppliers = list,
+        );
+      }
+
+      print('✅ PO supplier search offline: ${suppliers.length} proveedores');
+      return suppliers;
     } catch (e) {
       print('❌ Error inesperado buscando proveedores: $e');
       return <Supplier>[];
     }
   }
 
+  /// Búsqueda 100% offline contra ISAR. NUNCA golpea el server.
+  ///
+  /// Va directo al `ProductOfflineRepository` (que lee de ISAR nativo)
+  /// para bypassear `ProductRepositoryImpl`, cuyo flujo prefiere API
+  /// cuando hay red. Aquí queremos lista idéntica online/offline,
+  /// resultados instantáneos y sin caps. Si el repo offline no está
+  /// registrado, se cae elegantemente al use case (que también respeta
+  /// `limit: null`). Solo retorna productos activos para evitar OCs con
+  /// SKUs descontinuados.
   Future<List<Product>> searchProducts(String query) async {
+    if (query.trim().isEmpty) return <Product>[];
     try {
-      final params = SearchProductsParams(searchTerm: query, limit: 10);
-      final result = await searchProductsUseCase(params);
+      List<Product> products = const [];
 
-      return result.fold((failure) {
-        print('❌ Error buscando productos: ${failure.message}');
-        return <Product>[];
-      }, (products) => products);
+      if (Get.isRegistered<ProductOfflineRepository>()) {
+        final result = await Get.find<ProductOfflineRepository>()
+            .searchProducts(query, limit: null);
+        result.fold(
+          (failure) {
+            print('⚠️ Offline repo falló: ${failure.message} — fallback use case');
+          },
+          (list) => products = list,
+        );
+      }
+
+      // Fallback defensivo si por algún motivo el repo offline no está
+      // disponible al momento del search.
+      if (products.isEmpty && !Get.isRegistered<ProductOfflineRepository>()) {
+        final params = SearchProductsParams(searchTerm: query, limit: null);
+        final result = await searchProductsUseCase(params);
+        result.fold(
+          (failure) {
+            print('❌ Error buscando productos (fallback): ${failure.message}');
+          },
+          (list) => products = list,
+        );
+      }
+
+      final activos =
+          products.where((p) => p.status == ProductStatus.active).toList();
+      print('✅ PO search offline: ${activos.length} productos activos');
+      return activos;
     } catch (e) {
       print('❌ Error inesperado buscando productos: $e');
       return <Product>[];

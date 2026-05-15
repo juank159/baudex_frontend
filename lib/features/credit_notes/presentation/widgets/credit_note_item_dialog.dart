@@ -653,7 +653,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
       Get.snackbar(
         'Sin disponibilidad',
         'No hay productos con cantidad disponible para acreditar. Todos los productos ya han sido acreditados.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: ElegantLightTheme.warningGradient.colors.first,
         colorText: Colors.white,
         duration: const Duration(seconds: 4),
@@ -665,7 +665,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
       Get.snackbar(
         'No hay productos',
         'No hay productos en esta factura para seleccionar',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: ElegantLightTheme.warningGradient.colors.first,
         colorText: Colors.white,
       );

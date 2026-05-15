@@ -89,7 +89,7 @@ class _BankAccountMovementDialogState extends State<BankAccountMovementDialog> {
       Get.snackbar(
         _isDeposit ? '¡Depósito registrado!' : '¡Retiro registrado!',
         '\$${amount.toStringAsFixed(2)} en ${widget.account.name}',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: _accentColor.withOpacity(0.95),
         colorText: Colors.white,
       );

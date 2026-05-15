@@ -62,20 +62,44 @@ class _OpenCashRegisterDialogState extends State<_OpenCashRegisterDialog> {
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     if (!Get.isRegistered<CashRegisterController>()) {
-      Get.back<bool>(result: false);
+      // Navigator.pop (no Get.back) porque el dialog se montó con
+      // `showDialog<bool>`, que NO está en el stack de rutas de GetX.
+      // Get.back cerraría la pantalla padre o no haría nada → bug del
+      // dialog colgado tras apertura exitosa.
+      Navigator.of(context).pop(false);
       return;
     }
     final amount = AppFormatters.parseNumber(_amountCtrl.text) ?? 0;
     final notes = _notesCtrl.text.trim();
+    // ignore: avoid_print
+    print('[OPEN_DIALOG] submit → amount=$amount notes="$notes"');
     setState(() => _submitting = true);
     final ctrl = Get.find<CashRegisterController>();
-    final ok = await ctrl.open(
-      openingAmount: amount,
-      openingNotes: notes.isEmpty ? null : notes,
-    );
+    // Try/catch + finally garantizan que el spinner SIEMPRE se quita,
+    // aun si la repo lanza (timeout, red caída, parse error, etc.).
+    // Sin este wrapper el dialog se quedaba en "Abriendo..." infinito.
+    bool ok = false;
+    try {
+      ok = await ctrl.open(
+        openingAmount: amount,
+        openingNotes: notes.isEmpty ? null : notes,
+      );
+      // ignore: avoid_print
+      print('[OPEN_DIALOG] ctrl.open returned: $ok');
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('[OPEN_DIALOG] EXCEPTION: $e\n$st');
+      Get.snackbar(
+        'Error',
+        'No se pudo abrir la caja: $e',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFFD32F2F),
+        colorText: const Color(0xFFFFFFFF),
+      );
+    }
     if (!mounted) return;
     if (ok) {
-      Get.back<bool>(result: true);
+      Navigator.of(context).pop(true);
     } else {
       setState(() => _submitting = false);
     }
@@ -189,7 +213,7 @@ class _OpenCashRegisterDialogState extends State<_OpenCashRegisterDialog> {
                       child: TextButton(
                         onPressed: _submitting
                             ? null
-                            : () => Get.back<bool>(result: false),
+                            : () => Navigator.of(context).pop(false),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),

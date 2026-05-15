@@ -228,10 +228,16 @@ class ProductOfflineRepository implements ProductRepository {
   @override
   Future<Either<Failure, List<Product>>> searchProducts(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
     try {
-      final List<IsarProduct> isarProducts = await _isar.isarProducts
+      // `limit` null → sin tope (devuelve todos los matches).
+      // Cualquier valor explícito → aplica `.limit()` nativo de ISAR.
+      // Se cambió la firma a opcional para soportar búsqueda completa en
+      // los formularios de factura y orden de compra; el resto de callers
+      // existentes (que no pasaban argumento) ahora también obtienen
+      // resultados sin cap, comportamiento correcto para un searchbox.
+      final baseQuery = _isar.isarProducts
           .filter()
           .deletedAtIsNull()
           .and()
@@ -242,9 +248,11 @@ class ProductOfflineRepository implements ProductRepository {
               .or()
               .barcodeContains(searchTerm, caseSensitive: false)
               .or()
-              .descriptionContains(searchTerm, caseSensitive: false))
-          .limit(limit)
-          .findAll();
+              .descriptionContains(searchTerm, caseSensitive: false));
+
+      final List<IsarProduct> isarProducts = limit == null
+          ? await baseQuery.findAll()
+          : await baseQuery.limit(limit).findAll();
 
       final products = isarProducts.map((isar) => isar.toEntity()).toList();
       return Right(products);

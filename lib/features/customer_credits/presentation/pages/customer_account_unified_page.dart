@@ -10,6 +10,7 @@ import '../../domain/entities/customer_credit.dart';
 import '../controllers/customer_credit_controller.dart';
 import '../widgets/add_debt_dialog.dart';
 import '../widgets/add_credit_payment_dialog.dart';
+import '../widgets/bulk_credit_payment_dialog.dart';
 import '../widgets/create_credit_dialog.dart';
 import 'credit_detail_page.dart';
 
@@ -578,6 +579,16 @@ class _CustomerAccountUnifiedPageState extends State<CustomerAccountUnifiedPage>
                     ],
                   ),
                 ),
+                // Botón "Pagar todos" — sólo visible si hay deuda pendiente
+                // en esta sección. Distribuye el pago FIFO entre los créditos.
+                if (totalPending > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _buildPayAllButton(
+                      credits: credits,
+                      sectionLabel: title,
+                    ),
+                  ),
                 // Botón refresh
                 Material(
                   color: Colors.transparent,
@@ -643,6 +654,65 @@ class _CustomerAccountUnifiedPageState extends State<CustomerAccountUnifiedPage>
     );
   }
 
+  /// Pill compacto para "Pagar todos" en el header de cada sección.
+  /// Se usa en desktop (columnas) y en móvil (encima de cada tab).
+  Widget _buildPayAllButton({
+    required List<CustomerCreditModel> credits,
+    required String sectionLabel,
+  }) {
+    return Material(
+      color: ElegantLightTheme.successGreen.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _openBulkPaymentDialog(credits, sectionLabel),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.payments_outlined,
+                size: 15,
+                color: ElegantLightTheme.successGreen,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Pagar todos',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: ElegantLightTheme.successGreen,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openBulkPaymentDialog(
+    List<CustomerCreditModel> credits,
+    String sectionLabel,
+  ) async {
+    final customerName =
+        widget.customerName ?? _summary?.customerName ?? 'Cliente';
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BulkCreditPaymentDialog(
+        credits: credits,
+        sectionLabel: sectionLabel,
+        customerName: customerName,
+      ),
+    );
+    if (result == true && mounted) {
+      // Recargar datos para reflejar los créditos actualizados.
+      _loadData();
+    }
+  }
+
   Widget _buildMobileLayout() {
     final directCredits = _summary?.directCredits ?? [];
     final invoiceCredits = _summary?.invoiceCredits ?? [];
@@ -667,6 +737,32 @@ class _CustomerAccountUnifiedPageState extends State<CustomerAccountUnifiedPage>
         ),
 
         const SizedBox(height: 16),
+
+        // "Pagar todos" del tab activo — sólo si hay deuda pendiente.
+        // En móvil va alineado a la derecha encima de la lista para no
+        // sumar otro click en el AppBar.
+        if (_selectedCreditTypeTab == 0 && directPending > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _buildPayAllButton(
+                credits: directCredits,
+                sectionLabel: 'Directos',
+              ),
+            ),
+          ),
+        if (_selectedCreditTypeTab == 1 && invoicePending > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _buildPayAllButton(
+                credits: invoiceCredits,
+                sectionLabel: 'Facturas',
+              ),
+            ),
+          ),
 
         // Contenido según tab seleccionado
         if (_selectedCreditTypeTab == 0) ...[

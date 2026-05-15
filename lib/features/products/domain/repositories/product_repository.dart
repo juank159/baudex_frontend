@@ -43,10 +43,11 @@ abstract class ProductRepository {
   /// Buscar productos por SKU o código de barras
   Future<Either<Failure, Product>> findBySkuOrBarcode(String code);
 
-  /// Buscar productos por término
+  /// Buscar productos por término.
+  /// `limit` null → sin tope, devuelve todos los matches.
   Future<Either<Failure, List<Product>>> searchProducts(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   });
 
   /// Obtener productos con stock bajo

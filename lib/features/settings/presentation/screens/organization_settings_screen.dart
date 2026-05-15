@@ -2027,7 +2027,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       Get.snackbar(
         'Sesión cerrada',
         'El dispositivo ha sido desconectado',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
         duration: const Duration(seconds: 2),
@@ -2036,7 +2036,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       Get.snackbar(
         'Error',
         'No se pudo cerrar la sesión',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -2084,7 +2084,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       Get.snackbar(
         'Sesiones cerradas',
         '$count dispositivo(s) desconectado(s)',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
         duration: const Duration(seconds: 2),
@@ -2093,7 +2093,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       Get.snackbar(
         'Error',
         'No se pudieron cerrar las sesiones',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );

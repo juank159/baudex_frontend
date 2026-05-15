@@ -6,7 +6,10 @@ import 'package:dartz/dartz.dart';
 
 class SearchCustomersParams {
   final String searchTerm;
-  final int limit;
+
+  /// `null` → sin tope, devuelve todos los matches.
+  /// Default 10 para mantener compatibilidad con callers existentes.
+  final int? limit;
 
   const SearchCustomersParams({required this.searchTerm, this.limit = 10});
 }

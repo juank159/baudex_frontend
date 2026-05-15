@@ -1252,7 +1252,7 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
       Get.snackbar(
         'Error',
         'Ocurrió un error al registrar el abono',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

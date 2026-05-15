@@ -398,13 +398,18 @@ class CustomerRepositoryImpl implements CustomerRepository {
   @override
   Future<Either<Failure, List<Customer>>> searchCustomers(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
+    // El remote data source exige `int` no nullable. Si el caller no
+    // envía límite (búsqueda completa), aplicamos un cap defensivo alto
+    // en el server para no traer una página gigante por accidente. La
+    // rama offline (ISAR) sí respeta el null y devuelve todo.
+    final remoteLimit = limit ?? 100;
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.searchCustomers(
           searchTerm,
-          limit,
+          remoteLimit,
         );
         final customers = response.map((model) => model.toEntity()).toList();
         return Right(customers);
@@ -431,10 +436,11 @@ class CustomerRepositoryImpl implements CustomerRepository {
     }
   }
 
-  /// Búsqueda de clientes offline usando ISAR
+  /// Búsqueda de clientes offline usando ISAR.
+  /// `limit` null → sin tope, devuelve todos los matches.
   Future<Either<Failure, List<Customer>>> _searchCustomersOffline(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
     try {
       print('🔍 [OFFLINE] Buscando clientes en ISAR: "$searchTerm"');
@@ -469,9 +475,12 @@ class CustomerRepositoryImpl implements CustomerRepository {
           if (!wordFound) return false;
         }
         return true;
-      }).take(limit).toList();
+      }).toList();
 
-      final customers = matchingCustomers.map((isarCustomer) => isarCustomer.toEntity()).toList();
+      // Aplicar `limit` solo si se especificó (null = todos los matches).
+      final matchingCustomersLimited =
+          limit != null ? matchingCustomers.take(limit).toList() : matchingCustomers;
+      final customers = matchingCustomersLimited.map((isarCustomer) => isarCustomer.toEntity()).toList();
       print('✅ [OFFLINE] ${customers.length} clientes encontrados en ISAR');
       return Right(customers);
     } catch (e) {

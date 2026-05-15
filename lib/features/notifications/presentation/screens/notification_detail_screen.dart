@@ -563,7 +563,7 @@ class NotificationDetailScreen extends GetView<NotificationsController> {
                     Get.snackbar(
                       'Exito',
                       'Notificacion marcada como leida',
-                      snackPosition: SnackPosition.BOTTOM,
+                      snackPosition: SnackPosition.TOP,
                       backgroundColor: ElegantLightTheme.successGreen.withOpacity(0.9),
                       colorText: Colors.white,
                       borderRadius: 12,
@@ -580,7 +580,7 @@ class NotificationDetailScreen extends GetView<NotificationsController> {
                     Get.snackbar(
                       'Info',
                       'Funcionalidad pendiente',
-                      snackPosition: SnackPosition.BOTTOM,
+                      snackPosition: SnackPosition.TOP,
                       backgroundColor: ElegantLightTheme.primaryBlue.withOpacity(0.9),
                       colorText: Colors.white,
                       borderRadius: 12,
@@ -1069,7 +1069,7 @@ class NotificationDetailScreen extends GetView<NotificationsController> {
         Get.snackbar(
           'Info',
           'Accion no disponible para este tipo de notificacion',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: ElegantLightTheme.primaryBlue.withOpacity(0.9),
           colorText: Colors.white,
           borderRadius: 12,
@@ -1157,7 +1157,7 @@ class NotificationDetailScreen extends GetView<NotificationsController> {
                             Get.snackbar(
                               'Exito',
                               'Notificacion eliminada',
-                              snackPosition: SnackPosition.BOTTOM,
+                              snackPosition: SnackPosition.TOP,
                               backgroundColor: ElegantLightTheme.successGreen.withOpacity(0.9),
                               colorText: Colors.white,
                               borderRadius: 12,

@@ -655,7 +655,11 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         if (mounted) {
           setState(() {
             _searchResults.clear();
-            _searchResults.addAll(results.take(8)); // Limitar resultados
+            // Sin cap: mostramos TODOS los matches del catálogo offline.
+            // El contenedor de resultados usa `ListView.builder` con
+            // altura limitada, así que el scroll virtualizado maneja
+            // catálogos grandes sin afectar performance.
+            _searchResults.addAll(results);
             _isSearching = false;
           });
         }

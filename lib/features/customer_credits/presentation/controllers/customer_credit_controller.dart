@@ -308,7 +308,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -324,7 +324,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Crédito creado',
           message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );
@@ -381,7 +381,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -421,6 +421,113 @@ class CustomerCreditController extends GetxController
     InvoiceListController.markInvoiceRefreshNeeded();
   }
 
+  /// Resultado de un pago masivo a varios créditos de una misma sección
+  /// (todos directos o todos de facturas).
+  /// Devuelve cuántos créditos se afectaron, cuánto se aplicó, y
+  /// errores por crédito si los hubo (útil para mostrar al cajero
+  /// qué falló sin abortar el resto).
+  Future<({int applied, double total, List<String> errors})> payAllInSection({
+    required List<CustomerCreditModel> credits,
+    required double totalAmountToApply,
+    required String paymentMethod,
+    String? bankAccountId,
+    String? notes,
+    String? reference,
+  }) async {
+    // Sólo créditos con saldo pendiente, ordenados FIFO (más viejo primero)
+    // → así el dinero cubre la deuda más antigua antes que la nueva.
+    final pendientes = credits
+        .where((c) => c.balanceDue > 0)
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    if (pendientes.isEmpty) {
+      return (applied: 0, total: 0.0, errors: <String>['Sin créditos pendientes']);
+    }
+
+    final totalDeuda = pendientes.fold<double>(
+      0.0,
+      (sum, c) => sum + c.balanceDue,
+    );
+
+    // Cap al total pendiente — si el usuario digitó más, se ignora
+    // (el último crédito recibe lo que falte; un sobrepago real entra
+    // como saldo a favor en el backend, NO duplicamos esa lógica aquí).
+    double remaining =
+        totalAmountToApply > totalDeuda ? totalDeuda : totalAmountToApply;
+    if (remaining <= 0) {
+      return (applied: 0, total: 0.0, errors: <String>['Monto inválido']);
+    }
+
+    isProcessing.value = true;
+    errorMessage.value = '';
+
+    int appliedCount = 0;
+    double appliedTotal = 0.0;
+    final errors = <String>[];
+    final touchedInvoiceIds = <String>{};
+
+    for (final credit in pendientes) {
+      if (remaining <= 0) break;
+
+      // A cada crédito se le aplica el menor entre lo que falta y su saldo
+      final toPay = remaining > credit.balanceDue ? credit.balanceDue : remaining;
+      if (toPay <= 0) continue;
+
+      final dto = AddCreditPaymentDto(
+        amount: toPay,
+        paymentMethod: paymentMethod,
+        bankAccountId: bankAccountId,
+        notes: notes,
+        reference: reference,
+      );
+
+      final result = await repository.addPayment(credit.id, dto);
+      result.fold(
+        (failure) {
+          // No abortamos: registramos y seguimos con el siguiente.
+          // Cada `addPayment` es transacción independiente en el
+          // backend, así que los que sí pasaron quedan firmes.
+          errors.add('${credit.id.substring(0, 8)}: ${failure.message}');
+        },
+        (updated) {
+          appliedCount++;
+          appliedTotal += toPay;
+          remaining -= toPay;
+
+          // Actualizar la lista local para feedback inmediato sin
+          // esperar al recargo de datos.
+          final index = this.credits.indexWhere((c) => c.id == credit.id);
+          if (index >= 0) {
+            this.credits[index] = updated;
+          }
+          if (credit.invoiceId != null) {
+            touchedInvoiceIds.add(credit.invoiceId!);
+          }
+        },
+      );
+    }
+
+    if (appliedCount > 0) {
+      this.credits.refresh();
+      _updateStatsFromCredits();
+    }
+
+    isProcessing.value = false;
+
+    // Recarga completa en background si algo se aplicó. Notifica a las
+    // facturas asociadas para que refresquen sus balances.
+    if (appliedCount > 0) {
+      _isLoadInProgress = false;
+      Future.wait([loadCredits(), loadStats()]);
+      for (final invId in touchedInvoiceIds) {
+        _notifyInvoiceUpdate(invId);
+      }
+    }
+
+    return (applied: appliedCount, total: appliedTotal, errors: errors);
+  }
+
   /// Obtiene los pagos de un crédito
   Future<void> loadCreditPayments(String creditId) async {
     final result = await repository.getCreditPayments(creditId);
@@ -449,7 +556,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -467,7 +574,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Crédito cancelado',
           'El crédito ha sido cancelado exitosamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );
@@ -500,7 +607,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (_) {
@@ -511,7 +618,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Crédito eliminado',
           'El crédito ha sido eliminado exitosamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );
@@ -540,7 +647,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -551,7 +658,7 @@ class CustomerCreditController extends GetxController
           Get.snackbar(
             'Créditos actualizados',
             'Se marcaron $data créditos como vencidos',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
           );
         }
       },
@@ -712,7 +819,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -761,7 +868,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -777,7 +884,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Saldo aplicado',
           'Se aplicó saldo a favor al crédito',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );
@@ -875,7 +982,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -885,7 +992,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Saldo depositado',
           'Se depositó \$${amount.toStringAsFixed(0)} como saldo a favor',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );
@@ -920,7 +1027,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -930,7 +1037,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Saldo reembolsado',
           'Se reembolsó \$${amount.toStringAsFixed(0)} al cliente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );
@@ -963,7 +1070,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
       (data) {
@@ -974,7 +1081,7 @@ class CustomerCreditController extends GetxController
         Get.snackbar(
           'Saldo ajustado',
           'Se $action el saldo en \$${amount.abs().toStringAsFixed(0)}',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       },
     );

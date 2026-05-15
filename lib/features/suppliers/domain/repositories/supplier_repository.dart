@@ -26,10 +26,11 @@ abstract class SupplierRepository {
   /// Obtener proveedor por ID
   Future<Either<Failure, Supplier>> getSupplierById(String id);
 
-  /// Buscar proveedores por término
+  /// Buscar proveedores por término.
+  /// `limit` null → sin tope, devuelve todos los matches.
   Future<Either<Failure, List<Supplier>>> searchSuppliers(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   });
 
   /// Obtener proveedores activos

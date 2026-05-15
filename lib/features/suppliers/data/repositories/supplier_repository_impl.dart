@@ -141,13 +141,17 @@ class SupplierRepositoryImpl implements SupplierRepository {
   @override
   Future<Either<Failure, List<Supplier>>> searchSuppliers(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
+    // Si no se especifica `limit` aplicamos un cap defensivo alto al
+    // hablar con el server para no traer una página enorme. La rama de
+    // cache local respeta el `null` y devuelve todo.
+    final remoteLimit = limit ?? 100;
     if (await networkInfo.isConnected) {
       try {
         final supplierModels = await remoteDataSource.searchSuppliers(
           searchTerm,
-          limit: limit,
+          limit: remoteLimit,
         );
 
         // Cachear los resultados
@@ -166,14 +170,19 @@ class SupplierRepositoryImpl implements SupplierRepository {
     }
   }
 
+  /// Búsqueda en cache local. `limit` null → sin tope.
   Future<Either<Failure, List<Supplier>>> _searchSuppliersFromCache(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
     try {
+      // El localDataSource exige `int`. Si caller pasa null, usamos
+      // un techo razonable para evitar trabajar con un array enorme
+      // por accidente; el caller que quiera TODO debe ir directo al
+      // `SupplierOfflineRepository` que respeta null nativo.
       final supplierModels = await localDataSource.searchSuppliers(
         searchTerm,
-        limit: limit,
+        limit: limit ?? 1000,
       );
       final suppliers = supplierModels.map((model) => model.toEntity()).toList();
       if (suppliers.isNotEmpty) {

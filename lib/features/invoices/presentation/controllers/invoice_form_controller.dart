@@ -33,10 +33,12 @@ import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 
 // Customer and Product entities
 import '../../../customers/domain/entities/customer.dart';
+import '../../../customers/data/repositories/customer_offline_repository.dart';
 import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
 import '../../../products/domain/entities/product.dart';
+import '../../../products/data/repositories/product_offline_repository.dart';
 import '../../../products/domain/entities/product_presentation.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../../../products/domain/repositories/product_repository.dart';
@@ -1300,79 +1302,59 @@ class InvoiceFormController extends GetxController {
   }
 
   Future<List<Product>> searchProducts(String query) async {
-    print('🔍 Iniciando búsqueda de productos: "$query"');
+    print('🔍 Búsqueda OFFLINE: "$query" '
+        '(_availableProducts=${_availableProducts.length})');
 
     if (query.trim().isEmpty) return [];
 
     try {
-      // ═══════════════════════════════════════════════════
-      // PASO 1: OFFLINE-FIRST — buscar en datos locales
-      // ═══════════════════════════════════════════════════
-      List<Product> localResults = _searchInLocalProducts(query);
+      // ═══════════════════════════════════════════════════════════════════
+      // FUENTE DE VERDAD: ISAR directo via `ProductOfflineRepository`.
+      //
+      // Por qué no `_availableProducts`: esa lista en memoria puede
+      // estar incompleta cuando el `_loadProducts()` está corriendo
+      // (cache-first + refresh API en background). Si el usuario busca
+      // mientras eso pasa, vería sub-resultados. ISAR siempre tiene la
+      // totalidad del catálogo sincronizado, así que es más confiable.
+      //
+      // Búsqueda nativa por nameContains/skuContains/barcodeContains/
+      // descriptionContains, case-insensitive, sin caps.
+      // ═══════════════════════════════════════════════════════════════════
+      List<Product> results = const [];
 
-      if (localResults.isNotEmpty) {
-        print('✅ Búsqueda local: ${localResults.length} productos encontrados');
+      if (Get.isRegistered<ProductOfflineRepository>()) {
+        final isarSearch = await Get.find<ProductOfflineRepository>()
+            .searchProducts(query, limit: null);
+        isarSearch.fold(
+          (failure) => print('⚠️ ISAR search falló: ${failure.message}'),
+          (list) => results = list,
+        );
+        print('📦 ISAR retornó ${results.length} matches');
       }
 
-      // ═══════════════════════════════════════════════════
-      // PASO 2: Si hay API disponible, enriquecer con servidor
-      // ═══════════════════════════════════════════════════
-      if (_searchProductsUseCase != null && !_isLoadingProducts.value) {
-        try {
-          final searchResult = await _searchProductsUseCase!(
-                SearchProductsParams(searchTerm: query, limit: 20),
-              )
-              .timeout(
-                const Duration(seconds: 5),
-                onTimeout: () {
-                  print('⚠️ Búsqueda API timeout, usando resultados locales');
-                  return Left(ServerFailure('Timeout en búsqueda'));
-                },
-              );
-
-          searchResult.fold(
-            (failure) {
-              print('⚠️ API falló, usando resultados locales: ${failure.message}');
-            },
-            (apiProducts) {
-              // Agregar productos de API que no estén ya en local
-              final localIds = localResults.map((p) => p.id).toSet();
-              for (final p in apiProducts) {
-                if (!localIds.contains(p.id)) {
-                  localResults.add(p);
-                }
-              }
-              print('✅ API complementó: ${apiProducts.length} productos');
-            },
-          );
-        } catch (e) {
-          print('⚠️ Error API, usando resultados locales: $e');
-        }
+      // Fallback: si por alguna razón el offline repo no está registrado
+      // o devolvió vacío, intentamos la búsqueda en memoria igual.
+      if (results.isEmpty) {
+        results = _searchInLocalProducts(query);
+        print('💾 Fallback memoria: ${results.length} matches');
       }
 
-      // ═══════════════════════════════════════════════════
-      // PASO 3: Filtrar SOLO por estado activo
-      // ═══════════════════════════════════════════════════
-      // Los productos sin stock SÍ aparecen en los resultados (con la
-      // marca visual `canSelect=false` en _buildResultItem). Si el cajero
-      // intenta agregarlos y `shouldValidateStock=true`, se le notifica
-      // con audio + snackbar y la app rechaza la acción. Filtrar acá los
-      // sin stock los ocultaba del cajero, que es lo opuesto al UX
-      // pedido: ver que existen pero no poder venderlos.
+      // Dedupe por id y filtrar SOLO activos. Los sin stock SÍ aparecen
+      // (con `canSelect=false` en `_buildResultItem`); el cajero ve que
+      // existen pero no puede venderlos si `shouldValidateStock=true`.
       final uniqueResults = <String, Product>{};
-      for (final product in localResults) {
+      for (final product in results) {
         if (product.status == ProductStatus.active) {
           uniqueResults[product.id] = product;
         }
       }
 
-      final finalResults = uniqueResults.values.take(10).toList();
-      print('✅ Búsqueda completada: ${finalResults.length} productos encontrados');
-
+      final finalResults = uniqueResults.values.toList();
+      print('✅ Búsqueda devolvió ${finalResults.length} productos activos');
       return finalResults;
     } catch (e) {
       print('💥 Error inesperado en búsqueda: $e');
-      return _searchInLocalProducts(query).take(5).toList();
+      return _searchInLocalProducts(query);
     }
   }
 
@@ -1612,44 +1594,37 @@ class InvoiceFormController extends GetxController {
   }
 
   Future<List<Customer>> searchCustomers(String query) async {
-    print('🔍 Buscando clientes: "$query"');
+    print('🔍 Búsqueda clientes OFFLINE: "$query" '
+        '(_availableCustomers=${_availableCustomers.length})');
 
     if (query.trim().isEmpty) return [];
 
     try {
-      List<Customer> results = [];
+      // Mismo patrón que productos: ISAR directo via offline repo. NO
+      // golpea el API. Resultados idénticos online u offline, sin caps.
+      List<Customer> results = const [];
 
-      if (_searchCustomersUseCase != null) {
-        final searchResult = await _searchCustomersUseCase!(
-          SearchCustomersParams(searchTerm: query, limit: 20),
+      if (Get.isRegistered<CustomerOfflineRepository>()) {
+        final isarSearch = await Get.find<CustomerOfflineRepository>()
+            .searchCustomers(query, limit: null);
+        isarSearch.fold(
+          (failure) => print('⚠️ ISAR customer search falló: ${failure.message}'),
+          (list) => results = list,
         );
-
-        searchResult.fold(
-          (failure) {
-            print('❌ Error en búsqueda de clientes: ${failure.message}');
-            results = _searchInLocalCustomers(query);
-          },
-          (customers) {
-            results = customers;
-            print(
-              '✅ Búsqueda por API completada: ${customers.length} clientes',
-            );
-          },
-        );
-      } else {
-        print('⚠️ SearchCustomersUseCase no disponible');
-        results = _searchInLocalCustomers(query);
+        print('📦 ISAR retornó ${results.length} clientes');
       }
 
-      final filteredResults =
-          results
-              .where((customer) => customer.status == CustomerStatus.active)
-              .take(10)
-              .toList();
+      // Fallback defensivo si por algún motivo el offline repo no está.
+      if (results.isEmpty) {
+        results = _searchInLocalCustomers(query);
+        print('💾 Fallback memoria: ${results.length} clientes');
+      }
 
-      print(
-        '✅ Búsqueda de clientes completada: ${filteredResults.length} encontrados',
-      );
+      final filteredResults = results
+          .where((customer) => customer.status == CustomerStatus.active)
+          .toList();
+
+      print('✅ Búsqueda devolvió ${filteredResults.length} clientes activos');
       return filteredResults;
     } catch (e) {
       print('💥 Error inesperado en búsqueda de clientes: $e');

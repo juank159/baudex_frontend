@@ -50,11 +50,23 @@ class CashRegisterRemoteDataSourceImpl implements CashRegisterRemoteDataSource {
         'openingAmount': openingAmount,
         if (openingNotes != null) 'openingNotes': openingNotes,
       };
+      // ignore: avoid_print
+      print('[CASH_REGISTER] POST /cash-register/open body=$body');
       final response = await dioClient.post('/cash-register/open', data: body);
+      // ignore: avoid_print
+      print('[CASH_REGISTER] POST /cash-register/open status=${response.statusCode}');
       final data = _unwrap(response.data);
       return CashRegisterModel.fromJson(data);
     } on DioException catch (e) {
+      // ignore: avoid_print
+      print('[CASH_REGISTER] DioException open: type=${e.type} '
+          'status=${e.response?.statusCode} msg=${e.message} '
+          'body=${e.response?.data}');
       throw _handle(e);
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('[CASH_REGISTER] Unexpected error open: $e\n$st');
+      rethrow;
     }
   }
 

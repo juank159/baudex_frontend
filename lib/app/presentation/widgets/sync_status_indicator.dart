@@ -189,7 +189,7 @@ class SyncStatusIndicator extends StatelessWidget {
                 Get.snackbar(
                   'Operaciones descartadas',
                   '$discarded operación${discarded > 1 ? 'es' : ''} eliminada${discarded > 1 ? 's' : ''}',
-                  snackPosition: SnackPosition.BOTTOM,
+                  snackPosition: SnackPosition.TOP,
                 );
               }
             },
@@ -204,7 +204,7 @@ class SyncStatusIndicator extends StatelessWidget {
               Get.snackbar(
                 'Reintentando',
                 '$retried operación${retried > 1 ? 'es' : ''} en cola de sync',
-                snackPosition: SnackPosition.BOTTOM,
+                snackPosition: SnackPosition.TOP,
               );
             },
           ),

@@ -347,14 +347,19 @@ class ProductRepositoryImpl implements ProductRepository {
   @override
   Future<Either<Failure, List<Product>>> searchProducts(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
+    // El remoteDataSource exige `int` no nullable. Si el caller no envía
+    // límite (búsqueda completa), usamos un cap defensivo alto al ir al
+    // server para no traer una página gigante por accidente. La rama
+    // offline (ISAR) sí respeta el null y devuelve todo.
+    final remoteLimit = limit ?? 100;
     // Verificar conexión primero
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.searchProducts(
           searchTerm,
-          limit,
+          remoteLimit,
         );
 
         // ✅ Resetear estado de conectividad si el servidor respondió
@@ -377,10 +382,12 @@ class ProductRepositoryImpl implements ProductRepository {
     }
   }
 
-  /// Búsqueda de productos offline usando ISAR primero, luego SecureStorage
+  /// Búsqueda de productos offline usando ISAR primero, luego SecureStorage.
+  /// `limit` null → sin tope, devuelve todos los matches (UX correcto para
+  /// searchboxes; el widget controla visualmente con scroll virtualizado).
   Future<Either<Failure, List<Product>>> _searchProductsOffline(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
     // ✅ PASO 1: Intentar ISAR primero (más rápido y persistente)
     try {
@@ -412,10 +419,13 @@ class ProductRepositoryImpl implements ProductRepository {
           if (!wordFound) return false;
         }
         return true;
-      }).take(limit).toList();
+      }).toList();
+      // Aplicar limit sólo si fue especificado (null = todos los matches).
+      final matchingProductsLimited =
+          limit != null ? matchingProducts.take(limit).toList() : matchingProducts;
 
-      if (matchingProducts.isNotEmpty) {
-        final products = matchingProducts.map((isarProduct) => isarProduct.toEntity()).toList();
+      if (matchingProductsLimited.isNotEmpty) {
+        final products = matchingProductsLimited.map((isarProduct) => isarProduct.toEntity()).toList();
         AppLogger.i(' [OFFLINE] ${products.length} productos encontrados en ISAR');
         return Right(products);
       }
@@ -426,7 +436,8 @@ class ProductRepositoryImpl implements ProductRepository {
     // ✅ PASO 2: Fallback a SecureStorage
     try {
       final cached = await localDataSource.searchCachedProducts(searchTerm);
-      final limitedResults = limit > 0 ? cached.take(limit).toList() : cached;
+      final limitedResults =
+          (limit != null && limit > 0) ? cached.take(limit).toList() : cached;
       if (limitedResults.isNotEmpty) {
         AppLogger.i(' [OFFLINE] ${limitedResults.length} productos encontrados en SecureStorage');
         return Right(limitedResults.map((model) => model.toEntity()).toList());

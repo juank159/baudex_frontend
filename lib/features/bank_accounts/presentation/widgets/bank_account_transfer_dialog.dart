@@ -91,7 +91,7 @@ class _BankAccountTransferDialogState extends State<BankAccountTransferDialog> {
       Get.snackbar(
         'Cuenta destino requerida',
         'Selecciona la cuenta a la que vas a transferir',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
       );
       return;
     }
@@ -120,7 +120,7 @@ class _BankAccountTransferDialogState extends State<BankAccountTransferDialog> {
       Get.snackbar(
         '¡Transferencia exitosa!',
         '\$${amount.toStringAsFixed(2)} de ${widget.fromAccount.name} → ${_toAccount!.name}',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.indigo.shade700.withOpacity(0.95),
         colorText: Colors.white,
       );

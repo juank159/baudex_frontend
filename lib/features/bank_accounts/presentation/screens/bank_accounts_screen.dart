@@ -930,7 +930,7 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
     Get.snackbar(
       'Exito',
       message,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: const Color(0xFF10B981),
       colorText: Colors.white,
       borderRadius: 12,
@@ -944,7 +944,7 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
     Get.snackbar(
       'Error',
       message,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: const Color(0xFFEF4444),
       colorText: Colors.white,
       borderRadius: 12,

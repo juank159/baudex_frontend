@@ -892,7 +892,7 @@ class DashboardController extends GetxController
         Get.snackbar(
           'Error',
           _mapFailureToMessage(failure),
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade900,
         );

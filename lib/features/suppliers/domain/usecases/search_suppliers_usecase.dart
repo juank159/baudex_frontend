@@ -21,7 +21,10 @@ class SearchSuppliersUseCase implements UseCase<List<Supplier>, SearchSuppliersP
 
 class SearchSuppliersParams {
   final String searchTerm;
-  final int limit;
+
+  /// `null` → sin tope, devuelve todos los matches.
+  /// Default 10 para mantener compatibilidad con callers existentes.
+  final int? limit;
 
   SearchSuppliersParams({
     required this.searchTerm,

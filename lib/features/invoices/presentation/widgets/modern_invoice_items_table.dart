@@ -15,6 +15,13 @@ class ModernInvoiceItemsTable extends StatefulWidget {
   final double height;
   final ScrollController? scrollController;
 
+  /// Callback opcional invocado después de CADA modificación de items
+  /// (incrementar/decrementar cantidad o eliminar). El padre lo usa para
+  /// devolver el focus al campo de búsqueda de productos — de lo
+  /// contrario el cajero pierde el cursor cuando ajusta cantidades y
+  /// el siguiente escaneo no llega al searchbox.
+  final VoidCallback? onItemModified;
+
   const ModernInvoiceItemsTable({
     super.key,
     required this.controller,
@@ -22,6 +29,7 @@ class ModernInvoiceItemsTable extends StatefulWidget {
     required this.onSelectionChanged,
     this.height = 400.0,
     this.scrollController,
+    this.onItemModified,
   });
 
   @override
@@ -275,6 +283,10 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
         curve: Curves.easeInOut,
         child: InkWell(
           onTap: () => widget.onSelectionChanged(index),
+          // No tomar focus al seleccionar la fila — el searchbox vecino
+          // debe seguir teniendo el cursor para que el escáner del
+          // cajero siga funcionando sin tocar la pantalla.
+          canRequestFocus: false,
           child: Container(
             padding: EdgeInsets.all(context.isMobile ? 1 : 2),
             decoration: BoxDecoration(
@@ -741,6 +753,11 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        // No tomar focus al tap: este botón vive junto al campo de
+        // búsqueda de productos; si InkWell roba focus, el escáner /
+        // teclado del cajero deja de ir al searchbox y queda colgado.
+        // El ripple y onTap siguen funcionando normales.
+        canRequestFocus: false,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.all(6),
@@ -776,6 +793,9 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _removeItem(index),
+          // Mismo motivo que en `_buildQuantityButton`: no robar el
+          // focus al campo de búsqueda de productos.
+          canRequestFocus: false,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             padding: const EdgeInsets.all(8),
@@ -834,6 +854,8 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     final item = widget.controller.invoiceItems[index];
     final updatedItem = item.copyWith(quantity: item.quantity + increment);
     widget.controller.updateItem(index, updatedItem);
+    // Devolver el focus al searchbox después del cambio.
+    widget.onItemModified?.call();
   }
 
   void _decrementQuantity(int index, double decrement) {
@@ -847,6 +869,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
 
     final updatedItem = item.copyWith(quantity: newQuantity);
     widget.controller.updateItem(index, updatedItem);
+    widget.onItemModified?.call();
   }
 
   void _removeItem(int index) {
@@ -859,5 +882,6 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
       final newIndex = itemsLength > 0 ? itemsLength - 1 : -1;
       widget.onSelectionChanged(newIndex);
     }
+    widget.onItemModified?.call();
   }
 }

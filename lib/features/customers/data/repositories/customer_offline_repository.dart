@@ -215,10 +215,12 @@ class CustomerOfflineRepository implements CustomerRepository {
   @override
   Future<Either<Failure, List<Customer>>> searchCustomers(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
     try {
-      final isarCustomers = await _isar.isarCustomers
+      // `limit` null → sin tope (devuelve todos los matches).
+      // Cualquier valor explícito → aplica `.limit()` nativo de ISAR.
+      final baseQuery = _isar.isarCustomers
           .filter()
           .deletedAtIsNull()
           .and()
@@ -231,9 +233,11 @@ class CustomerOfflineRepository implements CustomerRepository {
               .or()
               .documentNumberContains(searchTerm, caseSensitive: false)
               .or()
-              .companyNameContains(searchTerm, caseSensitive: false))
-          .limit(limit)
-          .findAll() as List<IsarCustomer>;
+              .companyNameContains(searchTerm, caseSensitive: false));
+
+      final isarCustomers = limit == null
+          ? await baseQuery.findAll() as List<IsarCustomer>
+          : await baseQuery.limit(limit).findAll() as List<IsarCustomer>;
 
       final customers = isarCustomers.map((isar) => isar.toEntity()).toList();
       return Right(customers);

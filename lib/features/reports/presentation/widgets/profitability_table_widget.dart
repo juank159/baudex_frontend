@@ -469,7 +469,7 @@ class _ProfitabilityTableWidgetState extends State<ProfitabilityTableWidget> {
     Get.snackbar(
       'Exportar',
       'Exportando reporte de ${report.productName}...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );

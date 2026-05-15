@@ -321,7 +321,7 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
         Get.snackbar(
           'Error',
           'No se pudo buscar clientes: ${e.toString()}',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.9),
           colorText: Colors.white,
           margin: const EdgeInsets.all(16),
@@ -1395,7 +1395,7 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
   void _submitCredit() {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCustomer == null) {
-      Get.snackbar('Error', 'Seleccione un cliente', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('Error', 'Seleccione un cliente', snackPosition: SnackPosition.TOP);
       return;
     }
 

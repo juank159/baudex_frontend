@@ -682,7 +682,9 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
       if (mounted) {
         setState(() {
           _searchResults.clear();
-          _searchResults.addAll(results.take(8));
+          // Sin cap: TODOS los matches del catálogo offline. ListView
+          // virtualizado + altura limitada manejan la lista grande.
+          _searchResults.addAll(results);
           _isSearching = false;
           _selectedIndex =
               _searchResults.isNotEmpty ? 0 : -1; // Auto-seleccionar el primero

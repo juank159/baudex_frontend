@@ -352,12 +352,21 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       final item = controller.invoiceItems[_selectedIndex];
       final newQuantity = item.quantity + increment;
 
-      // Validar stock si es necesario
+      // ⚠️ La validación de stock SOLO aplica si el tenant tiene activa
+      // la preferencia `validateStockBeforeInvoice` y NO tiene activado
+      // `allowOverselling`. Esa misma lógica está centralizada en
+      // `controller.shouldValidateStock` — el resto del form ya la
+      // respeta (handleProductSelection, búsqueda visual de items
+      // sin stock, etc). Antes este atajo Ctrl++ la ignoraba: el
+      // cajero veía "Stock insuficiente" aunque hubiera configurado
+      // su negocio para vender sin stock. Ahora se alinea.
       final product = controller.availableProducts.firstWhereOrNull(
         (p) => p.id == item.productId,
       );
 
-      if (product != null && !_isTemporaryProduct(product)) {
+      if (controller.shouldValidateStock &&
+          product != null &&
+          !_isTemporaryProduct(product)) {
         if (newQuantity > product.stock) {
           Get.snackbar(
             'Stock Insuficiente',
@@ -374,6 +383,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
       final updatedItem = item.copyWith(quantity: newQuantity);
       controller.updateItem(_selectedIndex, updatedItem);
+      // Devolver focus al searchbox — el atajo de teclado puede haber
+      // sido invocado mientras el cajero seguía con el cursor allí, no
+      // queremos que el rebuild pierda la posición.
+      _productSearchKey.currentState?.requestFocus();
     }
   }
 
@@ -393,6 +406,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
       final updatedItem = item.copyWith(quantity: newQuantity);
       controller.updateItem(_selectedIndex, updatedItem);
+      // Mantener focus en el searchbox tras el atajo de teclado.
+      _productSearchKey.currentState?.requestFocus();
     }
   }
 
@@ -401,12 +416,15 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         _selectedIndex < controller.invoiceItems.length) {
       final item = controller.invoiceItems[_selectedIndex];
 
-      // Validar stock si es necesario
+      // Misma lógica que `_incrementQuantity`: respetar la preferencia
+      // del tenant antes de bloquear por stock.
       final product = controller.availableProducts.firstWhereOrNull(
         (p) => p.id == item.productId,
       );
 
-      if (product != null && !_isTemporaryProduct(product)) {
+      if (controller.shouldValidateStock &&
+          product != null &&
+          !_isTemporaryProduct(product)) {
         if (quantity > product.stock) {
           Get.snackbar(
             'Stock Insuficiente',
@@ -423,6 +441,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
       final updatedItem = item.copyWith(quantity: quantity);
       controller.updateItem(_selectedIndex, updatedItem);
+      _productSearchKey.currentState?.requestFocus();
     }
   }
 
@@ -615,6 +634,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 _selectedIndex = index;
               });
             },
+            // Tras +/-/eliminar/seleccionar fila, regresar el cursor al
+            // searchbox para el siguiente escaneo o búsqueda.
+            onItemModified: () {
+              _productSearchKey.currentState?.requestFocus();
+            },
             height: 250,
           ),
           SizedBox(height: context.verticalSpacing * 0.4),
@@ -679,6 +703,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       setState(() {
                         _selectedIndex = index;
                       });
+                    },
+                    // Tras +/-/eliminar/seleccionar fila, devolver el
+                    // cursor al searchbox.
+                    onItemModified: () {
+                      _productSearchKey.currentState?.requestFocus();
                     },
                     scrollController:
                         _productsScrollController, // Para scroll automático
@@ -889,7 +918,18 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
-                onTap: controller.clearFormForNewSale,
+                // Botón "Nueva venta" del AppBar: limpia el form Y
+                // devuelve el focus al campo de búsqueda para que el
+                // cajero pueda seguir escaneando sin tocar la pantalla.
+                onTap: () {
+                  controller.clearFormForNewSale();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _productSearchKey.currentState?.requestFocus();
+                  });
+                },
+                // No robar focus al tap del botón mismo (mismo motivo
+                // que los +/- de los items).
+                canRequestFocus: false,
                 child: const Padding(
                   padding: EdgeInsets.all(10),
                   child: Icon(
@@ -1314,9 +1354,19 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         print(
                           '🔖 No se cierra la pestaña: es la única abierta',
                         );
-                        // ✅ OPCIONAL: Limpiar la factura actual para una nueva venta
+                        // ✅ Limpiar la factura actual para una nueva venta
+                        // y devolver el focus al campo de búsqueda — así
+                        // el cajero puede empezar a escanear el siguiente
+                        // pedido sin tocar el mouse/pantalla.
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           controller.clearFormForNewSale();
+                          // Segundo callback para que el focus se solicite
+                          // DESPUÉS del rebuild que dispara la limpieza
+                          // (de lo contrario el TextField aún no está
+                          // listo y el requestFocus se pierde).
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _productSearchKey.currentState?.requestFocus();
+                          });
                         });
                       }
                     }

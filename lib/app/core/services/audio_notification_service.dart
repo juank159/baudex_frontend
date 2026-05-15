@@ -126,7 +126,7 @@ class AudioNotificationService {
 
   /// Anunciar producto sin stock
   Future<void> announceOutOfStock() async {
-    await _speak('Producto sin stock');
+    await _speak('Producto Agotado');
   }
 
   /// Anunciar código de barras inválido

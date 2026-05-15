@@ -39,10 +39,11 @@ abstract class CustomerRepository {
   /// Obtener cliente por email
   Future<Either<Failure, Customer>> getCustomerByEmail(String email);
 
-  /// Buscar clientes
+  /// Buscar clientes.
+  /// `limit` null → sin tope, devuelve todos los matches.
   Future<Either<Failure, List<Customer>>> searchCustomers(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   });
 
   /// Obtener estadísticas de clientes

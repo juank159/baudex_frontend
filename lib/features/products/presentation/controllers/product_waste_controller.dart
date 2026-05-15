@@ -131,7 +131,7 @@ class ProductWasteController extends GetxController {
       'Merma registrada',
       'Se descontaron $quantity del stock.',
       backgroundColor: Colors.green.shade100,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 3),
     );
   }
@@ -165,7 +165,7 @@ class ProductWasteController extends GetxController {
       'Merma guardada offline',
       'Se descontaron $quantity del stock localmente. Se enviará al servidor cuando recuperes conexión.',
       backgroundColor: Colors.orange.shade100,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 4),
     );
   }
@@ -209,7 +209,7 @@ class ProductWasteController extends GetxController {
       title,
       message,
       backgroundColor: Colors.red.shade100,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 3),
     );
   }

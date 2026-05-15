@@ -134,23 +134,29 @@ class CashRegisterController extends GetxController {
       return false;
     }
     isSubmitting.value = true;
-    final result = await repository.open(
-      openingAmount: openingAmount,
-      openingNotes: openingNotes,
-    );
-    isSubmitting.value = false;
-    return result.fold(
-      (failure) {
-        _showError(failure.message);
-        return false;
-      },
-      (_) {
-        _showSuccess('¡Caja abierta!',
-            'Saldo inicial: \$${openingAmount.toStringAsFixed(0)}');
-        loadCurrent();
-        return true;
-      },
-    );
+    try {
+      final result = await repository.open(
+        openingAmount: openingAmount,
+        openingNotes: openingNotes,
+      );
+      return result.fold(
+        (failure) {
+          _showError(failure.message);
+          return false;
+        },
+        (_) {
+          _showSuccess('¡Caja abierta!',
+              'Saldo inicial: \$${openingAmount.toStringAsFixed(0)}');
+          loadCurrent();
+          return true;
+        },
+      );
+    } catch (e) {
+      _showError('No se pudo abrir la caja: $e');
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
   }
 
   /// Cierra la caja actual con el efectivo contado físicamente.
@@ -169,30 +175,36 @@ class CashRegisterController extends GetxController {
       return false;
     }
     isSubmitting.value = true;
-    final result = await repository.close(
-      id: reg.id,
-      closingActualAmount: closingActualAmount,
-      closingNotes: closingNotes,
-    );
-    isSubmitting.value = false;
-    return result.fold(
-      (failure) {
-        _showError(failure.message);
-        return false;
-      },
-      (closed) {
-        final diff = closed.closingDifference ?? 0;
-        final diffMsg = diff == 0
-            ? '¡Cuadre perfecto!'
-            : diff > 0
-                ? 'Sobrante: \$${diff.abs().toStringAsFixed(0)}'
-                : 'Faltante: \$${diff.abs().toStringAsFixed(0)}';
-        _showSuccess('Caja cerrada', diffMsg);
-        loadCurrent();
-        loadHistory();
-        return true;
-      },
-    );
+    try {
+      final result = await repository.close(
+        id: reg.id,
+        closingActualAmount: closingActualAmount,
+        closingNotes: closingNotes,
+      );
+      return result.fold(
+        (failure) {
+          _showError(failure.message);
+          return false;
+        },
+        (closed) {
+          final diff = closed.closingDifference ?? 0;
+          final diffMsg = diff == 0
+              ? '¡Cuadre perfecto!'
+              : diff > 0
+                  ? 'Sobrante: \$${diff.abs().toStringAsFixed(0)}'
+                  : 'Faltante: \$${diff.abs().toStringAsFixed(0)}';
+          _showSuccess('Caja cerrada', diffMsg);
+          loadCurrent();
+          loadHistory();
+          return true;
+        },
+      );
+    } catch (e) {
+      _showError('No se pudo cerrar la caja: $e');
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
   }
 
   Future<void> loadHistory() async {
@@ -207,7 +219,7 @@ class CashRegisterController extends GetxController {
     Get.snackbar(
       'Error',
       message,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: const Color(0xFFD32F2F),
       colorText: const Color(0xFFFFFFFF),
     );
@@ -217,7 +229,7 @@ class CashRegisterController extends GetxController {
     Get.snackbar(
       title,
       message,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: const Color(0xFF388E3C),
       colorText: const Color(0xFFFFFFFF),
     );

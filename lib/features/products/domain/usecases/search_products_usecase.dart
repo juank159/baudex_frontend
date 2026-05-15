@@ -25,10 +25,15 @@ class SearchProductsUseCase
 
 class SearchProductsParams extends Equatable {
   final String searchTerm;
-  final int limit;
+
+  /// `null` → sin tope, devuelve todos los matches.
+  /// Default 10 para mantener compatibilidad con callers existentes
+  /// (badges, dashboards, etc.); el form de factura y orden de compra
+  /// pasan `null` explícito para mostrar el catálogo completo filtrado.
+  final int? limit;
 
   const SearchProductsParams({required this.searchTerm, this.limit = 10});
 
   @override
-  List<Object> get props => [searchTerm, limit];
+  List<Object?> get props => [searchTerm, limit];
 }

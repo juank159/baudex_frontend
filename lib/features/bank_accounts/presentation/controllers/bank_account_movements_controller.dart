@@ -364,7 +364,7 @@ class BankAccountMovementsController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: const Color(0xFFD32F2F),
           colorText: const Color(0xFFFFFFFF),
         );
@@ -398,7 +398,7 @@ class BankAccountMovementsController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: const Color(0xFFD32F2F),
           colorText: const Color(0xFFFFFFFF),
         );
@@ -435,7 +435,7 @@ class BankAccountMovementsController extends GetxController
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: const Color(0xFFD32F2F),
           colorText: const Color(0xFFFFFFFF),
         );

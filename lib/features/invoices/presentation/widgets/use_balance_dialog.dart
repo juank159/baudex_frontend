@@ -710,7 +710,7 @@ class _UseBalanceDialogState extends State<UseBalanceDialog> {
       Get.snackbar(
         'Error',
         'El monto debe ser mayor a 0',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.9),
         colorText: Colors.white,
       );
@@ -721,7 +721,7 @@ class _UseBalanceDialogState extends State<UseBalanceDialog> {
       Get.snackbar(
         'Error',
         'El monto excede el máximo disponible',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.9),
         colorText: Colors.white,
       );

@@ -435,7 +435,7 @@ class SubscriptionExpiredOverlay extends StatelessWidget {
     Get.snackbar(
       'Contacto para renovación',
       'WhatsApp: ${SubscriptionContactInfo.whatsappDisplay} | Email: ${SubscriptionContactInfo.email}',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.white,
       colorText: Colors.black87,
       duration: const Duration(seconds: 8),

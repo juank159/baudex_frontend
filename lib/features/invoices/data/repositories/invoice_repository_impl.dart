@@ -720,9 +720,30 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
       return Right(createdInvoice);
     } on ServerException catch (e) {
-      print('⚠️ [INVOICE_REPO] ServerException al crear: ${e.message}');
-      if (offlineRepository != null) {
-        print('🔄 Fallback a offline repository...');
+      print('⚠️ [INVOICE_REPO] ServerException al crear: '
+          'status=${e.statusCode} msg=${e.message}');
+      // ⚠️ FALLBACK OFFLINE SELECTIVO.
+      //
+      // Históricamente cualquier `ServerException` caía a offline, lo
+      // que escondía bugs reales del usuario: si el backend rechazaba
+      // por límite de crédito, cliente inválido, stock, etc. (4xx), la
+      // factura quedaba huérfana en ISAR con `error permanente` y nunca
+      // se sincronizaba — el usuario veía "Factura creada" pero el
+      // servidor jamás la conocía.
+      //
+      // Ahora solo caemos a offline si el error parece de RED:
+      // - statusCode null (sin respuesta — timeout / red caída)
+      // - statusCode 5xx (error del servidor reintentable)
+      // - statusCode 408 (request timeout) o 429 (rate limit)
+      //
+      // Para 4xx de validación (400, 401, 403, 404, 409, 422, etc.)
+      // propagamos el mensaje real al UI para que el cajero corrija.
+      final shouldFallbackOffline = e.statusCode == null ||
+          e.statusCode! >= 500 ||
+          e.statusCode == 408 ||
+          e.statusCode == 429;
+      if (shouldFallbackOffline && offlineRepository != null) {
+        print('🔄 Fallback a offline repository (error de red)...');
         return offlineRepository!.createInvoice(
           customerId: customerId,
           items: items,
@@ -740,9 +761,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           bankAccountId: bankAccountId,
         );
       }
+      print('🚫 Error de validación 4xx — NO se guarda offline. '
+          'Propagando al usuario.');
       return Left(_mapExceptionToFailure(e));
     } catch (e) {
       print('⚠️ [INVOICE_REPO] Exception al crear: $e - Intentando offline...');
+      // Cualquier excepción NO-ServerException la tratamos como red caída
+      // (DioException de timeout/conexión, errores de parse, etc.).
       if (offlineRepository != null) {
         print('🔄 Fallback a offline repository...');
         return offlineRepository!.createInvoice(

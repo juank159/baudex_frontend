@@ -155,10 +155,11 @@ class SupplierOfflineRepository implements SupplierRepository {
   @override
   Future<Either<Failure, List<Supplier>>> searchSuppliers(
     String searchTerm, {
-    int limit = 10,
+    int? limit,
   }) async {
     try {
-      final isarSuppliers = await _isar.isarSuppliers
+      // `limit` null → sin tope (devuelve todos los matches).
+      final baseQuery = _isar.isarSuppliers
           .filter()
           .deletedAtIsNull()
           .and()
@@ -167,9 +168,11 @@ class SupplierOfflineRepository implements SupplierRepository {
               .or()
               .documentNumberContains(searchTerm, caseSensitive: false)
               .or()
-              .emailContains(searchTerm, caseSensitive: false))
-          .limit(limit)
-          .findAll();
+              .emailContains(searchTerm, caseSensitive: false));
+
+      final isarSuppliers = limit == null
+          ? await baseQuery.findAll()
+          : await baseQuery.limit(limit).findAll();
 
       final suppliers = isarSuppliers.map((isar) => isar.toEntity()).toList();
       return Right(suppliers);

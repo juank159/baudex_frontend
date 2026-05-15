@@ -466,7 +466,7 @@ class InitialInventoryController extends GetxController {
       Get.snackbar(
         'Aviso',
         'Debe mantener al menos una fila',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: ElegantLightTheme.warningGradient.colors.first,
         colorText: Colors.white,
         duration: const Duration(seconds: 2),
@@ -581,7 +581,7 @@ class InitialInventoryController extends GetxController {
           Get.snackbar(
             'Error',
             'No se pudieron cargar las categorias: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: ElegantLightTheme.errorGradient.colors.first,
             colorText: Colors.white,
           );
@@ -839,7 +839,7 @@ class InitialInventoryController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: ElegantLightTheme.errorGradient.colors.first,
         colorText: Colors.white,
       );

@@ -159,6 +159,19 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     print('🔍 Focus restauración reanudada - monitoreo activo');
   }
 
+  /// API pública para que el padre fuerce el focus de vuelta al
+  /// TextField. Se llama después de eventos que sacan el focus pero
+  /// que sabemos que el usuario querrá seguir escaneando/buscando:
+  ///   - Tras procesar una venta y limpiar el form (Nueva venta)
+  ///   - Tras cerrar un dialog modal
+  /// Internamente usa `_ensureSearchFieldFocus` que ya respeta:
+  ///   - mounted
+  ///   - rutas modales encima (no roba focus si hay un dialog)
+  ///   - `_pauseFocusRestoration` (no fuerza si el padre lo pausó)
+  void requestFocus() {
+    _ensureSearchFieldFocus();
+  }
+
   // ✅ NUEVO: Auto-seleccionar texto completo para códigos de barras
   void _autoSelectBarcodeText() {
     if (!mounted || _searchController.text.isEmpty) return;
@@ -890,7 +903,11 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       if (mounted) {
         setState(() {
           _searchResults.clear();
-          _searchResults.addAll(uniqueResults.values.take(8));
+          // Sin cap: mostramos TODOS los resultados que coinciden. El
+          // contenedor que envuelve la lista tiene `maxHeight: 300` +
+          // `ListView.builder`, así que el scroll virtualizado maneja
+          // catálogos grandes sin lag ni overflow visual.
+          _searchResults.addAll(uniqueResults.values);
           _showResults = true;
           _isSearching = false;
           _selectedResultIndex =

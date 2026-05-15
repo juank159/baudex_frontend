@@ -79,7 +79,7 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
               Get.snackbar(
                 'Filtros limpiados',
                 'Se han restablecido todos los filtros',
-                snackPosition: SnackPosition.BOTTOM,
+                snackPosition: SnackPosition.TOP,
                 duration: const Duration(seconds: 2),
                 backgroundColor: ElegantLightTheme.surfaceColor,
                 colorText: ElegantLightTheme.textPrimary,
