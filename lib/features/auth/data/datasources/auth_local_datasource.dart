@@ -37,7 +37,17 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         userData: authResponse.user.toJson(),
       );
     } catch (e) {
-      throw CacheException('Error al guardar datos de autenticación: $e');
+      // Si falla, limpiar storage corrupto y reintentar una vez
+      try {
+        await storageService.clearAll();
+        await storageService.saveAuthData(
+          token: authResponse.token,
+          refreshToken: authResponse.refreshToken,
+          userData: authResponse.user.toJson(),
+        );
+      } catch (e2) {
+        throw CacheException('Error al guardar datos de autenticación: $e2');
+      }
     }
   }
 

@@ -240,6 +240,9 @@ class DioClient {
 
     // Agregar interceptors
     _dio.interceptors.add(ApiInterceptor(_storageService));
+    // Registrar handler de sesión expirada para que el interceptor pueda
+    // notificar a AuthController sin crear un import cíclico.
+    ApiInterceptor.setSessionExpiredCallback(_onSessionDefinitelyExpired);
     
     // Agregar interceptor de tenant para multitenant
     _dio.interceptors.add(TenantInterceptor(_storageService));
@@ -467,35 +470,31 @@ class DioClient {
     }
   }
 
-  // Manejo de token expirado - solo redirige, NO borra datos
-  // ApiInterceptor ya maneja el refresh y borrado cuando el refresh token es inválido
-  void _handleUnauthorizedRedirect() {
-    // Verificar si el usuario está en una pantalla de auth (login/register/etc.)
-    // En ese caso, un 401 significa "credenciales incorrectas", NO "sesión expirada"
-    final currentRoute = getx.Get.currentRoute;
-    if (currentRoute == '/login' || currentRoute == '/register' ||
-        currentRoute == '/forgot-password' || currentRoute == '/verify-email') {
+  // Notifica a AuthController que la sesión expiró de forma definitiva.
+  // Es el target del callback registrado en ApiInterceptor.
+  void _onSessionDefinitelyExpired() {
+    final route = getx.Get.currentRoute;
+    if (route == '/login' || route == '/register' ||
+        route == '/forgot-password' || route == '/verify-email' ||
+        route.contains('/reset')) {
       return;
     }
-
-    // Verificar si el token ya fue limpiado por el interceptor
-    // Si aún existe, significa que el interceptor no lo consideró inválido (error de red)
-    _storageService.hasToken().then((hasToken) {
-      if (!hasToken) {
-        // Token ya fue limpiado por ApiInterceptor → redirigir a login
-        print('🔑 Token limpiado por interceptor - redirigiendo a login');
-        try {
-          if (getx.Get.isRegistered<AuthController>()) {
-            final authController = getx.Get.find<AuthController>();
-            authController.logout();
-          }
-        } catch (e) {
-          print('⚠️ No se pudo notificar al AuthController: $e');
-        }
+    try {
+      if (getx.Get.isRegistered<AuthController>()) {
+        getx.Get.find<AuthController>().handleSessionExpired();
       }
-      // Si hasToken=true, el interceptor no borró el token (error de red)
-      // → NO redirigir, la sesión sigue válida
-    });
+    } catch (_) {}
+  }
+
+  // Fallback para 401s que llegan a DioClient después de que el interceptor
+  // propagó el error. Solo actúa si el interceptor confirmó que la sesión
+  // expiró definitivamente (vs. un error de red temporal).
+  void _handleUnauthorizedRedirect() {
+    if (ApiInterceptor.takeSessionExpiredFlag()) {
+      _onSessionDefinitelyExpired();
+    }
+    // Si el flag no está activo, fue un error de red temporal:
+    // el token podría seguir siendo válido, NO redirigir.
   }
 
   /// Extrae mensaje de error de forma segura de response.data

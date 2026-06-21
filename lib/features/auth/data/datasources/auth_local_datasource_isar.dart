@@ -22,28 +22,35 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
 
   @override
   Future<void> saveAuthData(AuthResponseModel authResponse) async {
+    await _doSaveAuthData(authResponse, isRetry: false);
+  }
+
+  Future<void> _doSaveAuthData(AuthResponseModel authResponse, {required bool isRetry}) async {
     try {
-      // Save token
       await _secureStorage.saveToken(authResponse.token);
 
-      // Save refresh token if exists
       if (authResponse.refreshToken != null) {
         await _secureStorage.saveRefreshToken(authResponse.refreshToken!);
       }
 
-      // Save user data as JSON using the secure method with fallback
       final userJson = authResponse.user.toJson();
       await _secureStorage.saveUserData(userJson);
 
-      // Mark as authenticated - using isAuthenticated() method from SecureStorageService
-      // No need to mark separately as isAuthenticated() checks token and user data existence
-
       print(
-        '🔐 AuthLocalDataSourceHybrid: Datos de auth guardados en SecureStorage para ${authResponse.user.email}',
+        '🔐 AuthLocalDataSource: Auth guardado para ${authResponse.user.email}',
       );
     } catch (e) {
-      print('❌ AuthLocalDataSourceHybrid: Error al guardar datos - $e');
-      throw CacheException('Error al guardar datos de autenticación: $e');
+      if (!isRetry) {
+        // Primera falla: intentar recuperar el storage corrupto y reintentar
+        print('⚠️ AuthLocalDataSource: Falla al guardar auth, intentando recuperar storage: $e');
+        try {
+          await _secureStorage.clearAll();
+        } catch (_) {}
+        await _doSaveAuthData(authResponse, isRetry: true);
+      } else {
+        print('❌ AuthLocalDataSource: Error al guardar datos incluso después de recovery: $e');
+        throw CacheException('Error al guardar datos de autenticación: $e');
+      }
     }
   }
 

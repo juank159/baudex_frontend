@@ -105,8 +105,11 @@ class SecureStorageService {
 
   // Fallback para macOS cuando hay problemas con Keychain
   static bool _useSharedPreferences = false;
+  // Una vez testeado el keychain (exitosamente), no volver a testear
+  static bool _keychainTested = false;
 
-  /// Método para detectar si debemos usar SharedPreferences como fallback
+  /// Método para detectar si debemos usar SharedPreferences como fallback.
+  /// El resultado se cachea: si el keychain funciona, nunca vuelve a testear.
   static Future<bool> _shouldUseSharedPreferences() async {
     if (_useSharedPreferences) return true;
 
@@ -117,8 +120,10 @@ class SecureStorageService {
       return true;
     }
 
-    // En macOS, hacer una prueba rápida del secure storage
+    // En macOS, hacer UNA SOLA prueba del secure storage y cachear el resultado.
+    // Antes se hacía el test en cada llamada, lo cual era N tests por N writes.
     if (defaultTargetPlatform == TargetPlatform.macOS) {
+      if (_keychainTested) return false; // ya sabemos que funciona
       try {
         await _storage.write(key: 'test_key', value: 'test_value');
         final testVal = await _storage.read(key: 'test_key');
@@ -126,10 +131,11 @@ class SecureStorageService {
         if (testVal != 'test_value') {
           throw Exception('Secure storage read/write mismatch');
         }
+        _keychainTested = true;
         return false; // Secure storage funciona
       } catch (e) {
         if (kDebugMode) {
-          print('⚠️ Secure storage no disponible en macOS, usando SharedPreferences como fallback: $e');
+          print('⚠️ Secure storage no disponible en macOS, usando SharedPreferences: $e');
         }
         _useSharedPreferences = true;
         return true;
@@ -156,14 +162,27 @@ class SecureStorageService {
   }
 
   /// Wrapper para escribir datos con fallback. Cifra automáticamente
-  /// las claves sensibles cuando se cae en SharedPreferences (sin
-  /// keychain real, el archivo es legible en disco).
+  /// las claves sensibles cuando se cae en SharedPreferences.
+  /// Si SharedPreferences falla (datos corruptos/demasiado grandes),
+  /// intenta recuperarse limpiando el storage y reintentando con keychain.
   static Future<void> _writeSecure(String key, String value) async {
     if (await _shouldUseSharedPreferences()) {
-      final prefs = await SharedPreferences.getInstance();
-      final stored =
-          _isSensitive(key) ? _TokenCipher.encrypt(value) : value;
-      await prefs.setString('secure_$key', stored);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final stored = _isSensitive(key) ? _TokenCipher.encrypt(value) : value;
+        await prefs.setString('secure_$key', stored);
+      } catch (e) {
+        // SharedPreferences falló (posiblemente datos corruptos/muy grandes).
+        // Resetear flags y reintentar con keychain directamente.
+        if (kDebugMode) {
+          print('⚠️ SharedPreferences falló en _writeSecure($key): $e — intentando keychain directo');
+        }
+        _useSharedPreferences = false;
+        _keychainTested = false;
+        // Intentar usar el keychain directamente
+        await _storage.write(key: key, value: value);
+        _keychainTested = true;
+      }
     } else {
       await _storage.write(key: key, value: value);
     }
@@ -175,13 +194,29 @@ class SecureStorageService {
   /// próximo write.
   static Future<String?> _readSecure(String key) async {
     if (await _shouldUseSharedPreferences()) {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('secure_$key');
-      if (raw == null) return null;
-      if (_isSensitive(key)) {
-        return _TokenCipher.decrypt(raw);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('secure_$key');
+        if (raw == null) return null;
+        if (_isSensitive(key)) {
+          return _TokenCipher.decrypt(raw);
+        }
+        return raw;
+      } catch (e) {
+        // SharedPreferences falló en lectura — intentar keychain directo
+        if (kDebugMode) {
+          print('⚠️ SharedPreferences falló en _readSecure($key): $e — leyendo keychain');
+        }
+        _useSharedPreferences = false;
+        _keychainTested = false;
+        try {
+          final val = await _storage.read(key: key);
+          _keychainTested = true;
+          return val;
+        } catch (_) {
+          return null;
+        }
       }
-      return raw;
     } else {
       return await _storage.read(key: key);
     }
@@ -190,8 +225,13 @@ class SecureStorageService {
   /// Wrapper para eliminar datos con fallback
   static Future<void> _deleteSecure(String key) async {
     if (await _shouldUseSharedPreferences()) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('secure_$key');
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('secure_$key');
+      } catch (_) {
+        // Si SharedPreferences falla en delete, intentar keychain
+        try { await _storage.delete(key: key); } catch (_) {}
+      }
     } else {
       await _storage.delete(key: key);
     }
@@ -199,12 +239,64 @@ class SecureStorageService {
 
   // ===================== TOKEN MANAGEMENT =====================
 
-  /// Guardar token de acceso
+  /// Guardar token de acceso.
+  /// Valida que el token sea razonable (un JWT no es un blob JSON de 10MB).
+  /// Si el write falla, intenta limpiar el storage corrupto y reintenta.
   Future<void> saveToken(String token) async {
+    if (token.isEmpty) {
+      throw Exception('Error al guardar token: token vacío');
+    }
+    // Un JWT legítimo tiene formato: header.payload.signature (3 partes, < 16KB)
+    // Un blob de 10MB no es un token válido — rechazar antes de intentar guardarlo.
+    if (token.length > 16384) {
+      throw Exception(
+        'Error al guardar token: token inválido '
+        '(${token.length} bytes; máximo esperado 16384). '
+        'La sesión puede estar corrupta — cierra la app y vuelve a entrar.',
+      );
+    }
     try {
       await _writeSecure(ApiConstants.tokenKey, token);
     } catch (e) {
-      throw Exception('Error al guardar token: $e');
+      // Si el write normal falla, intentar recuperación: limpiar y reintentar.
+      if (kDebugMode) {
+        print('⚠️ saveToken falló ($e) — intentando recuperación de storage');
+      }
+      try {
+        await _recoverCorruptedStorage();
+        await _writeSecure(ApiConstants.tokenKey, token);
+      } catch (e2) {
+        throw Exception('Error al guardar token: $e2');
+      }
+    }
+  }
+
+  /// Limpia datos de auth del storage cuando está corrupto.
+  /// Intenta limpiar SharedPreferences secure keys y keychain entries.
+  static Future<void> _recoverCorruptedStorage() async {
+    _useSharedPreferences = false;
+    _keychainTested = false;
+    // Borrar claves sensibles del keychain directamente
+    for (final key in [
+      ApiConstants.tokenKey,
+      ApiConstants.refreshTokenKey,
+      ApiConstants.userKey,
+    ]) {
+      try { await _storage.delete(key: key); } catch (_) {}
+    }
+    // Limpiar SharedPreferences de claves secure_
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      final toRemove = prefs.getKeys()
+          .where((k) => k.startsWith('secure_'))
+          .toList();
+      for (final k in toRemove) {
+        try { await prefs.remove(k); } catch (_) {}
+      }
+    } catch (_) {}
+    if (kDebugMode) {
+      print('🔧 _recoverCorruptedStorage: storage limpiado');
     }
   }
 
@@ -343,30 +435,51 @@ class SecureStorageService {
   /// login y poder hacer "logout perezoso": NO borrar la BD ISAR si el
   /// próximo login es del mismo usuario (mantener cache offline-first).
   /// Usa borrado selectivo para evitar race conditions.
+  /// Si SharedPreferences está corrupto, resetea los flags y limpia el keychain.
   Future<void> clearAll() async {
+    // Siempre resetear el flag de keychain-tested para que el próximo acceso
+    // re-evalúe el estado del storage limpio.
+    _keychainTested = false;
+
+    // Intentar limpiar SharedPreferences (puede fallar si está corrupto)
     try {
-      if (await _shouldUseSharedPreferences()) {
-        final prefs = await SharedPreferences.getInstance();
-        final keys = prefs.getKeys()
-            .where((key) =>
-                key.startsWith('secure_') &&
-                key != 'secure_$_deviceIdKey' &&
-                key != 'secure_$_lastUserIdKey')
-            .toList();
-        for (final key in keys) {
-          await prefs.remove(key);
-        }
-      } else {
-        // Leer todas las keys y borrar solo las que NO son deviceId/lastUserId
-        final allData = await _storage.readAll();
-        for (final key in allData.keys) {
-          if (key != _deviceIdKey && key != _lastUserIdKey) {
-            await _storage.delete(key: key);
-          }
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 5));
+      final keys = prefs.getKeys()
+          .where((key) =>
+              key.startsWith('secure_') &&
+              key != 'secure_$_deviceIdKey' &&
+              key != 'secure_$_lastUserIdKey')
+          .toList();
+      for (final key in keys) {
+        try { await prefs.remove(key); } catch (_) {}
+      }
+    } catch (e) {
+      // SharedPreferences corrupto — continuar con keychain
+      _useSharedPreferences = false;
+      if (kDebugMode) print('⚠️ clearAll: SharedPreferences falló ($e), limpiando keychain');
+    }
+
+    // Siempre limpiar keychain también (en caso de que se use o haya datos ahí)
+    try {
+      final allData = await _storage.readAll();
+      for (final key in allData.keys) {
+        if (key != _deviceIdKey && key != _lastUserIdKey) {
+          try { await _storage.delete(key: key); } catch (_) {}
         }
       }
     } catch (e) {
-      throw Exception('Error al limpiar almacenamiento: $e');
+      // Si readAll falla, borrar individualmente las keys conocidas
+      for (final key in [
+        ApiConstants.tokenKey,
+        ApiConstants.refreshTokenKey,
+        ApiConstants.userKey,
+        'tenant_slug',
+        'current_organization',
+        'offline_credentials',
+      ]) {
+        try { await _storage.delete(key: key); } catch (_) {}
+      }
     }
   }
 

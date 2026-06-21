@@ -88,6 +88,10 @@ class AuthController extends GetxController {
   final _isAuthenticated = false.obs;
   final Rxn<User> _currentUser = Rxn<User>();
 
+  // Guard para handleSessionExpired(): evita ejecuciones duplicadas
+  // cuando el callback y DioClient._handleUnauthorizedRedirect() llegan juntos.
+  bool _sessionExpiredHandled = false;
+
   // Form controllers para login
   final loginEmailController = TextEditingController();
   final loginPasswordController = TextEditingController();
@@ -897,6 +901,78 @@ class AuthController extends GetxController {
     } finally {
       _isLoading.value = false;
     }
+  }
+
+  /// Cierre de sesión automático por expiración del token.
+  ///
+  /// Llamado por ApiInterceptor (vía callback en DioClient) cuando el servidor
+  /// rechaza definitivamente el refresh token. No hace ninguna llamada remota
+  /// porque el token ya es inválido. Es idempotente: múltiples llamadas
+  /// simultáneas solo ejecutan la lógica una vez.
+  Future<void> handleSessionExpired() async {
+    if (_sessionExpiredHandled) return;
+
+    // Ignorar si el usuario ya está en una pantalla de autenticación
+    final route = Get.currentRoute;
+    if (route == AppRoutes.login ||
+        route == AppRoutes.register ||
+        route.contains('/verify') ||
+        route.contains('/forgot') ||
+        route.contains('/reset')) {
+      return;
+    }
+
+    _sessionExpiredHandled = true;
+
+    // 1. Capturar userId antes de limpiar el estado (lazy-logout ISAR)
+    final userId = _currentUser.value?.id;
+
+    // 2. Actualizar estado reactivo inmediatamente → UI reacciona al instante
+    _isAuthenticated.value = false;
+    _currentUser.value = null;
+
+    // 3. Persistir lastUserId para que el próximo login detecte cambio de tenant
+    if (userId != null && userId.isNotEmpty) {
+      try {
+        await _secureStorageService.setLastUserId(userId);
+      } catch (_) {}
+    }
+
+    // 4. Limpiar credenciales locales (SIN llamar al backend — token ya rechazado)
+    try {
+      await _secureStorageService.deleteToken();
+      await _secureStorageService.deleteRefreshToken();
+      await _secureStorageService.deleteUserData();
+    } catch (_) {}
+
+    // 5. Resetear estado de controllers permanentes del tenant
+    _resetPermanentTenantControllers(triggerReload: false);
+
+    // 6. Limpiar formularios de auth
+    _clearAllForms();
+
+    // 7. Navegar al login
+    Get.offAllNamed(AppRoutes.login);
+
+    // 8. Snackbar profesional (delay para que la navegación ocurra primero)
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Get.snackbar(
+        'Sesión expirada',
+        'Tu sesión ha expirado. Inicia sesión nuevamente.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.amber.shade50,
+        colorText: Colors.amber.shade900,
+        icon: Icon(Icons.lock_clock_outlined, color: Colors.amber.shade700),
+        duration: const Duration(seconds: 5),
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+      );
+    });
+
+    // Resetear guard tras 30s para permitir nuevas expiraciones
+    Future.delayed(const Duration(seconds: 30), () {
+      _sessionExpiredHandled = false;
+    });
   }
 
   /// Cambiar contraseña

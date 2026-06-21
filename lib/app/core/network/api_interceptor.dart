@@ -1,4 +1,5 @@
 // lib/app/core/network/api_interceptor.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
@@ -15,6 +16,35 @@ class ApiInterceptor extends Interceptor {
   String? _cachedToken;
   String? _cachedDeviceId;
   bool _cacheInitialized = false;
+
+  // ── Token refresh mutex ──────────────────────────────────────────────────────
+  // Garantiza que solo UN refresh ocurra a la vez aunque lleguen varios 401
+  // simultáneos. Los demás esperan el resultado del primero.
+  static bool _isRefreshing = false;
+  static final List<Completer<String?>> _refreshWaiters = [];
+
+  // ── Session-expired signal ───────────────────────────────────────────────────
+  // Flag consumible que DioClient lee para saber si el interceptor confirmó
+  // que la sesión expiró (vs. un error de red temporal).
+  static bool _sessionDefinitelyExpired = false;
+
+  // Callback opcional para notificación inmediata (registrado por DioClient).
+  static void Function()? _sessionExpiredCallback;
+
+  /// Registra el callback que se llama cuando el servidor rechaza el refresh
+  /// token. DioClient lo usa para notificar a AuthController sin import cíclico.
+  static void setSessionExpiredCallback(void Function() callback) {
+    _sessionExpiredCallback = callback;
+  }
+
+  /// Consume y resetea el flag de sesión expirada.
+  /// DioClient lo llama en _handleUnauthorizedRedirect para distinguir
+  /// "sesión expirada confirmada" de "error de red temporal".
+  static bool takeSessionExpiredFlag() {
+    final value = _sessionDefinitelyExpired;
+    _sessionDefinitelyExpired = false;
+    return value;
+  }
 
   ApiInterceptor(this._storageService);
 
@@ -124,49 +154,88 @@ class ApiInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    // Verificar si se debe saltar el interceptor de auth para esta request
-    final skipAuthInterceptor = err.requestOptions.extra['skip_auth_interceptor'] == true;
+    final skipAuthInterceptor =
+        err.requestOptions.extra['skip_auth_interceptor'] == true;
 
-    // Manejo específico para token expirado (401)
     if (err.response?.statusCode == 401 && !skipAuthInterceptor) {
       final refreshToken = await _storageService.getRefreshToken();
 
-      if (refreshToken != null) {
-        // Intentar refrescar token
-        final refreshResult = await _refreshToken(refreshToken);
+      if (refreshToken == null) {
+        // Sin refresh token → sesión definitivamente expirada
+        _cachedToken = null;
+        _markSessionExpired();
+      } else if (_isRefreshing) {
+        // Otro refresh ya está en curso → encolar y esperar su resultado
+        final completer = Completer<String?>();
+        _refreshWaiters.add(completer);
+        final newToken = await completer.future;
 
-        if (refreshResult.token != null) {
-          // Guardar nuevo token y actualizar cache
-          await _storageService.saveToken(refreshResult.token!);
-          _cachedToken = refreshResult.token;
-
-          // Reintentar la solicitud original
-          final options = err.requestOptions;
-          options.headers[ApiConstants.authorization] =
-              '${ApiConstants.bearerPrefix}${refreshResult.token}';
-
+        if (newToken != null) {
+          // El primer refresh tuvo éxito: reintentar con el nuevo token
+          final opts = err.requestOptions;
+          opts.headers[ApiConstants.authorization] =
+              '${ApiConstants.bearerPrefix}$newToken';
           try {
-            final response = await Dio().fetch(options);
+            final response = await Dio().fetch(opts);
             return handler.resolve(response);
-          } catch (e) {
-            // Si falla el reintento, continuar con el error original
-          }
-        } else if (refreshResult.wasAuthError) {
-          // Solo limpiar datos si el servidor EXPLÍCITAMENTE rechazó el refresh token (401/403)
-          // NO limpiar si fue un error de red (servidor inalcanzable)
-          print('🔑 Refresh token rechazado por servidor - limpiando auth data');
-          await _storageService.deleteToken();
-          await _storageService.deleteRefreshToken();
-          await _storageService.deleteUserData();
-          _cachedToken = null;
+          } catch (_) {}
         }
-        // Si fue error de red, NO borrar datos - el token podría seguir siendo válido
+        // newToken == null → sesión expirada ya fue marcada por el primer refresh
+      } else {
+        // Somos el primer 401 → iniciar el refresh
+        _isRefreshing = true;
+        try {
+          final result = await _refreshToken(refreshToken);
+
+          if (result.token != null) {
+            // ✅ Refresh exitoso: guardar token y desbloquear waiters
+            await _storageService.saveToken(result.token!);
+            _cachedToken = result.token;
+
+            final newToken = result.token!;
+            for (final c in _refreshWaiters) {
+              if (!c.isCompleted) c.complete(newToken);
+            }
+            _refreshWaiters.clear();
+
+            // Reintentar la request original con el nuevo token
+            final opts = err.requestOptions;
+            opts.headers[ApiConstants.authorization] =
+                '${ApiConstants.bearerPrefix}$newToken';
+            try {
+              final response = await Dio().fetch(opts);
+              return handler.resolve(response);
+            } catch (_) {}
+          } else if (result.wasAuthError) {
+            // ❌ Servidor rechazó el refresh token → sesión expirada definitivamente
+            await _storageService.deleteToken();
+            await _storageService.deleteRefreshToken();
+            await _storageService.deleteUserData();
+            _cachedToken = null;
+
+            for (final c in _refreshWaiters) {
+              if (!c.isCompleted) c.complete(null);
+            }
+            _refreshWaiters.clear();
+
+            _markSessionExpired();
+          }
+          // wasNetworkError: no marcar sesión expirada, el token podría seguir válido
+        } finally {
+          _isRefreshing = false;
+        }
       }
-      // Si no hay refresh token pero sí había un access token, no borrar nada
-      // El DioClient decidirá si hacer logout
     }
 
     super.onError(err, handler);
+  }
+
+  /// Marca la sesión como definitivamente expirada y notifica al listener.
+  void _markSessionExpired() {
+    _sessionDefinitelyExpired = true;
+    try {
+      _sessionExpiredCallback?.call();
+    } catch (_) {}
   }
 
   // Resultado del intento de refresh
@@ -189,9 +258,13 @@ class ApiInterceptor extends Interceptor {
       );
 
       if (response.statusCode == 200) {
-        final data = response.data;
-        final token = data['token'] as String?;
-        if (token != null) {
+        final raw = response.data;
+        // Soportar respuesta plana {token:...} Y envuelta {success:true,data:{token:...}}
+        final data = (raw is Map && raw['data'] is Map)
+            ? raw['data'] as Map
+            : raw;
+        final token = data is Map ? data['token'] as String? : null;
+        if (token != null && token.isNotEmpty) {
           return _RefreshResult(token: token);
         }
       }
