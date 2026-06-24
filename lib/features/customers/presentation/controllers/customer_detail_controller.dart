@@ -121,7 +121,20 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
         },
         (summary) {
           _financialSummary.value = summary;
-          print('✅ Resumen financiero cargado');
+
+          // Parchear currentBalance del customer con el valor real calculado
+          // desde facturas (pendingAmount). El campo en la DB puede estar
+          // desactualizado por el bug histórico donde no se incrementaba al
+          // crear facturas a crédito.
+          final pendingAmount =
+              (summary['pendingAmount'] as num?)?.toDouble() ?? 0.0;
+          if (_customer.value != null &&
+              _customer.value!.currentBalance != pendingAmount) {
+            _customer.value =
+                _customer.value!.copyWith(currentBalance: pendingAmount);
+          }
+
+          print('✅ Resumen financiero cargado (deuda: $pendingAmount)');
         },
       );
     } finally {
