@@ -1817,7 +1817,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
           c.status == IsarCreditStatus.partiallyPaid ||
           c.status == IsarCreditStatus.overdue);
 
-      return activeCredits.fold(0.0, (sum, c) => sum + c.balanceDue);
+      return activeCredits.fold<double>(0.0, (sum, c) => sum + c.balanceDue);
     } catch (_) {
       return 0.0;
     }

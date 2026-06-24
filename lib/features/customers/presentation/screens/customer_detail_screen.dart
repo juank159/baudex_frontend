@@ -799,22 +799,39 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
                   onTap: controller.showPurchaseCheckDialog,
                 ),
               ),
-              PermissionGate.canDelete(
-                moduleCode: ModuleCode.customers,
-                child: const SizedBox(width: 8),
-              ),
-              PermissionGate.canDelete(
-                moduleCode: ModuleCode.customers,
-                child: Expanded(
+              const SizedBox(width: 8),
+              Expanded(
+                child: PermissionGate.canEdit(
+                  moduleCode: ModuleCode.customers,
                   child: _buildCompactActionButton(
-                    icon: Icons.delete_outline,
-                    label: 'Eliminar',
-                    color: const Color(0xFFEF4444),
-                    onTap: controller.confirmDeleteCustomer,
+                    icon: Icons.tune_rounded,
+                    label: 'Cupo',
+                    color: ElegantLightTheme.primaryBlue,
+                    onTap: controller.showCreditLimitDialog,
                   ),
                 ),
               ),
             ],
+          ),
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.customers,
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactActionButton(
+                        icon: Icons.delete_outline,
+                        label: 'Eliminar',
+                        color: const Color(0xFFEF4444),
+                        onTap: controller.confirmDeleteCustomer,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1836,6 +1853,20 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
             description: 'Comprobar capacidad de crédito',
             gradient: ElegantLightTheme.successGradient,
             onTap: controller.showPurchaseCheckDialog,
+          ),
+
+          const SizedBox(height: 10),
+
+          // Gestionar Cupo — gated por edición
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.customers,
+            child: _buildElegantActionButton(
+              icon: Icons.tune_rounded,
+              label: 'Gestionar Cupo',
+              description: 'Incrementar o reducir límite de crédito',
+              gradient: ElegantLightTheme.primaryGradient,
+              onTap: controller.showCreditLimitDialog,
+            ),
           ),
 
           const SizedBox(height: 16),

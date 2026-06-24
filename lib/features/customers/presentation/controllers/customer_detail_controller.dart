@@ -1224,6 +1224,315 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
     return '\$${amount.toStringAsFixed(2)}';
   }
 
+  // ==================== GESTIÓN DE CUPO DE CRÉDITO ====================
+
+  void showCreditLimitDialog() {
+    if (_customer.value == null) return;
+    final customer = _customer.value!;
+
+    final limitController = SafeTextEditingController(debugLabel: 'CreditLimit');
+    limitController.text = customer.creditLimit > 0
+        ? customer.creditLimit.toStringAsFixed(0)
+        : '';
+
+    Get.dialog(
+      Builder(
+        builder: (context) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isMobile = screenWidth < 600;
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 40,
+              vertical: isMobile ? 24 : 40,
+            ),
+            child: Container(
+              constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 440),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+                boxShadow: [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.primaryGradient,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(isMobile ? 16 : 20),
+                          topRight: Radius.circular(isMobile ? 16 : 20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(isMobile ? 10 : 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.credit_score,
+                              size: isMobile ? 24 : 28,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: isMobile ? 12 : 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Gestionar Cupo de Crédito',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 15 : 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  customer.displayName,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 11 : 12,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Get.back(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Cuerpo
+                    Padding(
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Resumen actual
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(isMobile ? 12 : 14),
+                            decoration: BoxDecoration(
+                              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                _buildCreditSummaryRow(
+                                  'Cupo actual',
+                                  AppFormatters.formatCurrency(customer.creditLimit),
+                                  ElegantLightTheme.primaryBlue,
+                                  isMobile,
+                                ),
+                                const SizedBox(height: 6),
+                                _buildCreditSummaryRow(
+                                  'Deuda pendiente',
+                                  AppFormatters.formatCurrency(customer.currentBalance),
+                                  customer.currentBalance > 0
+                                      ? ElegantLightTheme.warningOrange
+                                      : ElegantLightTheme.successGreen,
+                                  isMobile,
+                                ),
+                                const SizedBox(height: 6),
+                                _buildCreditSummaryRow(
+                                  'Disponible',
+                                  AppFormatters.formatCurrency(
+                                    (customer.creditLimit - customer.currentBalance)
+                                        .clamp(0, double.infinity)),
+                                  ElegantLightTheme.successGreen,
+                                  isMobile,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 16 : 20),
+
+                          // Campo nuevo cupo
+                          Text(
+                            'Nuevo cupo de crédito',
+                            style: TextStyle(
+                              fontSize: isMobile ? 13 : 14,
+                              fontWeight: FontWeight.w600,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: limitController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            autofocus: true,
+                            style: TextStyle(
+                              fontSize: isMobile ? 15 : 16,
+                              fontWeight: FontWeight.w600,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.attach_money,
+                                  color: ElegantLightTheme.primaryBlue),
+                              hintText: '0',
+                              hintStyle: TextStyle(
+                                color: ElegantLightTheme.textTertiary,
+                                fontWeight: FontWeight.normal,
+                              ),
+                              filled: true,
+                              fillColor: ElegantLightTheme.backgroundColor,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: ElegantLightTheme.primaryBlue,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 14),
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 6 : 8),
+                          Text(
+                            'Ingresa 0 para desactivar el crédito.',
+                            style: TextStyle(
+                              fontSize: isMobile ? 11 : 12,
+                              color: ElegantLightTheme.textTertiary,
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 20 : 24),
+
+                          // Botones
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDialogButton(
+                                  label: 'Cancelar',
+                                  icon: Icons.close,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                                      ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+                                    ],
+                                  ),
+                                  onTap: () => Get.back(),
+                                  isOutline: true,
+                                  isCompact: isMobile,
+                                ),
+                              ),
+                              SizedBox(width: isMobile ? 10 : 12),
+                              Expanded(
+                                child: _buildDialogButton(
+                                  label: 'Guardar',
+                                  icon: Icons.save_rounded,
+                                  gradient: ElegantLightTheme.primaryGradient,
+                                  onTap: () {
+                                    final raw = limitController.text
+                                        .trim()
+                                        .replaceAll('.', '')
+                                        .replaceAll(',', '.');
+                                    final newLimit = double.tryParse(raw);
+                                    if (newLimit == null || newLimit < 0) {
+                                      _showError('Valor inválido',
+                                          'Ingresa un valor numérico mayor o igual a 0.');
+                                      return;
+                                    }
+                                    Get.back();
+                                    _updateCreditLimit(newLimit);
+                                  },
+                                  isCompact: isMobile,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _updateCreditLimit(double newLimit) async {
+    if (_customer.value == null) return;
+    _isLoading.value = true;
+    try {
+      final result = await _updateCustomerUseCase(
+        UpdateCustomerParams(
+          id: _customer.value!.id,
+          creditLimit: newLimit,
+        ),
+      );
+      result.fold(
+        (failure) => _showError('Error al actualizar cupo', failure.message),
+        (updatedCustomer) {
+          _customer.value = updatedCustomer;
+          _showSuccess(
+            newLimit > 0
+                ? 'Cupo actualizado a ${AppFormatters.formatCurrency(newLimit)}'
+                : 'Crédito desactivado correctamente',
+          );
+        },
+      );
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  Widget _buildCreditSummaryRow(
+      String label, String value, Color color, bool isMobile) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isMobile ? 12 : 13,
+            color: ElegantLightTheme.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isMobile ? 13 : 14,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showError(String title, String message) {
     Get.snackbar(
       title,
