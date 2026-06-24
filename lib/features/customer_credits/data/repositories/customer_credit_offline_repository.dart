@@ -88,6 +88,11 @@ class CustomerCreditOfflineRepository implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, CustomerCredit>> getCreditById(String id) async {
+    return getCreditByIdLocal(id);
+  }
+
+  @override
+  Future<Either<Failure, CustomerCredit>> getCreditByIdLocal(String id) async {
     try {
       final isarCredit = await _isar.isarCustomerCredits
           .filter()

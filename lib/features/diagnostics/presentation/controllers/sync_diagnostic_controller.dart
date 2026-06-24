@@ -1,5 +1,6 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
@@ -12,6 +13,7 @@ import '../../../../app/data/local/sync_event_log.dart';
 import '../../../../app/data/local/sync_event_log_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/sync_service.dart';
+import '../../domain/system_health_analyzer.dart';
 // Modelos Isar — necesarios para que los getters generados (isar.isarProducts,
 // isar.isarCustomers, etc.) estén disponibles en este archivo.
 import '../../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
@@ -80,6 +82,35 @@ class OrphanedRecord {
   });
 }
 
+/// Producto con `isSynced=false` pero sin operación de stock pendiente que lo
+/// justifique. Estos productos son "invisibles" para el FullSync PULL — sus
+/// stocks en pantalla están congelados en el último valor local calculado y
+/// nunca reciben actualizaciones frescas del servidor.
+class StuckProduct {
+  final String serverId;
+  final String name;
+  final String sku;
+  final double localStock;
+  final DateTime? lastSyncAt;
+
+  const StuckProduct({
+    required this.serverId,
+    required this.name,
+    required this.sku,
+    required this.localStock,
+    this.lastSyncAt,
+  });
+
+  /// Cuánto tiempo lleva bloqueado (aproximado).
+  String get stuckDuration {
+    if (lastSyncAt == null) return 'tiempo desconocido';
+    final diff = DateTime.now().difference(lastSyncAt!);
+    if (diff.inDays > 0) return '${diff.inDays} días';
+    if (diff.inHours > 0) return '${diff.inHours} horas';
+    return '${diff.inMinutes} minutos';
+  }
+}
+
 /// Resumen de operaciones pendientes en SyncQueue agrupadas.
 class PendingOpsBreakdown {
   final int total;
@@ -123,6 +154,14 @@ class SyncDiagnosticController extends GetxController {
   final Rx<Map<SyncEventSeverity, int>> eventCountsBySeverity =
       Rx<Map<SyncEventSeverity, int>>({});
 
+  /// Productos bloqueados como isSynced=false sin justificación.
+  final RxList<StuckProduct> stuckProducts = <StuckProduct>[].obs;
+  final RxBool isHealing = false.obs;
+
+  /// Reporte de salud del sistema — resultado del SystemHealthAnalyzer.
+  final Rx<SystemHealthReport> healthReport = SystemHealthReport.empty.obs;
+  final RxBool isRunningAutoFix = false.obs;
+
   /// Mensaje de la última acción ejecutada (forzar resync, limpiar logs, etc.)
   /// para mostrar feedback al usuario en la UI.
   final RxnString lastActionMessage = RxnString();
@@ -133,6 +172,26 @@ class SyncDiagnosticController extends GetxController {
   void onInit() {
     super.onInit();
     refreshAll();
+    // Si al abrir diagnósticos hay un sync en progreso (arrancado en background
+    // por el timer periódico o por reconexión), esperamos a que termine y
+    // re-analizamos la salud para que el score refleje el estado real.
+    // Sin esto, `never_synced` queda como "1 problema" aunque el sync ya
+    // completó y el usuario ve el aviso como falso positivo permanente.
+    _listenForSyncCompletion();
+  }
+
+  void _listenForSyncCompletion() {
+    if (!Get.isRegistered<FullSyncService>()) return;
+    final svc = Get.find<FullSyncService>();
+    // Escuchar el flag isSyncing: cuando pase de true → false, re-analizar.
+    ever(svc.isSyncing, (bool syncing) {
+      if (!syncing && !isLoading.value) {
+        // Sync terminó — actualizar timestamp y re-analizar health score sin
+        // recargar todos los datos (solo el análisis es suficiente).
+        lastFullSyncAt.value = svc.lastFullSyncAt;
+        _analyzeHealth();
+      }
+    });
   }
 
   // ==================== ACTIONS ====================
@@ -149,9 +208,14 @@ class SyncDiagnosticController extends GetxController {
         _refreshPendingQueue(),
         _refreshRecentEvents(),
       ]);
-      // Detección de huérfanos depende del estado del SyncQueue, así que se
-      // ejecuta DESPUÉS de _refreshPendingQueue.
-      await _refreshOrphanedRecords();
+      // Detección de huérfanos y bloqueados depende del SyncQueue, se ejecuta
+      // después de que _refreshPendingQueue ya cargó las ops.
+      await Future.wait([
+        _refreshOrphanedRecords(),
+        _refreshStuckProducts(),
+      ]);
+      // El análisis de salud usa todos los datos ya cargados.
+      _analyzeHealth();
     } finally {
       isLoading.value = false;
     }
@@ -292,6 +356,11 @@ class SyncDiagnosticController extends GetxController {
       buffer.writeln();
     }
     buffer.writeln();
+    buffer.writeln('Productos bloqueados (isSynced=false sin ops activas): ${stuckProducts.length}');
+    for (final sp in stuckProducts) {
+      buffer.writeln('  ${sp.name} (${sp.sku}) — stock local: ${sp.localStock} — bloqueado: ${sp.stuckDuration}');
+    }
+    buffer.writeln();
     buffer.writeln('Eventos recientes (últimos ${recentEvents.length}):');
     for (final ev in recentEvents) {
       buffer.writeln(
@@ -305,12 +374,110 @@ class SyncDiagnosticController extends GetxController {
     return buffer.toString();
   }
 
+  /// Ejecuta todos los auto-fix seguros en un solo paso.
+  /// Útil para que el usuario resuelva todo con un solo botón.
+  Future<int> autoFixAll() async {
+    if (isRunningAutoFix.value) return 0;
+    isRunningAutoFix.value = true;
+    int fixed = 0;
+    try {
+      for (final issue in healthReport.value.safeAutoFixIssues) {
+        if (issue.autoFix != null) {
+          try {
+            await issue.autoFix!();
+            fixed++;
+          } catch (e) {
+            AppLogger.w(
+              'autoFixAll: error en issue ${issue.id}: $e',
+              tag: 'DIAGNOSTIC',
+            );
+          }
+        }
+      }
+      if (fixed > 0) {
+        lastActionMessage.value =
+            '$fixed problema${fixed == 1 ? '' : 's'} resuelto${fixed == 1 ? '' : 's'} automáticamente';
+        await refreshAll();
+      } else {
+        lastActionMessage.value = 'No hay problemas con solución automática';
+      }
+    } finally {
+      isRunningAutoFix.value = false;
+    }
+    return fixed;
+  }
+
+  /// Libera los productos bloqueados como [isSynced=false] sin ops pendientes y
+  /// luego dispara un FullSync para que reciban datos frescos del servidor.
+  ///
+  /// Esta acción es segura: solo libera productos sin justificación activa.
+  /// Los productos con facturas pendientes en cola NO se tocan.
+  Future<int> healStuckProducts() async {
+    if (isHealing.value) return 0;
+    if (stuckProducts.isEmpty) {
+      lastActionMessage.value = 'No hay productos bloqueados — sistema OK';
+      return 0;
+    }
+    isHealing.value = true;
+    try {
+      final isar = IsarDatabase.instance.database;
+      final freed = <String>[];
+
+      await isar.writeTxn(() async {
+        for (final stuck in stuckProducts) {
+          final p = await isar.isarProducts
+              .filter()
+              .serverIdEqualTo(stuck.serverId)
+              .findFirst();
+          if (p != null && !p.isSynced) {
+            p.isSynced = true;
+            p.lastSyncAt = DateTime.now();
+            await isar.isarProducts.put(p);
+            freed.add(stuck.name);
+          }
+        }
+      });
+
+      if (freed.isEmpty) {
+        lastActionMessage.value = 'No se encontraron productos para liberar';
+        return 0;
+      }
+
+      AppLogger.i(
+        'Sanados ${freed.length} productos bloqueados desde diagnóstico: '
+        '${freed.take(5).join(", ")}${freed.length > 5 ? "..." : ""}',
+        tag: 'DIAGNOSTIC',
+      );
+
+      // Actualizar pantalla y disparar sync si hay red
+      await refreshAll();
+      if (isOnline.value && Get.isRegistered<FullSyncService>()) {
+        unawaited(Get.find<FullSyncService>().performFullSync());
+        lastActionMessage.value =
+            '${freed.length} productos liberados — sincronización iniciada';
+      } else {
+        lastActionMessage.value =
+            '${freed.length} productos liberados — se actualizarán cuando haya conexión';
+      }
+      return freed.length;
+    } catch (e) {
+      lastActionMessage.value = 'Error sanando productos: $e';
+      AppLogger.e('Error en healStuckProducts: $e', tag: 'DIAGNOSTIC');
+      return 0;
+    } finally {
+      isHealing.value = false;
+    }
+  }
+
   // ==================== INTERNALS ====================
 
   Future<void> _refreshConnectionState() async {
     try {
       if (Get.isRegistered<SyncService>()) {
         isOnline.value = Get.find<SyncService>().isOnline;
+      }
+      if (Get.isRegistered<FullSyncService>()) {
+        lastFullSyncAt.value = Get.find<FullSyncService>().lastFullSyncAt;
       }
     } catch (_) {}
   }
@@ -482,6 +649,123 @@ class SyncDiagnosticController extends GetxController {
       eventCountsBySeverity.value = await svc.countBySeverity();
     } catch (e) {
       AppLogger.w('Error leyendo logs de diagnóstico: $e', tag: 'DIAGNOSTIC');
+    }
+  }
+
+  // ==================== HEALTH ANALYSIS ====================
+
+  void _analyzeHealth() {
+    // Leer el timestamp del último sync directamente del servicio — el
+    // campo local lastFullSyncAt puede ser null si _refreshConnectionState()
+    // corrió antes de que el servicio completara su primer sync en esta sesión.
+    DateTime? lastSync = lastFullSyncAt.value;
+    bool syncInProgress = false;
+    if (Get.isRegistered<FullSyncService>()) {
+      final svc = Get.find<FullSyncService>();
+      lastSync ??= svc.lastFullSyncAt;
+      syncInProgress = svc.isSyncing.value;
+    }
+
+    healthReport.value = SystemHealthAnalyzer.analyze(
+      isOnline: isOnline.value,
+      isSyncInProgress: syncInProgress,
+      stuckProducts: stuckProducts,
+      orphanedRecords: orphanedRecords,
+      pendingBreakdown: pendingBreakdown.value,
+      entityCounts: entityCounts,
+      lastFullSyncAt: lastSync,
+      recentEvents: recentEvents,
+      // Callbacks de auto-fix
+      onHealStuckProducts: () async {
+        await healStuckProducts();
+      },
+      onRequeueOrphans: () async {
+        await requeueAllOrphans();
+      },
+      onRetryFailed: () async {
+        await retryFailedOperations();
+      },
+      onForceSync: () async {
+        await forceFullSync();
+      },
+    );
+  }
+
+  // ==================== STUCK PRODUCT DETECTION ====================
+
+  /// Detecta productos con [isSynced=false] y UUID real (no temp) que NO tienen
+  /// ninguna operación de stock pendiente (Invoice / CreditNote / FIFO) que
+  /// justifique mantener el flag activo.
+  ///
+  /// Estos productos son una anomalía: quedaron bloqueados después de que el
+  /// handler de Invoice sync falló al resetear el flag. El PULL de FullSync los
+  /// salta indefinidamente → el stock en pantalla nunca se actualiza desde el
+  /// servidor.
+  Future<void> _refreshStuckProducts() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+
+      // Productos con isSynced=false y UUID real
+      final unsyncedProducts = await isar.isarProducts
+          .filter()
+          .isSyncedEqualTo(false)
+          .findAll();
+
+      final candidates = unsyncedProducts
+          .where((p) => !p.serverId.startsWith('product_offline_'))
+          .toList();
+
+      if (candidates.isEmpty) {
+        stuckProducts.value = [];
+        return;
+      }
+
+      // Ops de stock no completadas → productos que SÍ deben estar protegidos
+      final allOps = await isar.syncOperations.where().findAll();
+      final pendingStockOps = allOps.where((op) =>
+          op.status != SyncStatus.completed &&
+          (op.entityType == 'Invoice' ||
+           op.entityType == 'CreditNote' ||
+           op.entityType == 'inventory_movement_fifo')).toList();
+
+      final activeProductIds = <String>{};
+      for (final op in pendingStockOps) {
+        try {
+          final payload = jsonDecode(op.payload) as Map<String, dynamic>;
+          if (payload['items'] is List) {
+            for (final item in payload['items'] as List) {
+              if (item is Map && item['productId'] is String) {
+                activeProductIds.add(item['productId'] as String);
+              }
+            }
+          }
+          if (payload['productId'] is String) {
+            activeProductIds.add(payload['productId'] as String);
+          }
+        } catch (_) {}
+      }
+
+      final stuck = candidates
+          .where((p) => !activeProductIds.contains(p.serverId))
+          .map((p) => StuckProduct(
+                serverId: p.serverId,
+                name: p.name,
+                sku: p.sku ?? '',
+                localStock: p.stock,
+                lastSyncAt: p.lastSyncAt,
+              ))
+          .toList();
+
+      stuck.sort((a, b) {
+        if (a.lastSyncAt == null && b.lastSyncAt == null) return 0;
+        if (a.lastSyncAt == null) return 1;
+        if (b.lastSyncAt == null) return -1;
+        return a.lastSyncAt!.compareTo(b.lastSyncAt!);
+      });
+
+      stuckProducts.value = stuck;
+    } catch (e) {
+      AppLogger.w('Error detectando productos bloqueados: $e', tag: 'DIAGNOSTIC');
     }
   }
 

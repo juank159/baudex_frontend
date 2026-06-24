@@ -66,6 +66,7 @@ import '../../../features/inventory/data/models/inventory_batch_model.dart';
 import '../../../features/inventory/domain/repositories/inventory_repository.dart';
 import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
 import '../../../features/products/data/models/isar/isar_product_presentation.dart';
+import 'sync_queue.dart';
 
 /// Resultado de un Full Sync
 class FullSyncResult {
@@ -315,15 +316,19 @@ class FullSyncService extends GetxService {
         currentEntity.value = tier.join(', ');
         print('⚡ [FULL_SYNC] Tier ${tierIdx + 1}: sincronizando ${tier.join(", ")} en paralelo...');
 
-        // Lanzar TODAS las entidades del tier en paralelo con timeout individual
+        // Lanzar TODAS las entidades del tier en paralelo con timeout individual.
+        // 12s es suficiente para una respuesta normal del servidor (p99 < 3s).
+        // Con 60s, una caída de red congelaba la UI por 1+ minuto antes de
+        // abortar — con 12s el sistema detecta la caída rápidamente y cambia
+        // a modo offline sin que el usuario lo note.
         final futures = <Future<MapEntry<String, int?>>>[];
         for (final entityName in tier) {
           futures.add(
             _syncEntitySafe(entityName, syncFunctions[entityName]!)
                 .timeout(
-              const Duration(seconds: 60),
+              const Duration(seconds: 12),
               onTimeout: () {
-                print('⏱️ [FULL_SYNC] Timeout sincronizando $entityName (60s)');
+                print('⏱️ [FULL_SYNC] Timeout sincronizando $entityName (12s) — servidor no responde');
                 return MapEntry(entityName, null);
               },
             )
@@ -607,6 +612,12 @@ class FullSyncService extends GetxService {
     int page = 1;
     bool hasMore = true;
 
+    // Antes de construir el set de protección, sanamos productos que quedaron
+    // bloqueados como isSynced=false sin ninguna op pendiente que los justifique.
+    // Esto corrige el bug donde facturas offline que ya sincronizaron fallaron
+    // al resetear el flag, dejando los productos protegidos para siempre.
+    await _healStuckProducts();
+
     // Proteger productos con cambios locales pendientes de PUSH (ej: stock
     // descontado por una factura offline o por una merma offline). Sin esta
     // protección, el PULL pisa los stocks locales con los del servidor y el
@@ -649,6 +660,82 @@ class FullSyncService extends GetxService {
     }
 
     return totalSynced;
+  }
+
+  /// Sana productos que quedaron bloqueados como [isSynced=false] sin tener
+  /// ninguna operación pendiente en SyncQueue que justifique esa protección.
+  ///
+  /// Esto ocurre cuando el handler de Invoice sync falla al resetear el flag
+  /// después de sincronizar la factura. Sin este sanador, esos productos
+  /// nunca se actualizan desde el servidor — el stock mostrado queda congelado.
+  ///
+  /// Criterio de liberación: UUID real (no `product_offline_`) + isSynced=false
+  /// + sin ninguna op de tipo Invoice/CreditNote/inventory_movement_fifo que
+  /// referencie ese productId en su payload.
+  Future<int> _healStuckProducts() async {
+    try {
+      // Candidatos: productos con isSynced=false y serverId UUID real
+      final unsyncedProducts = await _isar.isarProducts
+          .filter()
+          .isSyncedEqualTo(false)
+          .findAll();
+
+      final candidates = unsyncedProducts
+          .where((p) => !p.serverId.startsWith('product_offline_'))
+          .toList();
+
+      if (candidates.isEmpty) return 0;
+
+      // Todas las ops NO completadas que pueden afectar stock
+      final allOps = await _isar.syncOperations.where().findAll();
+      final pendingStockOps = allOps.where((op) =>
+          op.status != SyncStatus.completed &&
+          (op.entityType == 'Invoice' ||
+           op.entityType == 'CreditNote' ||
+           op.entityType == 'inventory_movement_fifo')).toList();
+
+      // Extraer productIds activamente referenciados en esas ops
+      final activeProductIds = <String>{};
+      for (final op in pendingStockOps) {
+        try {
+          final payload = jsonDecode(op.payload) as Map<String, dynamic>;
+          // Invoice / CreditNote: items[].productId
+          if (payload['items'] is List) {
+            for (final item in payload['items'] as List) {
+              if (item is Map && item['productId'] is String) {
+                activeProductIds.add(item['productId'] as String);
+              }
+            }
+          }
+          // inventory_movement_fifo: productId al nivel raíz
+          if (payload['productId'] is String) {
+            activeProductIds.add(payload['productId'] as String);
+          }
+        } catch (_) {}
+      }
+
+      // Liberar productos bloqueados sin justificación
+      final stuck = candidates
+          .where((p) => !activeProductIds.contains(p.serverId))
+          .toList();
+
+      if (stuck.isEmpty) return 0;
+
+      await _isar.writeTxn(() async {
+        for (final p in stuck) {
+          p.isSynced = true;
+          p.lastSyncAt = DateTime.now();
+          await _isar.isarProducts.put(p);
+        }
+      });
+
+      print('🔧 [FULL_SYNC] Sanados ${stuck.length} productos bloqueados (isSynced=false sin ops pendientes): '
+          '${stuck.take(5).map((p) => p.name).join(", ")}${stuck.length > 5 ? "..." : ""}');
+      return stuck.length;
+    } catch (e) {
+      print('⚠️ [FULL_SYNC] Error en sanador de productos: $e');
+      return 0;
+    }
   }
 
   /// Sincronizar presentaciones de productos del server a ISAR.

@@ -1641,7 +1641,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       // dynamic accept Invoice items o item maps con productId/quantity
       final productId = item.productId as String?;
       if (productId == null || productId.isEmpty) continue;
-      final qty = (item.quantity as num).toDouble();
+      // Si el item tiene presentationFactor, multiplicamos para obtener
+      // la cantidad base real que debe descontarse del inventario.
+      final rawQty = (item.quantity as num).toDouble();
+      final factor = item.presentationFactor != null
+          ? (item.presentationFactor as num).toDouble()
+          : 1.0;
+      final qty = rawQty * factor;
       if (qty <= 0) continue;
 
       // 1) Consumir batches FIFO (más antiguos primero, igual que backend)

@@ -104,6 +104,11 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, CustomerCredit>> getCreditByIdLocal(String id) {
+    return _getCreditFromCache(id);
+  }
+
   Future<Either<Failure, CustomerCredit>> _getCreditFromCache(String id) async {
     try {
       final cachedCredit = await localDataSource.getCachedCredit(id);

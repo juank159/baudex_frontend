@@ -589,15 +589,15 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
             // Quick metrics compactos
             const SizedBox(width: 16),
             _buildCompactMetric(
-              AppFormatters.formatCompactCurrency(customer.creditLimit),
-              'Crédito',
-              ElegantLightTheme.primaryBlue,
+              AppFormatters.formatCompactCurrency(customer.availableCredit.clamp(0, double.infinity)),
+              'Disponible',
+              customer.availableCredit > 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
             ),
             const SizedBox(width: 12),
             _buildCompactMetric(
               AppFormatters.formatCompactCurrency(customer.currentBalance),
-              'Balance',
-              customer.currentBalance > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+              'Deuda',
+              customer.currentBalance > 0 ? const Color(0xFFF59E0B) : ElegantLightTheme.textTertiary,
             ),
             const SizedBox(width: 12),
             _buildCompactMetric(
@@ -736,10 +736,12 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
               const SizedBox(height: 10),
             ],
 
-            _buildCompactFinancialRow('Límite', customer.creditLimit, ElegantLightTheme.primaryBlue),
-            _buildCompactFinancialRow('Balance', customer.currentBalance, const Color(0xFFF59E0B)),
-            _buildCompactFinancialRow('Disponible', creditAvailable, const Color(0xFF10B981)),
-            _buildCompactInfoRow('Pago', '${customer.paymentTerms} días'),
+            _buildCompactFinancialRow('Cupo total', customer.creditLimit, ElegantLightTheme.primaryBlue),
+            _buildCompactFinancialRow('Deuda actual', customer.currentBalance,
+                customer.currentBalance > 0 ? const Color(0xFFF59E0B) : ElegantLightTheme.textTertiary),
+            _buildCompactFinancialRow('Disponible', creditAvailable.clamp(0, double.infinity),
+                creditAvailable > 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+            _buildCompactInfoRow('Plazo', '${customer.paymentTerms} días'),
           ],
         ),
       );
@@ -1196,17 +1198,20 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
         children: [
           Expanded(
             child: _buildMetricCard(
-              'Límite Crédito',
-              AppFormatters.formatCompactCurrency(customer.creditLimit),
-              Icons.credit_card,
-              ElegantLightTheme.primaryBlue,
+              'Disponible',
+              AppFormatters.formatCompactCurrency(
+                  customer.availableCredit.clamp(0, double.infinity)),
+              Icons.credit_score,
+              customer.availableCredit > 0
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFEF4444),
               isMobile,
             ),
           ),
           SizedBox(width: isMobile ? 8 : 12),
           Expanded(
             child: _buildMetricCard(
-              'Balance',
+              'Deuda Actual',
               AppFormatters.formatCompactCurrency(customer.currentBalance),
               Icons.account_balance_wallet,
               customer.currentBalance > 0
@@ -1412,21 +1417,21 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
             ],
 
             // Financial Details
-            _buildFinancialRow('Límite de Crédito', customer.creditLimit, ElegantLightTheme.primaryBlue),
+            _buildFinancialRow('Cupo de Crédito', customer.creditLimit, ElegantLightTheme.primaryBlue),
             const SizedBox(height: 12),
             _buildFinancialRow(
-              'Balance Actual',
+              'Deuda Pendiente',
               customer.currentBalance,
-              customer.currentBalance > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+              customer.currentBalance > 0 ? const Color(0xFFF59E0B) : ElegantLightTheme.textTertiary,
             ),
             const SizedBox(height: 12),
             _buildFinancialRow(
-              'Crédito Disponible',
-              creditAvailable,
+              'Disponible para Crédito',
+              creditAvailable.clamp(0, double.infinity),
               creditAvailable > 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
             ),
             const SizedBox(height: 12),
-            _buildInfoRowSimple('Términos de Pago', '${customer.paymentTerms} días', Icons.schedule),
+            _buildInfoRowSimple('Plazo de Pago', '${customer.paymentTerms} días', Icons.schedule),
             _buildInfoRowSimple('Total de Órdenes', '${customer.totalOrders}', Icons.shopping_cart_outlined),
 
             if (customer.notes != null) ...[

@@ -23,6 +23,30 @@ enum CreditStatus {
   }
 }
 
+/// Resumen de un ítem de factura asociado al crédito
+class InvoiceItemSummary extends Equatable {
+  final String id;
+  final String description;
+  final double quantity;
+  final double unitPrice;
+  final double subtotal;
+  final String? productName;
+
+  const InvoiceItemSummary({
+    required this.id,
+    required this.description,
+    required this.quantity,
+    required this.unitPrice,
+    required this.subtotal,
+    this.productName,
+  });
+
+  String get displayName => productName ?? description;
+
+  @override
+  List<Object?> get props => [id, description, quantity, unitPrice, subtotal];
+}
+
 /// Entidad de Crédito de Cliente (Dominio)
 class CustomerCredit extends Equatable {
   final String id;
@@ -41,6 +65,7 @@ class CustomerCredit extends Equatable {
   final String createdById;
   final String? createdByName;
   final List<CreditPayment>? payments;
+  final List<InvoiceItemSummary>? invoiceItems;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -62,6 +87,7 @@ class CustomerCredit extends Equatable {
     required this.createdById,
     this.createdByName,
     this.payments,
+    this.invoiceItems,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -127,6 +153,7 @@ class CustomerCredit extends Equatable {
     String? createdById,
     String? createdByName,
     List<CreditPayment>? payments,
+    List<InvoiceItemSummary>? invoiceItems,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -148,6 +175,7 @@ class CustomerCredit extends Equatable {
       createdById: createdById ?? this.createdById,
       createdByName: createdByName ?? this.createdByName,
       payments: payments ?? this.payments,
+      invoiceItems: invoiceItems ?? this.invoiceItems,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,

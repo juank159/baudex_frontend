@@ -1355,7 +1355,12 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       for (final item in invoice.items) {
         if (item.productId == null || item.productId!.isEmpty) continue;
 
-        final quantityToDeduct = item.quantity.toInt();
+        // Si el item usa una presentación (ej: caja de 12), el factor de
+        // conversión indica cuántas unidades base equivale 1 unidad de venta.
+        // Debemos descontar las unidades base del inventario, no las unidades
+        // de presentación — de lo contrario vendemos 1 caja y solo descontamos 1.
+        final factor = item.presentationFactor ?? 1.0;
+        final quantityToDeduct = (item.quantity * factor).round();
         if (quantityToDeduct <= 0) continue;
 
         final params = ProcessFifoMovementParams(

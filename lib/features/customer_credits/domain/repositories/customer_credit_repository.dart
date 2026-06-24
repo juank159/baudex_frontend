@@ -15,8 +15,11 @@ abstract class CustomerCreditRepository {
   /// Obtener todos los créditos con filtros opcionales
   Future<Either<Failure, List<CustomerCredit>>> getCredits(CustomerCreditQueryParams? query);
 
-  /// Obtener un crédito por ID
+  /// Obtener un crédito por ID (red primero, cache como fallback)
   Future<Either<Failure, CustomerCredit>> getCreditById(String id);
+
+  /// Obtener un crédito por ID solo desde cache local (instantáneo, sin red)
+  Future<Either<Failure, CustomerCredit>> getCreditByIdLocal(String id);
 
   /// Obtener créditos de un cliente específico
   Future<Either<Failure, List<CustomerCredit>>> getCreditsByCustomer(String customerId);

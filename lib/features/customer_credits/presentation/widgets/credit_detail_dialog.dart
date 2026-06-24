@@ -244,6 +244,12 @@ class _CreditDetailDialogState extends State<CreditDetailDialog> {
                 // Información adicional
                 _buildInfoSection(credit),
 
+                // Productos de la factura (si están disponibles)
+                if (credit.invoiceItems != null && credit.invoiceItems!.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _buildInvoiceItemsSection(credit.invoiceItems!),
+                ],
+
                 const SizedBox(height: 24),
 
                 // Historial de movimientos (transacciones)
@@ -386,6 +392,188 @@ class _CreditDetailDialogState extends State<CreditDetailDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInvoiceItemsSection(List<InvoiceItemSummary> items) {
+    final totalSubtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.inventory_2_outlined, size: 18, color: Color(0xFF1565C0)),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Productos de la Factura',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${items.length} ${items.length == 1 ? 'producto' : 'productos'}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: [
+              // Encabezado de tabla
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        'Producto',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        'Cant.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 72,
+                      child: Text(
+                        'Subtotal',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: Colors.grey.shade200),
+              // Filas de productos
+              ...items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                return Column(
+                  children: [
+                    if (index > 0) Divider(height: 1, color: Colors.grey.shade100),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            flex: 4,
+                            child: Text(
+                              item.displayName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 44,
+                            child: Text(
+                              item.quantity % 1 == 0
+                                  ? item.quantity.toInt().toString()
+                                  : item.quantity.toStringAsFixed(2),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 72,
+                            child: Text(
+                              currencyFormat.format(item.subtotal),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }),
+              // Fila de total
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.06),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(10),
+                    bottomRight: Radius.circular(10),
+                  ),
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade200),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Total Factura',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    ),
+                    Text(
+                      currencyFormat.format(totalSubtotal),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1565C0),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

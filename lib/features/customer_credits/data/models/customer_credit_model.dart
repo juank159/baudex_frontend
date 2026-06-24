@@ -21,6 +21,7 @@ class CustomerCreditModel extends CustomerCredit {
     required super.createdById,
     super.createdByName,
     super.payments,
+    super.invoiceItems,
     required super.createdAt,
     required super.updatedAt,
     super.deletedAt,
@@ -33,6 +34,23 @@ class CustomerCreditModel extends CustomerCredit {
       payments = (json['payments'] as List)
           .map((p) => CreditPaymentModel.fromJson(p as Map<String, dynamic>))
           .toList();
+    }
+
+    // Parsear items de la factura si el backend los incluyó
+    List<InvoiceItemSummary>? invoiceItems;
+    final invoiceJson = json['invoice'];
+    if (invoiceJson is Map && invoiceJson['items'] is List) {
+      invoiceItems = (invoiceJson['items'] as List).whereType<Map>().map((item) {
+        return InvoiceItemSummary(
+          id: item['id']?.toString() ?? '',
+          description: item['description']?.toString() ?? '',
+          quantity: _parseDouble(item['quantity']),
+          unitPrice: _parseDouble(item['unitPrice']),
+          subtotal: _parseDouble(item['subtotal']),
+          productName: item['product']?['name']?.toString(),
+        );
+      }).toList();
+      if (invoiceItems!.isEmpty) invoiceItems = null;
     }
 
     // Extraer customerId de manera segura
@@ -80,6 +98,7 @@ class CustomerCreditModel extends CustomerCredit {
           ? '${json['createdBy']['firstName']} ${json['createdBy']['lastName'] ?? ''}'.trim()
           : null,
       payments: payments,
+      invoiceItems: invoiceItems,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? json['created_at']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? json['updated_at']?.toString() ?? '') ?? DateTime.now(),
       deletedAt: json['deletedAt'] != null || json['deleted_at'] != null

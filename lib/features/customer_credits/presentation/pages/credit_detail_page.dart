@@ -1517,6 +1517,277 @@ class _CreditDetailPageState extends State<CreditDetailPage>
                     ),
                   ),
                 ],
+
+                // Productos de la factura (disponibles cuando se carga desde servidor)
+                if (credit.invoiceItems != null && credit.invoiceItems!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildInvoiceProductsSection(credit.invoiceItems!),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Sección de productos/ítems de la factura origen
+  Widget _buildInvoiceProductsSection(List<InvoiceItemSummary> items) {
+    final totalSubtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header de la sección
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.06),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 18,
+                  color: ElegantLightTheme.primaryBlue,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Productos de la Factura',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${items.length} ${items.length == 1 ? 'producto' : 'productos'}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Encabezado de tabla
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Text(
+                    'Producto',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textTertiary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 52,
+                  child: Text(
+                    'Cant.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textTertiary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'P. Unit.',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textTertiary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'Subtotal',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textTertiary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Divider
+          Divider(
+            height: 1,
+            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
+            indent: 16,
+            endIndent: 16,
+          ),
+
+          // Filas de productos
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => Divider(
+              height: 1,
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.08),
+              indent: 16,
+              endIndent: 16,
+            ),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final isEven = index.isEven;
+              return Container(
+                color: isEven
+                    ? Colors.transparent
+                    : ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.displayName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                          ),
+                          if (item.productName != null && item.description.isNotEmpty &&
+                              item.productName != item.description) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              item.description,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: ElegantLightTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 52,
+                      child: Text(
+                        item.quantity % 1 == 0
+                            ? item.quantity.toInt().toString()
+                            : item.quantity.toStringAsFixed(2),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: ElegantLightTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 80,
+                      child: Text(
+                        AppFormatters.formatCurrency(item.unitPrice),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 80,
+                      child: Text(
+                        AppFormatters.formatCurrency(item.subtotal),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Fila de total
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.06),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(14),
+                bottomRight: Radius.circular(14),
+              ),
+              border: Border(
+                top: BorderSide(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Total Factura',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                Text(
+                  AppFormatters.formatCurrency(totalSubtotal),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
               ],
             ),
           ),

@@ -1,4 +1,6 @@
 // lib/features/diagnostics/presentation/screens/sync_diagnostic_screen.dart
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -6,6 +8,8 @@ import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/data/local/sync_event_log.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../domain/system_health_analyzer.dart';
 import '../controllers/sync_diagnostic_controller.dart';
 
 class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
@@ -18,6 +22,7 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
 
     return Scaffold(
       backgroundColor: ElegantLightTheme.backgroundColor,
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           _DiagnosticHeader(isNarrow: isNarrow),
@@ -40,6 +45,10 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
                     vertical: 16,
                   ),
                   children: [
+                    _HealthScoreSection(isNarrow: isNarrow),
+                    const SizedBox(height: 16),
+                    _IssuesListSection(isNarrow: isNarrow),
+                    const SizedBox(height: 4),
                     _ConnectionStatusSection(isNarrow: isNarrow),
                     const SizedBox(height: 16),
                     _EntityHealthSection(isNarrow: isNarrow),
@@ -51,6 +60,17 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
                       return Column(
                         children: [
                           _PendingOpsSection(isNarrow: isNarrow),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    }),
+                    Obx(() {
+                      if (controller.stuckProducts.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        children: [
+                          _StuckProductsSection(isNarrow: isNarrow),
                           const SizedBox(height: 16),
                         ],
                       );
@@ -80,6 +100,553 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
   }
 }
 
+// ==================== HEALTH SCORE ====================
+
+class _HealthScoreSection extends GetView<SyncDiagnosticController> {
+  final bool isNarrow;
+  const _HealthScoreSection({required this.isNarrow});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final report = controller.healthReport.value;
+      final score = report.healthScore;
+      final isCalculating =
+          report.generatedAt.year == 2000 || controller.isLoading.value;
+      final safeFixCount = report.safeAutoFixIssues.length;
+
+      final scoreColor = _scoreColor(score);
+
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isCalculating
+                ? [Colors.grey[100]!, Colors.grey[50]!]
+                : [
+                    scoreColor.withValues(alpha: 0.06),
+                    scoreColor.withValues(alpha: 0.02),
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isCalculating
+                ? Colors.grey[200]!
+                : scoreColor.withValues(alpha: 0.25),
+            width: 1.5,
+          ),
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Score circle
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (!isCalculating) ...[
+                      CustomPaint(
+                        size: const Size(80, 80),
+                        painter: _ScoreArcPainter(
+                          score: score,
+                          color: scoreColor,
+                        ),
+                      ),
+                    ] else
+                      CircularProgressIndicator(
+                        strokeWidth: 6,
+                        color: Colors.grey[300],
+                      ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isCalculating ? '—' : '$score',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: isCalculating
+                                ? Colors.grey[400]
+                                : scoreColor,
+                          ),
+                        ),
+                        Text(
+                          '/100',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Labels + auto-fix
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isCalculating ? 'Evaluando...' : report.healthLabel,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isCalculating
+                            ? Colors.grey[400]
+                            : scoreColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (!isCalculating) ...[
+                      Text(
+                        report.isHealthy
+                            ? 'El sistema funciona correctamente.'
+                            : '${report.issues.length} problema${report.issues.length == 1 ? '' : 's'} detectado${report.issues.length == 1 ? '' : 's'}. Revisa los detalles abajo.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (safeFixCount > 0) ...[
+                        Obx(() => SizedBox(
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    controller.isRunningAutoFix.value
+                                        ? null
+                                        : controller.autoFixAll,
+                                icon: controller.isRunningAutoFix.value
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      )
+                                    : const Icon(Icons.auto_fix_high,
+                                        size: 14),
+                                label: Text(
+                                  controller.isRunningAutoFix.value
+                                      ? 'Resolviendo...'
+                                      : 'Resolver $safeFixCount problema${safeFixCount == 1 ? '' : 's'}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: scoreColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            )),
+                      ] else if (report.isHealthy) ...[
+                        Row(
+                          children: const [
+                            Icon(Icons.check_circle,
+                                color: ElegantLightTheme.successGreen,
+                                size: 14),
+                            SizedBox(width: 6),
+                            Text(
+                              'Todo en orden',
+                              style: TextStyle(
+                                color: ElegantLightTheme.successGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Color _scoreColor(int score) {
+    if (score >= 90) return ElegantLightTheme.successGreen;
+    if (score >= 70) return const Color(0xFF84CC16); // lime
+    if (score >= 50) return ElegantLightTheme.warningOrange;
+    return ElegantLightTheme.errorRed;
+  }
+}
+
+class _ScoreArcPainter extends CustomPainter {
+  final int score;
+  final Color color;
+  const _ScoreArcPainter({required this.score, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - 6;
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.12)
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final fgPaint = Paint()
+      ..color = color
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Background full circle
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Foreground arc
+    const startAngle = -math.pi / 2;
+    final sweepAngle = 2 * math.pi * (score / 100);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      fgPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ScoreArcPainter old) =>
+      old.score != score || old.color != color;
+}
+
+// ==================== ISSUES LIST ====================
+
+class _IssuesListSection extends GetView<SyncDiagnosticController> {
+  final bool isNarrow;
+  const _IssuesListSection({required this.isNarrow});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final issues = controller.healthReport.value.issues;
+      if (issues.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...issues.map((issue) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _IssueCard(issue: issue, isNarrow: isNarrow),
+              )),
+        ],
+      );
+    });
+  }
+}
+
+class _IssueCard extends StatefulWidget {
+  final SystemIssue issue;
+  final bool isNarrow;
+  const _IssueCard({required this.issue, required this.isNarrow});
+
+  @override
+  State<_IssueCard> createState() => _IssueCardState();
+}
+
+class _IssueCardState extends State<_IssueCard> {
+  bool _expanded = false;
+  bool _running = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final issue = widget.issue;
+    final sev = issue.severity;
+    final color = _severityColor(sev);
+    final bgColor = color.withValues(alpha: 0.06);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Severity icon
+                Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _severityIcon(sev),
+                    color: color,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Title + severity label
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              issue.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _severityLabel(sev),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Explanation (always visible)
+                      Text(
+                        issue.explanation,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                      // Recommendation
+                      if (issue.recommendation.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              size: 12,
+                              color: color.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                issue.recommendation,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: color.withValues(alpha: 0.85),
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Technical detail + actions
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Technical detail (expandable)
+                if (issue.technicalDetail != null) ...[
+                  GestureDetector(
+                    onTap: () => setState(() => _expanded = !_expanded),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _expanded
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 14,
+                          color: ElegantLightTheme.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _expanded
+                              ? 'Ocultar detalle técnico'
+                              : 'Ver detalle técnico',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: ElegantLightTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_expanded) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.08)),
+                      ),
+                      child: SelectableText(
+                        issue.technicalDetail!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: ElegantLightTheme.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                ],
+                // Action button
+                if (issue.autoFixLabel != null) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _running
+                          ? null
+                          : () => _runFix(issue),
+                      icon: _running
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.auto_fix_high, size: 14),
+                      label: Text(
+                        _running
+                            ? 'Aplicando...'
+                            : issue.autoFixLabel!,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runFix(SystemIssue issue) async {
+    if (issue.autoFix == null) return;
+    setState(() => _running = true);
+    try {
+      await issue.autoFix!();
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  Color _severityColor(IssueSeverity sev) {
+    switch (sev) {
+      case IssueSeverity.critical:
+        return ElegantLightTheme.errorRed;
+      case IssueSeverity.high:
+        return ElegantLightTheme.warningOrange;
+      case IssueSeverity.medium:
+        return const Color(0xFF6366F1); // indigo
+      case IssueSeverity.low:
+        return ElegantLightTheme.primaryBlue;
+      case IssueSeverity.info:
+        return ElegantLightTheme.successGreen;
+    }
+  }
+
+  IconData _severityIcon(IssueSeverity sev) {
+    switch (sev) {
+      case IssueSeverity.critical:
+        return Icons.error_rounded;
+      case IssueSeverity.high:
+        return Icons.warning_rounded;
+      case IssueSeverity.medium:
+        return Icons.info_rounded;
+      case IssueSeverity.low:
+        return Icons.tips_and_updates_outlined;
+      case IssueSeverity.info:
+        return Icons.check_circle_rounded;
+    }
+  }
+
+  String _severityLabel(IssueSeverity sev) {
+    switch (sev) {
+      case IssueSeverity.critical:
+        return 'CRÍTICO';
+      case IssueSeverity.high:
+        return 'ALTO';
+      case IssueSeverity.medium:
+        return 'MEDIO';
+      case IssueSeverity.low:
+        return 'BAJO';
+      case IssueSeverity.info:
+        return 'INFO';
+    }
+  }
+}
+
 // ==================== HEADER ====================
 
 class _DiagnosticHeader extends GetView<SyncDiagnosticController> {
@@ -100,10 +667,12 @@ class _DiagnosticHeader extends GetView<SyncDiagnosticController> {
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Get.back(),
-            tooltip: 'Volver',
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu_rounded, color: Colors.white),
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+              tooltip: 'Menú',
+            ),
           ),
           const SizedBox(width: 4),
           Container(
@@ -556,6 +1125,243 @@ class _ExpandableEntityListState extends State<_ExpandableEntityList> {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ==================== STUCK PRODUCTS ====================
+
+class _StuckProductsSection extends GetView<SyncDiagnosticController> {
+  final bool isNarrow;
+  const _StuckProductsSection({required this.isNarrow});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Productos bloqueados',
+      icon: Icons.inventory_2_outlined,
+      iconColor: ElegantLightTheme.errorRed,
+      child: Obx(() {
+        final stuck = controller.stuckProducts;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.errorRed.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: ElegantLightTheme.errorRed.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: ElegantLightTheme.errorRed,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      text: const TextSpan(
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Alerta de stock: ',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(
+                            text: 'Estos productos tienen el flag isSynced=false sin '
+                                'ninguna operación pendiente que lo justifique. El sistema '
+                                'los protege del PULL del servidor — su stock en pantalla '
+                                'puede estar desactualizado. Usar "Sanar" para liberarlos.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...stuck.take(20).map((sp) => _StuckProductRow(product: sp)),
+            if (stuck.length > 20)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '+${stuck.length - 20} más…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: Obx(() => ElevatedButton.icon(
+                    onPressed: controller.isHealing.value
+                        ? null
+                        : () => _confirmHeal(context, stuck.length),
+                    icon: controller.isHealing.value
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.healing_outlined, size: 16),
+                    label: Text(
+                      controller.isHealing.value
+                          ? 'Sanando...'
+                          : 'Sanar ${stuck.length} producto${stuck.length == 1 ? "" : "s"} y sincronizar',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ElegantLightTheme.errorRed,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  )),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Future<void> _confirmHeal(BuildContext context, int count) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sanar productos bloqueados'),
+        content: RichText(
+          text: TextSpan(
+            style: const TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: ElegantLightTheme.textPrimary),
+            children: [
+              TextSpan(
+                text: 'Se liberarán $count producto${count == 1 ? "" : "s"} '
+                    'que tienen el flag isSynced=false sin justificación.\n\n',
+              ),
+              const TextSpan(
+                text: 'Esta acción es segura: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const TextSpan(
+                text: 'solo afecta productos sin operaciones de stock pendientes. '
+                    'Después se iniciará una sincronización para actualizar sus datos desde el servidor.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElegantLightTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sanar ahora'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.healStuckProducts();
+    }
+  }
+}
+
+class _StuckProductRow extends StatelessWidget {
+  final StuckProduct product;
+  const _StuckProductRow({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.errorRed.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: ElegantLightTheme.errorRed.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.lock_outline,
+            color: ElegantLightTheme.errorRed,
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  style: const TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (product.sku.isNotEmpty)
+                  Text(
+                    'SKU: ${product.sku}',
+                    style: const TextStyle(
+                      color: ElegantLightTheme.textTertiary,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _SmallBadge(
+                label: 'Stock: ${product.localStock.toStringAsFixed(0)}',
+                color: ElegantLightTheme.warningOrange,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Bloqueado: ${product.stuckDuration}',
+                style: const TextStyle(
+                  color: ElegantLightTheme.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1174,11 +1980,13 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final Widget child;
+  final Color? iconColor;
 
   const _SectionCard({
     required this.title,
     required this.icon,
     required this.child,
+    this.iconColor,
   });
 
   @override
@@ -1197,7 +2005,11 @@ class _SectionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: ElegantLightTheme.primaryBlue, size: 18),
+                Icon(
+                  icon,
+                  color: iconColor ?? ElegantLightTheme.primaryBlue,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   title,

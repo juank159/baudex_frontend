@@ -166,11 +166,36 @@ class NetworkInfoImpl implements NetworkInfo {
     print('🌐 NetworkInfo: Servidor marcado como no alcanzable');
   }
 
+  // Timestamp del último reset — evita spam en el log cuando múltiples
+  // code paths llaman a reset() casi simultáneamente (ej: cada respuesta API
+  // exitosa + reconexión de WiFi + timer periódico = 15+ prints por minuto).
+  DateTime? _lastResetAt;
+
   @override
   void resetServerReachability() {
+    final wasUnreachable = !_serverReachable;
     _serverReachable = true;
     _lastServerCheck = null;
-    print('🌐 NetworkInfo: Estado de alcanzabilidad del servidor reseteado');
+
+    // Solo loguear si el servidor estaba marcado como inalcanzable (evento real)
+    // o si pasaron más de 60s desde el último reset (evita spam de "reseteado"
+    // que aparecía 15+ veces por minuto cuando todo funciona bien).
+    final now = DateTime.now();
+    final timeSinceLastReset = _lastResetAt == null
+        ? null
+        : now.difference(_lastResetAt!);
+    final shouldLog = wasUnreachable ||
+        timeSinceLastReset == null ||
+        timeSinceLastReset.inSeconds > 60;
+
+    _lastResetAt = now;
+
+    if (shouldLog) {
+      if (wasUnreachable) {
+        print('🌐 NetworkInfo: Servidor recuperado — alcanzabilidad reseteada');
+      }
+      // Si no estaba marcado como inalcanzable, no hay nada que anunciar
+    }
   }
 
   /// ✅ Verificación rápida de alcanzabilidad del servidor (con mutex para evitar pings concurrentes)

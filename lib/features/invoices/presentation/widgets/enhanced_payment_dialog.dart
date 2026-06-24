@@ -117,8 +117,12 @@ class MultiplePaymentData {
 
 class EnhancedPaymentDialog extends StatefulWidget {
   final double total;
-  final String? customerName; // Nombre del cliente para validar crédito
-  final String? customerId; // ✅ NUEVO: ID del cliente para verificar saldo a favor
+  final String? customerName;
+  final String? customerId;
+  /// Cupo total de crédito asignado al cliente (0 = sin crédito configurado)
+  final double customerCreditLimit;
+  /// Saldo deudor actual del cliente antes de esta venta
+  final double customerCurrentBalance;
   final Function(
     double receivedAmount,
     double change,
@@ -141,7 +145,9 @@ class EnhancedPaymentDialog extends StatefulWidget {
     super.key,
     required this.total,
     this.customerName,
-    this.customerId, // ✅ NUEVO
+    this.customerId,
+    this.customerCreditLimit = 0,
+    this.customerCurrentBalance = 0,
     required this.onPaymentConfirmed,
     required this.onCancel,
   });
@@ -220,6 +226,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   bool _applyBalance = false;
   double _balanceToApply = 0.0;
 
+  // Error de cupo de crédito (validación frontend)
+  String? _creditLimitError;
+
   // Multi-moneda (pago simple)
   bool _isMultiCurrencyEnabled = false;
   List<Map<String, dynamic>> _acceptedCurrencies = [];
@@ -231,6 +240,32 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
 
   /// Total efectivo a pagar (total - saldo aplicado)
   double get _effectiveTotal => widget.total - (_applyBalance ? _balanceToApply : 0);
+
+  /// True cuando el método es crédito Y el total supera el cupo disponible.
+  /// Los borradores no se bloquean — solo las ventas confirmadas.
+  bool get _creditLimitExceeded {
+    if (saveAsDraft) return false; // borrador = sin bloqueo de cupo
+    if (selectedPaymentMethod != PaymentMethod.credit) return false;
+    if (widget.isDefaultCustomer) return false;
+    // Si el cupo es 0 para un cliente real → no tiene crédito configurado
+    if (widget.customerCreditLimit <= 0) return true;
+    final available = widget.customerCreditLimit - widget.customerCurrentBalance;
+    return widget.total > available;
+  }
+
+  /// Verdadero si TODOS los requisitos están listos para procesar.
+  /// Extiende [canProcess] con la validación de cupo de crédito.
+  bool get _canProcessFinal => canProcess && !_creditLimitExceeded;
+
+  /// Texto corto para mostrar en el tooltip del botón desactivado por cupo.
+  String get _creditDisabledReason {
+    if (widget.customerCreditLimit <= 0) {
+      return 'Sin cupo de crédito — cambia el método de pago';
+    }
+    final available = (widget.customerCreditLimit - widget.customerCurrentBalance)
+        .clamp(0.0, double.infinity);
+    return 'Cupo insuficiente (disponible ${AppFormatters.formatCurrency(available)})';
+  }
 
   /// Verificar si el cliente tiene saldo a favor disponible
   bool get _hasAvailableBalance => _availableBalance > 0 && !widget.isDefaultCustomer;
@@ -245,6 +280,13 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   @override
   void initState() {
     super.initState();
+
+    // Consumidor Final no puede tener crédito — si por alguna razón el
+    // estado inicial fuera PaymentMethod.credit, lo forzamos a cash.
+    if (widget.isDefaultCustomer &&
+        selectedPaymentMethod == PaymentMethod.credit) {
+      selectedPaymentMethod = PaymentMethod.cash;
+    }
 
     // Animación de entrada
     _animationController = AnimationController(
@@ -745,7 +787,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           // Ctrl + Enter - Procesar sin imprimir
           if (event.logicalKey == LogicalKeyboardKey.enter &&
               HardwareKeyboard.instance.isControlPressed) {
-            if (canProcess) {
+            if (_canProcessFinal) {
               _confirmPayment(shouldPrint: false);
             }
             return KeyEventResult.handled;
@@ -754,7 +796,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           // Ctrl + P - Procesar e imprimir
           if (event.logicalKey == LogicalKeyboardKey.keyP &&
               HardwareKeyboard.instance.isControlPressed) {
-            if (canProcess) {
+            if (_canProcessFinal) {
               _confirmPayment(shouldPrint: true);
             }
             return KeyEventResult.handled;
@@ -1534,7 +1576,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           ],
         ),
         SizedBox(height: config.isMobile ? 8 : 10),
-        // Toggle simplificado: Pago Inmediato vs A Crédito
+        // Toggle: Pago Inmediato | A Crédito
+        // El crédito solo se muestra para clientes con nombre propio —
+        // "Consumidor Final" y equivalentes no pueden comprar a crédito.
         Row(
           children: [
             // Opción: Pago Inmediato
@@ -1608,8 +1652,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                 ),
               ),
             ),
+            if (!widget.isDefaultCustomer) ...[
             const SizedBox(width: 10),
-            // Opción: A Crédito
+            // Opción: A Crédito (solo para clientes con nombre propio)
             Expanded(
               child: GestureDetector(
                 onTap: () => _selectPaymentMethod(PaymentMethod.credit),
@@ -1680,8 +1725,22 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                 ),
               ),
             ),
+            ], // end if (!widget.isDefaultCustomer)
           ],
         ),
+        // Sección de cupo de crédito — visible cuando se selecciona "A Crédito"
+        // para clientes reales (no Consumidor Final).
+        if (isCredit && !widget.isDefaultCustomer) ...[
+          SizedBox(height: config.isMobile ? 8 : 10),
+          _buildCreditInfoCard(config),
+        ],
+        // Nota: el error de cupo ya se muestra dentro de _buildCreditInfoCard
+        // (en rojo con badge "EXCEDIDO"). El banner _buildCreditErrorBanner queda
+        // como fallback solo si la tarjeta no está visible por alguna razón.
+        if (_creditLimitError != null && (widget.isDefaultCustomer)) ...[
+          SizedBox(height: config.isMobile ? 6 : 8),
+          _buildCreditErrorBanner(config),
+        ],
         // ✅ MEJORADO: Toggle colapsable de pagos múltiples con mejor UX
         SizedBox(height: config.isMobile ? 8 : 10),
         GestureDetector(
@@ -3392,8 +3451,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             label: 'Procesar e Imprimir',
             icon: Icons.print,
             gradient: ElegantLightTheme.successGradient,
-            onPressed: canProcess ? () => _confirmPayment(shouldPrint: true) : null,
+            onPressed: _canProcessFinal ? () => _confirmPayment(shouldPrint: true) : null,
             tooltip: 'Ctrl + P',
+            disabledReason: _creditLimitExceeded ? _creditDisabledReason : null,
           ),
         ),
         const SizedBox(height: 10),
@@ -3407,7 +3467,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             config: config,
             label: 'Solo Procesar',
             icon: Icons.save,
-            onPressed: canProcess ? () => _confirmPayment(shouldPrint: false) : null,
+            onPressed: _canProcessFinal ? () => _confirmPayment(shouldPrint: false) : null,
             tooltip: 'Ctrl + Enter',
           ),
         ),
@@ -3475,8 +3535,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                     label: 'Procesar',
                     icon: Icons.save,
                     gradient: ElegantLightTheme.primaryGradient,
-                    onPressed: canProcess ? () => _confirmPayment(shouldPrint: false) : null,
+                    onPressed: _canProcessFinal ? () => _confirmPayment(shouldPrint: false) : null,
                     tooltip: 'Ctrl + Enter',
+                    disabledReason: _creditLimitExceeded ? _creditDisabledReason : null,
                   ),
                 ),
               ),
@@ -3494,9 +3555,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
               label: 'Procesar e Imprimir',
               icon: Icons.print,
               gradient: ElegantLightTheme.successGradient,
-              onPressed: canProcess ? () => _confirmPayment(shouldPrint: true) : null,
+              onPressed: _canProcessFinal ? () => _confirmPayment(shouldPrint: true) : null,
               tooltip: 'Ctrl + P',
               isPrimary: true,
+              disabledReason: _creditLimitExceeded ? _creditDisabledReason : null,
             ),
           ),
         ],
@@ -3513,11 +3575,16 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     required VoidCallback? onPressed,
     String? tooltip,
     bool isPrimary = false,
+    /// Razón por la que el botón está desactivado — se muestra en tooltip
+    /// cuando onPressed es null (tiene prioridad sobre [tooltip]).
+    String? disabledReason,
   }) {
     final isEnabled = onPressed != null;
+    final effectiveTooltip =
+        (!isEnabled && disabledReason != null) ? disabledReason : (tooltip ?? '');
 
     return Tooltip(
-      message: tooltip ?? '',
+      message: effectiveTooltip,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -3651,9 +3718,314 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECCIÓN DE CUPO DE CRÉDITO
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildCreditInfoCard(_DialogSizeConfig config) {
+    // Caso especial: cliente sin cupo configurado
+    if (widget.customerCreditLimit <= 0) {
+      return Container(
+        padding: EdgeInsets.all(config.cardPadding),
+        decoration: BoxDecoration(
+          color: ElegantLightTheme.warningOrange.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(config.radiusMedium),
+          border: Border.all(
+            color: ElegantLightTheme.warningOrange.withValues(alpha: 0.35),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.block_rounded,
+                color: ElegantLightTheme.warningOrange, size: config.iconMedium),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sin cupo de crédito configurado',
+                    style: TextStyle(
+                      fontSize: config.bodySize,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.warningOrange,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Este cliente no tiene un cupo asignado. '
+                    'Contacta al área de cartera para habilitarlo '
+                    'o cambia el método de pago.',
+                    style: TextStyle(
+                      fontSize: config.smallSize + 1,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final limit = widget.customerCreditLimit;
+    final used = widget.customerCurrentBalance;
+    final available = (limit - used).clamp(0.0, double.infinity);
+    final afterSale = used + widget.total;
+    final fits = widget.total <= available;
+    final utilizationBefore = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
+    final utilizationAfter = limit > 0 ? (afterSale / limit).clamp(0.0, 1.0) : 0.0;
+
+    final accentColor = fits
+        ? ElegantLightTheme.successGreen
+        : ElegantLightTheme.errorRed;
+    final bgColor = fits
+        ? ElegantLightTheme.successGreen.withValues(alpha: 0.06)
+        : ElegantLightTheme.errorRed.withValues(alpha: 0.06);
+    final borderColor = fits
+        ? ElegantLightTheme.successGreen.withValues(alpha: 0.3)
+        : ElegantLightTheme.errorRed.withValues(alpha: 0.3);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.all(config.cardPadding),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(config.radiusMedium),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  fits ? Icons.verified_user_rounded : Icons.warning_rounded,
+                  color: accentColor,
+                  size: config.iconSmall,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  fits
+                      ? 'Cupo disponible para esta venta'
+                      : 'Cupo insuficiente',
+                  style: TextStyle(
+                    fontSize: config.bodySize,
+                    fontWeight: FontWeight.w700,
+                    color: accentColor,
+                  ),
+                ),
+              ),
+              // Badge de cupo disponible
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  fits ? 'OK' : 'EXCEDIDO',
+                  style: TextStyle(
+                    fontSize: config.smallSize,
+                    fontWeight: FontWeight.w800,
+                    color: accentColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: config.isMobile ? 8 : 10),
+          // Filas de montos
+          _creditRow('Cupo total', AppFormatters.formatCurrency(limit),
+              ElegantLightTheme.textSecondary, config),
+          const SizedBox(height: 4),
+          _creditRow('Saldo deudor actual', AppFormatters.formatCurrency(used),
+              ElegantLightTheme.warningOrange, config),
+          const SizedBox(height: 4),
+          _creditRow('Disponible', AppFormatters.formatCurrency(available),
+              fits ? ElegantLightTheme.successGreen : ElegantLightTheme.errorRed, config,
+              bold: true),
+          const SizedBox(height: 4),
+          _creditRow('Esta venta', AppFormatters.formatCurrency(widget.total),
+              ElegantLightTheme.primaryBlue, config, bold: true),
+          SizedBox(height: config.isMobile ? 8 : 10),
+          // Barra de utilización
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Utilización del cupo',
+                    style: TextStyle(
+                      fontSize: config.smallSize,
+                      color: ElegantLightTheme.textTertiary,
+                    ),
+                  ),
+                  Text(
+                    '${(utilizationAfter * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: config.smallSize,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Stack(
+                  children: [
+                    // Track
+                    Container(
+                      height: 8,
+                      color: ElegantLightTheme.textTertiary.withValues(alpha: 0.12),
+                    ),
+                    // Saldo actual (antes de esta venta)
+                    FractionallySizedBox(
+                      widthFactor: utilizationBefore,
+                      child: Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: ElegantLightTheme.warningOrange.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                    // Esta venta (nuevo uso)
+                    FractionallySizedBox(
+                      widthFactor: utilizationAfter.clamp(0.0, 1.0),
+                      child: Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: fits
+                                ? [ElegantLightTheme.successGreen.withValues(alpha: 0.7), ElegantLightTheme.successGreen]
+                                : [ElegantLightTheme.errorRed.withValues(alpha: 0.7), ElegantLightTheme.errorRed],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!fits) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 12, color: ElegantLightTheme.errorRed),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Solicita aumento de cupo en cartera o cambia el método de pago.',
+                        style: TextStyle(
+                          fontSize: config.smallSize,
+                          color: ElegantLightTheme.errorRed,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _creditRow(String label, String value, Color valueColor,
+      _DialogSizeConfig config, {bool bold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: config.smallSize + 1,
+            color: ElegantLightTheme.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: config.smallSize + 1,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCreditErrorBanner(_DialogSizeConfig config) {
+    return Container(
+      padding: EdgeInsets.all(config.cardPadding),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.errorRed.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(config.radiusMedium),
+        border: Border.all(
+          color: ElegantLightTheme.errorRed.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.block_rounded, color: ElegantLightTheme.errorRed,
+              size: config.iconSmall + 2),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No se puede procesar a crédito',
+                  style: TextStyle(
+                    fontSize: config.bodySize,
+                    fontWeight: FontWeight.w700,
+                    color: ElegantLightTheme.errorRed,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _creditLimitError ?? '',
+                  style: TextStyle(
+                    fontSize: config.smallSize + 1,
+                    color: ElegantLightTheme.errorRed.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   void _selectPaymentMethod(PaymentMethod method) {
+    // Consumidor Final no puede comprar a crédito — silenciosamente ignorar
+    if (method == PaymentMethod.credit && widget.isDefaultCustomer) return;
+
     setState(() {
       selectedPaymentMethod = method;
+      _creditLimitError = null; // limpiar al cambiar método
 
       // Si es crédito, limpiar la cuenta bancaria seleccionada
       if (method == PaymentMethod.credit) {
@@ -3720,6 +4092,25 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       finalPaymentMethod = _getPaymentMethodFromBankAccount(selectedBankAccount);
     } else {
       finalPaymentMethod = PaymentMethod.cash;
+    }
+
+    // Validación de cupo de crédito ANTES de enviar al backend.
+    // Si el cupo está configurado (> 0) y la venta lo excede, mostramos el
+    // error directamente en el dialog — sin cerrar ni llamar al servidor.
+    if (finalPaymentMethod == PaymentMethod.credit &&
+        widget.customerCreditLimit > 0 &&
+        !widget.isDefaultCustomer) {
+      final available = widget.customerCreditLimit - widget.customerCurrentBalance;
+      if (widget.total > available) {
+        final deficit = widget.total - available;
+        setState(() {
+          _creditLimitError =
+              'Cupo insuficiente: disponible ${AppFormatters.formatCurrency(available)}'
+              ', solicitado ${AppFormatters.formatCurrency(widget.total)}'
+              ' — falta ${AppFormatters.formatCurrency(deficit)}';
+        });
+        return; // No cerrar el dialog ni enviar al servidor
+      }
     }
 
     final received =

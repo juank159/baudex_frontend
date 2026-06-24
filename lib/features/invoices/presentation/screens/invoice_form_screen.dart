@@ -1282,7 +1282,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           (context) => EnhancedPaymentDialog(
             total: controller.total,
             customerName: controller.selectedCustomer?.displayName,
-            customerId: controller.selectedCustomer?.id, // ✅ NUEVO: ID del cliente para verificar saldo a favor
+            customerId: controller.selectedCustomer?.id,
+            customerCreditLimit: controller.selectedCustomer?.creditLimit ?? 0,
+            customerCurrentBalance: controller.selectedCustomer?.currentBalance ?? 0,
             onPaymentConfirmed: (
               amount,
               change,
@@ -1386,8 +1388,22 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     duration: const Duration(seconds: 3),
                   );
                 } else {
-                  print('❌ SCREEN: Operación falló - NO se muestra snackbar');
-                  // No hacer nada más, el controlador ya manejó el error
+                  print('❌ SCREEN: Operación falló - mostrando error al usuario');
+                  // El controller llama _showError() cuando hay un ServerFailure,
+                  // pero si retorna false por cualquier otra razón sin mostrar nada,
+                  // mostramos un snackbar genérico de fallback para que el usuario
+                  // nunca quede mirando una pantalla sin respuesta.
+                  if (!Get.isSnackbarOpen) {
+                    Get.snackbar(
+                      'No se procesó la venta',
+                      'Verifica los datos e intenta nuevamente.',
+                      snackPosition: SnackPosition.TOP,
+                      backgroundColor: Colors.red.shade100,
+                      colorText: Colors.red.shade800,
+                      icon: const Icon(Icons.error_outline, color: Colors.red),
+                      duration: const Duration(seconds: 4),
+                    );
+                  }
                 }
               } catch (e) {
                 print('❌ Error al procesar venta: $e');

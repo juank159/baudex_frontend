@@ -93,14 +93,18 @@ class CustomerCreditController extends GetxController
   }
 
   /// Carga todos los créditos con los filtros actuales
+  /// Patrón cache-first: si ya hay datos, actualiza en segundo plano sin spinner.
   Future<void> loadCredits() async {
     if (_isLoadInProgress) {
       print('⏭️ [CREDIT] loadCredits ya en progreso, saltando...');
       return;
     }
     _isLoadInProgress = true;
-    isLoading.value = true;
     errorMessage.value = '';
+
+    // Solo mostrar spinner en la carga inicial (sin datos previos)
+    final showSpinner = credits.isEmpty;
+    if (showSpinner) isLoading.value = true;
 
     try {
       final query = CustomerCreditQueryParams(
@@ -114,11 +118,7 @@ class CustomerCreditController extends GetxController
 
       result.fold(
         (failure) {
-          errorMessage.value = failure.message;
-          // No limpiar credits si ya tenemos datos en cache
-          if (credits.isEmpty) {
-            credits.clear();
-          }
+          if (credits.isEmpty) errorMessage.value = failure.message;
         },
         (data) {
           credits.assignAll(data);
@@ -251,24 +251,37 @@ class CustomerCreditController extends GetxController
 
   /// Obtiene un crédito por ID
   Future<CustomerCredit?> getCreditById(String id) async {
-    isLoading.value = true;
     errorMessage.value = '';
 
-    final result = await repository.getCreditById(id);
-
-    CustomerCredit? credit;
-    result.fold(
-      (failure) {
-        errorMessage.value = failure.message;
+    // Fase 1: mostrar cache local instantáneamente (sin spinner si hay datos)
+    final localResult = await repository.getCreditByIdLocal(id);
+    localResult.fold(
+      (_) {
+        // Sin cache → mostrar spinner mientras esperamos red
+        isLoading.value = true;
       },
-      (data) {
-        selectedCredit.value = data;
-        credit = data;
+      (cached) {
+        selectedCredit.value = cached;
+        // Datos disponibles de inmediato, no hay loading visible
+      },
+    );
+
+    // Fase 2: refrescar desde el servidor en segundo plano
+    final freshResult = await repository.getCreditById(id);
+    freshResult.fold(
+      (failure) {
+        // Solo mostrar error si no tenemos nada que mostrar
+        if (selectedCredit.value == null) {
+          errorMessage.value = failure.message;
+        }
+      },
+      (fresh) {
+        selectedCredit.value = fresh;
       },
     );
 
     isLoading.value = false;
-    return credit;
+    return selectedCredit.value;
   }
 
   /// Crea un nuevo crédito

@@ -33,7 +33,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           IsarCustomerCredit isarCredit;
 
           if (existingCredit != null) {
-            // Actualizar crédito existente
+            // Actualizar crédito existente — preservar invoiceItems si el nuevo no los trae
             isarCredit = existingCredit
               ..originalAmount = credit.originalAmount
               ..paidAmount = credit.paidAmount
@@ -54,7 +54,8 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
               ..deletedAt = credit.deletedAt
               ..isSynced = true
               ..lastSyncAt = DateTime.now()
-              ..metadataJson = _serializeCreditData(credit);
+              ..metadataJson = _serializeCreditData(credit,
+                  existingMetadataJson: existingCredit.metadataJson);
           } else {
             // Crear nuevo crédito
             isarCredit = IsarCustomerCredit(
@@ -108,7 +109,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         IsarCustomerCredit isarCredit;
 
         if (existingCredit != null) {
-          // Actualizar existente
+          // Actualizar existente — preservar invoiceItems si el nuevo no los trae
           isarCredit = existingCredit
             ..serverId = credit.id
             ..originalAmount = credit.originalAmount
@@ -130,7 +131,8 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
             ..deletedAt = credit.deletedAt
             ..isSynced = true
             ..lastSyncAt = DateTime.now()
-            ..metadataJson = _serializeCreditData(credit);
+            ..metadataJson = _serializeCreditData(credit,
+                existingMetadataJson: existingCredit.metadataJson);
         } else {
           // Crear nuevo
           isarCredit = IsarCustomerCredit(
@@ -392,8 +394,9 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
 
   /// Convertir IsarCustomerCredit a CustomerCreditModel
   CustomerCreditModel _convertToModel(IsarCustomerCredit isarCredit) {
-    // Deserializar payments desde metadataJson
+    // Deserializar payments e invoiceItems desde metadataJson
     List<CreditPayment>? payments;
+    List<InvoiceItemSummary>? invoiceItems;
     if (isarCredit.metadataJson != null && isarCredit.metadataJson!.isNotEmpty) {
       try {
         final metadata = jsonDecode(isarCredit.metadataJson!) as Map<String, dynamic>;
@@ -417,8 +420,20 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
             )
           ).toList();
         }
+        if (metadata['invoiceItems'] is List && (metadata['invoiceItems'] as List).isNotEmpty) {
+          invoiceItems = (metadata['invoiceItems'] as List).map((item) =>
+            InvoiceItemSummary(
+              id: item['id']?.toString() ?? '',
+              description: item['description']?.toString() ?? '',
+              quantity: (item['quantity'] as num?)?.toDouble() ?? 0,
+              unitPrice: (item['unitPrice'] as num?)?.toDouble() ?? 0,
+              subtotal: (item['subtotal'] as num?)?.toDouble() ?? 0,
+              productName: item['productName']?.toString(),
+            )
+          ).toList();
+        }
       } catch (e) {
-        print('⚠️ Error deserializando payments: $e');
+        print('⚠️ Error deserializando metadataJson del crédito: $e');
       }
     }
 
@@ -439,6 +454,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
       createdById: isarCredit.createdById,
       createdByName: isarCredit.createdByName,
       payments: payments,
+      invoiceItems: invoiceItems,
       createdAt: isarCredit.createdAt,
       updatedAt: isarCredit.updatedAt,
       deletedAt: isarCredit.deletedAt,
@@ -471,8 +487,36 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
   }
 
   /// Serializar datos del crédito a JSON
-  String _serializeCreditData(CustomerCreditModel credit) {
+  /// Serializa pagos e ítems de factura a JSON para almacenar en ISAR.
+  /// Si el crédito entrante NO trae items (ej: viene de la lista, no del detalle),
+  /// preserva los items ya cacheados para no perderlos al sincronizar.
+  String _serializeCreditData(CustomerCreditModel credit, {String? existingMetadataJson}) {
     try {
+      // Determinar qué items persistir
+      List<dynamic> itemsJson;
+      if (credit.invoiceItems != null && credit.invoiceItems!.isNotEmpty) {
+        // El crédito vino del detalle individual (con items) — usar los nuevos
+        itemsJson = credit.invoiceItems!.map((item) => {
+          'id': item.id,
+          'description': item.description,
+          'quantity': item.quantity,
+          'unitPrice': item.unitPrice,
+          'subtotal': item.subtotal,
+          'productName': item.productName,
+        }).toList();
+      } else if (existingMetadataJson != null && existingMetadataJson.isNotEmpty) {
+        // El crédito vino de la lista (sin items) — preservar items ya cacheados
+        try {
+          final existing = jsonDecode(existingMetadataJson) as Map<String, dynamic>;
+          final existingItems = existing['invoiceItems'];
+          itemsJson = (existingItems is List && existingItems.isNotEmpty) ? existingItems : [];
+        } catch (_) {
+          itemsJson = [];
+        }
+      } else {
+        itemsJson = [];
+      }
+
       return jsonEncode({
         'payments': credit.payments?.map((p) => {
           'id': p.id,
@@ -483,11 +527,14 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           'notes': p.notes,
           'creditId': p.creditId,
           'bankAccountId': p.bankAccountId,
+          'bankAccountName': p.bankAccountName,
           'organizationId': p.organizationId,
           'createdById': p.createdById,
+          'createdByName': p.createdByName,
           'createdAt': p.createdAt.toIso8601String(),
           'updatedAt': p.updatedAt.toIso8601String(),
         }).toList() ?? [],
+        'invoiceItems': itemsJson,
       });
     } catch (e) {
       print('❌ Error serializando datos del crédito: $e');

@@ -62,9 +62,6 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         queryParameters: query.toQueryParameters(),
       );
 
-      print('📡 CustomerRemoteDataSource: Status ${response.statusCode}');
-      print('📦 CustomerRemoteDataSource: Response data: ${response.data}');
-
       if (response.statusCode == 200) {
         final result = CustomerResponseModel.fromJson(response.data);
         print('✅ CustomerRemoteDataSource: Parsed ${result.data.length} customers');

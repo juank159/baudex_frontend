@@ -267,6 +267,13 @@ class SyncService extends GetxService {
   // FASE 5: Última descarga (pull) del servidor - throttle cada 5 minutos
   DateTime? _lastPullTime;
 
+  // Conteos del último pull exitoso — sirven para detectar si algo cambió
+  // en el servidor. Si los conteos son idénticos al pull anterior Y el
+  // intervalo es menor a 3 minutos, no notificamos a los controllers (evita
+  // recargas innecesarias cuando nada ha cambiado realmente).
+  Map<String, int> _lastPullCounts = {};
+  DateTime? _lastControllerNotificationAt;
+
   // Marca de actividad de navegación reciente. El NavigationGuard lo
   // actualiza en cada `offAllNamed`/`toNamed`. Si el usuario está
   // navegando activamente, postergamos el pull periódico para no
@@ -527,15 +534,30 @@ class SyncService extends GetxService {
 
       final result = await fullSyncService.performFullSync(skipCleanup: true);
 
-      if (result.totalSynced > 0) {
-        AppLogger.i(
-          'Pull periódico: ${result.totalSynced} registros nuevos - notificando controllers',
-          tag: 'SYNC',
-        );
-        // Forzar transición syncing→idle para notificar SyncAutoRefreshMixin en todos los controllers
-        _syncState.value = SyncState.syncing;
-        await Future.delayed(const Duration(milliseconds: 100));
-        _syncState.value = SyncState.idle;
+      if (result.totalSynced > 0 && !result.wasAborted) {
+        final countsChanged = !_mapsEqualInt(result.syncedCounts, _lastPullCounts);
+        final timeSinceNotification = _lastControllerNotificationAt == null
+            ? null
+            : DateTime.now().difference(_lastControllerNotificationAt!);
+        final notificationOverdue = timeSinceNotification == null ||
+            timeSinceNotification.inMinutes >= 3;
+
+        if (countsChanged || notificationOverdue) {
+          _lastPullCounts = Map<String, int>.from(result.syncedCounts);
+          _lastControllerNotificationAt = DateTime.now();
+          AppLogger.i(
+            'Pull periódico: ${countsChanged ? "cambios detectados" : "actualización periódica"} (${result.totalSynced} registros) — notificando controllers',
+            tag: 'SYNC',
+          );
+          _syncState.value = SyncState.syncing;
+          await Future.delayed(const Duration(milliseconds: 100));
+          _syncState.value = SyncState.idle;
+        } else {
+          AppLogger.d(
+            'Pull periódico: ${result.totalSynced} registros descargados — sin cambios vs pull anterior',
+            tag: 'SYNC',
+          );
+        }
       } else {
         AppLogger.d('Pull periódico: sin cambios del servidor', tag: 'SYNC');
       }
@@ -888,9 +910,13 @@ class SyncService extends GetxService {
       return;
     }
 
-    // Throttle: no hacer pull si ya se hizo hace menos de 45 segundos
+    // Throttle: actualizar _lastPullTime INMEDIATAMENTE (antes de cualquier
+    // await) para que llamadas concurrentes (ej: _checkConnectivity +
+    // _listenToConnectivityChanges disparando al mismo tiempo) no pasen ambas
+    // el check de 45 segundos.
+    final now = DateTime.now();
     if (_lastPullTime != null) {
-      final elapsed = DateTime.now().difference(_lastPullTime!);
+      final elapsed = now.difference(_lastPullTime!);
       if (elapsed.inSeconds < 45) {
         AppLogger.d(
           'Pull omitido - último pull hace ${elapsed.inSeconds}s (mínimo 45s)',
@@ -899,6 +925,7 @@ class SyncService extends GetxService {
         return;
       }
     }
+    _lastPullTime = now; // ← Fijado antes del primer await — mutex de tiempo
 
     try {
       if (!Get.isRegistered<FullSyncService>()) {
@@ -908,43 +935,60 @@ class SyncService extends GetxService {
 
       final fullSyncService = Get.find<FullSyncService>();
 
-      // No hacer pull si ya hay un full sync en progreso
       if (fullSyncService.isSyncing.value) {
         AppLogger.d('Full sync ya en progreso, omitiendo pull', tag: 'SYNC');
         return;
       }
 
-      // ✅ Resetear reachability antes del PULL: si el PUSH tuvo éxito,
-      // el servidor está alcanzable pero puede estar marcado como inalcanzable
-      // por errores previos o por el cooldown de 30s
-      try {
-        final networkInfo = Get.find<NetworkInfo>();
-        networkInfo.resetServerReachability();
-      } catch (_) {}
-
       AppLogger.i('Iniciando PULL de datos del servidor...', tag: 'SYNC');
-      _lastPullTime = DateTime.now();
 
       final result = await fullSyncService.performFullSync();
-
-      AppLogger.i(
-        'PULL completado: ${result.totalSynced} registros descargados',
-        tag: 'SYNC',
-      );
 
       if (result.hasErrors) {
         AppLogger.w('PULL con errores: ${result.errors}', tag: 'SYNC');
       }
 
-      // Notificar controllers si el pull trajo cambios nuevos
       if (result.totalSynced > 0) {
-        _syncState.value = SyncState.syncing;
-        await Future.delayed(const Duration(milliseconds: 100));
-        _syncState.value = SyncState.idle;
+        // Solo notificar controllers si algo cambió realmente.
+        // Comparamos los conteos de este pull con los del anterior.
+        // Si son idénticos Y se notificó hace <3 min → nada cambió, omitir.
+        final countsChanged = !_mapsEqualInt(result.syncedCounts, _lastPullCounts);
+        final timeSinceNotification = _lastControllerNotificationAt == null
+            ? null
+            : now.difference(_lastControllerNotificationAt!);
+        final notificationOverdue = timeSinceNotification == null ||
+            timeSinceNotification.inMinutes >= 3;
+
+        if (countsChanged || notificationOverdue) {
+          _lastPullCounts = Map<String, int>.from(result.syncedCounts);
+          _lastControllerNotificationAt = now;
+          AppLogger.i(
+            'PULL completado: ${result.totalSynced} registros. '
+            '${countsChanged ? "Cambios detectados" : "Actualización periódica"} — notificando controllers',
+            tag: 'SYNC',
+          );
+          _syncState.value = SyncState.syncing;
+          await Future.delayed(const Duration(milliseconds: 100));
+          _syncState.value = SyncState.idle;
+        } else {
+          AppLogger.d(
+            'PULL completado: ${result.totalSynced} registros descargados — sin cambios vs pull anterior, controllers no notificados',
+            tag: 'SYNC',
+          );
+        }
       }
     } catch (e) {
       AppLogger.e('Error en PULL del servidor: $e', tag: 'SYNC');
     }
+  }
+
+  /// Compara dos Map<String,int> por valor (sin importar el orden de las keys).
+  static bool _mapsEqualInt(Map<String, int> a, Map<String, int> b) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (a[key] != b[key]) return false;
+    }
+    return true;
   }
 
   /// ✅ LIMPIAR OPERACIONES DUPLICADAS AUTOMÁTICAMENTE
@@ -5452,35 +5496,82 @@ class SyncService extends GetxService {
               // por esta factura. Sin esto, el flag queda en false para siempre
               // y el siguiente PULL los protege (skip en _syncProducts) →
               // los productos NUNCA se actualizan con datos frescos del backend.
+              //
+              // CUIDADO: si hay OTRA factura offline pendiente para el mismo
+              // producto, NO debemos liberar ese producto todavía — su stock
+              // local aún refleja esa factura pendiente y el PULL lo picaría.
               try {
                 final itemsPayload = finalData['items'];
                 if (itemsPayload is List) {
-                  final productIdsToReset = <String>{};
+                  // Productos de esta factura
+                  final productIdsFromThisInvoice = <String>{};
                   for (final item in itemsPayload) {
                     if (item is Map && item['productId'] is String) {
                       final pid = item['productId'] as String;
-                      if (pid.isNotEmpty) productIdsToReset.add(pid);
+                      if (pid.isNotEmpty && !pid.startsWith('product_offline_')) {
+                        productIdsFromThisInvoice.add(pid);
+                      }
                     }
                   }
-                  if (productIdsToReset.isNotEmpty) {
-                    int resetCount = 0;
-                    await isar.writeTxn(() async {
-                      for (final pid in productIdsToReset) {
-                        final p = await isar.isarProducts
-                            .filter()
-                            .serverIdEqualTo(pid)
-                            .findFirst();
-                        if (p != null && !p.isSynced) {
-                          p.isSynced = true;
-                          p.lastSyncAt = DateTime.now();
-                          await isar.isarProducts.put(p);
-                          resetCount++;
+
+                  if (productIdsFromThisInvoice.isNotEmpty) {
+                    // Buscar otras ops de stock pendientes (excluyendo la actual)
+                    final allOps = await isar.syncOperations.where().findAll();
+                    final otherPendingStockOps = allOps.where((op) =>
+                        op.entityId != operation.entityId &&
+                        op.status != SyncStatus.completed &&
+                        (op.entityType == 'Invoice' ||
+                         op.entityType == 'CreditNote' ||
+                         op.entityType == 'inventory_movement_fifo')).toList();
+
+                    // Productos aún protegidos por otras facturas pendientes
+                    final stillProtectedIds = <String>{};
+                    for (final op in otherPendingStockOps) {
+                      try {
+                        final payload = jsonDecode(op.payload) as Map<String, dynamic>;
+                        if (payload['items'] is List) {
+                          for (final item in payload['items'] as List) {
+                            if (item is Map && item['productId'] is String) {
+                              stillProtectedIds.add(item['productId'] as String);
+                            }
+                          }
                         }
+                        if (payload['productId'] is String) {
+                          stillProtectedIds.add(payload['productId'] as String);
+                        }
+                      } catch (_) {}
+                    }
+
+                    // Solo liberar los que no están referenciados por otras ops
+                    final productIdsToReset = productIdsFromThisInvoice
+                        .difference(stillProtectedIds);
+
+                    if (productIdsToReset.isNotEmpty) {
+                      int resetCount = 0;
+                      await isar.writeTxn(() async {
+                        for (final pid in productIdsToReset) {
+                          final p = await isar.isarProducts
+                              .filter()
+                              .serverIdEqualTo(pid)
+                              .findFirst();
+                          if (p != null && !p.isSynced) {
+                            p.isSynced = true;
+                            p.lastSyncAt = DateTime.now();
+                            await isar.isarProducts.put(p);
+                            resetCount++;
+                          }
+                        }
+                      });
+                      if (resetCount > 0) {
+                        AppLogger.i(
+                          'Reseteado isSynced=true en $resetCount productos (post-Invoice sync). '
+                          'Mantenidos protegidos: ${stillProtectedIds.intersection(productIdsFromThisInvoice).length}',
+                          tag: 'SYNC',
+                        );
                       }
-                    });
-                    if (resetCount > 0) {
-                      AppLogger.i(
-                        'Reseteado isSynced=true en $resetCount productos (post-Invoice sync)',
+                    } else if (stillProtectedIds.intersection(productIdsFromThisInvoice).isNotEmpty) {
+                      AppLogger.d(
+                        'Productos de la factura se mantienen protegidos (otras facturas pendientes los referencian)',
                         tag: 'SYNC',
                       );
                     }
@@ -5488,7 +5579,7 @@ class SyncService extends GetxService {
                 }
               } catch (e) {
                 AppLogger.w(
-                  'Error reseteando isSynced en productos: $e',
+                  'Error reseteando isSynced en productos: $e (el sanador de FullSync lo corregirá)',
                   tag: 'SYNC',
                 );
               }
