@@ -19,6 +19,7 @@ import '../datasources/customer_remote_datasource.dart';
 import '../datasources/customer_local_datasource.dart';
 import '../models/isar/isar_customer.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../models/customer_model.dart';
 
 import '../models/create_customer_request_model.dart';
@@ -1768,32 +1769,65 @@ class CustomerRepositoryImpl implements CustomerRepository {
   Future<Either<Failure, Map<String, dynamic>>> getCustomerFinancialSummary(
     String customerId,
   ) async {
+    // Calcular deuda real desde ISAR customer_credits (fuente de verdad local).
+    // El campo currentBalance en la entidad Customer del backend no se actualizaba
+    // correctamente al crear facturas a crédito, así que lo calculamos aquí
+    // sumando el balanceDue de todos los créditos activos del cliente.
+    final isarPendingAmount = await _calculatePendingAmountFromIsar(customerId);
+
     if (await networkInfo.isConnected) {
       try {
         final result = await remoteDataSource.getCustomerFinancialSummary(
           customerId,
         );
+        // Sobrescribir pendingAmount con el valor calculado desde ISAR (más preciso).
+        result['pendingAmount'] = isarPendingAmount;
         return Right(result);
       } on ServerException catch (e) {
         if (e.message.contains('timeout') || e.message.contains('conexión')) {
           networkInfo.markServerUnreachable();
         }
-        return _getFinancialSummaryOffline(customerId);
+        return _getFinancialSummaryOffline(customerId,
+            isarPendingAmount: isarPendingAmount);
       } on ConnectionException catch (e) {
         networkInfo.markServerUnreachable();
-        return _getFinancialSummaryOffline(customerId);
+        return _getFinancialSummaryOffline(customerId,
+            isarPendingAmount: isarPendingAmount);
       } catch (e) {
-        return _getFinancialSummaryOffline(customerId);
+        return _getFinancialSummaryOffline(customerId,
+            isarPendingAmount: isarPendingAmount);
       }
     } else {
-      return _getFinancialSummaryOffline(customerId);
+      return _getFinancialSummaryOffline(customerId,
+          isarPendingAmount: isarPendingAmount);
+    }
+  }
+
+  /// Suma el balanceDue de todos los créditos activos del cliente desde ISAR.
+  /// Este es el valor correcto de "deuda pendiente" del cliente.
+  Future<double> _calculatePendingAmountFromIsar(String customerId) async {
+    try {
+      final credits = await isar.isarCustomerCredits
+          .filter()
+          .customerIdEqualTo(customerId)
+          .findAll();
+
+      final activeCredits = credits.where((c) =>
+          c.status == IsarCreditStatus.pending ||
+          c.status == IsarCreditStatus.partiallyPaid ||
+          c.status == IsarCreditStatus.overdue);
+
+      return activeCredits.fold(0.0, (sum, c) => sum + c.balanceDue);
+    } catch (_) {
+      return 0.0;
     }
   }
 
   /// Obtener resumen financiero desde ISAR
   Future<Either<Failure, Map<String, dynamic>>> _getFinancialSummaryOffline(
-    String customerId,
-  ) async {
+    String customerId, {
+    double? isarPendingAmount,
+  }) async {
     try {
       final isarCustomer = await isar.isarCustomers
           .filter()
@@ -1804,11 +1838,16 @@ class CustomerRepositoryImpl implements CustomerRepository {
         return Left(CacheFailure('Cliente no encontrado: $customerId'));
       }
 
-      final availableCredit = isarCustomer.creditLimit - isarCustomer.currentBalance;
+      // Usar el pendingAmount calculado desde créditos ISAR si está disponible
+      final pendingAmount =
+          isarPendingAmount ?? await _calculatePendingAmountFromIsar(customerId);
+      final availableCredit =
+          (isarCustomer.creditLimit - pendingAmount).clamp(0.0, double.infinity);
 
       return Right({
         'customerId': customerId,
-        'currentBalance': isarCustomer.currentBalance,
+        'currentBalance': pendingAmount,
+        'pendingAmount': pendingAmount,
         'creditLimit': isarCustomer.creditLimit,
         'availableCredit': availableCredit,
         'totalPurchases': isarCustomer.totalPurchases,
