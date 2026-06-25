@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/services/audio_notification_service.dart';
@@ -46,7 +47,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   // Timer para debounce
   Timer? _debounceTimer;
-  static const Duration _debounceDuration = Duration(milliseconds: 500);
+  static const Duration _debounceDuration = Duration(milliseconds: 300);
 
   // Control para pausar la restauración automática de focus.
   // El padre (ej: CustomerSelectorWidget) lo puede activar mientras el
@@ -101,9 +102,8 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   Future<void> _initializeAudioService() async {
     try {
       await AudioNotificationService.instance.initialize();
-      print('🔊 ProductSearchWidget: Servicio de audio inicializado para notificaciones');
     } catch (e) {
-      print('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
+AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
     }
   }
 
@@ -120,7 +120,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       _keyboardFocusNode.dispose();
       _resultsScrollController.dispose();
     } catch (e) {
-      print('⚠️ Error en dispose de ProductSearchWidget: $e');
+AppLogger.w('⚠️ Error en dispose de ProductSearchWidget: $e');
     }
     super.dispose();
   }
@@ -141,7 +141,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_hasModalRouteAbove()) {
           _focusNode.requestFocus();
-          print('🔍 Focus asegurado en campo de búsqueda');
         }
       });
     }
@@ -150,13 +149,11 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   // ✅ NUEVO: Pausar temporalmente la restauración automática de focus
   void pauseFocusRestoration() {
     _pauseFocusRestoration = true;
-    print('🔍 Focus restauración pausada - otros campos pueden tomar control');
   }
 
   // ✅ NUEVO: Reanudar la restauración automática de focus
   void resumeFocusRestoration() {
     _pauseFocusRestoration = false;
-    print('🔍 Focus restauración reanudada - monitoreo activo');
   }
 
   /// API pública para que el padre fuerce el focus de vuelta al
@@ -184,7 +181,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
             baseOffset: 0,
             extentOffset: _searchController.text.length,
           );
-          print('✅ Texto auto-seleccionado: "${_searchController.text}"');
           
           // Asegurar focus después de seleccionar
           if (!_focusNode.hasFocus && !_hasModalRouteAbove()) {
@@ -193,7 +189,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         }
       });
     } catch (e) {
-      print('⚠️ Error auto-seleccionando texto: $e');
+AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
     }
   }
 
@@ -359,10 +355,8 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
             onSubmitted: (value) {
               // ✅ CRÍTICO: Solo procesar onSubmitted si no hay selección activa
               if (_selectedResultIndex < 0) {
-                print('🔍 SUBMIT: Procesando sin selección activa');
                 _handleDirectSearch(value);
               } else {
-                print('🔍 SUBMIT: Hay selección activa ($_selectedResultIndex) - procesando producto seleccionado');
                 // Si hay selección activa, procesar ese producto en lugar de buscar
                 final selectedProduct = _searchResults[_selectedResultIndex];
                 if (!widget.controller.shouldValidateStock || selectedProduct.stock > 0) {
@@ -718,7 +712,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   void _handleKeyboardNavigation(RawKeyEvent event) {
     // ✅ MEJORADO: Solo manejar navegación cuando hay resultados, sin quitar focus del TextField
     if (event is RawKeyDownEvent && _showResults && _searchResults.isNotEmpty) {
-      print('🎹 Navegación detectada: ${event.logicalKey} - Resultados: ${_searchResults.length}');
       
       // Flecha hacia abajo
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -729,7 +722,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
           );
           _scrollToSelected();
         });
-        print('⬇️ Seleccionado: $_selectedResultIndex/${_searchResults.length - 1}');
         return;
       }
 
@@ -742,7 +734,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
           );
           _scrollToSelected();
         });
-        print('⬆️ Seleccionado: $_selectedResultIndex/${_searchResults.length - 1}');
         return;
       }
 
@@ -770,7 +761,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   void _onSearchChanged() {
     // Verificar que el widget esté montado y el controlador disponible
     if (!mounted) {
-      print('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda');
+AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda');
       return;
     }
     
@@ -803,7 +794,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       setState(() {
         _selectedResultIndex = -1; // Resetear selección mientras escribe
       });
-      print('⌨️ Usuario escribiendo, selección reseteada');
     }
 
       // Crear nuevo timer con debounce
@@ -811,7 +801,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         _performSearch(query);
       });
     } catch (e) {
-      print('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
+AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
       // Cancelar timer si hay error
       _debounceTimer?.cancel();
     }
@@ -832,10 +822,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       return;
     }
 
-    if (widget.controller.isLoadingProducts) {
-      print('⚠️ Productos aún cargando, esperando...');
-      return;
-    }
+    // Do NOT block on isLoadingProducts — ISAR is always ready regardless of remote refresh
 
     setState(() {
       _isSearching = true;
@@ -850,7 +837,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       
       if (isBarcode) {
         // Búsqueda por código de barras para números >7 dígitos
-        print('🔍 Búsqueda por código de barras: $query');
         
         // 1. Primero buscar localmente
         final exactMatch = await _searchByBarcode(query);
@@ -860,7 +846,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         
         // 2. Si no se encuentra localmente, buscar en la API
         if (exactMatch == null) {
-          print('🌐 Código de barras no encontrado localmente, buscando en API...');
           final apiResults = await widget.controller.searchProducts(query);
           results.addAll(apiResults);
         }
@@ -877,22 +862,19 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
           });
         } else {
           // Solo mensaje de log, SIN audio para códigos de barras no encontrados
-          print('🔊 Código de barras no encontrado');
         }
-      } else if (!isUnregisteredProduct) {
-        // Búsqueda normal para texto y números que no son códigos de barras ni precios
-        
-        // 1. Búsqueda por SKU exacto
-        final skuMatch = await _searchBySku(query);
-        if (skuMatch != null) {
-          results.add(skuMatch);
+      } else {
+        // Búsqueda normal: texto, SKU, y también números ≤7 dígitos (posibles códigos de producto)
+        // IMPORTANTE: para números ≤7 dígitos primero buscamos en ISAR por SKU/barcode exacto.
+        // Si hay coincidencia, se muestra el producto. Si no hay, la UI mostrará
+        // automáticamente la opción "Producto sin registrar" (porque _searchResults.isEmpty).
+        if (isUnregisteredProduct) {
+          final skuMatch = await _searchBySku(query);
+          if (skuMatch != null) results.add(skuMatch);
         }
-
-        // 2. Búsqueda general usando el controlador (solo para búsquedas de texto)
         final searchResults = await widget.controller.searchProducts(query);
         results.addAll(searchResults);
       }
-      // Si isUnregisteredProduct es true, no agregamos resultados para que aparezca la opción de producto sin registrar
 
       // Eliminar duplicados y limitar resultados
       final uniqueResults = <String, Product>{};
@@ -925,23 +907,18 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         if (isBarcode && _searchResults.isEmpty) {
           // Reproducir audio "Producto no encontrado" para códigos de barras
           AudioNotificationService.instance.announceProductNotFound();
-          print('🔊 Código de barras no encontrado - Reproduciendo audio');
           
           // Auto-seleccionar cuando no se encontró el código de barras para facilitar reemplazo
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               _autoSelectBarcodeText();
-              print('🔍 Código de barras no encontrado - Texto auto-seleccionado para reemplazo');
             }
           });
         }
       }
 
-      print(
-        '✅ Búsqueda completada: ${_searchResults.length} productos encontrados (Código barras: $isBarcode, Producto sin registrar: $isUnregisteredProduct)',
-      );
     } catch (e) {
-      print('❌ Error en búsqueda de productos: $e');
+AppLogger.e('❌ Error en búsqueda de productos: $e');
       if (mounted) {
         setState(() {
           _searchResults.clear();
@@ -952,7 +929,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         // ✅ MEJORADO: Mantener focus incluso cuando hay errores
         if (_isBarcodeQuery(query)) {
           _ensureSearchFieldFocus();
-          print('🔍 Focus mantenido después de error en búsqueda de código de barras (SIN audio)');
         }
       }
     }
@@ -960,32 +936,26 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   Future<Product?> _searchByBarcode(String barcode) async {
     try {
-      if (widget.controller.isLoadingProducts) {
-        return null;
-      }
-
-      final products = widget.controller.availableProducts;
-      return products.firstWhereOrNull(
-        (product) => product.barcode?.toLowerCase() == barcode.toLowerCase(),
+      // Search ISAR via controller (covers full catalog, not just first-50 page)
+      final results = await widget.controller.searchProducts(barcode);
+      return results.firstWhereOrNull(
+        (p) => p.barcode?.toLowerCase() == barcode.toLowerCase(),
       );
     } catch (e) {
-      print('❌ Error en búsqueda por código de barras: $e');
+AppLogger.e('❌ Error en búsqueda por código de barras: $e');
       return null;
     }
   }
 
   Future<Product?> _searchBySku(String sku) async {
     try {
-      if (widget.controller.isLoadingProducts) {
-        return null;
-      }
-
-      final products = widget.controller.availableProducts;
-      return products.firstWhereOrNull(
-        (product) => product.sku.toLowerCase() == sku.toLowerCase(),
+      // Search ISAR via controller (covers full catalog, not just first-50 page)
+      final results = await widget.controller.searchProducts(sku);
+      return results.firstWhereOrNull(
+        (p) => p.sku.toLowerCase() == sku.toLowerCase(),
       );
     } catch (e) {
-      print('❌ Error en búsqueda por SKU: $e');
+AppLogger.e('❌ Error en búsqueda por SKU: $e');
       return null;
     }
   }
@@ -1026,7 +996,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   void _createUnregisteredProduct(double price) {
     // ✅ NUEVO: Notificación de voz para productos sin registrar
     AudioNotificationService.instance.announceProductNotRegistered();
-    print('🔊 Creando producto sin registrar con precio: ${AppFormatters.formatCurrency(price)}');
     
     _showProductNameDialog(price);
   }
@@ -1108,7 +1077,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
                       _ensureSearchFieldFocus();
-                      print('🔍 Focus restaurado después de cancelar diálogo');
                     }
                   });
                 },
@@ -1188,10 +1156,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       updatedAt: DateTime.now(),
     );
 
-    print(
-      '✅ Producto temporal creado: $productName - ${AppFormatters.formatCurrency(price)}',
-    );
-    print('🆔 ID temporal: temp_$timestamp');
     _selectProduct(unregisteredProduct);
   }
 
@@ -1199,14 +1163,12 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   Future<void> _openBarcodeScanner() async {
     try {
-      print('📱 Abriendo escáner de códigos de barras...');
 
       final scannedCode = await Get.to<String>(
         () => const BarcodeScannerScreen(),
       );
 
       if (scannedCode != null && scannedCode.isNotEmpty) {
-        print('🔍 Código escaneado: $scannedCode');
         
         // ✅ MEJORADO: Establecer texto y auto-seleccionar para próximo escaneo
         _searchController.text = scannedCode;
@@ -1222,7 +1184,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         _ensureSearchFieldFocus();
       }
     } catch (e) {
-      print('❌ Error al abrir escáner: $e');
+AppLogger.e('❌ Error al abrir escáner: $e');
       _showError('Error de escáner', 'No se pudo abrir el escáner de códigos');
       
       // Mantener focus aunque haya error
@@ -1273,14 +1235,12 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_hasModalRouteAbove()) {
         _focusNode.requestFocus();
-        print('🔍 Focus restaurado para escáner continuo después de selección');
       }
     });
 
     // Notificar selección (SIN audio para productos agregados)
     widget.onProductSelected(product, quantity);
 
-    print('✅ Producto seleccionado: ${product.name} - Focus mantenido para próximo escaneo');
   }
 
   void _showError(String title, String message) {

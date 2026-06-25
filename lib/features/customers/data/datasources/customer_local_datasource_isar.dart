@@ -263,7 +263,6 @@ class CustomerLocalDataSourceIsar implements CustomerLocalDataSource {
     try {
       return await getCustomerByDocument(documentNumber);
     } catch (e) {
-      print('⚠️ Error al buscar cliente por documento (Isar DS): $e');
       return null;
     }
   }

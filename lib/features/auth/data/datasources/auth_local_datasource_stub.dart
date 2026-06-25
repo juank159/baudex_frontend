@@ -23,7 +23,6 @@ class AuthLocalDataSourceStub implements AuthLocalDataSource {
       _refreshToken = authResponse.refreshToken;
       _user = authResponse.user;
       _isAuthenticated = true;
-      print('🔐 AuthLocalDataSourceStub: Datos de auth guardados para ${authResponse.user.email}');
     } catch (e) {
       throw CacheException('Stub - Error al guardar datos de autenticación: $e');
     }
@@ -73,7 +72,6 @@ class AuthLocalDataSourceStub implements AuthLocalDataSource {
       _refreshToken = null;
       _user = null;
       _isAuthenticated = false;
-      print('🔐 AuthLocalDataSourceStub: Datos de auth limpiados');
     } catch (e) {
       throw CacheException('Stub - Error al limpiar datos de autenticación: $e');
     }
@@ -189,7 +187,6 @@ class AuthLocalDataSourceStub implements AuthLocalDataSource {
   Future<void> saveOfflineCredentials(String email, String passwordHash) async {
     _offlineEmail = email.toLowerCase().trim();
     _offlinePasswordHash = passwordHash;
-    print('🔐 AuthLocalDataSourceStub: Credenciales offline guardadas para $email');
   }
 
   @override
@@ -207,6 +204,5 @@ class AuthLocalDataSourceStub implements AuthLocalDataSource {
   Future<void> clearOfflineCredentials() async {
     _offlineEmail = null;
     _offlinePasswordHash = null;
-    print('🔐 AuthLocalDataSourceStub: Credenciales offline limpiadas');
   }
 }

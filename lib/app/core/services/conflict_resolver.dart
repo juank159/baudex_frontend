@@ -190,16 +190,13 @@ class ConflictResolver extends GetxService {
   // Logging helpers
   void _logInfo(String message) {
     // ignore: avoid_print
-    print('[ConflictResolver] ℹ️  $message');
   }
 
   void _logWarning(String message) {
     // ignore: avoid_print
-    print('[ConflictResolver] ⚠️  $message');
   }
 
   void _logError(String message) {
     // ignore: avoid_print
-    print('[ConflictResolver] ❌ $message');
   }
 }

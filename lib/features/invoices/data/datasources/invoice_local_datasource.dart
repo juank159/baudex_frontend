@@ -50,9 +50,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<void> cacheInvoices(List<InvoiceModel> invoices) async {
     try {
-      print(
-        '💾 InvoiceLocalDataSource: Cacheando ${invoices.length} facturas...',
-      );
 
       final invoicesJson = invoices.map((invoice) => invoice.toJson()).toList();
       final cacheData = {
@@ -67,9 +64,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
         DateTime.now().millisecondsSinceEpoch.toString(),
       );
 
-      print('✅ InvoiceLocalDataSource: Facturas cacheadas exitosamente');
     } catch (e) {
-      print('❌ Error al cachear facturas: $e');
       throw CacheException('Error al cachear facturas: $e');
     }
   }
@@ -128,9 +123,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
           // Guardar factura con items y payments embebidos
           await isar.isarInvoices.put(isarInvoice);
         });
-        print('✅ Invoice guardada en ISAR con ${invoice.items.length} items y ${invoice.payments.length} payments: ${invoice.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (fallback legacy)
@@ -148,14 +141,12 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
     } catch (e) {
       // Fallar silenciosamente en lugar de lanzar excepción
       // Esto permite que la app funcione aunque el cache no esté disponible
-      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
   @override
   Future<List<InvoiceModel>> getCachedInvoices() async {
     try {
-      print('📖 InvoiceLocalDataSource: Obteniendo facturas del cache...');
 
       final cachedData = await storageService.read(_invoicesListKey);
       if (cachedData == null) {
@@ -168,9 +159,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       // ✅ OFFLINE-FIRST: NUNCA eliminar cache, siempre servir datos aunque sean viejos
       // Datos stale son infinitamente mejores que no tener datos cuando estás offline
       if (_isCacheTooOld(timestamp)) {
-        print('📦 Cache de facturas antiguo (>24h) pero sirviéndolo de todos modos');
       } else if (_isCacheStale(timestamp)) {
-        print('📦 Cache de facturas stale (>15min) pero disponible, sirviendo datos...');
       }
 
       final invoicesJson = cacheMap['invoices'] as List;
@@ -181,13 +170,9 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
               )
               .toList();
 
-      print(
-        '✅ InvoiceLocalDataSource: ${invoices.length} facturas obtenidas del cache',
-      );
       return invoices;
     } catch (e) {
       if (e is CacheException) rethrow;
-      print('❌ Error al obtener facturas del cache: $e');
       throw CacheException('Error al obtener facturas del cache: $e');
     }
   }
@@ -195,11 +180,9 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<InvoiceModel?> getCachedInvoice(String id) async {
     try {
-      print('📖 InvoiceLocalDataSource: Obteniendo factura del cache: $id');
 
       final cachedData = await storageService.read('$_invoiceDetailKey$id');
       if (cachedData == null) {
-        print('⚠️ Factura no encontrada en cache: $id');
         return null;
       }
 
@@ -208,18 +191,14 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
 
       // ✅ OFFLINE-FIRST: NUNCA eliminar cache individual, siempre servir
       if (_isCacheTooOld(timestamp)) {
-        print('📦 Cache de factura antiguo (>24h) pero sirviéndolo: $id');
       } else if (_isCacheStale(timestamp)) {
-        print('📦 Cache de factura stale pero disponible: $id');
       }
 
       final invoiceJson = cacheMap['invoice'] as Map<String, dynamic>;
       final invoice = InvoiceModel.fromJson(invoiceJson);
 
-      print('✅ InvoiceLocalDataSource: Factura obtenida del cache');
       return invoice;
     } catch (e) {
-      print('❌ Error al obtener factura del cache: $e');
       throw CacheException('Error al obtener factura del cache: $e');
     }
   }
@@ -227,20 +206,16 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<InvoiceModel?> getCachedInvoiceByNumber(String number) async {
     try {
-      print('📖 InvoiceLocalDataSource: Buscando factura por número: $number');
 
       final invoices = await getCachedInvoices();
       for (final invoice in invoices) {
         if (invoice.number == number) {
-          print('✅ Factura encontrada por número: $number');
           return invoice;
         }
       }
 
-      print('⚠️ Factura no encontrada por número: $number');
       return null;
     } catch (e) {
-      print('❌ Error al buscar factura por número: $e');
       return null;
     }
   }
@@ -248,7 +223,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<void> cacheInvoiceStats(InvoiceStatsModel stats) async {
     try {
-      print('💾 InvoiceLocalDataSource: Cacheando estadísticas de facturas...');
 
       final statsJson = stats.toJson();
       final cacheData = {
@@ -258,9 +232,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       };
 
       await storageService.write(_invoiceStatsKey, jsonEncode(cacheData));
-      print('✅ InvoiceLocalDataSource: Estadísticas cacheadas');
     } catch (e) {
-      print('❌ Error al cachear estadísticas: $e');
       throw CacheException('Error al cachear estadísticas: $e');
     }
   }
@@ -268,11 +240,9 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<InvoiceStatsModel?> getCachedInvoiceStats() async {
     try {
-      print('📖 InvoiceLocalDataSource: Obteniendo estadísticas del cache...');
 
       final cachedData = await storageService.read(_invoiceStatsKey);
       if (cachedData == null) {
-        print('⚠️ Estadísticas no encontradas en cache');
         return null;
       }
 
@@ -281,18 +251,14 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
 
       // ✅ OFFLINE-FIRST: NUNCA eliminar cache de estadísticas, siempre servir
       if (_isCacheTooOld(timestamp)) {
-        print('📦 Cache de estadísticas antiguo (>24h) pero sirviéndolo');
       } else if (_isCacheStale(timestamp)) {
-        print('📦 Cache de estadísticas stale pero disponible');
       }
 
       final statsJson = cacheMap['stats'] as Map<String, dynamic>;
       final stats = InvoiceStatsModel.fromJson(statsJson);
 
-      print('✅ InvoiceLocalDataSource: Estadísticas obtenidas del cache');
       return stats;
     } catch (e) {
-      print('❌ Error al obtener estadísticas del cache: $e');
       throw CacheException('Error al obtener estadísticas del cache: $e');
     }
   }
@@ -300,7 +266,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<void> removeCachedInvoice(String id) async {
     try {
-      print('🗑️ InvoiceLocalDataSource: Removiendo factura del cache: $id');
 
       await storageService.delete('$_invoiceDetailKey$id');
 
@@ -309,16 +274,10 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
         final invoices = await getCachedInvoices();
         final filteredInvoices = invoices.where((i) => i.id != id).toList();
         await cacheInvoices(filteredInvoices);
-        print('✅ Factura removida de la lista de cache');
       } catch (e) {
-        print(
-          '⚠️ No se pudo actualizar la lista después de remover factura: $e',
-        );
       }
 
-      print('✅ InvoiceLocalDataSource: Factura removida del cache');
     } catch (e) {
-      print('❌ Error al remover factura del cache: $e');
       throw CacheException('Error al remover factura del cache: $e');
     }
   }
@@ -326,9 +285,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<void> clearInvoiceCache() async {
     try {
-      print(
-        '🧹 InvoiceLocalDataSource: Limpiando todo el cache de facturas...',
-      );
 
       await Future.wait([
         storageService.delete(_invoicesListKey),
@@ -336,9 +292,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
         storageService.delete(_lastCacheTimeKey),
       ]);
 
-      print('✅ InvoiceLocalDataSource: Cache limpiado completamente');
     } catch (e) {
-      print('❌ Error al limpiar cache de facturas: $e');
       throw CacheException('Error al limpiar cache de facturas: $e');
     }
   }
@@ -346,9 +300,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<List<InvoiceModel>> searchCachedInvoices(String searchTerm) async {
     try {
-      print(
-        '🔍 InvoiceLocalDataSource: Buscando facturas en cache: $searchTerm',
-      );
 
       final invoices = await getCachedInvoices();
       final term = searchTerm.toLowerCase();
@@ -361,10 +312,8 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
                 invoice.total.toString().contains(term);
           }).toList();
 
-      print('✅ ${filteredInvoices.length} facturas encontradas en cache');
       return filteredInvoices;
     } catch (e) {
-      print('❌ Error al buscar facturas en cache: $e');
       return [];
     }
   }
@@ -372,9 +321,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<List<InvoiceModel>> getCachedOverdueInvoices() async {
     try {
-      print(
-        '📅 InvoiceLocalDataSource: Obteniendo facturas vencidas del cache...',
-      );
 
       final invoices = await getCachedInvoices();
       final now = DateTime.now();
@@ -389,12 +335,8 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       // Ordenar por fecha de vencimiento (más antiguas primero)
       overdueInvoices.sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
-      print(
-        '✅ ${overdueInvoices.length} facturas vencidas encontradas en cache',
-      );
       return overdueInvoices;
     } catch (e) {
-      print('❌ Error al obtener facturas vencidas del cache: $e');
       return [];
     }
   }
@@ -404,9 +346,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
     String customerId,
   ) async {
     try {
-      print(
-        '👤 InvoiceLocalDataSource: Obteniendo facturas del cliente del cache: $customerId',
-      );
 
       final invoices = await getCachedInvoices();
       final customerInvoices =
@@ -417,12 +356,8 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       // Ordenar por fecha de creación (más recientes primero)
       customerInvoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      print(
-        '✅ ${customerInvoices.length} facturas del cliente encontradas en cache',
-      );
       return customerInvoices;
     } catch (e) {
-      print('❌ Error al obtener facturas del cliente del cache: $e');
       return [];
     }
   }
@@ -437,7 +372,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       }
       return null;
     } catch (e) {
-      print('❌ Error al obtener tiempo del último cache: $e');
       return null;
     }
   }
@@ -453,7 +387,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       final invoices = cacheMap['invoices'] as List?;
       return invoices != null && invoices.isNotEmpty;
     } catch (e) {
-      print('❌ Error al verificar datos en cache: $e');
       return false;
     }
   }
@@ -530,7 +463,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
         'partiallyPaid': partiallyPaid,
       };
     } catch (e) {
-      print('❌ Error al calcular estadísticas básicas: $e');
       return {};
     }
   }
@@ -547,7 +479,6 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
 
       return isarInvoice;
     } catch (e) {
-      print('⚠️ Error al obtener IsarInvoice: $e');
       return null;
     }
   }

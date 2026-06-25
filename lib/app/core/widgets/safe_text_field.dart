@@ -54,7 +54,6 @@ class _SafeTextFieldState extends State<SafeTextField> {
       }
       _internalController = SafeTextEditingController();
       _usingInternalController = true;
-      print('⚠️ SafeTextField: Usando controller interno por controller externo no válido');
     }
   }
 
@@ -87,13 +86,11 @@ class _SafeTextFieldState extends State<SafeTextField> {
             try {
               widget.onChanged!(value);
             } catch (e) {
-              print('⚠️ SafeTextField: Error in onChanged: $e');
             }
           }
         } : null,
       );
     } catch (e) {
-      print('⚠️ SafeTextField: Error building TextField: $e');
       return _buildFallbackField();
     }
   }

@@ -23,8 +23,6 @@ class ProductStatsModel {
 
   /// ✅ MEJORADO: Convertir desde JSON con manejo robusto
   factory ProductStatsModel.fromJson(Map<String, dynamic> json) {
-    print('🔍 ProductStatsModel.fromJson: Procesando JSON');
-    print('📋 JSON recibido: $json');
 
     try {
       // Función helper para extraer enteros de forma segura
@@ -47,9 +45,6 @@ class ProductStatsModel {
           }
         }
 
-        print(
-          '⚠️ No se encontró valor para $key (alternativas: $alternatives)',
-        );
         return 0;
       }
 
@@ -76,12 +71,8 @@ class ProductStatsModel {
         averagePrice: safeDouble('averagePrice'),
       );
 
-      print('✅ ProductStatsModel creado exitosamente: $model');
       return model;
     } catch (e, stackTrace) {
-      print('❌ Error en ProductStatsModel.fromJson: $e');
-      print('📋 JSON problemático: $json');
-      print('🔍 StackTrace: $stackTrace');
 
       // Retornar modelo vacío en caso de error
       return const ProductStatsModel(

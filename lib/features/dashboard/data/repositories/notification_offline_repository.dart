@@ -615,7 +615,6 @@ class NotificationOfflineRepository implements NotificationRepository {
 
       return isarNotifications.map((isar) => isar.toEntity()).toList();
     } catch (e) {
-      print('❌ Error getting unsynced notifications: $e');
       return [];
     }
   }
@@ -632,7 +631,6 @@ class NotificationOfflineRepository implements NotificationRepository {
 
       return isarNotifications.map((isar) => isar.toEntity()).toList();
     } catch (e) {
-      print('❌ Error getting unsynced deleted notifications: $e');
       return [];
     }
   }
@@ -654,9 +652,7 @@ class NotificationOfflineRepository implements NotificationRepository {
         }
       });
 
-      print('✅ ${ids.length} notifications marked as synced');
     } catch (e) {
-      print('❌ Error marking notifications as synced: $e');
     }
   }
 
@@ -675,7 +671,6 @@ class NotificationOfflineRepository implements NotificationRepository {
         }
       });
     } catch (e) {
-      print('❌ Error marking notification as unsynced: $e');
     }
   }
 
@@ -687,9 +682,7 @@ class NotificationOfflineRepository implements NotificationRepository {
         await _isar.isarNotifications.put(isarNotification);
       });
 
-      print('✅ Notification saved locally: ${entity.title}');
     } catch (e) {
-      print('❌ Error saving notification locally: $e');
     }
   }
 
@@ -703,9 +696,7 @@ class NotificationOfflineRepository implements NotificationRepository {
         }
       });
 
-      print('✅ ${entities.length} notifications saved locally');
     } catch (e) {
-      print('❌ Error saving notifications locally: $e');
     }
   }
 
@@ -723,9 +714,7 @@ class NotificationOfflineRepository implements NotificationRepository {
         }
       });
 
-      print('✅ Notification deleted locally: $id');
     } catch (e) {
-      print('❌ Error deleting notification locally: $e');
     }
   }
 

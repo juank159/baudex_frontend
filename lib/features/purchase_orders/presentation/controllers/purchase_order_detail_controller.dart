@@ -110,15 +110,11 @@ class PurchaseOrderDetailController extends GetxController
     try {
       isLoading.value = true;
       error.value = '';
-      print(
-        '🔍 PurchaseOrderDetailController: Cargando orden ${purchaseOrderId.value}',
-      );
 
       final result = await getPurchaseOrderByIdUseCase(purchaseOrderId.value);
 
       result.fold(
         (failure) {
-          print('❌ PurchaseOrderDetailController: Error - ${failure.message}');
           error.value = failure.message;
           Get.snackbar(
             'Error al cargar orden',
@@ -129,28 +125,14 @@ class PurchaseOrderDetailController extends GetxController
           );
         },
         (loadedPurchaseOrder) {
-          print(
-            '✅ PurchaseOrderDetailController: Orden cargada exitosamente - ${loadedPurchaseOrder.orderNumber}',
-          );
-          print('🔍 DEBUG - Supplier info:');
-          print('   supplierId: ${loadedPurchaseOrder.supplierId}');
-          print('   supplierName: ${loadedPurchaseOrder.supplierName}');
-          print('🔍 DEBUG - Items info:');
           for (int i = 0; i < loadedPurchaseOrder.items.length; i++) {
             final item = loadedPurchaseOrder.items[i];
-            print(
-              '   Item $i: quantity=${item.quantity}, unitPrice=${item.unitPrice}, totalAmount=${item.totalAmount}',
-            );
           }
           purchaseOrder.value = loadedPurchaseOrder;
           _initializeReceivingItems();
-          print(
-            '✅ PurchaseOrderDetailController: UI actualizada con datos de la orden',
-          );
         },
       );
     } catch (e) {
-      print('❌ PurchaseOrderDetailController: Exception - $e');
       error.value = 'Error inesperado: $e';
       Get.snackbar(
         'Error al cargar orden',
@@ -161,9 +143,6 @@ class PurchaseOrderDetailController extends GetxController
       );
     } finally {
       isLoading.value = false;
-      print(
-        '🔍 PurchaseOrderDetailController: Loading finalizado. HasOrder: ${purchaseOrder.value != null}',
-      );
     }
   }
 
@@ -241,7 +220,6 @@ class PurchaseOrderDetailController extends GetxController
                   isUpdate: true,
                 );
               } catch (e) {
-                print('⚠️ No se pudo refrescar la lista: $e');
               }
               Get.back();
             }
@@ -326,7 +304,6 @@ class PurchaseOrderDetailController extends GetxController
               isUpdate: true,
             );
           } catch (e) {
-            print('⚠️ No se pudo refrescar la lista: $e');
           }
 
           // Cerrar cualquier diálogo abierto
@@ -443,7 +420,6 @@ class PurchaseOrderDetailController extends GetxController
               isUpdate: true,
             );
           } catch (e) {
-            print('⚠️ No se pudo refrescar la lista: $e');
           }
 
           // Refrescar la orden actual para obtener el estado más reciente del servidor
@@ -483,7 +459,6 @@ class PurchaseOrderDetailController extends GetxController
 
       result.fold(
         (failure) {
-          print('⚠️ Error loading warehouses from server: ${failure.message}');
           // Fallback a cache offline
           _loadWarehousesFromCache();
         },
@@ -494,7 +469,6 @@ class PurchaseOrderDetailController extends GetxController
         },
       );
     } catch (e) {
-      print('⚠️ Exception loading warehouses: $e');
       // Fallback a cache offline
       _loadWarehousesFromCache();
     } finally {
@@ -520,13 +494,11 @@ class PurchaseOrderDetailController extends GetxController
           if (warehouses.isNotEmpty) {
             availableWarehouses.value = warehouses;
             _autoSelectWarehouse();
-            print('✅ ${warehouses.length} warehouses cargados desde cache offline');
             return;
           }
         }
       }
     } catch (e) {
-      print('⚠️ Error leyendo warehouses de SharedPreferences: $e');
     }
 
     // Intento 2: Memory cache estático de InventoryLocalDataSourceIsar
@@ -538,7 +510,6 @@ class PurchaseOrderDetailController extends GetxController
             .map((m) => m.toEntity())
             .toList();
         _autoSelectWarehouse();
-        print('✅ ${availableWarehouses.length} warehouses cargados desde memory cache');
         return;
       }
     } catch (_) {}
@@ -562,7 +533,6 @@ class PurchaseOrderDetailController extends GetxController
 
   void selectWarehouse(Warehouse warehouse) {
     selectedWarehouse.value = warehouse;
-    print('🏢 Warehouse selected: ${warehouse.name}');
   }
 
   Future<void> showWarehouseSelectionDialog() async {
@@ -652,7 +622,6 @@ class PurchaseOrderDetailController extends GetxController
               isUpdate: true,
             );
           } catch (e) {
-            print('⚠️ No se pudo refrescar la lista: $e');
           }
 
           Get.snackbar(
@@ -829,7 +798,6 @@ class PurchaseOrderDetailController extends GetxController
                 isUpdate: true,
               );
             } catch (e) {
-              print('⚠️ No se pudo refrescar la lista: $e');
             }
 
             Get.snackbar(
@@ -1165,10 +1133,6 @@ class PurchaseOrderDetailController extends GetxController
     if (!hasPurchaseOrder) return [];
 
     final order = purchaseOrder.value!;
-    print('🔍 Debug purchaseOrderSummary:');
-    print('   - supplierName: ${order.supplierName}');
-    print('   - priority: ${order.priority}');
-    print('   - status: ${order.status}');
 
     return [
       {

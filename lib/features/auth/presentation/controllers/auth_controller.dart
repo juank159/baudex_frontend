@@ -175,7 +175,6 @@ class AuthController extends GetxController {
       final existingTenant = await _tenantStorage.getTenantSlug();
 
       if (existingTenant != null && existingTenant.isNotEmpty) {
-        print('🏢 Tenant existente encontrado: $existingTenant');
         return;
       }
 
@@ -184,23 +183,16 @@ class AuthController extends GetxController {
 
       await isAuthenticated.fold(
         (failure) async {
-          print(
-            '🏢 Usuario no autenticado, esperando login para establecer tenant',
-          );
         },
         (authenticated) async {
           if (authenticated) {
             // Usuario autenticado pero sin tenant, obtener organización
             await _setTenantFromCurrentUser();
           } else {
-            print(
-              '🏢 Usuario no autenticado, esperando login para establecer tenant',
-            );
           }
         },
       );
     } catch (e) {
-      print('❌ Error inicializando tenant: $e');
     }
   }
 
@@ -211,20 +203,13 @@ class AuthController extends GetxController {
 
       await profileResult.fold(
         (failure) async {
-          print(
-            '❌ No se pudo obtener perfil del usuario para establecer tenant',
-          );
         },
         (user) async {
           // Usar directamente el organizationSlug del usuario
           await _tenantStorage.setTenantSlug(user.organizationSlug);
-          print(
-            '🏢 Tenant establecido desde perfil de usuario: ${user.organizationSlug}',
-          );
         },
       );
     } catch (e) {
-      print('❌ Error estableciendo tenant desde usuario: $e');
     }
   }
 
@@ -326,24 +311,18 @@ class AuthController extends GetxController {
       final fullSyncService = Get.find<FullSyncService>();
       fullSyncService.performFullSync().then((result) {
         if (result.totalSynced > 0) {
-          print('🔄 AuthController: Full Sync OK ($attempt/3) - ${result.totalSynced} registros');
         }
         if (result.wasAborted || result.hasErrors) {
           if (attempt < 3) {
             // Backoff: 4s → 16s → 60s
             final delaySeconds = attempt == 1 ? 4 : (attempt == 2 ? 16 : 60);
-            print(
-              '⏳ AuthController: FullSync incompleto, reintentando en ${delaySeconds}s (intento ${attempt + 1}/3)...',
-            );
             Future.delayed(Duration(seconds: delaySeconds), () {
               _triggerFullSyncWithRetry(attempt: attempt + 1);
             });
           } else {
-            print('❌ AuthController: FullSync falló tras 3 intentos. El usuario verá datos en cache.');
           }
         }
       }).catchError((e) {
-        print('❌ AuthController: Error en Full Sync (intento $attempt): $e');
         if (attempt < 3) {
           final delaySeconds = attempt == 1 ? 4 : (attempt == 2 ? 16 : 60);
           Future.delayed(Duration(seconds: delaySeconds), () {
@@ -352,7 +331,6 @@ class AuthController extends GetxController {
         }
       });
     } catch (e) {
-      print('⚠️ AuthController: No se pudo iniciar Full Sync: $e');
     }
   }
 
@@ -374,7 +352,6 @@ class AuthController extends GetxController {
     try {
       lastUserId = await storage.getLastUserId();
     } catch (e) {
-      print('⚠️ No se pudo leer lastUserId: $e');
       lastUserId = null;
     }
 
@@ -384,21 +361,16 @@ class AuthController extends GetxController {
     try {
       await storage.setLastUserId(newUserId);
     } catch (e) {
-      print('⚠️ No se pudo persistir lastUserId: $e — continuando login');
     }
 
     // PASO 2: Decidir si hace falta limpiar ISAR.
     final needsClear = lastUserId != null && lastUserId != newUserId;
     if (!needsClear) {
       if (lastUserId == newUserId) {
-        print('✅ Mismo usuario que el último login — preservando cache ISAR');
       } else {
-        print('🆕 Primer login en este dispositivo — sin cleanup');
       }
       return;
     }
-
-    print('🔄 Cambio de tenant detectado ($lastUserId → $newUserId). Limpiando ISAR + caches...');
 
     // PASO 3: Clear ISAR con timeout y guard de inicialización. Si ISAR
     // nunca se inicializó (init falló en main.dart), NO crasheamos: el
@@ -406,20 +378,16 @@ class AuthController extends GetxController {
     try {
       final isarDatabase = IsarDatabase.instance;
       if (!isarDatabase.isInitialized) {
-        print('⚠️ ISAR no inicializado — saltando clear (se reseteará en próximo arranque)');
       } else {
         await isarDatabase.clear().timeout(
           const Duration(seconds: 10),
           onTimeout: () {
-            print('⚠️ Timeout limpiando ISAR — continuando login (se reintentará)');
           },
         );
-        print('✅ ISAR limpiado por cambio de tenant');
       }
     } catch (e) {
       // Cualquier error (incluyendo IsarError) NO debe impedir el login.
       // El full sync posterior bajará todo desde el server.
-      print('⚠️ Error limpiando ISAR en cambio de tenant: $e — continuando login');
     }
 
     // PASO 4: Limpiar caches del tenant que viven FUERA de ISAR.
@@ -430,7 +398,6 @@ class AuthController extends GetxController {
     try {
       await storage.clearTenantBusinessCaches();
     } catch (e) {
-      print('⚠️ Error limpiando caches de tenant: $e — continuando login');
     }
 
     // PASO 5: Resetear estado en MEMORIA de controllers permanent que
@@ -440,7 +407,6 @@ class AuthController extends GetxController {
     try {
       _resetPermanentTenantControllers();
     } catch (e) {
-      print('⚠️ Error reseteando controllers de tenant: $e — continuando login');
     }
   }
 
@@ -462,10 +428,8 @@ class AuthController extends GetxController {
         } else {
           controller.resetState();
         }
-        print('🔄 CashRegisterController: estado reseteado (reload=$triggerReload)');
       }
     } catch (e) {
-      print('⚠️ Error reseteando CashRegisterController: $e');
     }
 
     // Permisos granulares: limpiar cache. La carga del nuevo tenant se
@@ -474,10 +438,8 @@ class AuthController extends GetxController {
     try {
       if (Get.isRegistered<PermissionsService>()) {
         Get.find<PermissionsService>().clear();
-        print('🔄 PermissionsService: cache limpiado');
       }
     } catch (e) {
-      print('⚠️ Error limpiando PermissionsService: $e');
     }
   }
 
@@ -486,23 +448,14 @@ class AuthController extends GetxController {
     try {
       // Usar directamente el organizationSlug del usuario
       await _tenantStorage.setTenantSlug(user.organizationSlug);
-      print(
-        '🏢 Tenant establecido después del login: ${user.organizationSlug} para usuario ${user.email}',
-      );
 
       // Verificar que se estableció correctamente
       final verifyTenant = await _tenantStorage.getTenantSlug();
-      print('🏢 Tenant verificado después del login: $verifyTenant');
     } catch (e) {
-      print('❌ Error estableciendo tenant después del login: $e');
       // En caso crítico de error, usar organizationSlug del usuario
       try {
         await _tenantStorage.setTenantSlug(user.organizationSlug);
-        print(
-          '🏢 Tenant establecido usando organizationSlug del usuario: ${user.organizationSlug}',
-        );
       } catch (fallbackError) {
-        print('💥 Error crítico estableciendo tenant: $fallbackError');
       }
     }
   }
@@ -531,7 +484,6 @@ class AuthController extends GetxController {
     if (!loginFormKey.currentState!.validate()) return;
 
     _isLoginLoading.value = true;
-    print('🔧 AuthController: Iniciando login...');
 
     try {
       final result = await _loginUseCase(
@@ -541,11 +493,8 @@ class AuthController extends GetxController {
         ),
       );
 
-      print('🔧 AuthController: Resultado de login recibido');
-
       result.fold(
         (failure) {
-          print('❌ AuthController: Error en login - ${failure.message}');
           // Detectar error de límite de dispositivos (403 del backend)
           if (failure.code == 403 && failure.message.contains('dispositivo')) {
             _showDeviceLimitDialog(failure.message);
@@ -572,10 +521,6 @@ class AuthController extends GetxController {
           }
         },
         (authResult) async {
-          print('✅ AuthController: Login exitoso - ${authResult.user.email}');
-          print(
-            '🔧 AuthController: Token recibido - ${authResult.token.substring(0, 20)}...',
-          );
 
           // Phase 3 — Validar que el "Negocio" declarado por el usuario
           // COINCIDA con la organización real del correo. Si no coincide,
@@ -619,7 +564,6 @@ class AuthController extends GetxController {
             await Get.find<PermissionsService>()
                 .loadCurrentUserPermissions(authResult.user.role);
           } catch (e) {
-            print('⚠️ Error cargando permisos: $e');
           }
 
           // Guardar el correo para recordarlo en futuros logins
@@ -643,7 +587,6 @@ class AuthController extends GetxController {
 
           _clearLoginForm();
 
-          print('🔧 AuthController: Navegando al dashboard...');
           // Navegar al dashboard
           Get.offAllNamed(AppRoutes.dashboard);
           Get.snackbar(
@@ -660,7 +603,6 @@ class AuthController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 AuthController: Excepción no manejada en login - $e');
       Get.snackbar(
         'Error Inesperado',
         'Ocurrió un error inesperado: $e',
@@ -671,7 +613,6 @@ class AuthController extends GetxController {
       );
     } finally {
       _isLoginLoading.value = false;
-      print('🔧 AuthController: Login finalizado');
     }
   }
 
@@ -680,9 +621,6 @@ class AuthController extends GetxController {
     if (!registerFormKey.currentState!.validate()) return;
 
     _isRegisterLoading.value = true;
-    print(
-      '🏗️ AuthController: Iniciando registro con onboarding automático...',
-    );
 
     try {
       final result = await _registerWithOnboardingUseCase(
@@ -697,13 +635,8 @@ class AuthController extends GetxController {
         ),
       );
 
-      print('🔧 AuthController: Resultado de registro con onboarding recibido');
-
       result.fold(
         (failure) {
-          print(
-            '❌ AuthController: Error en registro con onboarding - ${failure.message}',
-          );
           Get.snackbar(
             'Error de Registro',
             failure.message,
@@ -714,14 +647,10 @@ class AuthController extends GetxController {
           );
         },
         (authResult) {
-          print(
-            '✅ AuthController: Registro con onboarding exitoso - ${authResult.user.email}',
-          );
 
           final email = registerEmailController.text.trim();
           _clearRegisterForm();
 
-          print('🔧 AuthController: Navegando a verificación de email...');
           // Navegar primero, luego snackbar
           Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
           Get.snackbar(
@@ -736,9 +665,6 @@ class AuthController extends GetxController {
         },
       );
     } catch (e) {
-      print(
-        '💥 AuthController: Excepción no manejada en registro con onboarding - $e',
-      );
       Get.snackbar(
         'Error Inesperado',
         'Ocurrió un error inesperado: $e',
@@ -749,7 +675,6 @@ class AuthController extends GetxController {
       );
     } finally {
       _isRegisterLoading.value = false;
-      print('🔧 AuthController: Registro con onboarding finalizado');
     }
   }
 
@@ -796,7 +721,6 @@ class AuthController extends GetxController {
         Get.find<PermissionsService>().loadCurrentUserPermissions(role);
       }
     } catch (e) {
-      print('⚠️ Error disparando carga de permisos: $e');
     }
   }
 
@@ -823,7 +747,6 @@ class AuthController extends GetxController {
         await storage.setLastUserId(currentUserId);
       }
     } catch (e) {
-      print('⚠️ AuthController: No se pudo persistir lastUserId en logout: $e');
     }
 
     try {
@@ -845,13 +768,11 @@ class AuthController extends GetxController {
           await storage.deleteRefreshToken();
           await storage.deleteUserData();
         } catch (e) {
-          print('⚠️ Limpieza de token de respaldo falló: $e');
         }
 
         try {
           ProductFormController.clearCategoriesCache();
         } catch (e) {
-          print('⚠️ Error al limpiar cache de categorías: $e');
         }
 
         // Resetear estado en memoria de controllers permanent que guardan
@@ -879,7 +800,6 @@ class AuthController extends GetxController {
       await doLocalCleanup(navigate: true);
 
       if (failureMessage != null) {
-        print('⚠️ Logout backend falló: $failureMessage — limpieza local forzada');
         Get.snackbar(
           'Sesión Cerrada',
           'Has cerrado sesión (offline)',
@@ -1102,7 +1022,7 @@ class AuthController extends GetxController {
     );
     result.fold(
       (failure) => throw Exception(failure.message),
-      (_) => print('✅ AuthController: Email verificado exitosamente'),
+      (_) => null,
     );
   }
 
@@ -1113,7 +1033,7 @@ class AuthController extends GetxController {
     );
     result.fold(
       (failure) => throw Exception(failure.message),
-      (_) => print('✅ AuthController: Código de verificación reenviado'),
+      (_) => null,
     );
   }
 
@@ -1124,7 +1044,7 @@ class AuthController extends GetxController {
     );
     result.fold(
       (failure) => throw Exception(failure.message),
-      (_) => print('✅ AuthController: Código de recuperación enviado'),
+      (_) => null,
     );
   }
 
@@ -1140,7 +1060,7 @@ class AuthController extends GetxController {
     );
     result.fold(
       (failure) => throw Exception(failure.message),
-      (_) => print('✅ AuthController: Contraseña restablecida exitosamente'),
+      (_) => null,
     );
   }
 
@@ -1286,7 +1206,6 @@ class AuthController extends GetxController {
         _hasRememberedBusiness.value = true;
       }
     } catch (e) {
-      print('⚠️ Error cargando correos guardados: $e');
     }
   }
 
@@ -1352,7 +1271,6 @@ class AuthController extends GetxController {
       await _secureStorageService.saveLastEmail(email);
       await _loadSavedEmails(); // Recargar la lista
     } catch (e) {
-      print('⚠️ Error guardando correo: $e');
     }
   }
 
@@ -1393,7 +1311,6 @@ class AuthController extends GetxController {
         duration: const Duration(seconds: 2),
       );
     } catch (e) {
-      print('⚠️ Error eliminando correo: $e');
     }
   }
 

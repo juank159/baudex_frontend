@@ -103,12 +103,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<AuthResponseModel> registerWithOnboarding(RegisterRequestModel request) async {
     try {
-      print('🏗️ AuthRemoteDataSource: Iniciando registro con onboarding automático...');
 
       // Registrar el usuario - el backend crea automáticamente:
       // almacén principal, datos de ejemplo, y suscripción trial
       final authResponse = await register(request);
-      print('✅ AuthRemoteDataSource: Usuario registrado exitosamente');
 
       return authResponse;
     } on DioException catch (e) {
@@ -158,7 +156,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       await dioClient.post(ApiConstants.logout);
     } catch (e) {
       // Si falla (ej: sin conexion), no bloquear el logout local
-      print('⚠️ Logout remoto falló (no crítico): $e');
     }
   }
 

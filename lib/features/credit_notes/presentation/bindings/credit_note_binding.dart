@@ -35,12 +35,10 @@ import '../../../invoices/domain/usecases/get_invoice_by_id_usecase.dart';
 class CreditNoteBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔧 CreditNoteBinding: Registrando dependencias...');
 
     // ==================== DATA SOURCES ====================
     Get.lazyPut<CreditNoteRemoteDataSource>(
       () {
-        print('📡 Creando CreditNoteRemoteDataSource');
         return CreditNoteRemoteDataSourceImpl(
           dioClient: Get.find<DioClient>(),
         );
@@ -51,7 +49,6 @@ class CreditNoteBinding extends Bindings {
     // ==================== LOCAL DATASOURCES ====================
     Get.lazyPut<CreditNoteLocalDataSource>(
       () {
-        print('📱 Creando CreditNoteLocalDataSource');
         return CreditNoteLocalDataSourceImpl(
           storageService: Get.find<SecureStorageService>(),
         );
@@ -62,7 +59,6 @@ class CreditNoteBinding extends Bindings {
     // ==================== REPOSITORIES ====================
     Get.lazyPut<CreditNoteRepository>(
       () {
-        print('💾 Creando CreditNoteRepository');
         return CreditNoteRepositoryImpl(
           remoteDataSource: Get.find<CreditNoteRemoteDataSource>(),
           localDataSource: Get.find<CreditNoteLocalDataSource>(),
@@ -136,7 +132,6 @@ class CreditNoteBinding extends Bindings {
     // ==================== CONTROLLERS ====================
     // Controllers se registran bajo demanda según la pantalla
 
-    print('✅ CreditNoteBinding: Todas las dependencias registradas');
   }
 }
 

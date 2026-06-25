@@ -69,14 +69,12 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
     if (newQuantity > 0 && newQuantity <= item.availableStock) {
       // Actualizar el valor en el controlador
       controller.updateProductQuantity(item.productId, newQuantity);
-      print('✅ Cantidad actualizada: ${item.product.name} -> $newQuantity');
     } else {
       // Reset to current quantity if invalid
       final quantityController = _quantityControllers[item.productId];
       if (quantityController != null) {
         quantityController.text = item.quantity.toString();
       }
-      print('❌ Cantidad inválida: $value, mantener: ${item.quantity}');
     }
   }
 

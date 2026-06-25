@@ -120,7 +120,6 @@ class OrganizationOfflineRepository implements OrganizationRepository {
           data: updates,
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarOrg.toEntity());
@@ -157,7 +156,6 @@ class OrganizationOfflineRepository implements OrganizationRepository {
           data: {'defaultProfitMarginPercentage': marginPercentage},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(true);

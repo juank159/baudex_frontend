@@ -199,7 +199,6 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         return SupplierModel.fromJson(supplierData);
       }
     } catch (e) {
-      print('⚠️ Error leyendo proveedor de SecureStorage: $e');
     }
 
     // Fallback a ISAR
@@ -213,7 +212,6 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         return SupplierModel.fromEntity(isarSupplier.toEntity());
       }
     } catch (e) {
-      print('⚠️ Error leyendo proveedor de ISAR: $e');
     }
 
     return null;
@@ -280,7 +278,6 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
             .toList();
       }
     } catch (e) {
-      print('⚠️ Error al leer cache SecureStorage de proveedores: $e');
     }
 
     // Fallback a ISAR (persistencia real offline)
@@ -292,13 +289,11 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
           .sortByName()
           .findAll();
       if (isarSuppliers.isNotEmpty) {
-        print('✅ ${isarSuppliers.length} proveedores leídos desde ISAR');
         return isarSuppliers
             .map((isar) => SupplierModel.fromEntity(isar.toEntity()))
             .toList();
       }
     } catch (e) {
-      print('⚠️ Error al leer proveedores desde ISAR: $e');
     }
 
     return [];
@@ -315,9 +310,7 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         }).toList();
         await isar.isarSuppliers.putAllByServerId(isarModels);
       });
-      print('✅ ${suppliers.length} proveedores guardados en ISAR');
     } catch (e) {
-      print('⚠️ Error guardando proveedores en ISAR: $e');
     }
 
     // Guardar en SecureStorage (fallback legacy)
@@ -363,9 +356,7 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
 
           await isar.isarSuppliers.put(isarSupplier);
         });
-        print('✅ Supplier guardado en ISAR: ${supplier.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (fallback legacy, puede fallar en macOS)
@@ -394,7 +385,6 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         // SecureStorage puede fallar en macOS (-34018), ISAR ya guardó correctamente
       }
     } catch (e) {
-      print('⚠️ Error al cachear proveedor: $e');
     }
   }
 
@@ -413,7 +403,6 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         }
       });
     } catch (e) {
-      print('⚠️ Error eliminando proveedor de ISAR: $e');
     }
 
     // Eliminar de SecureStorage (legacy)
@@ -441,7 +430,6 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         await isar.isarSuppliers.clear();
       });
     } catch (e) {
-      print('⚠️ Error limpiando proveedores de ISAR: $e');
     }
 
     // Limpiar SecureStorage (legacy)

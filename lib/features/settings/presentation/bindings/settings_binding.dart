@@ -21,7 +21,6 @@ import '../controllers/organization_controller.dart';
 class SettingsBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔧 SettingsBinding: Registrando dependencias...');
 
     // Data Sources
     _registerDataSources();
@@ -35,7 +34,6 @@ class SettingsBinding extends Bindings {
     // Controllers
     _registerControllers();
 
-    print('✅ SettingsBinding: Todas las dependencias registradas exitosamente');
   }
 
   void _registerDataSources() {
@@ -45,7 +43,6 @@ class SettingsBinding extends Bindings {
         SettingsLocalDataSourceImpl(),
         permanent: true,
       );
-      print('✅ SettingsLocalDataSource registrado (permanent)');
     }
 
     // Organization Remote DataSource (permanent: dependencia del repo/controller global)
@@ -56,7 +53,6 @@ class SettingsBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ OrganizationRemoteDataSource registrado (permanent)');
     }
 
     // Printer Settings Remote DataSource (permanent: dependencia del SettingsController global)
@@ -67,7 +63,6 @@ class SettingsBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ PrinterSettingsRemoteDataSource registrado (permanent)');
     }
   }
 
@@ -78,7 +73,6 @@ class SettingsBinding extends Bindings {
       try {
         printerRemoteDS = Get.find<PrinterSettingsRemoteDataSource>();
       } catch (_) {
-        print('⚠️ PrinterSettingsRemoteDataSource no disponible - modo offline');
       }
 
       Get.put<SettingsRepository>(
@@ -89,7 +83,6 @@ class SettingsBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ SettingsRepository registrado (permanent)');
     }
 
     // Organization Repository (permanent: dependencia de OrganizationController global)
@@ -102,7 +95,6 @@ class SettingsBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ OrganizationRepository registrado (permanent)');
     }
   }
 
@@ -140,7 +132,6 @@ class SettingsBinding extends Bindings {
       Get.put(TestPrinterConnectionUseCase(repo), permanent: true);
     }
 
-    print('✅ Casos de uso registrados (permanent)');
   }
 
   void _registerControllers() {
@@ -161,7 +152,6 @@ class SettingsBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ SettingsController registrado (permanent)');
     }
 
     // Organization Controller (permanent: usado globalmente por suscripción, settings, multi-moneda)
@@ -172,7 +162,6 @@ class SettingsBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ OrganizationController registrado (permanent)');
     }
   }
 
@@ -188,7 +177,6 @@ class SettingsBinding extends Bindings {
       final binding = SettingsBinding();
       binding._registerUseCases();
       binding._registerControllers();
-      print('✅ SettingsController registrado independientemente');
     }
   }
 }

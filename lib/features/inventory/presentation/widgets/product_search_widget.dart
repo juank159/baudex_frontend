@@ -105,7 +105,6 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
     // Call the product selection callback
     widget.onProductSelected(product);
     
-    print('🔍 ProductSearchWidget: Product selected - ${product.name} (${product.id})');
   }
 
   // Key event handler to prevent keyboard state conflicts

@@ -530,7 +530,6 @@ import '../controllers/category_tree_controller.dart';
 class CategoryBinding extends Bindings {
   @override
   void dependencies() {
-    print('🏷️ CategoryBinding: Iniciando registro de dependencias...');
 
     try {
       // ==================== STEP 1: VERIFICAR DEPENDENCIAS CORE ====================
@@ -545,25 +544,17 @@ class CategoryBinding extends Bindings {
       // ==================== STEP 4: REGISTRAR PRESENTATION LAYER ====================
       _registerPresentationLayer();
 
-      print(
-        '✅ CategoryBinding: Todas las dependencias registradas exitosamente',
-      );
-
       // Debug opcional
       if (kDebugMode) {
         CategoryBindingHelper.printRegistrationSummary();
       }
     } catch (e, stackTrace) {
-      print('💥 CategoryBinding: Error durante el registro de dependencias');
-      print('   Error: $e');
-      print('   StackTrace: $stackTrace');
       rethrow;
     }
   }
 
   /// Verificar que las dependencias core de InitialBinding estén disponibles
   void _verifyCoreDependencies() {
-    print('🔍 Verificando dependencias core...');
 
     final requiredDependencies = <String, bool>{
       'DioClient': Get.isRegistered<DioClient>(),
@@ -594,18 +585,15 @@ En main.dart debería ser:
   runApp(MyApp());                  // DESPUÉS
 ''';
 
-      print(errorMsg);
       throw Exception(
         'CategoryBinding requiere InitialBinding. Dependencias faltantes: ${missingDependencies.join(', ')}',
       );
     }
 
-    print('✅ Dependencias core verificadas correctamente');
   }
 
   /// Registrar capa de datos (DataSources y Repository)
   void _registerDataLayer() {
-    print('💾 Registrando capa de datos...');
 
     // Remote DataSource
     if (!Get.isRegistered<CategoryRemoteDataSource>()) {
@@ -613,9 +601,7 @@ En main.dart debería ser:
         () => CategoryRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
         fenix: true,
       );
-      print('  ✅ CategoryRemoteDataSource registrado');
     } else {
-      print('  ℹ️ CategoryRemoteDataSource ya existe');
     }
 
     // Local DataSource
@@ -626,9 +612,7 @@ En main.dart debería ser:
         ),
         fenix: true,
       );
-      print('  ✅ CategoryLocalDataSource registrado');
     } else {
-      print('  ℹ️ CategoryLocalDataSource ya existe');
     }
 
     // Repository
@@ -642,15 +626,12 @@ En main.dart debería ser:
         ),
         fenix: true,
       );
-      print('  ✅ CategoryRepository registrado');
     } else {
-      print('  ℹ️ CategoryRepository ya existe');
     }
   }
 
   /// Registrar capa de dominio (Use Cases) - VERSIÓN CORREGIDA
   void _registerDomainLayer() {
-    print('🎯 Registrando casos de uso...');
 
     final repository = Get.find<CategoryRepository>();
 
@@ -661,9 +642,7 @@ En main.dart debería ser:
         () => GetCategoriesUseCase(repository),
         fenix: true,
       );
-      print('    • GetCategoriesUseCase ✅');
     } else {
-      print('    • GetCategoriesUseCase ℹ️ (ya existe)');
     }
 
     // ✅ CRÍTICO: GetCategoryByIdUseCase
@@ -672,9 +651,7 @@ En main.dart debería ser:
         () => GetCategoryByIdUseCase(repository),
         fenix: true,
       );
-      print('    • GetCategoryByIdUseCase ✅');
     } else {
-      print('    • GetCategoryByIdUseCase ℹ️ (ya existe)');
     }
 
     // GetCategoryTreeUseCase
@@ -683,9 +660,7 @@ En main.dart debería ser:
         () => GetCategoryTreeUseCase(repository),
         fenix: true,
       );
-      print('    • GetCategoryTreeUseCase ✅');
     } else {
-      print('    • GetCategoryTreeUseCase ℹ️ (ya existe)');
     }
 
     // CreateCategoryUseCase
@@ -694,9 +669,7 @@ En main.dart debería ser:
         () => CreateCategoryUseCase(repository),
         fenix: true,
       );
-      print('    • CreateCategoryUseCase ✅');
     } else {
-      print('    • CreateCategoryUseCase ℹ️ (ya existe)');
     }
 
     // UpdateCategoryUseCase
@@ -705,9 +678,7 @@ En main.dart debería ser:
         () => UpdateCategoryUseCase(repository),
         fenix: true,
       );
-      print('    • UpdateCategoryUseCase ✅');
     } else {
-      print('    • UpdateCategoryUseCase ℹ️ (ya existe)');
     }
 
     // DeleteCategoryUseCase
@@ -716,9 +687,7 @@ En main.dart debería ser:
         () => DeleteCategoryUseCase(repository),
         fenix: true,
       );
-      print('    • DeleteCategoryUseCase ✅');
     } else {
-      print('    • DeleteCategoryUseCase ℹ️ (ya existe)');
     }
 
     // SearchCategoriesUseCase
@@ -727,9 +696,7 @@ En main.dart debería ser:
         () => SearchCategoriesUseCase(repository),
         fenix: true,
       );
-      print('    • SearchCategoriesUseCase ✅');
     } else {
-      print('    • SearchCategoriesUseCase ℹ️ (ya existe)');
     }
 
     // GetCategoryStatsUseCase
@@ -738,17 +705,13 @@ En main.dart debería ser:
         () => GetCategoryStatsUseCase(repository),
         fenix: true,
       );
-      print('    • GetCategoryStatsUseCase ✅');
     } else {
-      print('    • GetCategoryStatsUseCase ℹ️ (ya existe)');
     }
 
-    print('  ✅ Todos los casos de uso registrados');
   }
 
   /// Registrar capa de presentación (Controllers) - ✅ VERSIÓN CORREGIDA
   void _registerPresentationLayer() {
-    print('🎮 Registrando controllers...');
 
     // CategoriesController
     if (!Get.isRegistered<CategoriesController>()) {
@@ -761,7 +724,6 @@ En main.dart debería ser:
         ),
         fenix: true,
       );
-      print('  ✅ CategoriesController registrado');
     }
 
     // ✅ CORRECCIÓN CRÍTICA: CategoryFormController
@@ -779,7 +741,6 @@ En main.dart debería ser:
         ),
         fenix: true,
       );
-      print('  ✅ CategoryFormController registrado');
     }
 
     // CategoryDetailController
@@ -793,7 +754,6 @@ En main.dart debería ser:
         ),
         fenix: true,
       );
-      print('  ✅ CategoryDetailController registrado');
     }
 
     // CategoryTreeController
@@ -804,13 +764,11 @@ En main.dart debería ser:
         ),
         fenix: true,
       );
-      print('  ✅ CategoryTreeController registrado');
     }
   }
 
   @override
   void onDispose() {
-    print('🧹 CategoryBinding: Iniciando limpieza de dependencias...');
 
     try {
       // Limpiar controllers (estos no son permanentes)
@@ -823,9 +781,7 @@ En main.dart debería ser:
       // se auto-gestionan, pero podemos forzar su limpieza si es necesario
       _cleanupDataLayer();
 
-      print('✅ CategoryBinding: Limpieza completada exitosamente');
     } catch (e) {
-      print('⚠️ CategoryBinding: Error durante limpieza: $e');
     }
   }
 
@@ -841,10 +797,8 @@ En main.dart debería ser:
       try {
         if (Get.isRegistered(tag: controller.toString())) {
           Get.delete(tag: controller.toString(), force: true);
-          print('  🗑️ ${controller.toString()} eliminado');
         }
       } catch (e) {
-        print('  ⚠️ Error eliminando ${controller.toString()}: $e');
       }
     }
   }
@@ -865,10 +819,8 @@ En main.dart debería ser:
       try {
         if (Get.isRegistered(tag: useCase.toString())) {
           Get.delete(tag: useCase.toString(), force: true);
-          print('  🗑️ ${useCase.toString()} eliminado');
         }
       } catch (e) {
-        print('  ⚠️ Error eliminando ${useCase.toString()}: $e');
       }
     }
   }
@@ -886,10 +838,8 @@ En main.dart debería ser:
       try {
         if (Get.isRegistered(tag: dataType.toString())) {
           Get.delete(tag: dataType.toString(), force: true);
-          print('  🗑️ ${dataType.toString()} eliminado');
         }
       } catch (e) {
-        print('  ⚠️ Error eliminando ${dataType.toString()}: $e');
       }
     }
   }
@@ -909,9 +859,6 @@ class CategoryBindingHelper {
 
   /// Imprimir resumen del registro de dependencias
   static void printRegistrationSummary() {
-    print('📋 ===============================================');
-    print('📋 RESUMEN DE REGISTRO - CATEGORY BINDING');
-    print('📋 ===============================================');
 
     final dependencies = {
       '🏗️ Core': {
@@ -946,20 +893,15 @@ class CategoryBindingHelper {
     };
 
     dependencies.forEach((category, deps) {
-      print('$category:');
       deps.forEach((name, isRegistered) {
         final status = isRegistered ? '✅' : '❌';
-        print('   $status $name');
       });
-      print('');
     });
 
     final status =
         isFullyInitialized
             ? '✅ COMPLETAMENTE INICIALIZADO'
             : '❌ INICIALIZACIÓN INCOMPLETA';
-    print('📋 Estado: $status');
-    print('📋 ===============================================');
   }
 
   /// Obtener controller de forma segura
@@ -967,7 +909,6 @@ class CategoryBindingHelper {
     try {
       return Get.isRegistered<T>() ? Get.find<T>() : null;
     } catch (e) {
-      print('❌ Error obteniendo ${T.toString()}: $e');
       return null;
     }
   }
@@ -995,29 +936,11 @@ class CategoryBindingHelper {
 
   /// ✅ NUEVO: Método para debugging específico del problema
   static void debugCategoryFormControllerDependencies() {
-    print('🔍 DEBUG: CategoryFormController Dependencies');
-    print(
-      '   GetCategoryByIdUseCase: ${Get.isRegistered<GetCategoryByIdUseCase>()}',
-    );
-    print(
-      '   CreateCategoryUseCase: ${Get.isRegistered<CreateCategoryUseCase>()}',
-    );
-    print(
-      '   UpdateCategoryUseCase: ${Get.isRegistered<UpdateCategoryUseCase>()}',
-    );
-    print(
-      '   GetCategoryTreeUseCase: ${Get.isRegistered<GetCategoryTreeUseCase>()}',
-    );
-    print(
-      '   CategoryFormController: ${Get.isRegistered<CategoryFormController>()}',
-    );
 
     if (Get.isRegistered<GetCategoryByIdUseCase>()) {
       try {
         final useCase = Get.find<GetCategoryByIdUseCase>();
-        print('   ✅ GetCategoryByIdUseCase se puede obtener correctamente');
       } catch (e) {
-        print('   ❌ Error al obtener GetCategoryByIdUseCase: $e');
       }
     }
   }

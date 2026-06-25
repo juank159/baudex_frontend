@@ -106,21 +106,17 @@ mixin CacheSyncMixin<TEntity, TIsarModel> {
       // PASO 1: Actualizar ISAR primero (SSOT - Single Source of Truth)
       // Si esto falla, todo falla (transaccional)
       await updateInIsar(entity);
-      print('✅ CacheSync: Entidad actualizada en ISAR');
 
       // PASO 2: Actualizar SecureStorage (cache rapido)
       // Si esto falla, solo loggeamos warning (no es critico)
       try {
         await updateInSecureStorage(entity);
-        print('✅ CacheSync: Entidad actualizada en SecureStorage');
       } catch (cacheError) {
-        print('⚠️ CacheSync: Error actualizando SecureStorage (no critico): $cacheError');
         // No hacer rethrow - SecureStorage es cache secundario
         // ISAR es SSOT, si falla SecureStorage no es critico
       }
 
     } catch (isarError) {
-      print('❌ CacheSync: Error CRITICO actualizando ISAR: $isarError');
       // Rethrow - ISAR es critico, si falla todo debe fallar
       rethrow;
     }
@@ -179,18 +175,14 @@ mixin CacheSyncMixin<TEntity, TIsarModel> {
     try {
       // PASO 1: Soft delete en ISAR (marcar como eliminado, mantener para sync)
       await deleteInIsar(entityId);
-      print('✅ CacheSync: Entidad marcada como eliminada en ISAR');
 
       // PASO 2: Hard delete en SecureStorage (eliminar completamente)
       try {
         await deleteInSecureStorage(entityId);
-        print('✅ CacheSync: Entidad eliminada de SecureStorage');
       } catch (cacheError) {
-        print('⚠️ CacheSync: Error eliminando de SecureStorage (no critico): $cacheError');
       }
 
     } catch (isarError) {
-      print('❌ CacheSync: Error CRITICO eliminando de ISAR: $isarError');
       rethrow;
     }
   }

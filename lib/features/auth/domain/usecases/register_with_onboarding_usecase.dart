@@ -15,7 +15,6 @@ class RegisterWithOnboardingUseCase implements UseCase<AuthResult, RegisterWithO
 
   @override
   Future<Either<Failure, AuthResult>> call(RegisterWithOnboardingParams params) async {
-    print('🏗️ RegisterWithOnboardingUseCase: Iniciando registro con onboarding...');
     
     // Validaciones de entrada
     final validationResult = _validateParams(params);

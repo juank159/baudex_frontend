@@ -1656,13 +1656,11 @@ class InventoryExportService {
             }
           }
         } catch (e) {
-          print('❌ Error obteniendo datos de orden $orderId: $e');
         }
       }
 
       return supplierNames;
     } catch (e) {
-      print('❌ Error obteniendo nombres de proveedores: $e');
       return {};
     }
   }
@@ -1697,14 +1695,12 @@ class InventoryExportService {
             orderNumbers[orderId] = 'PO-${orderId.substring(0, 8)}';
           }
         } catch (e) {
-          print('❌ Error obteniendo orden $orderId: $e');
           orderNumbers[orderId] = 'PO-${orderId.substring(0, 8)}';
         }
       }
 
       return orderNumbers;
     } catch (e) {
-      print('❌ Error obteniendo números de órdenes: $e');
       return {};
     }
   }
@@ -2176,12 +2172,6 @@ class InventoryExportService {
     List<Warehouse>? warehouses,
   }) {
     try {
-      print(
-        '🏢 DEBUG: Extrayendo nombre de almacén - isOrigin: $isOrigin, tipo: ${movement.type.name}',
-      );
-      print('🏢 DEBUG: Movement warehouseName: ${movement.warehouseName}');
-      print('🏢 DEBUG: Movement metadata: ${movement.metadata}');
-      print('🏢 DEBUG: Warehouses disponibles: ${warehouses?.length ?? 0}');
 
       // Helper function para buscar almacén por ID
       String? getWarehouseNameById(String? warehouseId) {
@@ -2194,12 +2184,8 @@ class InventoryExportService {
 
         try {
           final warehouse = warehouses.firstWhere((w) => w.id == warehouseId);
-          print(
-            '🏢 DEBUG: Encontrado almacén para ID $warehouseId: ${warehouse.name}',
-          );
           return warehouse.name;
         } catch (e) {
-          print('🏢 DEBUG: No se encontró almacén para ID: $warehouseId');
           return null;
         }
       }
@@ -2214,7 +2200,6 @@ class InventoryExportService {
               // Para transfer_out, el almacén actual es el origen
               final warehouseName = getWarehouseNameById(movement.warehouseId);
               if (warehouseName != null) {
-                print('🏢 DEBUG: Origen (transfer_out): $warehouseName');
                 return warehouseName;
               }
               return movement.warehouseName ?? 'Almacén origen';
@@ -2224,7 +2209,6 @@ class InventoryExportService {
                   movement.metadata!['originWarehouse'] as String?;
               final warehouseName = getWarehouseNameById(originWarehouseId);
               if (warehouseName != null) {
-                print('🏢 DEBUG: Origen (transfer_in): $warehouseName');
                 return warehouseName;
               }
               return 'Almacén origen';
@@ -2239,7 +2223,6 @@ class InventoryExportService {
                 destinationWarehouseId,
               );
               if (warehouseName != null) {
-                print('🏢 DEBUG: Destino (transfer_out): $warehouseName');
                 return warehouseName;
               }
               return 'Almacén destino';
@@ -2247,7 +2230,6 @@ class InventoryExportService {
               // Para transfer_in, el almacén actual es el destino
               final warehouseName = getWarehouseNameById(movement.warehouseId);
               if (warehouseName != null) {
-                print('🏢 DEBUG: Destino (transfer_in): $warehouseName');
                 return warehouseName;
               }
               return movement.warehouseName ?? 'Almacén destino';
@@ -2271,7 +2253,6 @@ class InventoryExportService {
         return 'N/A'; // No aplica destino para movimientos no-transferencia
       }
     } catch (e) {
-      print('❌ Error extrayendo nombre de almacén: $e');
       return isOrigin ? 'Error en origen' : 'Error en destino';
     }
   }

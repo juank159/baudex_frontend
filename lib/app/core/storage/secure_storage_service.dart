@@ -135,7 +135,6 @@ class SecureStorageService {
         return false; // Secure storage funciona
       } catch (e) {
         if (kDebugMode) {
-          print('⚠️ Secure storage no disponible en macOS, usando SharedPreferences: $e');
         }
         _useSharedPreferences = true;
         return true;
@@ -175,7 +174,6 @@ class SecureStorageService {
         // SharedPreferences falló (posiblemente datos corruptos/muy grandes).
         // Resetear flags y reintentar con keychain directamente.
         if (kDebugMode) {
-          print('⚠️ SharedPreferences falló en _writeSecure($key): $e — intentando keychain directo');
         }
         _useSharedPreferences = false;
         _keychainTested = false;
@@ -205,7 +203,6 @@ class SecureStorageService {
       } catch (e) {
         // SharedPreferences falló en lectura — intentar keychain directo
         if (kDebugMode) {
-          print('⚠️ SharedPreferences falló en _readSecure($key): $e — leyendo keychain');
         }
         _useSharedPreferences = false;
         _keychainTested = false;
@@ -260,7 +257,6 @@ class SecureStorageService {
     } catch (e) {
       // Si el write normal falla, intentar recuperación: limpiar y reintentar.
       if (kDebugMode) {
-        print('⚠️ saveToken falló ($e) — intentando recuperación de storage');
       }
       try {
         await _recoverCorruptedStorage();
@@ -296,7 +292,6 @@ class SecureStorageService {
       }
     } catch (_) {}
     if (kDebugMode) {
-      print('🔧 _recoverCorruptedStorage: storage limpiado');
     }
   }
 
@@ -616,7 +611,6 @@ class SecureStorageService {
       _cachedDeviceId = fingerprint;
 
       if (kDebugMode) {
-        print('🆔 Device ID generado y persistido (${fingerprint.substring(0, 12)}...)');
       }
       return fingerprint;
     } catch (e) {
@@ -627,7 +621,6 @@ class SecureStorageService {
       final fallback = _generateDeviceFingerprint();
       _cachedDeviceId = fallback;
       if (kDebugMode) {
-        print('⚠️ Storage falló, usando fingerprint en memoria: $e');
       }
       return fallback;
     }
@@ -721,7 +714,6 @@ class SecureStorageService {
   /// (warehouses, alert products, y cualquier cache de datos del tenant)
   Future<void> clearBusinessDataCache() async {
     try {
-      print('🧹 SecureStorageService: Limpiando cache de datos de negocio...');
       final prefs = await SharedPreferences.getInstance();
 
       // Recopilar todas las claves de negocio a eliminar
@@ -740,9 +732,7 @@ class SecureStorageService {
       }
 
       if (keysToRemove.isNotEmpty) {
-        print('✅ SecureStorageService: ${keysToRemove.length} claves de cache de negocio eliminadas (SharedPreferences)');
       } else {
-        print('✅ SecureStorageService: No había cache de negocio en SharedPreferences');
       }
 
       // CRÍTICO: caches que viven en SecureStorage (keychain/keystore) NO se
@@ -751,7 +741,6 @@ class SecureStorageService {
       // tocáramos SharedPreferences. Aquí los purgamos explícitamente.
       await _clearTenantSecureStorageCaches();
     } catch (e) {
-      print('⚠️ SecureStorageService: Error limpiando cache de negocio (no crítico): $e');
     }
   }
 
@@ -784,7 +773,6 @@ class SecureStorageService {
       }
     }
     if (cleared > 0) {
-      print('✅ SecureStorageService: $cleared claves de cache de tenant eliminadas (SecureStorage)');
     }
   }
 
@@ -805,7 +793,6 @@ class SecureStorageService {
         await prefs.remove(key);
       }
       if (keysToRemove.isNotEmpty) {
-        print('✅ Cache de tenant en SharedPreferences limpiado: ${keysToRemove.length} claves');
       }
     } catch (_) {}
   }
@@ -957,7 +944,6 @@ class SecureStorageService {
       };
       await _writeSecure(_offlineCredentialsKey, jsonEncode(credentials));
       if (kDebugMode) {
-        print('🔐 SecureStorageService: Credenciales offline guardadas para $email');
       }
     } catch (e) {
       throw Exception('Error al guardar credenciales offline: $e');
@@ -1051,7 +1037,6 @@ class SecureStorageService {
       await _writeSecure(_lastUserIdKey, userId);
     } catch (e) {
       if (kDebugMode) {
-        print('⚠️ No se pudo persistir lastUserId: $e');
       }
     }
   }

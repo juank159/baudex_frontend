@@ -387,7 +387,6 @@ class CategoryOfflineRepository implements CategoryRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarCategory.toEntity());
@@ -445,7 +444,6 @@ class CategoryOfflineRepository implements CategoryRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarCategory.toEntity());
@@ -489,7 +487,6 @@ class CategoryOfflineRepository implements CategoryRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(unit);

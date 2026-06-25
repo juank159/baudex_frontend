@@ -127,7 +127,6 @@ class PurchaseOrderFormController extends GetxController
 
   @override
   void onInit() {
-    print('🏗️ PurchaseOrderFormController onInit iniciado');
     super.onInit();
     SyncService.notifyFormOpened();
     try {
@@ -135,7 +134,6 @@ class PurchaseOrderFormController extends GetxController
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniqueId = 'PurchaseOrderForm_${timestamp}_${hashCode.toString()}';
       formKey = GlobalKey<FormState>(debugLabel: uniqueId);
-      print('🔑 FormKey único generado: $uniqueId');
 
       _initializeForm();
       _setupFormValidation();
@@ -143,9 +141,7 @@ class PurchaseOrderFormController extends GetxController
       // aparezca al abrir el form sin depender de que el usuario entre a
       // settings primero.
       _startOrgWatcher();
-      print('✅ PurchaseOrderFormController inicializado correctamente');
     } catch (e) {
-      print('❌ Error en PurchaseOrderFormController onInit: $e');
       error.value = 'Error en inicialización: $e';
     }
   }
@@ -153,16 +149,12 @@ class PurchaseOrderFormController extends GetxController
   @override
   void onClose() {
     SyncService.notifyFormClosed();
-    print(
-      '🗑️ PurchaseOrderFormController: Iniciando dispose de controladores...',
-    );
 
     try {
       // Dispose form key and clear form state
       if (formKey.currentState != null) {
         formKey.currentState?.reset();
       }
-      print('🔑 FormKey limpiado');
 
       // Clear all reactive variables
       isLoading.value = false;
@@ -180,9 +172,7 @@ class PurchaseOrderFormController extends GetxController
       _orgWorker?.dispose();
       _orgWorker = null;
 
-      print('✅ PurchaseOrderFormController: Dispose completado exitosamente');
     } catch (e) {
-      print('❌ Error durante dispose: $e');
     }
 
     super.onClose();
@@ -267,21 +257,16 @@ class PurchaseOrderFormController extends GetxController
       _safeDispose(itemSearchController, 'itemSearchController');
       _safeDispose(exchangeRateController, 'exchangeRateController');
       _safeDispose(foreignAmountController, 'foreignAmountController');
-      print('✅ Todos los controladores disposed correctamente');
     } catch (e) {
-      print('❌ Error disposing controladores: $e');
     }
   }
 
   void _safeDispose(TextEditingController controller, String name) {
     try {
-      print('🗑️ Disposing $name...');
       controller.dispose();
     } catch (e) {
       if (e.toString().contains('disposed')) {
-        print('ℹ️ $name ya estaba disposed');
       } else {
-        print('⚠️ Error disposing $name: $e');
       }
     }
   }
@@ -336,14 +321,10 @@ class PurchaseOrderFormController extends GetxController
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-      print(
-        '📝 Proveedor básico creado para edición: ${order.supplierName!} (${order.supplierId!})',
-      );
     }
 
     // Poblar prioridad (puede venir del campo priority o metadata)
     priority.value = order.priority ?? PurchaseOrderPriority.medium;
-    print('📝 Prioridad cargada: ${priority.value}');
     final dtService = Get.find<TenantDateTimeService>();
     orderDate.value = order.orderDate ?? dtService.now();
     expectedDeliveryDate.value = order.expectedDeliveryDate ?? dtService.now();
@@ -380,7 +361,6 @@ class PurchaseOrderFormController extends GetxController
         order.items
             .map((item) => PurchaseOrderItemForm.fromEntity(item))
             .toList();
-    print('📝 Items cargados: ${items.length}');
 
     // Calcular totales y validar formulario
     calculateTotals();
@@ -389,13 +369,6 @@ class PurchaseOrderFormController extends GetxController
     // Forzar actualización de la UI
     update();
 
-    print('✅ Formulario poblado exitosamente para edición:');
-    print(
-      '   - Proveedor: ${selectedSupplier.value?.name ?? "No asignado"} (${selectedSupplierId.value})',
-    );
-    print('   - Prioridad: ${priority.value}');
-    print('   - Items: ${items.length}');
-    print('   - Total: ${totalAmount.value}');
   }
 
   // ==================== FORM VALIDATION ====================
@@ -660,17 +633,11 @@ class PurchaseOrderFormController extends GetxController
   }
 
   void updateItemQuantity(int index, int quantity) {
-    print('🔢 updateItemQuantity llamado: index=$index, quantity=$quantity');
     if (index < items.length) {
       final oldItem = items[index];
-      print('🔢 Item anterior: quantity=${oldItem.quantity}');
       items[index] = items[index].copyWith(quantity: quantity);
-      print('🔢 Item actualizado: quantity=${items[index].quantity}');
       calculateTotals();
     } else {
-      print(
-        '🔢 ERROR: Index $index fuera de rango (items.length=${items.length})',
-      );
     }
   }
 
@@ -984,15 +951,11 @@ class PurchaseOrderFormController extends GetxController
 
     result.fold(
       (failure) {
-        print('❌ Error del use case: ${failure.message}');
         error.value = failure.message;
         _elegantSnack('No se pudo crear la orden', failure.message,
             type: 'error');
       },
       (createdPurchaseOrder) {
-        print(
-          '✅ Orden de compra creada exitosamente: ${createdPurchaseOrder.id}',
-        );
         _elegantSnack(
           'Orden creada',
           'La orden de compra se creó correctamente',
@@ -1512,7 +1475,6 @@ class PurchaseOrderFormController extends GetxController
             .searchSuppliers(query, limit: null);
         result.fold(
           (failure) {
-            print('⚠️ Offline supplier repo falló: ${failure.message}');
           },
           (list) => suppliers = list,
         );
@@ -1524,16 +1486,13 @@ class PurchaseOrderFormController extends GetxController
         final result = await searchSuppliersUseCase(params);
         result.fold(
           (failure) {
-            print('❌ Error buscando proveedores (fallback): ${failure.message}');
           },
           (list) => suppliers = list,
         );
       }
 
-      print('✅ PO supplier search offline: ${suppliers.length} proveedores');
       return suppliers;
     } catch (e) {
-      print('❌ Error inesperado buscando proveedores: $e');
       return <Supplier>[];
     }
   }
@@ -1557,7 +1516,6 @@ class PurchaseOrderFormController extends GetxController
             .searchProducts(query, limit: null);
         result.fold(
           (failure) {
-            print('⚠️ Offline repo falló: ${failure.message} — fallback use case');
           },
           (list) => products = list,
         );
@@ -1570,7 +1528,6 @@ class PurchaseOrderFormController extends GetxController
         final result = await searchProductsUseCase(params);
         result.fold(
           (failure) {
-            print('❌ Error buscando productos (fallback): ${failure.message}');
           },
           (list) => products = list,
         );
@@ -1578,24 +1535,17 @@ class PurchaseOrderFormController extends GetxController
 
       final activos =
           products.where((p) => p.status == ProductStatus.active).toList();
-      print('✅ PO search offline: ${activos.length} productos activos');
       return activos;
     } catch (e) {
-      print('❌ Error inesperado buscando productos: $e');
       return <Product>[];
     }
   }
 
   void selectSupplier(Supplier supplier) {
-    print('🏢 selectSupplier llamado con: ${supplier.toString()}');
     selectedSupplier.value = supplier;
     selectedSupplierId.value = supplier.id;
     selectedSupplierName.value = supplier.name;
     supplierController.text = supplier.name;
-    print('🏢 Estado después de selección:');
-    print('🏢   selectedSupplierId: "${selectedSupplierId.value}"');
-    print('🏢   selectedSupplierName: "${selectedSupplierName.value}"');
-    print('🏢   supplierController.text: "${supplierController.text}"');
     _validateForm();
   }
 

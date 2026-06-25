@@ -46,8 +46,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                     .findFirst();
 
             if (existingProduct != null) {
-              print('🔄 Producto offline encontrado por SKU: ${product.sku}');
-              print('   Actualizando serverId: ${existingProduct.serverId} → ${product.id}');
             }
           }
 
@@ -123,9 +121,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         }
       });
 
-      print('📦 ISAR: ${products.length} productos cacheados exitosamente');
     } catch (e) {
-      print('❌ Error al cachear productos en ISAR: $e');
       throw CacheException('Error al cachear productos en ISAR: $e');
     }
   }
@@ -152,8 +148,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                   .findFirst();
 
           if (existingProduct != null) {
-            print('🔄 Producto offline encontrado por SKU: ${product.sku}');
-            print('   Actualizando serverId: ${existingProduct.serverId} → ${product.id}');
           }
         }
 
@@ -227,9 +221,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         await isar.isarProducts.put(isarProduct);
       });
 
-      print('📦 ISAR: Producto ${product.name} cacheado exitosamente');
     } catch (e) {
-      print('❌ Error al cachear producto en ISAR: $e');
       throw CacheException('Error al cachear producto en ISAR: $e');
     }
   }
@@ -252,7 +244,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .findAll();
 
       if (isarProducts.isEmpty) {
-        print('📦 ISAR: No hay productos en cache local');
         throw const CacheException('No hay productos en cache local');
       }
 
@@ -262,11 +253,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .map((isarProduct) => _convertToProductModel(isarProduct))
               .toList();
 
-      print('📦 ISAR: ${products.length} productos obtenidos del cache local');
       return products;
     } catch (e) {
       if (e is CacheException) rethrow;
-      print('❌ Error al obtener productos de ISAR: $e');
       throw CacheException('Error al obtener productos de ISAR: $e');
     }
   }
@@ -286,13 +275,11 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .findFirst();
 
       if (isarProduct == null) {
-        print('📦 ISAR: Producto con ID $id no encontrado en cache');
         return null;
       }
 
       return _convertToProductModel(isarProduct);
     } catch (e) {
-      print('❌ Error al obtener producto de ISAR: $e');
       throw CacheException('Error al obtener producto de ISAR: $e');
     }
   }
@@ -311,13 +298,11 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .findFirst();
 
       if (isarProduct == null) {
-        print('📦 ISAR: Producto con SKU $sku no encontrado en cache');
         return null;
       }
 
       return _convertToProductModel(isarProduct);
     } catch (e) {
-      print('❌ Error al obtener producto por SKU de ISAR: $e');
       return null;
     }
   }
@@ -336,13 +321,11 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .findFirst();
 
       if (isarProduct == null) {
-        print('📦 ISAR: Producto con código $barcode no encontrado en cache');
         return null;
       }
 
       return _convertToProductModel(isarProduct);
     } catch (e) {
-      print('❌ Error al obtener producto por código de ISAR: $e');
       return null;
     }
   }
@@ -378,9 +361,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         await isar.isarProducts.putByServerId(statsProduct);
       });
 
-      print('📊 ISAR: Estadísticas de productos cacheadas');
     } catch (e) {
-      print('❌ Error al cachear estadísticas en ISAR: $e');
       throw CacheException('Error al cachear estadísticas en ISAR: $e');
     }
   }
@@ -397,24 +378,19 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .findFirst();
 
       if (statsCache == null || statsCache.metadataJson == null) {
-        print('📊 ISAR: No hay estadísticas en cache');
         return null;
       }
 
       // Deserializar estadísticas desde JSON
       final statsJson = statsCache.metadataJson!;
-      print('📊 ISAR: Deserializando estadísticas desde cache: $statsJson');
 
       try {
         // Parsear el JSON string de forma segura
         final Map<String, dynamic> jsonMap = _parseJsonString(statsJson);
         final stats = ProductStatsModel.fromJson(jsonMap);
 
-        print('✅ ISAR: Estadísticas deserializadas exitosamente');
         return stats;
       } catch (parseError) {
-        print('❌ Error al parsear estadísticas JSON: $parseError');
-        print('📋 JSON problemático: $statsJson');
 
         // Retornar estadísticas vacías en lugar de null para evitar errores en la UI
         return const ProductStatsModel(
@@ -429,7 +405,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         );
       }
     } catch (e) {
-      print('❌ Error al obtener estadísticas de ISAR: $e');
       return null;
     }
   }
@@ -452,9 +427,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         await isar.isarProducts.delete(product.id);
       });
 
-      print('🗑️ ISAR: Producto $id eliminado del cache');
     } catch (e) {
-      print('❌ Error al remover producto de ISAR: $e');
       throw CacheException('Error al remover producto de ISAR: $e');
     }
   }
@@ -475,9 +448,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         }
       });
 
-      print('🧹 ISAR: Cache de productos sincronizados limpiado');
     } catch (e) {
-      print('❌ Error al limpiar cache de ISAR: $e');
       throw CacheException('Error al limpiar cache de ISAR: $e');
     }
   }
@@ -495,12 +466,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       prices = isarProduct.prices
           .map((p) => ProductPriceModel.fromEntity(p.toEntity()))
           .toList();
-      print('📦 ISAR: Producto ${isarProduct.name} - ${prices.length} precios cargados desde campo prices');
     } else {
       // Fallback a metadataJson (formato antiguo)
       prices = deserializedData['prices'];
       if (prices != null && prices.isNotEmpty) {
-        print('📦 ISAR: Producto ${isarProduct.name} - ${prices.length} precios cargados desde metadataJson');
       }
     }
 
@@ -549,7 +518,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               .serverIdEqualTo('STATS_CACHE')
               .count();
 
-      print('📦 ISAR: $count productos disponibles offline');
       return count > 0;
     } catch (e) {
       return false;
@@ -633,7 +601,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       };
       return jsonEncode(productData);
     } catch (e) {
-      print('❌ Error al serializar datos del producto: $e');
       return '{}'; // Retornar objeto vacío en caso de error
     }
   }
@@ -690,8 +657,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         'metadata': null,
       };
     } catch (e) {
-      print('❌ Error al deserializar datos del producto: $e');
-      print('📋 JSON problemático: $metadataJson');
       return {
         'prices': null,
         'category': null,
@@ -712,7 +677,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
           .map((priceJson) => ProductPriceModel.fromJson(priceJson))
           .toList();
     } catch (e) {
-      print('❌ Error al deserializar lista de precios: $e');
       return null;
     }
   }
@@ -726,7 +690,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
 
       return ProductCategoryModel.fromJson(categoryJson);
     } catch (e) {
-      print('❌ Error al deserializar categoría: $e');
       return null;
     }
   }
@@ -740,7 +703,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
 
       return ProductCreatorModel.fromJson(createdByJson);
     } catch (e) {
-      print('❌ Error al deserializar createdBy: $e');
       return null;
     }
   }
@@ -759,12 +721,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         // Convertir Map genérico a Map<String, dynamic>
         return Map<String, dynamic>.from(decoded);
       } else {
-        print('⚠️ JSON no es un objeto válido: ${decoded.runtimeType}');
         return {};
       }
     } catch (e) {
-      print('❌ Error al parsear JSON string: $e');
-      print('📋 JSON problemático: $jsonString');
       return {};
     }
   }
@@ -817,9 +776,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         await isar.isarProducts.put(isarProduct);
       });
 
-      print(
-        '✅ ProductLocalDataSourceIsar: Product cached for sync: ${product.name}',
-      );
     } catch (e) {
       throw CacheException('Error caching product for sync in ISAR: $e');
     }
@@ -843,15 +799,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
           final productEntity = productModel.toEntity();
           unsyncedProducts.add(productEntity);
         } catch (e) {
-          print(
-            '⚠️ Error converting unsynced product ${isarProduct.serverId}: $e',
-          );
         }
       }
 
-      print(
-        '📋 ProductLocalDataSourceIsar: Found ${unsyncedProducts.length} unsynced products',
-      );
       return unsyncedProducts;
     } catch (e) {
       throw CacheException('Error getting unsynced products from ISAR: $e');
@@ -881,9 +831,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         }
       });
 
-      print(
-        '✅ ProductLocalDataSourceIsar: Product marked as synced: $tempId -> $serverId',
-      );
     } catch (e) {
       throw CacheException('Error marking product as synced in ISAR: $e');
     }
@@ -1011,7 +958,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
           .map((isarProduct) => _convertToProductModel(isarProduct))
           .toList();
     } catch (e) {
-      print('❌ Error al buscar productos en ISAR: $e');
       return [];
     }
   }
@@ -1028,7 +974,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
 
       return isarProduct;
     } catch (e) {
-      print('⚠️ Error al obtener IsarProduct: $e');
       return null;
     }
   }

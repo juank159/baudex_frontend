@@ -50,7 +50,6 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
     try {
       return Get.find<PurchaseOrderFormController>();
     } catch (e) {
-      print('⚠️ PurchaseOrderFormController no encontrado: $e');
       return null;
     }
   }
@@ -78,7 +77,6 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
       _searchController.dispose();
       _focusNode.dispose();
     } catch (e) {
-      print('⚠️ Error en dispose de ProductSelectorWidget: $e');
     }
     super.dispose();
   }
@@ -551,7 +549,6 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
 
   void _onSearchChanged() {
     if (!mounted) {
-      print('⚠️ ProductSelectorWidget: Widget no montado, cancelando búsqueda');
       return;
     }
 
@@ -618,7 +615,6 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
         });
       }
     } catch (e) {
-      print('❌ Error en búsqueda de productos: $e');
       if (mounted) {
         setState(() {
           _searchResults.clear();
@@ -631,8 +627,6 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
   void _selectProduct(Product product) {
     widget.onProductSelected(product);
     _closeSearch();
-
-    print('📦 Producto seleccionado: ${product.name}');
 
     Get.snackbar(
       'Producto agregado',

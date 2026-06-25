@@ -105,12 +105,10 @@ class InventoryBulkAdjustmentsController extends GetxController {
       
       result.fold(
         (failure) {
-          print('❌ Error cargando almacenes: ${failure.message}');
           error.value = 'Error cargando almacenes: ${failure.message}';
         },
         (warehousesList) {
           warehouses.value = warehousesList;
-          print('✅ Almacenes cargados: ${warehousesList.length}');
           // Auto-seleccionar si hay exactamente un almacén disponible
           if (warehousesList.length == 1) {
             final w = warehousesList.first;
@@ -119,7 +117,6 @@ class InventoryBulkAdjustmentsController extends GetxController {
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando almacenes: $e');
       error.value = 'Error inesperado cargando almacenes: $e';
     } finally {
       isLoading.value = false;
@@ -135,13 +132,11 @@ class InventoryBulkAdjustmentsController extends GetxController {
       
       return result.fold(
         (failure) {
-          print('❌ Error buscando productos: ${failure.message}');
           return <Product>[];
         },
         (products) => products,
       );
     } catch (e) {
-      print('❌ Error inesperado buscando productos: $e');
       return <Product>[];
     }
   }
@@ -177,7 +172,6 @@ class InventoryBulkAdjustmentsController extends GetxController {
       isLoading.value = true;
       
       // Get current balance for the product in the selected warehouse
-      print('🔍 Obteniendo balance para ${product.name} en almacén ${selectedWarehouseName.value}');
       final balanceResult = await getInventoryBalanceByProductUseCase(
         product.id,
         warehouseId: selectedWarehouseId.value,
@@ -186,13 +180,10 @@ class InventoryBulkAdjustmentsController extends GetxController {
       InventoryBalance? currentBalance;
       balanceResult.fold(
         (failure) {
-          print('⚠️ No se pudo obtener balance para ${product.name} en ${selectedWarehouseName.value}: ${failure.message}');
           currentBalance = null;
         },
         (balance) {
           currentBalance = balance;
-          print('✅ Balance obtenido para ${product.name} en ${selectedWarehouseName.value}: ${balance.totalQuantity} unidades');
-          print('📊 Detalles del balance: Available=${balance.availableQuantity}, Reserved=${balance.reservedQuantity}');
         },
       );
 
@@ -344,7 +335,6 @@ class InventoryBulkAdjustmentsController extends GetxController {
             ? (item.product.costPrice ?? item.product.sellingPrice ?? 0.0)
             : 0.0;
             
-        print('💰 Producto ${item.product.name}: ajuste=${item.adjustmentDifference}, costo=$unitCost');
         
         return CreateStockAdjustmentParams(
           productId: item.product.id,
@@ -469,25 +459,20 @@ class InventoryBulkAdjustmentsController extends GetxController {
   // Forzar actualización de datos de inventario después de los ajustes
   void _forceInventoryRefresh() {
     try {
-      print('🔄 Forzando actualización de inventario después de ajustes...');
       
       // Obtener el controlador principal de inventario si existe
       if (Get.isRegistered<InventoryController>()) {
         final inventoryController = Get.find<InventoryController>();
-        print('📊 Refrescando balances en controlador principal...');
         inventoryController.refreshData();
       }
       
       // También refrescar el controlador de balances si existe
       if (Get.isRegistered<InventoryBalanceController>()) {
         final balanceController = Get.find<InventoryBalanceController>();
-        print('💰 Refrescando balances...');
         // balanceController.refreshData(); // Si tiene este método
       }
       
-      print('✅ Actualización de inventario iniciada');
     } catch (e) {
-      print('⚠️ Error al forzar actualización de inventario: $e');
     }
   }
 

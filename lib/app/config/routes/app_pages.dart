@@ -155,33 +155,24 @@ import 'app_routes.dart';
 
 // Helper para registrar dependencias optimizadas para pestañas
 void _registerInvoiceTabsDependencies() {
-  print('🔧 [PESTAÑAS] Registrando SOLO dependencias esenciales...');
 
   // Registrar dependencias básicas de Invoice (SIN estadísticas automáticas)
   if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-    print('📄 [PESTAÑAS] Registrando InvoiceBinding base sin estadísticas...');
     InvoiceBinding().dependenciesWithoutStats();
-    print('✅ [PESTAÑAS] InvoiceBinding base registrado (sin estadísticas)');
   }
 
   // Customer dependencies
   try {
     Get.find<GetCustomersUseCase>();
-    print('✅ [PESTAÑAS] CustomerBinding ya registrado');
   } catch (e) {
-    print('📄 [PESTAÑAS] Registrando CustomerBinding...');
     CustomerBinding().dependencies();
-    print('✅ [PESTAÑAS] CustomerBinding registrado');
   }
 
   // Product dependencies
   try {
     Get.find<GetProductsUseCase>();
-    print('✅ [PESTAÑAS] ProductBinding ya registrado');
   } catch (e) {
-    print('📄 [PESTAÑAS] Registrando ProductBinding...');
     ProductBinding().dependencies();
-    print('✅ [PESTAÑAS] ProductBinding registrado');
   }
 }
 
@@ -314,20 +305,15 @@ class AppPages {
       name: AppRoutes.products,
       page: () => const ProductsListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [LISTA PRODUCTOS] Inicializando bindings...');
 
         // CategoryBinding primero (para filtros de categoría)
         if (!Get.isRegistered<GetCategoriesUseCase>()) {
-          print('📂 [LISTA PRODUCTOS] Registrando CategoryBinding...');
           CategoryBinding().dependencies();
-          print('✅ [LISTA PRODUCTOS] CategoryBinding registrado');
         }
 
         // ProductBinding después
         if (!Get.isRegistered<ProductsController>()) {
-          print('📦 [LISTA PRODUCTOS] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [LISTA PRODUCTOS] ProductBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -339,24 +325,17 @@ class AppPages {
       name: AppRoutes.productsCreate,
       page: () => const ProductFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR PRODUCTO] Inicializando bindings...');
 
         // 1. PRIMERO: CategoryBinding (para GetCategoriesUseCase)
         if (!Get.isRegistered<GetCategoriesUseCase>()) {
-          print('📂 [CREAR PRODUCTO] Registrando CategoryBinding...');
           CategoryBinding().dependencies();
-          print('✅ [CREAR PRODUCTO] CategoryBinding registrado');
         } else {
-          print('✅ [CREAR PRODUCTO] GetCategoriesUseCase ya disponible');
         }
 
         // 2. SEGUNDO: ProductBinding (ahora puede usar GetCategoriesUseCase)
         if (!Get.isRegistered<ProductFormController>()) {
-          print('📦 [CREAR PRODUCTO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [CREAR PRODUCTO] ProductBinding registrado');
         } else {
-          print('✅ [CREAR PRODUCTO] ProductFormController ya registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -368,24 +347,17 @@ class AppPages {
       name: '${AppRoutes.productsEdit}/:id',
       page: () => const ProductFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [EDITAR PRODUCTO] Inicializando bindings...');
 
         // 1. PRIMERO: CategoryBinding
         if (!Get.isRegistered<GetCategoriesUseCase>()) {
-          print('📂 [EDITAR PRODUCTO] Registrando CategoryBinding...');
           CategoryBinding().dependencies();
-          print('✅ [EDITAR PRODUCTO] CategoryBinding registrado');
         } else {
-          print('✅ [EDITAR PRODUCTO] GetCategoriesUseCase ya disponible');
         }
 
         // 2. SEGUNDO: ProductBinding
         if (!Get.isRegistered<ProductFormController>()) {
-          print('📦 [EDITAR PRODUCTO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [EDITAR PRODUCTO] ProductBinding registrado');
         } else {
-          print('✅ [EDITAR PRODUCTO] ProductFormController ya registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -397,15 +369,9 @@ class AppPages {
       name: '${AppRoutes.productsDetail}/:id',
       page: () => const ProductDetailScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [DETALLE PRODUCTO] Verificando ProductDetailController...');
         if (!Get.isRegistered<ProductDetailController>()) {
-          print(
-            '📦 [DETALLE PRODUCTO] Registrando ProductBinding para ProductDetailController',
-          );
           ProductBinding().dependencies();
-          print('✅ [DETALLE PRODUCTO] ProductBinding registrado exitosamente');
         } else {
-          print('✅ [DETALLE PRODUCTO] ProductDetailController ya registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -443,15 +409,9 @@ class AppPages {
       name: AppRoutes.productsLowStock,
       page: () => const ProductsListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [LOW STOCK] Verificando ProductsController...');
         if (!Get.isRegistered<ProductsController>()) {
-          print(
-            '📦 [LOW STOCK] Registrando ProductBinding para ProductsController',
-          );
           ProductBinding().dependencies();
-          print('✅ [LOW STOCK] ProductBinding registrado exitosamente');
         } else {
-          print('✅ [LOW STOCK] ProductsController ya registrado');
         }
       }),
       transition: Transition.fade,
@@ -464,17 +424,9 @@ class AppPages {
       name: AppRoutes.productsStats,
       page: () => const ProductStatsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [ESTADÍSTICAS PRODUCTOS] Verificando ProductsController...');
         if (!Get.isRegistered<ProductsController>()) {
-          print(
-            '📦 [ESTADÍSTICAS PRODUCTOS] Registrando ProductBinding para ProductsController',
-          );
           ProductBinding().dependencies();
-          print(
-            '✅ [ESTADÍSTICAS PRODUCTOS] ProductBinding registrado exitosamente',
-          );
         } else {
-          print('✅ [ESTADÍSTICAS PRODUCTOS] ProductsController ya registrado');
         }
       }),
       transition: Transition.fade,
@@ -486,23 +438,17 @@ class AppPages {
       name: AppRoutes.productsInitialInventory,
       page: () => const InitialInventoryScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [INVENTARIO INICIAL] Inicializando bindings...');
 
         if (!Get.isRegistered<GetCategoriesUseCase>()) {
-          print('📂 [INVENTARIO INICIAL] Registrando CategoryBinding...');
           CategoryBinding().dependencies();
-          print('✅ [INVENTARIO INICIAL] CategoryBinding registrado');
         }
 
         if (!Get.isRegistered<CreateProductUseCase>()) {
-          print('📦 [INVENTARIO INICIAL] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [INVENTARIO INICIAL] ProductBinding registrado');
         }
 
         // Registrar dependencias de inventario para crear movimientos (stock inicial)
         if (!Get.isRegistered<CreateInventoryMovementUseCase>()) {
-          print('📦 [INVENTARIO INICIAL] Registrando dependencias de inventario...');
           if (!Get.isRegistered<InventoryRemoteDataSource>()) {
             Get.lazyPut<InventoryRemoteDataSource>(
               () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
@@ -529,7 +475,6 @@ class AppPages {
             () => CreateInventoryMovementUseCase(Get.find()),
             fenix: true,
           );
-          print('✅ [INVENTARIO INICIAL] CreateInventoryMovementUseCase registrado');
         }
 
         if (!Get.isRegistered<InitialInventoryController>()) {
@@ -540,7 +485,6 @@ class AppPages {
               createMovementUseCase: Get.find(),
             ),
           );
-          print('✅ [INVENTARIO INICIAL] InitialInventoryController registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -551,17 +495,9 @@ class AppPages {
       name: '/products/category/:categoryId',
       page: () => const ProductsListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [PRODUCTOS POR CATEGORÍA] Verificando ProductsController...');
         if (!Get.isRegistered<ProductsController>()) {
-          print(
-            '📦 [PRODUCTOS POR CATEGORÍA] Registrando ProductBinding para ProductsController',
-          );
           ProductBinding().dependencies();
-          print(
-            '✅ [PRODUCTOS POR CATEGORÍA] ProductBinding registrado exitosamente',
-          );
         } else {
-          print('✅ [PRODUCTOS POR CATEGORÍA] ProductsController ya registrado');
         }
       }),
       transition: Transition.fade,
@@ -700,9 +636,7 @@ class AppPages {
       name: AppRoutes.purchaseOrdersCreate,
       page: () => const PurchaseOrderFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR ORDEN] Inicializando binding con cleanup...');
         PurchaseOrderFormBinding().dependencies();
-        print('✅ [CREAR ORDEN] PurchaseOrderFormBinding completado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -713,9 +647,7 @@ class AppPages {
       name: '${AppRoutes.purchaseOrdersEdit}/:id',
       page: () => const PurchaseOrderFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [EDITAR ORDEN] Inicializando binding con cleanup...');
         PurchaseOrderFormBinding().dependencies();
-        print('✅ [EDITAR ORDEN] PurchaseOrderFormBinding completado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -778,20 +710,15 @@ class AppPages {
       name: AppRoutes.inventory,
       page: () => const InventoryDashboardScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CENTRO INVENTARIO] Inicializando bindings...');
 
         // Registrar dependencias base de productos (para búsqueda)
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [CENTRO INVENTARIO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [CENTRO INVENTARIO] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         // _safePut() dentro de InventoryBinding maneja re-registración segura
-        print('📊 [CENTRO INVENTARIO] Registrando InventoryBinding...');
         InventoryBinding().dependencies();
-        print('✅ [CENTRO INVENTARIO] InventoryBinding registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -803,20 +730,15 @@ class AppPages {
       name: AppRoutes.inventoryMovements,
       page: () => const InventoryMovementsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [MOVIMIENTOS INVENTARIO] Inicializando bindings...');
 
         // Registrar dependencias base de productos (para búsqueda)
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [MOVIMIENTOS INVENTARIO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [MOVIMIENTOS INVENTARIO] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryMovementsController>()) {
-          print('📋 [MOVIMIENTOS INVENTARIO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [MOVIMIENTOS INVENTARIO] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -829,20 +751,15 @@ class AppPages {
       name: AppRoutes.inventoryAdjustments,
       page: () => const InventoryAdjustmentsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [AJUSTES INVENTARIO] Inicializando bindings...');
 
         // Registrar dependencias base de productos (para búsqueda)
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [AJUSTES INVENTARIO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [AJUSTES INVENTARIO] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryAdjustmentsController>()) {
-          print('⚖️ [AJUSTES INVENTARIO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [AJUSTES INVENTARIO] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -855,13 +772,10 @@ class AppPages {
       name: AppRoutes.inventoryBalances,
       page: () => const InventoryBalanceScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [BALANCES INVENTARIO] Inicializando bindings...');
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryBalanceController>()) {
-          print('📊 [BALANCES INVENTARIO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [BALANCES INVENTARIO] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -874,13 +788,10 @@ class AppPages {
       name: '/inventory/product/:productId/kardex',
       page: () => const KardexScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [KARDEX] Inicializando bindings...');
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<KardexController>()) {
-          print('📈 [KARDEX] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [KARDEX] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -893,27 +804,21 @@ class AppPages {
       name: '/inventory/product/:productId/batches',
       page: () => const InventoryBatchesScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [LOTES] Inicializando bindings...');
-        print('🔧 [LOTES] Get.parameters: ${Get.parameters}');
 
         // Primero asegurar que las dependencias base estén registradas
         if (!Get.isRegistered<InventoryRepository>()) {
-          print('📦 [LOTES] Registrando InventoryBinding base...');
           InventoryBinding().dependencies();
         }
 
         // Siempre eliminar y re-crear el controller para esta ruta
         // porque necesita el productId de los parámetros de ruta
         if (Get.isRegistered<InventoryBatchesController>()) {
-          print('🔄 [LOTES] Eliminando controller anterior...');
           Get.delete<InventoryBatchesController>();
         }
 
-        print('📦 [LOTES] Creando nuevo InventoryBatchesController...');
         Get.put<InventoryBatchesController>(
           InventoryBatchesController(getInventoryBatchesUseCase: Get.find()),
         );
-        print('✅ [LOTES] InventoryBatchesController creado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -925,20 +830,15 @@ class AppPages {
       name: AppRoutes.inventoryMovementsCreate,
       page: () => const InventoryMovementsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR MOVIMIENTO] Inicializando bindings...');
 
         // Registrar dependencias base de productos (para búsqueda)
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [CREAR MOVIMIENTO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [CREAR MOVIMIENTO] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryMovementsController>()) {
-          print('➕ [CREAR MOVIMIENTO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [CREAR MOVIMIENTO] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -951,20 +851,15 @@ class AppPages {
       name: AppRoutes.inventoryAdjustmentsCreate,
       page: () => const InventoryAdjustmentsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR AJUSTE] Inicializando bindings...');
 
         // Registrar dependencias base de productos (para búsqueda)
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [CREAR AJUSTE] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [CREAR AJUSTE] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryAdjustmentsController>()) {
-          print('➕ [CREAR AJUSTE] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [CREAR AJUSTE] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -977,20 +872,15 @@ class AppPages {
       name: AppRoutes.inventoryBulkAdjustments,
       page: () => const InventoryBulkAdjustmentsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [AJUSTES MASIVOS] Inicializando bindings...');
 
         // Registrar dependencias base de productos (para búsqueda)
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [AJUSTES MASIVOS] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [AJUSTES MASIVOS] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryBulkAdjustmentsController>()) {
-          print('📦 [AJUSTES MASIVOS] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [AJUSTES MASIVOS] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -1003,20 +893,15 @@ class AppPages {
       name: AppRoutes.inventoryTransfers,
       page: () => const InventoryTransfersScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [TRANSFERENCIAS] Inicializando bindings...');
 
         // Registrar ProductBinding primero (dependencia requerida)
         if (!Get.isRegistered<SearchProductsUseCase>()) {
-          print('📦 [TRANSFERENCIAS] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [TRANSFERENCIAS] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryTransfersController>()) {
-          print('🔄 [TRANSFERENCIAS] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [TRANSFERENCIAS] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -1029,25 +914,19 @@ class AppPages {
       name: AppRoutes.inventoryTransfersCreate,
       page: () => const CreateTransferScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR TRANSFERENCIA] Inicializando bindings...');
 
         // Registrar ProductBinding primero (dependencia requerida)
         if (!Get.isRegistered<SearchProductsUseCase>()) {
-          print('📦 [CREAR TRANSFERENCIA] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [CREAR TRANSFERENCIA] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryTransfersController>()) {
-          print('📦 [CREAR TRANSFERENCIA] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [CREAR TRANSFERENCIA] InventoryBinding registrado');
         }
 
         // Registrar binding específico para creación de transferencias
         CreateTransferBinding().dependencies();
-        print('✅ [CREAR TRANSFERENCIA] CreateTransferBinding registrado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1059,13 +938,10 @@ class AppPages {
       name: AppRoutes.inventoryAgingReport,
       page: () => const InventoryAgingReportScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [REPORTE ANTIGÜEDAD] Inicializando bindings...');
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryAgingController>()) {
-          print('⏰ [REPORTE ANTIGÜEDAD] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [REPORTE ANTIGÜEDAD] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -1078,13 +954,10 @@ class AppPages {
       name: AppRoutes.warehouses,
       page: () => const WarehousesScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [ALMACENES] Inicializando bindings...');
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<WarehousesController>()) {
-          print('🏪 [ALMACENES] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [ALMACENES] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -1097,12 +970,9 @@ class AppPages {
       name: AppRoutes.warehousesCreate,
       page: () => const WarehouseFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR ALMACÉN] Inicializando bindings...');
 
         if (!Get.isRegistered<WarehouseFormController>()) {
-          print('➕ [CREAR ALMACÉN] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [CREAR ALMACÉN] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1115,12 +985,9 @@ class AppPages {
       name: '${AppRoutes.warehousesEdit}/:id',
       page: () => const WarehouseFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [EDITAR ALMACÉN] Inicializando bindings...');
 
         if (!Get.isRegistered<WarehouseFormController>()) {
-          print('✏️ [EDITAR ALMACÉN] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [EDITAR ALMACÉN] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1133,12 +1000,9 @@ class AppPages {
       name: '${AppRoutes.warehousesDetail}/:id',
       page: () => const WarehouseDetailScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [DETALLE ALMACÉN] Inicializando bindings...');
 
         if (!Get.isRegistered<WarehouseDetailController>()) {
-          print('👁️ [DETALLE ALMACÉN] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [DETALLE ALMACÉN] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1151,13 +1015,10 @@ class AppPages {
       name: AppRoutes.inventoryValuation,
       page: () => const InventoryValuationScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [VALORACIÓN INVENTARIO] Inicializando bindings...');
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryBalanceController>()) {
-          print('💰 [VALORACIÓN INVENTARIO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [VALORACIÓN INVENTARIO] InventoryBinding registrado');
         }
       }),
       transition: Transition.fade,
@@ -1170,13 +1031,10 @@ class AppPages {
       name: '/inventory/product/:productId',
       page: () => const InventoryBalanceScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [PRODUCTO INVENTARIO] Inicializando bindings...');
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryBalanceController>()) {
-          print('📋 [PRODUCTO INVENTARIO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [PRODUCTO INVENTARIO] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1189,20 +1047,15 @@ class AppPages {
       name: '/inventory/movement/:movementId',
       page: () => const InventoryMovementsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [DETALLE MOVIMIENTO] Inicializando bindings...');
 
         // Registrar dependencias base de productos
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [DETALLE MOVIMIENTO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [DETALLE MOVIMIENTO] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryMovementsController>()) {
-          print('📋 [DETALLE MOVIMIENTO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [DETALLE MOVIMIENTO] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1215,20 +1068,15 @@ class AppPages {
       name: '/inventory/movement/:movementId/edit',
       page: () => const InventoryMovementsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [EDITAR MOVIMIENTO] Inicializando bindings...');
 
         // Registrar dependencias base de productos
         if (!Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [EDITAR MOVIMIENTO] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [EDITAR MOVIMIENTO] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryMovementsController>()) {
-          print('✏️ [EDITAR MOVIMIENTO] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [EDITAR MOVIMIENTO] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1241,20 +1089,15 @@ class AppPages {
       name: '/inventory/transfer/:transferId',
       page: () => const InventoryTransfersScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [DETALLE TRANSFERENCIA] Inicializando bindings...');
 
         // Registrar ProductBinding primero (dependencia requerida)
         if (!Get.isRegistered<SearchProductsUseCase>()) {
-          print('📦 [DETALLE TRANSFERENCIA] Registrando ProductBinding...');
           ProductBinding().dependencies();
-          print('✅ [DETALLE TRANSFERENCIA] ProductBinding registrado');
         }
 
         // Registrar binding completo de inventario
         if (!Get.isRegistered<InventoryTransfersController>()) {
-          print('🔄 [DETALLE TRANSFERENCIA] Registrando InventoryBinding...');
           InventoryBinding().dependencies();
-          print('✅ [DETALLE TRANSFERENCIA] InventoryBinding registrado');
         }
       }),
       transition: Transition.rightToLeft,
@@ -1269,18 +1112,14 @@ class AppPages {
       name: AppRoutes.invoices,
       page: () => const InvoiceListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [LISTA FACTURAS] Inicializando bindings...');
 
         // 1. Registrar dependencias base del InvoiceBinding
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [LISTA FACTURAS] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [LISTA FACTURAS] InvoiceBinding base registrado');
         }
 
         // 2. Registrar controlador específico de lista
         InvoiceBinding.registerListController();
-        print('✅ [LISTA FACTURAS] InvoiceListController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1312,18 +1151,14 @@ class AppPages {
       name: '${AppRoutes.invoicesDetail}/:id',
       page: () => const InvoiceDetailScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [DETALLE FACTURA] Inicializando bindings...');
 
         // 1. Verificar y registrar dependencias base
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [DETALLE FACTURA] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [DETALLE FACTURA] InvoiceBinding base registrado');
         }
 
         // 2. Registrar controlador específico de detalle
         InvoiceBinding.registerDetailController();
-        print('✅ [DETALLE FACTURA] InvoiceDetailController registrado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1336,28 +1171,18 @@ class AppPages {
       page: () => const InvoiceStatsScreen(),
       binding: BindingsBuilder(() {
         try {
-          print('🔧 [ESTADÍSTICAS FACTURAS] Inicializando bindings...');
 
           // Siempre registrar dependencias base si no están
           if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-            print(
-              '📄 [ESTADÍSTICAS FACTURAS] Registrando InvoiceBinding base...',
-            );
             InvoiceBinding().dependencies();
-            print('✅ [ESTADÍSTICAS FACTURAS] InvoiceBinding base registrado');
           }
 
           // Verificar que el stats controller esté disponible
           if (!InvoiceBinding.isStatsControllerRegistered()) {
-            print(
-              '⚠️ [ESTADÍSTICAS FACTURAS] Re-registrando stats controller...',
-            );
             InvoiceBinding().dependencies();
           }
 
-          print('✅ [ESTADÍSTICAS FACTURAS] Binding completado exitosamente');
         } catch (e) {
-          print('❌ [ESTADÍSTICAS FACTURAS] Error en binding: $e');
           // Fallback: registrar binding básico
           InvoiceBinding().dependencies();
         }
@@ -1373,18 +1198,14 @@ class AppPages {
       page:
           () => const InvoicePrintScreen(), // ← Necesitarás crear esta pantalla
       binding: BindingsBuilder(() {
-        print('🔧 [IMPRIMIR FACTURA] Inicializando bindings...');
 
         // Solo necesita el controlador de detalle para obtener los datos
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [IMPRIMIR FACTURA] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [IMPRIMIR FACTURA] InvoiceBinding base registrado');
         }
 
         // Registrar controlador de detalle para obtener la factura
         InvoiceBinding.registerDetailController();
-        print('✅ [IMPRIMIR FACTURA] InvoiceDetailController registrado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1398,16 +1219,12 @@ class AppPages {
           () =>
               const InvoiceListScreen(), // Reutiliza la lista con filtro de vencidas
       binding: BindingsBuilder(() {
-        print('🔧 [FACTURAS VENCIDAS] Inicializando bindings...');
 
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [FACTURAS VENCIDAS] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [FACTURAS VENCIDAS] InvoiceBinding base registrado');
         }
 
         InvoiceBinding.registerListController();
-        print('✅ [FACTURAS VENCIDAS] InvoiceListController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1421,16 +1238,12 @@ class AppPages {
           () =>
               const InvoiceListScreen(), // Reutiliza la lista con filtro por cliente
       binding: BindingsBuilder(() {
-        print('🔧 [FACTURAS POR CLIENTE] Inicializando bindings...');
 
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [FACTURAS POR CLIENTE] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [FACTURAS POR CLIENTE] InvoiceBinding base registrado');
         }
 
         InvoiceBinding.registerListController();
-        print('✅ [FACTURAS POR CLIENTE] InvoiceListController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1444,16 +1257,12 @@ class AppPages {
           () =>
               const InvoiceListScreen(), // Reutiliza la lista con filtro por estado
       binding: BindingsBuilder(() {
-        print('🔧 [FACTURAS POR ESTADO] Inicializando bindings...');
 
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [FACTURAS POR ESTADO] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [FACTURAS POR ESTADO] InvoiceBinding base registrado');
         }
 
         InvoiceBinding.registerListController();
-        print('✅ [FACTURAS POR ESTADO] InvoiceListController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1465,19 +1274,16 @@ class AppPages {
       name: AppRoutes.expenses,
       page: () => const ExpensesListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [LISTA GASTOS] Inicializando bindings...');
         // Verificar si el controller ya existe (re-visita vs primera visita)
         final alreadyRegistered = Get.isRegistered<EnhancedExpensesController>();
         ExpenseBinding().dependencies();
         // Si ya existía (controller permanente), refrescar datos
         // En primera visita, onInit() se encarga de la carga inicial
         if (alreadyRegistered) {
-          print('🔄 [LISTA GASTOS] Re-visita detectada, refrescando datos...');
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Get.find<EnhancedExpensesController>().refreshExpenses();
           });
         }
-        print('✅ [LISTA GASTOS] ExpenseBinding registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1488,7 +1294,6 @@ class AppPages {
       name: AppRoutes.expensesCreate,
       page: () => const ModernExpenseFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR GASTO] Inicializando bindings...');
         ExpenseBinding().dependencies();
         if (!Get.isRegistered<ExpenseFormController>()) {
           Get.lazyPut<ExpenseFormController>(
@@ -1505,7 +1310,6 @@ class AppPages {
             ),
           );
         }
-        print('✅ [CREAR GASTO] ExpenseFormController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1516,7 +1320,6 @@ class AppPages {
       name: '${AppRoutes.expensesEdit}/:id',
       page: () => const ModernExpenseFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [EDITAR GASTO] Inicializando bindings...');
         ExpenseBinding().dependencies();
         if (!Get.isRegistered<ExpenseFormController>()) {
           Get.lazyPut<ExpenseFormController>(
@@ -1533,7 +1336,6 @@ class AppPages {
             ),
           );
         }
-        print('✅ [EDITAR GASTO] ExpenseFormController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1544,7 +1346,6 @@ class AppPages {
       name: '${AppRoutes.expensesDetail}/:id',
       page: () => const ExpenseDetailScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [DETALLE GASTO] Inicializando bindings...');
         ExpenseBinding().dependencies();
         if (!Get.isRegistered<ExpenseDetailController>()) {
           Get.lazyPut<ExpenseDetailController>(
@@ -1556,7 +1357,6 @@ class AppPages {
             ),
           );
         }
-        print('✅ [DETALLE GASTO] ExpenseDetailController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1567,9 +1367,7 @@ class AppPages {
       name: '/expenses/category/:categoryId',
       page: () => const ExpensesListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [GASTOS POR CATEGORÍA] Verificando ExpensesController...');
         ExpenseBinding().dependencies();
-        print('✅ [GASTOS POR CATEGORÍA] ExpensesController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1580,9 +1378,7 @@ class AppPages {
       name: '/expenses/status/:status',
       page: () => const ExpensesListScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [GASTOS POR ESTADO] Verificando ExpensesController...');
         ExpenseBinding().dependencies();
-        print('✅ [GASTOS POR ESTADO] ExpensesController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1593,7 +1389,6 @@ class AppPages {
       name: AppRoutes.expensesCategories,
       page: () => const ExpenseCategoriesScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CATEGORÍAS GASTOS] Inicializando bindings...');
         ExpenseBinding().dependencies();
         if (!Get.isRegistered<ExpenseCategoriesController>()) {
           Get.lazyPut<ExpenseCategoriesController>(
@@ -1605,7 +1400,6 @@ class AppPages {
             ),
           );
         }
-        print('✅ [CATEGORÍAS GASTOS] ExpenseCategoriesController registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1617,13 +1411,11 @@ class AppPages {
       name: AppRoutes.settingsPrinter,
       page: () => const PrinterConfigurationScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CONFIGURACIÓN IMPRESORA] Inicializando SettingsBinding...');
 
         if (!Get.isRegistered<SettingsController>()) {
           SettingsBinding().dependencies();
         }
 
-        print('✅ [CONFIGURACIÓN IMPRESORA] SettingsController disponible');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1644,16 +1436,12 @@ class AppPages {
       name: AppRoutes.settingsOrganization,
       page: () => const OrganizationSettingsScreen(),
       binding: BindingsBuilder(() {
-        print(
-          '🔧 [CONFIGURACIÓN ORGANIZACIÓN] Inicializando SettingsBinding...',
-        );
 
         if (!Get.isRegistered<SettingsController>() ||
             !Get.isRegistered<OrganizationController>()) {
           SettingsBinding().dependencies();
         }
 
-        print('✅ [CONFIGURACIÓN ORGANIZACIÓN] Controllers disponibles');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1811,18 +1599,14 @@ class AppPages {
       name: AppRoutes.creditNotesCreate,
       page: () => const CreditNoteFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CREAR NOTA CRÉDITO] Inicializando bindings...');
 
         // Asegurar dependencias de Invoice para GetInvoiceByIdUseCase
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [CREAR NOTA CRÉDITO] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [CREAR NOTA CRÉDITO] InvoiceBinding base registrado');
         }
 
         // Registrar CreditNoteFormBinding
         CreditNoteFormBinding().dependencies();
-        print('✅ [CREAR NOTA CRÉDITO] CreditNoteFormBinding registrado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1834,18 +1618,14 @@ class AppPages {
       name: '${AppRoutes.creditNotesEdit}/:id',
       page: () => const CreditNoteFormScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [EDITAR NOTA CRÉDITO] Inicializando bindings...');
 
         // Asegurar dependencias de Invoice
         if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [EDITAR NOTA CRÉDITO] Registrando InvoiceBinding base...');
           InvoiceBinding().dependencies();
-          print('✅ [EDITAR NOTA CRÉDITO] InvoiceBinding base registrado');
         }
 
         // Registrar CreditNoteFormBinding
         CreditNoteFormBinding().dependencies();
-        print('✅ [EDITAR NOTA CRÉDITO] CreditNoteFormBinding registrado');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -2005,18 +1785,11 @@ class AuthMiddleware extends GetMiddleware {
       final authController = Get.find<AuthController>();
 
       if (!authController.isAuthenticated) {
-        print(
-          '🔒 AuthMiddleware: Usuario no autenticado, redirigiendo a login',
-        );
         return const RouteSettings(name: AppRoutes.login);
       }
 
-      print(
-        '✅ AuthMiddleware: Usuario autenticado, permitiendo acceso a $route',
-      );
       return null; // Permitir acceso
     } catch (e) {
-      print('❌ AuthMiddleware: Error al verificar autenticación - $e');
       return const RouteSettings(name: AppRoutes.login);
     }
   }

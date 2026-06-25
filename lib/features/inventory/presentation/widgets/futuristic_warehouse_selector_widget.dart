@@ -555,27 +555,22 @@ class _FuturisticWarehouseSelectorWidgetState
   void _closeDialogAndSelectWarehouse(Warehouse warehouse) {
     // Prevenir múltiples ejecuciones
     if (_isProcessing) {
-      print('⚠️ Ya procesando selección, ignorando tap adicional');
       return;
     }
 
     _isProcessing = true;
-    print('🔧 SUPER FAST DIALOG CLOSE for warehouse: ${warehouse.name}');
 
     try {
       // STEP 1: Cerrar dialog INMEDIATAMENTE - ANTES del callback
       if (Navigator.canPop(Get.context!)) {
         Navigator.of(Get.context!).pop();
-        print('✅ Dialog closed with Navigator.pop()');
       } else if (Get.isDialogOpen == true) {
         Get.back();
-        print('✅ Dialog closed with Get.back()');
       }
 
       // STEP 2: Ejecutar callback DESPUÉS de cerrar
       Future.microtask(() {
         widget.onWarehouseSelected(warehouse);
-        print('✅ Callback executed for: ${warehouse.name}');
 
         // Mostrar notificación breve
         FuturisticNotifications.showSuccess(
@@ -585,7 +580,6 @@ class _FuturisticWarehouseSelectorWidgetState
         );
       });
     } catch (e) {
-      print('⚠️ Error closing dialog: $e');
       // Fallback: forzar cierre con Get.back()
       Get.back();
     } finally {

@@ -36,19 +36,14 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
       final userJson = authResponse.user.toJson();
       await _secureStorage.saveUserData(userJson);
 
-      print(
-        '🔐 AuthLocalDataSource: Auth guardado para ${authResponse.user.email}',
-      );
     } catch (e) {
       if (!isRetry) {
         // Primera falla: intentar recuperar el storage corrupto y reintentar
-        print('⚠️ AuthLocalDataSource: Falla al guardar auth, intentando recuperar storage: $e');
         try {
           await _secureStorage.clearAll();
         } catch (_) {}
         await _doSaveAuthData(authResponse, isRetry: true);
       } else {
-        print('❌ AuthLocalDataSource: Error al guardar datos incluso después de recovery: $e');
         throw CacheException('Error al guardar datos de autenticación: $e');
       }
     }
@@ -83,7 +78,6 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
       // Convert Map to UserModel
       return UserModel.fromJson(userData);
     } catch (e) {
-      print('❌ Error parsing user data: $e');
       // If parsing fails, return null instead of throwing
       return null;
     }
@@ -104,7 +98,6 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
     try {
       await _secureStorage.clearAuthData();
 
-      print('🔐 AuthLocalDataSourceHybrid: Datos de auth limpiados');
     } catch (e) {
       throw CacheException('Error al limpiar datos de autenticación: $e');
     }

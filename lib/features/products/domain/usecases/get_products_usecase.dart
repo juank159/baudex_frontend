@@ -18,9 +18,6 @@ class GetProductsUseCase
   Future<Either<Failure, PaginatedResult<Product>>> call(
     GetProductsParams params,
   ) async {
-    print('🎯 GetProductsUseCase: LLAMADO con params: page=${params.page}, limit=${params.limit}');
-    print('🎯 GetProductsUseCase: Repository instance = ${repository.runtimeType}');
-    print('🎯 GetProductsUseCase: ANTES de llamar repository.getProducts()...');
 
     final result = await repository.getProducts(
       page: params.page,
@@ -42,10 +39,6 @@ class GetProductsUseCase
       sortOrder: params.sortOrder,
     );
 
-    result.fold(
-      (failure) => print('❌ GetProductsUseCase: FALLÓ con error: ${failure.message}'),
-      (data) => print('✅ GetProductsUseCase: ÉXITO con ${data.data.length} productos'),
-    );
 
     return result;
   }

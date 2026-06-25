@@ -236,7 +236,6 @@ class NavigationGuard {
   void _log(String msg) {
     // Tag uniforme [NAV] para grepear logs de navegación.
     // ignore: avoid_print
-    print('[NAV] $msg');
   }
 }
 

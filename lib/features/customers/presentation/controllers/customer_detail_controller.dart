@@ -79,7 +79,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
     _isLoading.value = true;
 
     try {
-      print('📥 Cargando detalles del cliente: $customerId');
 
       final result = await _getCustomerByIdUseCase(
         GetCustomerByIdParams(id: customerId),
@@ -92,7 +91,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
         },
         (customer) {
           _customer.value = customer;
-          print('✅ Cliente cargado: ${customer.displayName}');
 
           // Cargar información financiera adicional en segundo plano
           _loadFinancialSummary();
@@ -109,7 +107,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
     _isLoadingFinancialSummary.value = true;
 
     try {
-      print('💰 Cargando resumen financiero...');
 
       final result = await _customerRepository.getCustomerFinancialSummary(
         _customer.value!.id,
@@ -117,7 +114,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
 
       result.fold(
         (failure) {
-          print('⚠️ Error al cargar resumen financiero: ${failure.message}');
         },
         (summary) {
           _financialSummary.value = summary;
@@ -134,7 +130,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
                 _customer.value!.copyWith(currentBalance: pendingAmount);
           }
 
-          print('✅ Resumen financiero cargado (deuda: $pendingAmount)');
         },
       );
     } finally {
@@ -153,7 +148,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
     _isUpdatingStatus.value = true;
 
     try {
-      print('🔄 Actualizando estado del cliente a: ${newStatus.name}');
 
       final result = await _updateCustomerUseCase(
         UpdateCustomerParams(id: _customer.value!.id, status: newStatus),
@@ -166,7 +160,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
         (updatedCustomer) {
           _customer.value = updatedCustomer;
           _showSuccess('Estado actualizado exitosamente');
-          print('✅ Estado actualizado a: ${newStatus.name}');
         },
       );
     } finally {
@@ -180,7 +173,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
     _isDeleting.value = true;
 
     try {
-      print('🗑️ Eliminando cliente: ${_customer.value!.id}');
 
       final result = await _deleteCustomerUseCase(
         DeleteCustomerParams(id: _customer.value!.id),
@@ -204,9 +196,6 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
     if (_customer.value == null) return;
 
     try {
-      print(
-        '💳 Verificando capacidad de compra por: \$${amount.toStringAsFixed(2)}',
-      );
 
       final result = await _customerRepository.canMakePurchase(
         customerId: _customer.value!.id,

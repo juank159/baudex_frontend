@@ -57,7 +57,6 @@ class ProductFormController extends GetxController {
        _createCategoryUseCase = createCategoryUseCase,
        _secureStorageService = secureStorageService,
        _productRepository = productRepository {
-    print('🎮 ProductFormController: Instancia creada correctamente');
   }
 
   // ==================== OBSERVABLES ====================
@@ -162,10 +161,6 @@ class ProductFormController extends GetxController {
   void onInit() {
     super.onInit();
     SyncService.notifyFormOpened();
-    print('🚀 ProductFormController: Inicializando...');
-    print(
-      '🔍 ProductFormController: isEditMode = $isEditMode, productId = "$productId"',
-    );
 
     // ✅ SOLUCIÓN: Mover la carga asíncrona fuera de onInit
     _initializeForm();
@@ -174,7 +169,6 @@ class ProductFormController extends GetxController {
   @override
   void onClose() {
     SyncService.notifyFormClosed();
-    print('🔚 ProductFormController: Iniciando liberación de recursos...');
 
     // Marcar como en proceso de disposal
     _isDisposing.value = true;
@@ -182,12 +176,9 @@ class ProductFormController extends GetxController {
     // ✅ SOLUCIÓN MEJORADA: Disposer inmediatamente para evitar errores de navegación
     try {
       _disposeControllers();
-      print('✅ ProductFormController: Todos los controladores liberados');
     } catch (e) {
-      print('⚠️ ProductFormController: Error al liberar recursos: $e');
     }
 
-    print('✅ ProductFormController: Recursos liberados exitosamente');
     super.onClose();
   }
 
@@ -195,7 +186,6 @@ class ProductFormController extends GetxController {
 
   /// Inicialización sin bloqueos
   void _initializeForm() {
-    print('⚙️ ProductFormController: Configurando formulario...');
 
     // Configurar valores por defecto inmediatamente (síncronos)
     _setDefaultValues();
@@ -203,7 +193,6 @@ class ProductFormController extends GetxController {
     // Cargar categorías primero, luego producto (coordinado)
     Future.microtask(() => _loadDataSequentially());
 
-    print('✅ ProductFormController: Inicialización completada');
   }
 
   /// Cargar datos en orden: categorías primero, luego producto
@@ -213,9 +202,6 @@ class ProductFormController extends GetxController {
     if (isClosed) return;
 
     if (isEditMode) {
-      print(
-        '📝 ProductFormController: Modo edición detectado, cargando producto...',
-      );
       _isEditing.value = true;
       await loadProductForEditing();
     }
@@ -235,7 +221,6 @@ class ProductFormController extends GetxController {
     _productType.value = ProductType.product;
     _productStatus.value = ProductStatus.active;
 
-    print('✅ ProductFormController: Valores por defecto configurados');
   }
 
   /// Inicializar todos los TextEditingController
@@ -271,7 +256,6 @@ class ProductFormController extends GetxController {
     taxDescriptionController = TextEditingController();
     retentionRateController = TextEditingController(text: '0');
 
-    print('✅ ProductFormController: Controladores inicializados');
   }
 
   // ==================== ✅ NUEVOS MÉTODOS PARA CATEGORÍAS ====================
@@ -287,13 +271,9 @@ class ProductFormController extends GetxController {
     if (tenantSlug != null) {
       _categoriesCache.remove(tenantSlug);
       _cacheTimeMap.remove(tenantSlug);
-      print(
-        '🗑️ ProductFormController: Cache de categorías limpiado para tenant: $tenantSlug',
-      );
     } else {
       _categoriesCache.clear();
       _cacheTimeMap.clear();
-      print('🗑️ ProductFormController: Todo el cache de categorías limpiado');
     }
   }
 
@@ -308,7 +288,6 @@ class ProductFormController extends GetxController {
     // ✅ Obtener el tenant slug actual
     final tenantSlug = await _secureStorageService.getTenantSlug();
     if (tenantSlug == null || tenantSlug.isEmpty) {
-      print('⚠️ ProductFormController: No hay tenant slug disponible');
       _showError(
         'Error de configuración',
         'No se pudo determinar la organización actual',
@@ -323,16 +302,10 @@ class ProductFormController extends GetxController {
     if (cachedCategories != null &&
         cacheTime != null &&
         DateTime.now().difference(cacheTime) < _cacheExpiry) {
-      print(
-        '📂 ProductFormController: Usando categorías desde cache para tenant: $tenantSlug',
-      );
       _availableCategories.value = cachedCategories;
       return;
     }
 
-    print(
-      '📂 ProductFormController: Cargando categorías desde API para tenant: $tenantSlug...',
-    );
     _isLoadingCategories.value = true;
 
     try {
@@ -349,9 +322,6 @@ class ProductFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print(
-            '❌ ProductFormController: Error al cargar categorías - ${failure.message}',
-          );
           _showError(
             'Error al cargar categorías',
             'No se pudieron cargar las categorías disponibles',
@@ -360,12 +330,6 @@ class ProductFormController extends GetxController {
         (paginatedResult) async {
           // ✅ NUEVA LÓGICA: Si no hay categorías, crear categoría "General"
           if (paginatedResult.data.isEmpty) {
-            print(
-              '📂 ProductFormController: No se encontraron categorías para tenant: $tenantSlug',
-            );
-            print(
-              '🆕 ProductFormController: Creando categoría "General" automáticamente...',
-            );
 
             await _createDefaultCategory(tenantSlug);
           } else {
@@ -373,16 +337,10 @@ class ProductFormController extends GetxController {
             // ✅ Actualizar cache específico por tenant
             _categoriesCache[tenantSlug] = paginatedResult.data;
             _cacheTimeMap[tenantSlug] = DateTime.now();
-            print(
-              '✅ ProductFormController: ${paginatedResult.data.length} categorías cargadas y almacenadas en cache para tenant: $tenantSlug',
-            );
           }
         },
       );
     } catch (e) {
-      print(
-        '💥 ProductFormController: Error inesperado al cargar categorías - $e',
-      );
       _showError(
         'Error inesperado',
         'No se pudieron cargar las categorías: $e',
@@ -395,9 +353,6 @@ class ProductFormController extends GetxController {
   /// Crear categoría "General" por defecto cuando no hay categorías
   Future<void> _createDefaultCategory(String tenantSlug) async {
     try {
-      print(
-        '🔄 ProductFormController: Iniciando creación de categoría "General"...',
-      );
 
       final result = await _createCategoryUseCase(
         CreateCategoryParams(
@@ -411,25 +366,18 @@ class ProductFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print(
-            '❌ ProductFormController: Error al crear categoría "General" - ${failure.message}',
-          );
           _showError(
             'Error al crear categoría',
             'No se pudo crear la categoría por defecto: ${failure.message}',
           );
         },
         (category) async {
-          print(
-            '✅ ProductFormController: Categoría "General" creada exitosamente - ID: ${category.id}',
-          );
 
           // Limpiar cache para este tenant
           _categoriesCache.remove(tenantSlug);
           _cacheTimeMap.remove(tenantSlug);
 
           // Recargar categorías para mostrar la recién creada
-          print('🔄 ProductFormController: Recargando categorías...');
           await _loadAvailableCategories();
 
           _showInfo(
@@ -439,9 +387,6 @@ class ProductFormController extends GetxController {
         },
       );
     } catch (e) {
-      print(
-        '💥 ProductFormController: Error inesperado al crear categoría "General" - $e',
-      );
       _showError(
         'Error inesperado',
         'No se pudo crear la categoría por defecto: $e',
@@ -453,16 +398,12 @@ class ProductFormController extends GetxController {
   void setCategorySelection(String categoryId, String categoryName) {
     _selectedCategoryId.value = categoryId;
     _selectedCategoryName.value = categoryName;
-    print(
-      '📂 ProductFormController: Categoría seleccionada - $categoryName ($categoryId)',
-    );
   }
 
   /// Limpiar selección de categoría
   void clearCategorySelection() {
     _selectedCategoryId.value = null;
     _selectedCategoryName.value = null;
-    print('🧹 ProductFormController: Selección de categoría limpiada');
   }
 
   /// Obtener nombre de categoría por ID (para casos donde solo tenemos el ID)
@@ -473,9 +414,6 @@ class ProductFormController extends GetxController {
       );
       return category.name;
     } catch (e) {
-      print(
-        '⚠️ ProductFormController: Categoría no encontrada para ID: $categoryId',
-      );
       return null;
     }
   }
@@ -484,9 +422,6 @@ class ProductFormController extends GetxController {
 
   /// Cargar producto para edición (ahora completamente asíncrono)
   Future<void> loadProductForEditing() async {
-    print(
-      '📥 ProductFormController: Iniciando carga de producto para edición...',
-    );
     _isLoading.value = true;
 
     try {
@@ -498,18 +433,12 @@ class ProductFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print(
-            '❌ ProductFormController: Error al cargar producto - ${failure.message}',
-          );
           if (!isClosed) {
             _showError('Error al cargar producto', failure.message);
             Get.back();
           }
         },
         (product) {
-          print(
-            '✅ ProductFormController: Producto cargado exitosamente - ${product.name}',
-          );
           if (!isClosed) {
             _originalProduct.value = product;
             _populateForm(product);
@@ -517,16 +446,12 @@ class ProductFormController extends GetxController {
         },
       );
     } catch (e) {
-      print(
-        '💥 ProductFormController: Error inesperado al cargar producto - $e',
-      );
       if (!isClosed) {
         _showError('Error inesperado', 'No se pudo cargar el producto: $e');
         Get.back();
       }
     } finally {
       _isLoading.value = false;
-      print('🏁 ProductFormController: Carga de producto finalizada');
     }
   }
 
@@ -535,10 +460,7 @@ class ProductFormController extends GetxController {
     // Protección contra doble-click
     if (_isSaving.value) return;
 
-    print('💾 ProductFormController: Iniciando guardado de producto...');
-
     if (!await _validateForm()) {
-      print('❌ ProductFormController: Validación de formulario falló');
       return;
     }
 
@@ -546,18 +468,14 @@ class ProductFormController extends GetxController {
 
     try {
       if (isEditMode) {
-        print('🔄 ProductFormController: Actualizando producto existente...');
         await _updateProduct();
       } else {
-        print('🆕 ProductFormController: Creando nuevo producto...');
         await _createProduct();
       }
     } catch (e) {
-      print('💥 ProductFormController: Error inesperado al guardar - $e');
       _showError('Error inesperado', 'No se pudo guardar el producto: $e');
     } finally {
       _isSaving.value = false;
-      print('🏁 ProductFormController: Guardado finalizado');
     }
   }
 
@@ -568,7 +486,6 @@ class ProductFormController extends GetxController {
 
   /// Limpiar formulario
   void clearForm() {
-    print('🧹 ProductFormController: Limpiando formulario...');
 
     formKey.currentState?.reset();
     _clearControllers();
@@ -577,7 +494,6 @@ class ProductFormController extends GetxController {
     _productType.value = ProductType.product;
     _productStatus.value = ProductStatus.active;
 
-    print('✅ ProductFormController: Formulario limpiado');
   }
 
   // ==================== FORM METHODS ====================
@@ -589,22 +505,17 @@ class ProductFormController extends GetxController {
       setCategorySelection(categoryId, categoryName);
     } else {
       _selectedCategoryId.value = categoryId;
-      print(
-        '⚠️ ProductFormController: Categoría seleccionada sin nombre - $categoryId',
-      );
     }
   }
 
   /// Cambiar tipo de producto
   void setProductType(ProductType type) {
     _productType.value = type;
-    print('🏷️ ProductFormController: Tipo de producto - ${type.name}');
   }
 
   /// Cambiar estado de producto
   void setProductStatus(ProductStatus status) {
     _productStatus.value = status;
-    print('🔄 ProductFormController: Estado de producto - ${status.name}');
     update(['status_selector']); // ✅ Actualizar específicamente el selector
   }
 
@@ -615,19 +526,12 @@ class ProductFormController extends GetxController {
     _selectedTaxCategory.value = category;
     // Auto-actualizar la tasa según la categoría
     taxRateController.text = category.defaultRate.toString();
-    print(
-      '💰 ProductFormController: Categoría de impuesto - ${category.displayName}',
-    );
-    print(
-      '💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%',
-    );
     update(['tax_selector']);
   }
 
   /// Cambiar estado gravable
   void setTaxable(bool value) {
     _isTaxable.value = value;
-    print('💰 ProductFormController: Producto gravable - $value');
     update(['tax_section']);
   }
 
@@ -639,7 +543,6 @@ class ProductFormController extends GetxController {
       _selectedRetentionCategory.value = null;
       retentionRateController.text = '0';
     }
-    print('💰 ProductFormController: Tiene retención - $value');
     update(['retention_section']);
   }
 
@@ -650,12 +553,6 @@ class ProductFormController extends GetxController {
       // Auto-actualizar la tasa según la categoría
       retentionRateController.text = category.defaultRate.toString();
       _hasRetention.value = true;
-      print(
-        '💰 ProductFormController: Categoría de retención - ${category.displayName}',
-      );
-      print(
-        '💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%',
-      );
     }
     update(['retention_selector']);
   }
@@ -670,7 +567,6 @@ class ProductFormController extends GetxController {
         ? name.substring(0, name.length.clamp(0, 3))
         : 'PRD';
     skuController.text = '$prefix$timestamp';
-    print('🎲 ProductFormController: SKU generado - ${skuController.text}');
   }
 
   /// Configurar listeners bidireccionales margen ↔ precio
@@ -778,7 +674,6 @@ class ProductFormController extends GetxController {
       return;
     }
 
-    print('🎯 ProductFormController: Mostrando selector de categorías');
     // El widget CategorySelectorWidget manejará la lógica del selector
   }
 
@@ -798,7 +693,6 @@ class ProductFormController extends GetxController {
         return batch.unitCost;
       }
     } catch (e) {
-      print('Error al obtener último precio de compra: $e');
     }
     return null;
   }
@@ -917,15 +811,8 @@ class ProductFormController extends GetxController {
   Future<void> _createProduct() async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     if (!await SubscriptionValidationService.canCreateProductAsync()) {
-      print(
-        '🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de producto',
-      );
       return; // Bloquear operación
     }
-
-    print(
-      '✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de producto',
-    );
 
     final prices = _buildPricesList();
 
@@ -983,9 +870,6 @@ class ProductFormController extends GetxController {
         }
       },
       (product) {
-        print(
-          '✅ ProductFormController: Producto creado exitosamente - ${product.name}',
-        );
         _navigateBackToProductList();
         _showSuccess('Producto creado exitosamente');
       },
@@ -996,36 +880,19 @@ class ProductFormController extends GetxController {
     try {
       // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
       if (!await SubscriptionValidationService.canUpdateProductAsync()) {
-        print(
-          '🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de producto',
-        );
         return; // Bloquear operación
       }
-
-      print(
-        '✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de producto',
-      );
-      print('🔄 ProductFormController: Actualizando producto existente...');
 
       // ✅ PASO 1: Construir precios para actualización con más debug
       final prices = _buildPricesListForUpdateAsCreateParams();
 
-      print(
-        '🏷️ ProductFormController: Construidos ${prices.length} precios para actualización',
-      );
       for (final price in prices) {
         final hasId = price.notes?.startsWith('ID:') == true;
         final extractedId = hasId ? price.notes!.substring(3) : 'NUEVO';
-        print(
-          '   - Tipo: ${price.type.name}, ID: $extractedId, Cantidad: \$${price.amount}',
-        );
       }
 
       // ✅ PASO 2: Validar que tenemos precios si es necesario
       if (prices.isEmpty) {
-        print(
-          '⚠️ ProductFormController: No se encontraron precios para enviar',
-        );
       }
 
       // ✅ PASO 3: Crear el request con TODOS los campos incluyendo prices y tax fields
@@ -1084,22 +951,12 @@ class ProductFormController extends GetxController {
           }
         },
         (product) {
-          print(
-            '✅ ProductFormController: Producto actualizado exitosamente - ${product.name}',
-          );
 
           // ✅ VERIFICAR QUE EL PRODUCTO ACTUALIZADO TENGA PRECIOS
           if (product.prices != null && product.prices!.isNotEmpty) {
-            print(
-              '💰 Precios actualizados recibidos: ${product.prices!.length}',
-            );
             for (final price in product.prices!) {
-              print(
-                '   - ${price.type.name}: \$${price.amount} (ID: ${price.id})',
-              );
             }
           } else {
-            print('⚠️ El producto actualizado NO tiene precios');
           }
 
           _navigateBackToProductList();
@@ -1107,8 +964,6 @@ class ProductFormController extends GetxController {
         },
       );
     } catch (e, stackTrace) {
-      print('❌ ProductFormController: Error inesperado en _updateProduct: $e');
-      print('🔍 StackTrace: $stackTrace');
       _showError('Error inesperado', 'No se pudo actualizar el producto: $e');
     }
   }
@@ -1116,7 +971,6 @@ class ProductFormController extends GetxController {
   /// Validar formulario (ahora async para validar duplicados)
   Future<bool> _validateForm() async {
     if (formKey.currentState == null || !formKey.currentState!.validate()) {
-      print('❌ ProductFormController: Validación de campos falló');
       return false;
     }
 
@@ -1126,11 +980,7 @@ class ProductFormController extends GetxController {
         final onlyCategory = _availableCategories.first;
         _selectedCategoryId.value = onlyCategory.id;
         _selectedCategoryName.value = onlyCategory.name;
-        print(
-          '✅ ProductFormController: Auto-seleccionada única categoría disponible: ${onlyCategory.name}',
-        );
       } else {
-        print('❌ ProductFormController: Categoría no seleccionada');
         _showError('Error de validación', 'Selecciona una categoría');
         return false;
       }
@@ -1138,7 +988,6 @@ class ProductFormController extends GetxController {
 
     if (skuController.text.trim().isEmpty) {
       generateSku();
-      print('🎲 ProductFormController: SKU vacío, generado automáticamente: ${skuController.text}');
     }
 
     // ==================== ✅ VALIDACIÓN DE DUPLICADOS ====================
@@ -1147,13 +996,6 @@ class ProductFormController extends GetxController {
     final productSku = skuController.text.trim();
     final productBarcode = barcodeController.text.trim();
     final excludeId = isEditMode ? productId : null;
-
-    print('🔍 ProductFormController: Validando duplicados...');
-    print('   isEditMode: $isEditMode');
-    print('   productId: "$productId"');
-    print('   excludeId: $excludeId');
-    print('   Nombre: "$productName"');
-    print('   SKU: "$productSku"');
 
     // ✅ IMPORTANTE: Solo validar si el valor cambió respecto al original
     final originalProductName = _originalProduct.value?.name;
@@ -1169,12 +1011,10 @@ class ProductFormController extends GetxController {
       );
 
       if (nameExists) {
-        print('❌ ProductFormController: Nombre de producto duplicado - "$productName"');
         _showError('Producto duplicado', 'Ya existe un producto con el nombre "$productName"');
         return false;
       }
     } else {
-      print('✅ Nombre no cambió, omitiendo validación');
     }
 
     // Validar SKU duplicado (solo si cambió)
@@ -1186,12 +1026,10 @@ class ProductFormController extends GetxController {
       );
 
       if (skuExists) {
-        print('❌ ProductFormController: SKU duplicado - "$productSku"');
         _showError('SKU duplicado', 'Ya existe un producto con el SKU "$productSku"');
         return false;
       }
     } else {
-      print('✅ SKU no cambió, omitiendo validación');
     }
 
     // Validar código de barras duplicado (solo si se proporcionó Y si cambió)
@@ -1203,23 +1041,17 @@ class ProductFormController extends GetxController {
       );
 
       if (barcodeExists) {
-        print('❌ ProductFormController: Código de barras duplicado - "$productBarcode"');
         _showError('Código de barras duplicado', 'Ya existe un producto con el código de barras "$productBarcode"');
         return false;
       }
     } else if (isEditMode && productBarcode == originalProductBarcode) {
-      print('✅ Código de barras no cambió, omitiendo validación');
     }
 
-    print('✅ ProductFormController: Validación exitosa (sin duplicados)');
     return true;
   }
 
   /// Poblar formulario con datos del producto
   void _populateForm(Product product) {
-    print(
-      '📝 ProductFormController: Poblando formulario con datos del producto...',
-    );
 
     nameController.text = product.name;
     descriptionController.text = product.description ?? '';
@@ -1245,9 +1077,6 @@ class ProductFormController extends GetxController {
 
     _productType.value = product.type;
     _productStatus.value = product.status;
-
-    print('🔧 ProductFormController: Estado configurado - ${product.status}');
-    print('🔧 ProductFormController: Tipo configurado - ${product.type}');
 
     // ✅ FORZAR actualización de la UI para que refleje los cambios
     update(); // Notifica a todos los GetBuilder
@@ -1298,14 +1127,7 @@ class ProductFormController extends GetxController {
     retentionRateController.text = product.retentionRate?.toString() ?? '0';
     _hasRetention.value = product.hasRetention;
 
-    print('✅ ProductFormController: Formulario poblado exitosamente');
-    print(
-      '💰 Impuestos cargados: ${product.taxCategory.displayName} (${product.taxRate}%)',
-    );
     if (product.hasRetention && product.retentionCategory != null) {
-      print(
-        '💰 Retención cargada: ${product.retentionCategory!.displayName} (${product.retentionRate}%)',
-      );
     }
   }
 
@@ -1390,16 +1212,8 @@ class ProductFormController extends GetxController {
     final prices = <CreateProductPriceParams>[];
     final originalPrices = _originalProduct.value?.prices ?? [];
 
-    print(
-      '🏗️ ProductFormController: Construyendo precios para actualización...',
-    );
-    print('📊 Precios originales disponibles: ${originalPrices.length}');
-
     // Mostrar precios originales para debug
     for (final originalPrice in originalPrices) {
-      print(
-        '   Original: ${originalPrice.type.name} - \$${originalPrice.amount} (ID: ${originalPrice.id})',
-      );
     }
 
     // Helper function para encontrar precio original por tipo
@@ -1408,12 +1222,8 @@ class ProductFormController extends GetxController {
         final originalPrice = originalPrices.firstWhere(
           (price) => price.type == type,
         );
-        print(
-          '🔍 Encontrado precio original para ${type.name}: ID ${originalPrice.id}',
-        );
         return originalPrice.id;
       } catch (e) {
-        print('🔍 No se encontró precio original para ${type.name}');
         return null;
       }
     }
@@ -1433,9 +1243,6 @@ class ProductFormController extends GetxController {
           notes: priceId != null ? 'ID:$priceId' : null,
         );
         prices.add(price);
-        print(
-          '✅ Agregado price1: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
-        );
       }
     }
 
@@ -1452,9 +1259,6 @@ class ProductFormController extends GetxController {
           notes: priceId != null ? 'ID:$priceId' : null,
         );
         prices.add(price);
-        print(
-          '✅ Agregado price2: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
-        );
       }
     }
 
@@ -1471,9 +1275,6 @@ class ProductFormController extends GetxController {
           notes: priceId != null ? 'ID:$priceId' : null,
         );
         prices.add(price);
-        print(
-          '✅ Agregado price3: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
-        );
       }
     }
 
@@ -1490,9 +1291,6 @@ class ProductFormController extends GetxController {
           notes: priceId != null ? 'ID:$priceId' : null,
         );
         prices.add(price);
-        print(
-          '✅ Agregado special: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
-        );
       }
     }
 
@@ -1509,26 +1307,11 @@ class ProductFormController extends GetxController {
           notes: priceId != null ? 'ID:$priceId' : null,
         );
         prices.add(price);
-        print(
-          '✅ Agregado cost: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
-        );
       }
     }
 
-    print(
-      '🏁 ProductFormController: Total de precios construidos: ${prices.length}',
-    );
-
     // ✅ VERIFICACIÓN FINAL
     if (prices.isEmpty) {
-      print(
-        '⚠️ ADVERTENCIA: No se construyeron precios. Verificar controladores:',
-      );
-      print('   price1Controller.text: "${price1Controller.text}"');
-      print('   price2Controller.text: "${price2Controller.text}"');
-      print('   price3Controller.text: "${price3Controller.text}"');
-      print('   specialPriceController.text: "${specialPriceController.text}"');
-      print('   costPriceController.text: "${costPriceController.text}"');
     }
 
     return prices;
@@ -1575,9 +1358,6 @@ class ProductFormController extends GetxController {
   /// Disponer controladores de forma segura
   void _disposeControllers() {
     if (_controllersDisposed) {
-      print(
-        '⚠️ ProductFormController: Controladores ya liberados, omitiendo...',
-      );
       return;
     }
 
@@ -1619,13 +1399,10 @@ class ProductFormController extends GetxController {
           controller.dispose();
         } catch (e) {
           // Si el controller ya está dispuesto o hay otro error, simplemente continuar
-          print('⚠️ Controller ya dispuesto o error: $e');
         }
       }
 
-      print('✅ ProductFormController: Todos los controladores liberados');
     } catch (e) {
-      print('⚠️ ProductFormController: Error al liberar controladores: $e');
     }
   }
 
@@ -1667,7 +1444,6 @@ class ProductFormController extends GetxController {
     try {
       Get.until((route) => route.settings.name == '/products');
     } catch (e) {
-      print('⚠️ Error en Get.until: $e, usando Get.back()');
       try {
         Get.back();
       } catch (_) {}
@@ -1692,9 +1468,6 @@ class ProductFormController extends GetxController {
   /// Establecer unidad de medida seleccionada
   void setSelectedUnit(MeasurementUnit? unit) {
     _selectedUnit.value = unit;
-    print(
-      '🎯 ProductFormController: Unidad seleccionada: ${unit?.displayName}',
-    );
     update();
   }
 
@@ -1709,15 +1482,9 @@ class ProductFormController extends GetxController {
       final unit = getMeasurementUnitFromShortName(product.unit!);
       if (unit != null) {
         _selectedUnit.value = unit;
-        print(
-          '🔧 ProductFormController: Unidad cargada desde producto: ${unit.displayName}',
-        );
       } else {
         // Si no se encuentra la unidad, mantener el texto original en el controller
         unitController.text = product.unit!;
-        print(
-          '⚠️ ProductFormController: Unidad no reconocida: ${product.unit}',
-        );
       }
     }
   }

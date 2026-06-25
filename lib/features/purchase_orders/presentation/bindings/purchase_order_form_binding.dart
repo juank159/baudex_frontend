@@ -37,8 +37,6 @@ class PurchaseOrderFormBinding extends Bindings {
     // Force cleanup of existing controller to prevent GlobalKey conflicts
     cleanup();
 
-    print('🏷️ Registrando nuevo PurchaseOrderFormController...');
-
     // Controller with proper cleanup and fenix for recreation
     Get.lazyPut(
       () => PurchaseOrderFormController(
@@ -51,7 +49,6 @@ class PurchaseOrderFormBinding extends Bindings {
       fenix: true, // Allow recreation to prevent GlobalKey conflicts
     );
 
-    print('✅ PurchaseOrderFormController registrado correctamente');
   }
 
   void _ensurePurchaseOrderDependencies() {
@@ -104,17 +101,13 @@ class PurchaseOrderFormBinding extends Bindings {
   static void cleanup() {
     try {
       if (Get.isRegistered<PurchaseOrderFormController>()) {
-        print('🧹 Iniciando cleanup de PurchaseOrderFormController...');
 
         // Only delete the controller - GetX will handle onClose() automatically
         Get.delete<PurchaseOrderFormController>(force: true);
 
-        print('✅ PurchaseOrderFormController eliminado del registro GetX');
       } else {
-        print('ℹ️ No hay PurchaseOrderFormController para limpiar');
       }
     } catch (e) {
-      print('⚠️ Error durante cleanup: $e');
     }
   }
 }

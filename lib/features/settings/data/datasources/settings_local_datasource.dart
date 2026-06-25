@@ -271,7 +271,6 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
       final printers = isarPrinters.map((m) => m.toEntity()).toList();
       return Right(printers);
     } catch (e) {
-      print('Error obteniendo impresoras de ISAR: $e');
       return Right(<PrinterSettings>[]);
     }
   }

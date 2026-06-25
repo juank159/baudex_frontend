@@ -60,7 +60,6 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
         try {
           await _offlineRepo.cacheOrganization(result);
         } catch (e) {
-          print('⚠️ Error cacheando organización: $e');
         }
 
         return Right(result);

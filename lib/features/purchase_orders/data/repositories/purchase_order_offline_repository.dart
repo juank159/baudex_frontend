@@ -756,7 +756,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       // Reload items and return
@@ -818,7 +817,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       await isarPurchaseOrder.items.load();
@@ -856,7 +854,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(null);
@@ -933,7 +930,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           data: {'action': 'approve'},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       await isarPurchaseOrder.items.load();
@@ -980,7 +976,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           data: {'action': 'reject', 'reason': rejectionReason},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       await isarPurchaseOrder.items.load();
@@ -1029,7 +1024,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           data: {'action': 'send'},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       await isarPurchaseOrder.items.load();
@@ -1116,7 +1110,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       await isarPurchaseOrder.items.load();
@@ -1171,7 +1164,6 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           data: {'action': 'cancel', 'reason': cancellationReason},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       await isarPurchaseOrder.items.load();

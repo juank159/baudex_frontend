@@ -40,7 +40,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
       }
       return [];
     } catch (e) {
-      print('⚠️ Error al obtener gastos cacheados: $e');
       return [];
     }
   }
@@ -54,7 +53,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
         json.encode(jsonList),
       );
     } catch (e) {
-      print('⚠️ Error al cachear gastos: $e');
     }
   }
 
@@ -121,9 +119,7 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
 
           await isar.isarExpenses.put(isarExpense);
         });
-        print('✅ Expense guardado en ISAR: ${expense.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (fallback legacy)
@@ -140,7 +136,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
     } catch (e) {
       // Fallar silenciosamente en lugar de lanzar excepción
       // Esto permite que la app funcione aunque el cache no esté disponible
-      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
@@ -211,7 +206,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
       expenses.removeWhere((expense) => expense.id == id);
       await cacheExpenses(expenses);
     } catch (e) {
-      print('⚠️ Error al remover gasto del cache: $e');
     }
   }
 
@@ -220,7 +214,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
     try {
       await secureStorage.delete(ApiConstants.expensesCacheKey);
     } catch (e) {
-      print('⚠️ Error al limpiar cache de gastos: $e');
     }
   }
 
@@ -234,7 +227,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
       }
       return [];
     } catch (e) {
-      print('⚠️ Error al obtener categorías cacheadas: $e');
       return [];
     }
   }
@@ -248,7 +240,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
         json.encode(jsonList),
       );
     } catch (e) {
-      print('⚠️ Error al cachear categorías: $e');
     }
   }
 
@@ -279,7 +270,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
       
       await cacheExpenseCategories(categories);
     } catch (e) {
-      print('⚠️ Error al cachear categoría: $e');
     }
   }
 
@@ -290,7 +280,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
       categories.removeWhere((category) => category.id == id);
       await cacheExpenseCategories(categories);
     } catch (e) {
-      print('⚠️ Error al remover categoría del cache: $e');
     }
   }
 
@@ -299,7 +288,6 @@ class ExpenseLocalDataSourceImpl implements ExpenseLocalDataSource {
     try {
       await secureStorage.delete(ApiConstants.expenseCategoriesCacheKey);
     } catch (e) {
-      print('⚠️ Error al limpiar cache de categorías: $e');
     }
   }
 }

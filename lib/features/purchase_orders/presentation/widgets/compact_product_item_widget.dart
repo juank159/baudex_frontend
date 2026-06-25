@@ -417,7 +417,6 @@ class _CompactProductItemWidgetState extends State<CompactProductItemWidget> {
       onChanged: (value) {
         // Usar AppFormatters para parsear el número formateado
         final price = AppFormatters.parseNumber(value) ?? 0.0;
-        print('💰 DEBUG: Precio formateado: "$value" -> parsed: $price');
         // Marcar que estamos actualizando internamente para evitar ciclos
         _isUpdatingInternally = true;
         widget.onPriceChanged(price);

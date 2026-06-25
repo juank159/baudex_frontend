@@ -181,7 +181,6 @@ import '../controllers/customer_form_controller.dart';
 class CustomerBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Customer Binding...');
 
     // ==================== DATA SOURCES ====================
 
@@ -279,7 +278,6 @@ class CustomerBinding extends Bindings {
       fenix: true,
     );
 
-    print('✅ Customer Binding inicializado correctamente');
   }
 }
 
@@ -288,7 +286,6 @@ class CustomerBinding extends Bindings {
 class CustomerFormBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Customer Form Binding...');
 
     // Asegurar que tenemos las dependencias base
     if (!Get.isRegistered<CustomerRepository>()) {
@@ -306,7 +303,6 @@ class CustomerFormBinding extends Bindings {
       fenix: true,
     );
 
-    print('✅ Customer Form Binding inicializado correctamente');
   }
 }
 
@@ -315,7 +311,6 @@ class CustomerFormBinding extends Bindings {
 class CustomerDetailBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Customer Detail Binding...');
 
     // Asegurar que tenemos las dependencias base
     if (!Get.isRegistered<CustomerRepository>()) {
@@ -333,7 +328,6 @@ class CustomerDetailBinding extends Bindings {
       fenix: true,
     );
 
-    print('✅ Customer Detail Binding inicializado correctamente');
   }
 }
 
@@ -342,7 +336,6 @@ class CustomerDetailBinding extends Bindings {
 class CustomerStatsBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Customer Stats Binding...');
 
     // Asegurar que tenemos las dependencias base
     if (!Get.isRegistered<CustomerRepository>()) {
@@ -360,7 +353,6 @@ class CustomerStatsBinding extends Bindings {
       );
     }
 
-    print('✅ Customer Stats Binding inicializado correctamente');
   }
 }
 
@@ -369,7 +361,6 @@ class CustomerStatsBinding extends Bindings {
 class CustomerFullBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Customer Full Binding...');
 
     // Inicializar dependencias base
     CustomerBinding().dependencies();
@@ -414,7 +405,6 @@ class CustomerFullBinding extends Bindings {
       );
     }
 
-    print('✅ Customer Full Binding inicializado correctamente');
   }
 }
 
@@ -423,7 +413,6 @@ class CustomerFullBinding extends Bindings {
 class CustomerDevBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Customer Dev Binding (Modo Desarrollo)...');
 
     // ==================== DATA SOURCES ====================
 
@@ -532,7 +521,6 @@ class CustomerDevBinding extends Bindings {
       permanent: true,
     );
 
-    print('✅ Customer Dev Binding inicializado correctamente');
   }
 }
 
@@ -554,14 +542,10 @@ class CustomerBindingValidator {
       'CustomerStatsController',
     ];
 
-    print('🔍 Validando dependencias de Customer Binding...');
-
     for (String dependency in dependencies) {
       final isRegistered = Get.isRegistered(tag: dependency);
-      print('  ${isRegistered ? '✅' : '❌'} $dependency');
     }
 
-    print('🏁 Validación completada');
   }
 
   static Map<String, bool> getDependencyStatus() {

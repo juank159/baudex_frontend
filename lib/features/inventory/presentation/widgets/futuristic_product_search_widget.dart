@@ -556,7 +556,6 @@ class _FuturisticProductSearchWidgetState
         });
       }
     } catch (e) {
-      print('Error searching products: $e');
       if (mounted) {
         setState(() {
           _isSearching = false;
@@ -581,7 +580,6 @@ class _FuturisticProductSearchWidgetState
     // Ejecutar callback
     widget.onProductSelected(product);
 
-    print('🔍 Product selected and search cleared: ${product.name}');
   }
 
   void _clearSelection() {

@@ -69,10 +69,6 @@ class ProductRepositoryImpl implements ProductRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
-    AppLogger.d('🚀🚀 PRODUCT REPOSITORY GET PRODUCTS LLAMADO!!! 🚀🚀🚀');
-    AppLogger.d('🚀🚀 SI VES ESTE LOG, EL CÓDIGO NUEVO SE ESTÁ EJECUTANDO 🚀🚀🚀');
-    AppLogger.d('📄 Params: page=$page, limit=$limit, search=$search');
-
     // Verificar conexión a internet
     AppLogger.d(' ProductRepository: Verificando conexión a internet...');
     try {
@@ -389,48 +385,58 @@ class ProductRepositoryImpl implements ProductRepository {
     String searchTerm, {
     int? limit,
   }) async {
-    // ✅ PASO 1: Intentar ISAR primero (más rápido y persistente)
+    // ✅ PASO 1: ISAR con query nativo (no full table scan)
     try {
-      AppLogger.d(' [OFFLINE] Buscando productos en ISAR: "$searchTerm"');
-
-      // ✅ Dividir término de búsqueda en palabras para búsqueda más flexible
+      AppLogger.d('[OFFLINE] Buscando en ISAR: "$searchTerm"');
       final searchWords = searchTerm.toLowerCase().split(' ').where((w) => w.isNotEmpty).toList();
 
-      // Obtener todos los productos activos
-      final allProducts = await _isar.isarProducts
-          .filter()
-          .deletedAtIsNull()
-          .findAll();
+      List<IsarProduct> isarResults;
 
-      // Filtrar manualmente para soportar búsqueda de múltiples palabras
-      final matchingProducts = allProducts.where((product) {
-        final name = product.name.toLowerCase();
-        final sku = product.sku.toLowerCase();
-        final description = (product.description ?? '').toLowerCase();
-        final barcode = (product.barcode ?? '').toLowerCase();
+      if (searchWords.isEmpty) {
+        isarResults = [];
+      } else {
+        // Primera palabra via ISAR filter nativo (usa índices name/sku/barcode)
+        final firstWord = searchWords[0];
+        final baseQuery = _isar.isarProducts
+            .filter()
+            .deletedAtIsNull()
+            .and()
+            .group((q) => q
+                .nameContains(firstWord, caseSensitive: false)
+                .or()
+                .skuContains(firstWord, caseSensitive: false)
+                .or()
+                .barcodeContains(firstWord, caseSensitive: false)
+                .or()
+                .descriptionContains(firstWord, caseSensitive: false));
 
-        // Verificar si TODAS las palabras de búsqueda están presentes en alguno de los campos
-        for (final word in searchWords) {
-          final wordFound = name.contains(word) ||
-              sku.contains(word) ||
-              description.contains(word) ||
-              barcode.contains(word);
+        final candidates = limit != null
+            ? await baseQuery.limit(limit * 4).findAll()
+            : await baseQuery.findAll();
 
-          if (!wordFound) return false;
-        }
-        return true;
-      }).toList();
-      // Aplicar limit sólo si fue especificado (null = todos los matches).
-      final matchingProductsLimited =
-          limit != null ? matchingProducts.take(limit).toList() : matchingProducts;
+        // Palabras adicionales: filtrar en memoria (conjunto ya reducido)
+        isarResults = searchWords.length == 1
+            ? candidates
+            : candidates.where((p) {
+                for (final word in searchWords.skip(1)) {
+                  final n = p.name.toLowerCase();
+                  final s = p.sku.toLowerCase();
+                  final d = (p.description ?? '').toLowerCase();
+                  final b = (p.barcode ?? '').toLowerCase();
+                  if (!n.contains(word) && !s.contains(word) &&
+                      !d.contains(word) && !b.contains(word)) return false;
+                }
+                return true;
+              }).toList();
+      }
 
-      if (matchingProductsLimited.isNotEmpty) {
-        final products = matchingProductsLimited.map((isarProduct) => isarProduct.toEntity()).toList();
-        AppLogger.i(' [OFFLINE] ${products.length} productos encontrados en ISAR');
-        return Right(products);
+      final limited = limit != null ? isarResults.take(limit).toList() : isarResults;
+      if (limited.isNotEmpty) {
+        AppLogger.i('[OFFLINE] ${limited.length} productos en ISAR');
+        return Right(limited.map((p) => p.toEntity()).toList());
       }
     } catch (e) {
-      AppLogger.w(' ISAR search falló: $e');
+      AppLogger.w('[OFFLINE] ISAR search falló: $e');
     }
 
     // ✅ PASO 2: Fallback a SecureStorage

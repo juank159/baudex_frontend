@@ -24,7 +24,6 @@ class PurchaseOrderDetailBinding extends Bindings {
 
     // Ensure InventoryBinding is loaded to have required dependencies
     if (!Get.isRegistered<GetWarehousesUseCase>()) {
-      print('🔧 Loading InventoryBinding dependencies...');
       InventoryBinding().dependencies();
     }
 

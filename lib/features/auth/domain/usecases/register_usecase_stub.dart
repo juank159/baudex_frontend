@@ -57,11 +57,9 @@ class RegisterUseCaseStub implements UseCase<AuthResult, RegisterParams> {
         refreshToken: 'demo-refresh-token',
       );
 
-      print('✅ RegisterUseCaseStub: Registro exitoso para ${params.email}');
       return Right(authResult);
 
     } catch (e) {
-      print('❌ RegisterUseCaseStub: Error inesperado - $e');
       return Left(ServerFailure('Error de conexión: $e'));
     }
   }

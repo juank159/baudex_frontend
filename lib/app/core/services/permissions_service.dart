@@ -63,7 +63,6 @@ class PermissionsService extends GetxService {
     if (role == UserRole.admin) {
       isLoaded.value = true;
       // ignore: avoid_print
-      print('🔓 PermissionsService: usuario ADMIN — acceso total sin cache');
       return;
     }
 
@@ -74,10 +73,6 @@ class PermissionsService extends GetxService {
 
     isLoading.value = true;
     try {
-      // ignore: avoid_print
-      print(
-        '📥 PermissionsService: cargando permisos (rol=${role.value})...',
-      );
       final res = await _dio.get('/users/me/permissions');
       final data = res.data;
       final list = (data is List)
@@ -95,21 +90,10 @@ class PermissionsService extends GetxService {
       isLoaded.value = true;
       // Persistir en cache para próximo arranque offline.
       await _persistToCache(perms);
-      // ignore: avoid_print
-      print(
-        '✅ PermissionsService: ${perms.length} permisos cargados online — '
-        '${perms.where((p) => p.canView).length} con canView=true',
-      );
     } on DioException catch (e) {
       // Sin red o server caído → mantenemos lo que cargamos del cache.
-      // ignore: avoid_print
-      print(
-        '⚠️ PermissionsService: HTTP falló (${e.response?.statusCode ?? "sin red"}). '
-        'Usando cache local: ${_permissions.length} permisos',
-      );
     } catch (e) {
       // ignore: avoid_print
-      print('⚠️ PermissionsService: error inesperado: $e');
     } finally {
       isLoading.value = false;
     }
@@ -134,13 +118,8 @@ class PermissionsService extends GetxService {
         ..clear()
         ..addEntries(perms.map((p) => MapEntry(p.moduleCode, p)));
       isLoaded.value = true;
-      // ignore: avoid_print
-      print(
-        '💾 PermissionsService: ${perms.length} permisos hidratados desde cache offline',
-      );
     } catch (e) {
       // ignore: avoid_print
-      print('⚠️ Error hidratando cache de permisos: $e');
     }
   }
 
@@ -154,7 +133,6 @@ class PermissionsService extends GetxService {
       await storage.write(_cacheKey, json);
     } catch (e) {
       // ignore: avoid_print
-      print('⚠️ Error persistiendo cache de permisos: $e');
     }
   }
 

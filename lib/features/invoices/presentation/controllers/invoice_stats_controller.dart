@@ -17,7 +17,6 @@ class InvoiceStatsController extends GetxController {
     required GetOverdueInvoicesUseCase getOverdueInvoicesUseCase,
   }) : _getInvoiceStatsUseCase = getInvoiceStatsUseCase,
        _getOverdueInvoicesUseCase = getOverdueInvoicesUseCase {
-    print('🎮 InvoiceStatsController: Instancia creada correctamente');
   }
 
   // ==================== OBSERVABLES ====================
@@ -87,7 +86,6 @@ class InvoiceStatsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🚀 InvoiceStatsController: Inicializando...');
     loadAllData();
   }
 
@@ -97,7 +95,6 @@ class InvoiceStatsController extends GetxController {
   Future<void> loadAllData() async {
     // ✅ GUARD: Si ya hay una carga en progreso, no duplicar
     if (_isLoadAllInProgress) {
-      print('⏭️ InvoiceStatsController: Carga ya en progreso, saltando...');
       return;
     }
     _isLoadAllInProgress = true;
@@ -113,23 +110,19 @@ class InvoiceStatsController extends GetxController {
   Future<void> loadStats() async {
     try {
       _isLoadingStats.value = true;
-      print('📊 Cargando estadísticas de facturas...');
 
       final result = await _getInvoiceStatsUseCase(NoParams());
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar estadísticas: ${failure.message}');
           _showError('Error al cargar estadísticas', failure.message);
         },
         (loadedStats) {
           _stats.value = loadedStats;
-          print('✅ Estadísticas cargadas exitosamente');
           _logStatsInfo(loadedStats);
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar estadísticas: $e');
       _showError('Error inesperado', 'No se pudieron cargar las estadísticas');
     } finally {
       _isLoadingStats.value = false;
@@ -140,22 +133,18 @@ class InvoiceStatsController extends GetxController {
   Future<void> loadOverdueInvoices() async {
     try {
       _isLoadingOverdue.value = true;
-      print('📅 Cargando facturas vencidas...');
 
       final result = await _getOverdueInvoicesUseCase(NoParams());
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar facturas vencidas: ${failure.message}');
           _showError('Error al cargar facturas vencidas', failure.message);
         },
         (invoices) {
           _overdueInvoices.value = invoices;
-          print('✅ ${invoices.length} facturas vencidas cargadas');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar facturas vencidas: $e');
       _showError(
         'Error inesperado',
         'No se pudieron cargar las facturas vencidas',
@@ -171,14 +160,12 @@ class InvoiceStatsController extends GetxController {
     if (_lastLoadTime != null && !showSuccessMessage) {
       final elapsed = DateTime.now().difference(_lastLoadTime!);
       if (elapsed.inSeconds < 10) {
-        print('⏭️ Stats: Datos cargados hace ${elapsed.inSeconds}s, saltando refresh');
         return;
       }
     }
 
     try {
       _isRefreshing.value = true;
-      print('🔄 Refrescando datos de estadísticas...');
 
       await loadAllData();
 
@@ -187,7 +174,6 @@ class InvoiceStatsController extends GetxController {
         _showSuccess('Datos actualizados');
       }
     } catch (e) {
-      print('💥 Error al refrescar datos: $e');
     } finally {
       _isRefreshing.value = false;
     }
@@ -203,9 +189,6 @@ class InvoiceStatsController extends GetxController {
     _selectedPeriod.value = period;
 
     final range = period.getDateRange();
-    print('📊 Período cambiado a: ${period.name}');
-    print('   📅 Desde: ${range.start}');
-    print('   📅 Hasta: ${range.end}');
 
     // Solo actualizar la UI - el filtrado se hace localmente en _calculateLocalStats y _calculateLocalAmounts
     update();
@@ -220,7 +203,6 @@ class InvoiceStatsController extends GetxController {
   /// Mostrar/ocultar detalles de facturas vencidas
   void toggleOverdueDetails() {
     _showOverdueDetails.value = !_showOverdueDetails.value;
-    print('👁️ Detalles de vencidas: ${_showOverdueDetails.value}');
   }
 
   // ==================== CHART DATA METHODS ====================
@@ -369,23 +351,6 @@ class InvoiceStatsController extends GetxController {
 
   /// Log de información de estadísticas
   void _logStatsInfo(InvoiceStats stats) {
-    print('📊 === ESTADÍSTICAS DE FACTURAS ===');
-    print('   Total: ${stats.total}');
-    print(
-      '   Pagadas: ${stats.paid} (${stats.paidPercentage.toStringAsFixed(1)}%)',
-    );
-    print(
-      '   Pendientes: ${stats.pending} (${stats.pendingPercentage.toStringAsFixed(1)}%)',
-    );
-    print(
-      '   Vencidas: ${stats.overdue} (${stats.overduePercentage.toStringAsFixed(1)}%)',
-    );
-    print('   Ventas totales: \$${stats.totalSales.toStringAsFixed(2)}');
-    print('   Monto pendiente: \$${stats.pendingAmount.toStringAsFixed(2)}');
-    print('   Monto vencido: \$${stats.overdueAmount.toStringAsFixed(2)}');
-    print('   Tasa de cobro: ${stats.collectionRate.toStringAsFixed(1)}%');
-    print('   Estado: ${stats.isHealthy ? "Saludable" : "Requiere atención"}');
-    print('================================');
   }
 
   // ==================== MESSAGE HELPERS ====================

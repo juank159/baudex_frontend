@@ -103,11 +103,9 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
 
       // ✅ Servir datos stale siempre - mejor datos antiguos que nada offline
       if (_isCacheTooOld(timestamp)) {
-        print('📦 Cache de productos antiguo (>24h) pero sirviéndolo de todos modos');
       }
 
       if (_isCacheStale(timestamp)) {
-        print('📦 Cache de productos stale (>30min) pero disponible, sirviendo datos...');
       }
 
       final productsJson = cacheMap['products'] as List;
@@ -134,11 +132,9 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
 
       // ✅ Servir datos stale siempre - mejor datos antiguos que nada offline
       if (_isCacheTooOld(timestamp)) {
-        print('📦 Cache de producto antiguo (>24h) pero sirviéndolo: $id');
       }
 
       if (_isCacheStale(timestamp)) {
-        print('📦 Cache de producto stale pero disponible: $id');
       }
 
       final productJson = cacheMap['product'] as Map<String, dynamic>;
@@ -215,11 +211,9 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
 
       // ✅ Servir datos stale siempre - mejor datos antiguos que nada offline
       if (_isCacheTooOld(timestamp)) {
-        print('📦 Cache de estadísticas antiguo (>24h) pero sirviéndolo');
       }
 
       if (_isCacheStale(timestamp)) {
-        print('📦 Cache de estadísticas stale pero disponible');
       }
 
       final statsJson = cacheMap['stats'] as Map<String, dynamic>;
@@ -241,9 +235,6 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
         await cacheProducts(filteredProducts);
       } catch (e) {
         // Si no se puede actualizar la lista, no es crítico
-        print(
-          '⚠️ No se pudo actualizar la lista después de remover producto: $e',
-        );
       }
     } catch (e) {
       throw CacheException('Error al remover producto del cache: $e');
@@ -401,7 +392,6 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final unsyncedKey = 'unsynced_product_${product.id}';
       await storageService.write(unsyncedKey, jsonEncode(productData));
 
-      print('✅ ProductLocalDataSource: Product cached for sync: ${product.name}');
     } catch (e) {
       throw CacheException('Error caching product for sync: $e');
     }
@@ -421,12 +411,10 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
             final product = _mapToProductEntity(productData);
             unsyncedProducts.add(product);
           } catch (e) {
-            print('⚠️ Error parsing unsynced product ${entry.key}: $e');
           }
         }
       }
 
-      print('📋 ProductLocalDataSource: Found ${unsyncedProducts.length} unsynced products');
       return unsyncedProducts;
     } catch (e) {
       throw CacheException('Error getting unsynced products: $e');
@@ -441,7 +429,6 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final unsyncedKey = 'unsynced_product_$tempId';
       await storageService.delete(unsyncedKey);
 
-      print('✅ ProductLocalDataSource: Product marked as synced: $tempId -> $serverId');
     } catch (e) {
       throw CacheException('Error marking product as synced: $e');
     }
@@ -533,39 +520,28 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final products = await getCachedProducts();
       final skuLower = sku.trim().toLowerCase();
 
-      print('🔍 ProductLocalDataSource.existsBySku: Verificando SKU "$sku"');
-      print('   excludeId: $excludeId');
-      print('   Total productos en cache: ${products.length}');
-
       for (final product in products) {
-        print('   Revisando producto: ${product.name} (id: ${product.id}, sku: ${product.sku})');
 
         // Excluir el producto si es el mismo que estamos editando
         if (excludeId != null && product.id == excludeId) {
-          print('   ⏭️ Excluyendo producto actual por ID');
           continue;
         }
 
         if (product.sku.trim().toLowerCase() == skuLower) {
-          print('   ❌ SKU duplicado encontrado: ${product.name}');
           return true;
         }
       }
 
       // También verificar en productos no sincronizados
       final unsyncedProducts = await getUnsyncedProducts();
-      print('   Total productos no sincronizados: ${unsyncedProducts.length}');
 
       for (final product in unsyncedProducts) {
-        print('   Revisando producto no sync: ${product.name} (id: ${product.id}, sku: ${product.sku})');
 
         if (excludeId != null && product.id == excludeId) {
-          print('   ⏭️ Excluyendo producto no sync actual por ID');
           continue;
         }
 
         if (product.sku.trim().toLowerCase() == skuLower) {
-          print('   ❌ SKU duplicado encontrado en no sync: ${product.name}');
           return true;
         }
       }
@@ -589,7 +565,6 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
 
       return isarProduct;
     } catch (e) {
-      print('⚠️ Error al obtener IsarProduct: $e');
       return null;
     }
   }

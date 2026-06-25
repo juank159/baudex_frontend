@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/app_logger.dart';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
@@ -107,26 +108,22 @@ class InvoiceFormController extends GetxController {
        _getProductsUseCase = getProductsUseCase,
        _searchProductsUseCase = searchProductsUseCase,
        _getCustomerByIdUseCase = getCustomerByIdUseCase {
-    print('🎮 InvoiceFormController: Instancia creada correctamente');
 
     // ✅ INICIALIZAR CONTROLADOR DE IMPRESIÓN (REUTILIZAR SI YA EXISTE)
     try {
       _thermalPrinterController = Get.find<ThermalPrinterController>();
-      print('♻️ Reutilizando ThermalPrinterController existente');
+
     } catch (e) {
       _thermalPrinterController = Get.put(ThermalPrinterController());
-      print('🆕 Creando nuevo ThermalPrinterController');
+
     }
 
     // ✅ INICIALIZAR SERVICIO DE INVENTARIO (OPCIONAL)
     if (Get.isRegistered<InvoiceInventoryService>()) {
       _inventoryService = Get.find<InvoiceInventoryService>();
-      print('♻️ Reutilizando InvoiceInventoryService existente');
+
     } else {
       _inventoryService = null;
-      print(
-        'ℹ️ InvoiceInventoryService no disponible - descuento automático de inventario deshabilitado',
-      );
     }
   }
 
@@ -279,7 +276,7 @@ class InvoiceFormController extends GetxController {
     // Calcular IVA promedio ponderado basado en el monto de impuesto real
     final averageTax = (taxAmount / taxable) * 100;
     _taxPercentage.value = double.parse(averageTax.toStringAsFixed(2));
-    print('📊 IVA promedio calculado: ${_taxPercentage.value}%');
+
   }
 
   // UI helpers
@@ -293,12 +290,7 @@ class InvoiceFormController extends GetxController {
     super.onInit();
     SyncService.notifyFormOpened();
     final instanceId = hashCode;
-    print(
-      '🚀 InvoiceFormController: Inicializando punto de venta... (Instance: $instanceId)',
-    );
-    print('📊 DEBUG: Estado inicial:');
-    print('   - availableProducts: ${_availableProducts.length} items');
-    print('   - invoiceItems: ${_invoiceItems.length} items');
+
     _initializeForm();
     // ✅ SOLO INICIALIZAR LO MÍNIMO EN onInit PARA EVITAR ANR
     _initializeMinimal();
@@ -308,12 +300,10 @@ class InvoiceFormController extends GetxController {
   void _autoInitializeDependencies() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        print('🔄 [AUTO-INIT] Verificando dependencias faltantes...');
 
         // Inicializar si faltan dependencias críticas
         if (!Get.isRegistered<CreateCustomerUseCase>() ||
             _createCustomerUseCase == null) {
-          print('👥 [AUTO-INIT] Inicializando CustomerBinding completo...');
 
           // Inicializar CustomerBinding completo
           CustomerBinding().dependencies();
@@ -322,19 +312,6 @@ class InvoiceFormController extends GetxController {
           await Future.delayed(const Duration(milliseconds: 100));
 
           // Verificar y actualizar referencias
-          print('🔍 [AUTO-INIT] Verificando dependencias registradas...');
-          print(
-            '   - GetCustomersUseCase: ${Get.isRegistered<GetCustomersUseCase>()}',
-          );
-          print(
-            '   - SearchCustomersUseCase: ${Get.isRegistered<SearchCustomersUseCase>()}',
-          );
-          print(
-            '   - CreateCustomerUseCase: ${Get.isRegistered<CreateCustomerUseCase>()}',
-          );
-          print(
-            '   - GetCustomerByIdUseCase: ${Get.isRegistered<GetCustomerByIdUseCase>()}',
-          );
 
           // Actualizar las referencias
           final getCustomersUseCase =
@@ -360,17 +337,13 @@ class InvoiceFormController extends GetxController {
           _createCustomerUseCase = createCustomerUseCase;
           _getCustomerByIdUseCase = getCustomerByIdUseCase;
 
-          print('✅ [AUTO-INIT] CustomerBinding inicializado');
-          print(
-            '✅ [AUTO-INIT] CreateCustomerUseCase disponible: ${_createCustomerUseCase != null}',
-          );
         }
 
         await Future.delayed(const Duration(milliseconds: 50));
 
         if (_getProductsUseCase == null &&
             !Get.isRegistered<GetProductsUseCase>()) {
-          print('📦 [AUTO-INIT] Inicializando ProductBinding...');
+
           ProductBinding().dependencies();
 
           // Actualizar las referencias
@@ -387,12 +360,10 @@ class InvoiceFormController extends GetxController {
           _getProductsUseCase = getProductsUseCase;
           _searchProductsUseCase = searchProductsUseCase;
 
-          print('✅ [AUTO-INIT] ProductBinding inicializado');
         }
 
-        print('🎉 [AUTO-INIT] Auto-inicialización completada');
       } catch (e) {
-        print('❌ [AUTO-INIT] Error en auto-inicialización: $e');
+
       }
     });
   }
@@ -400,7 +371,7 @@ class InvoiceFormController extends GetxController {
   @override
   void onClose() {
     SyncService.notifyFormClosed();
-    print('🔚 InvoiceFormController: Liberando recursos...');
+
     _disposeControllers();
     super.onClose();
   }
@@ -436,7 +407,6 @@ class InvoiceFormController extends GetxController {
   // ✅ NUEVA FUNCIÓN: Cargar datos después del primer frame
   void _loadDataAfterFirstFrame() async {
     try {
-      print('📅 Cargando datos después del primer frame...');
 
       // Esperar un poco más para asegurar que la UI esté lista
       await Future.delayed(const Duration(milliseconds: 500));
@@ -456,33 +426,25 @@ class InvoiceFormController extends GetxController {
       // Cargar otros datos de forma escalonada
       _loadInitialDataStaggered();
     } catch (e) {
-      print('❌ Error en carga después del primer frame: $e');
+
     }
   }
 
   // ✅ OPTIMIZACIÓN: Cargar productos en background para búsqueda offline
   void _loadInitialDataStaggered() async {
     try {
-      print('⚡ Inicialización optimizada - cargando productos en background');
-      print('💡 Los clientes se cargarán cuando se busquen');
 
       _availableCustomers.clear();
 
       // Cargar productos en background para búsqueda offline
       _loadProducts();
     } catch (e) {
-      print('❌ Error en inicialización optimizada: $e');
+
     }
   }
 
   void debugPriceCalculations() {
-    print('🧮 DEBUG Cálculos de Precios:');
-    print('   - Subtotal con IVA: \${subtotal.toStringAsFixed(2)}');
-    print('   - Subtotal sin IVA: \${subtotalWithoutTax.toStringAsFixed(2)}');
-    print('   - Descuentos: \${totalDiscountAmount.toStringAsFixed(2)}');
-    print('   - Monto gravable: \${taxableAmount.toStringAsFixed(2)}');
-    print('   - IVA ($taxPercentage%): \${taxAmount.toStringAsFixed(2)}');
-    print('   - TOTAL: \${total.toStringAsFixed(2)}');
+
   }
 
   /// ⚡ OPTIMIZADO: Cargar cliente por defecto con cache
@@ -492,23 +454,15 @@ class InvoiceFormController extends GetxController {
       if (_cachedDefaultCustomer != null && _customerCacheTime != null) {
         final timeSinceCache = DateTime.now().difference(_customerCacheTime!);
         if (timeSinceCache < _customerCacheExpiry) {
-          print(
-            '⚡ Cargando cliente "$DEFAULT_CUSTOMER_NAME" desde CACHE (${timeSinceCache.inMinutes}min antiguo)',
-          );
           _selectedCustomer.value = _cachedDefaultCustomer;
           return;
         }
       }
 
-      print('🔍 Buscando cliente "$DEFAULT_CUSTOMER_NAME" en BD...');
-
       // ✅ ESTABLECER CLIENTE FALLBACK INMEDIATAMENTE
       _setFallbackDefaultCustomer();
 
       if (_searchCustomersUseCase != null) {
-        print(
-          '✅ SearchCustomersUseCase disponible, realizando búsqueda en servidor...',
-        );
 
         // ✅ BUSCAR CLIENTE "Consumidor Final" EN BACKGROUND SIN BLOQUEAR
         _searchCustomersUseCase!(
@@ -521,9 +475,6 @@ class InvoiceFormController extends GetxController {
             .then((result) {
               result.fold(
                 (failure) {
-                  print(
-                    '❌ Error buscando cliente final: ${failure.toString()}',
-                  );
                   // Mantener cliente fallback
                 },
                 (customers) {
@@ -548,39 +499,26 @@ class InvoiceFormController extends GetxController {
                     _cachedDefaultCustomer = defaultCustomer;
                     _customerCacheTime = DateTime.now();
 
-                    print('✅ Cliente final encontrado y cargado exitosamente:');
-                    print('   - ID: ${defaultCustomer.id}');
-                    print('   - Nombre: ${defaultCustomer.displayName}');
-                    print('   - Email: ${defaultCustomer.email}');
-                    print('💾 Cliente cacheado para próximas cargas');
                   } else {
-                    print(
-                      '⚠️ No se encontró cliente "$DEFAULT_CUSTOMER_NAME", usando fallback',
-                    );
                   }
                 },
               );
             })
             .catchError((e) {
-              print('💥 Error inesperado buscando cliente final: $e');
+
               // Mantener cliente fallback
             });
       } else {
-        print('❌ SearchCustomersUseCase NO disponible');
-        print('🔄 Usando cliente fallback...');
+
       }
     } catch (e) {
-      print('💥 Error inesperado cargando cliente final: $e');
-      print('🔄 Usando cliente fallback...');
+
       _setFallbackDefaultCustomer();
     }
   }
 
   // ✅ FUNCIÓN OBSOLETA: Ahora se usa _loadDefaultCustomer que busca por nombre
   void _loadDefaultCustomerAsync() {
-    print(
-      '⚠️ _loadDefaultCustomerAsync está obsoleto, usando _loadDefaultCustomer',
-    );
     _loadDefaultCustomer();
   }
 
@@ -599,29 +537,21 @@ class InvoiceFormController extends GetxController {
     final currentCustomer = selectedCustomer;
 
     if (currentCustomer == null) {
-      print('❌ No hay cliente seleccionado');
+
       return null;
     }
 
     // Verificar si el cliente actual es válido (tiene UUID real)
     if (_isValidUUID(currentCustomer.id) &&
         !currentCustomer.id.startsWith('fallback_')) {
-      print(
-        '✅ Cliente actual es válido: ${currentCustomer.displayName} (${currentCustomer.id})',
-      );
       return currentCustomer;
     }
 
     // ✅ NUEVO: Permitir clientes creados offline (customer_offline_...)
     if (currentCustomer.id.startsWith('customer_offline_')) {
-      print(
-        '✅ Cliente offline válido: ${currentCustomer.displayName} (${currentCustomer.id})',
-      );
-      print('   💡 Se sincronizará cuando haya conexión');
+
       return currentCustomer;
     }
-
-    print('⚠️ Cliente actual es temporal/fallback, buscando cliente real...');
 
     // Si es el cliente fallback "Consumidor Final", buscar el real
     if (_isDefaultCustomer(currentCustomer)) {
@@ -629,9 +559,6 @@ class InvoiceFormController extends GetxController {
       if (realCustomer != null) {
         // Actualizar el cliente seleccionado al real
         _selectedCustomer.value = realCustomer;
-        print(
-          '✅ Cliente real encontrado y actualizado: ${realCustomer.displayName} (${realCustomer.id})',
-        );
         return realCustomer;
       }
 
@@ -639,13 +566,11 @@ class InvoiceFormController extends GetxController {
       // usar el fallback para permitir facturación offline
       final isOffline = await _checkIfOffline();
       if (isOffline) {
-        print('📴 MODO OFFLINE: Usando cliente fallback para facturación');
-        print('   💡 La factura se creará con cliente temporal y se resolverá al sincronizar');
+
         return currentCustomer; // Retornar el fallback
       }
     }
 
-    print('❌ No se pudo resolver a un cliente válido');
     return null;
   }
 
@@ -659,7 +584,7 @@ class InvoiceFormController extends GetxController {
       }
       return false;
     } catch (e) {
-      print('⚠️ Error verificando conexión: $e');
+
       return false;
     }
   }
@@ -686,16 +611,11 @@ class InvoiceFormController extends GetxController {
       if (_cachedDefaultCustomer != null && _customerCacheTime != null) {
         final timeSinceCache = DateTime.now().difference(_customerCacheTime!);
         if (timeSinceCache < _customerCacheExpiry) {
-          print(
-            '⚡ Usando cliente "$DEFAULT_CUSTOMER_NAME" desde CACHE (${timeSinceCache.inMinutes}min antiguo)',
-          );
           return _cachedDefaultCustomer;
         } else {
-          print('🔄 Cache del cliente expirado, buscando en servidor...');
+
         }
       }
-
-      print('🔍 Buscando cliente real "$DEFAULT_CUSTOMER_NAME" en servidor...');
 
       if (_searchCustomersUseCase != null) {
         // Buscar primero por nombre
@@ -709,7 +629,7 @@ class InvoiceFormController extends GetxController {
 
         Customer? foundCustomer = nameResult.fold(
           (failure) {
-            print('❌ Error buscando cliente por nombre: ${failure.message}');
+
             return null;
           },
           (customers) {
@@ -729,9 +649,6 @@ class InvoiceFormController extends GetxController {
 
         // Si no se encontró por nombre, buscar por documento
         if (foundCustomer == null) {
-          print(
-            '🔍 No encontrado por nombre, buscando por documento "222222222222"...',
-          );
           final documentResult = await _searchCustomersUseCase!(
                 SearchCustomersParams(searchTerm: '222222222222', limit: 5),
               )
@@ -739,9 +656,6 @@ class InvoiceFormController extends GetxController {
 
           foundCustomer = documentResult.fold(
             (failure) {
-              print(
-                '❌ Error buscando cliente por documento: ${failure.message}',
-              );
               return null;
             },
             (customers) {
@@ -758,31 +672,21 @@ class InvoiceFormController extends GetxController {
         }
 
         if (foundCustomer != null) {
-          print(
-            '✅ Cliente real encontrado: ${foundCustomer.displayName} (${foundCustomer.id})',
-          );
-          print('   - Documento: ${foundCustomer.documentNumber}');
 
           // ⚡ GUARDAR EN CACHE
           _cachedDefaultCustomer = foundCustomer;
           _customerCacheTime = DateTime.now();
-          print(
-            '💾 Cliente cacheado para futuras búsquedas (expira en ${_customerCacheExpiry.inMinutes}min)',
-          );
 
           return foundCustomer;
         } else {
-          print(
-            '⚠️ Cliente "$DEFAULT_CUSTOMER_NAME" no existe, creando automáticamente...',
-          );
           return await _createDefaultCustomer();
         }
       } else {
-        print('❌ SearchCustomersUseCase no disponible');
+
         return null;
       }
     } catch (e) {
-      print('💥 Error buscando cliente por defecto: $e');
+
       return null;
     }
   }
@@ -794,19 +698,11 @@ class InvoiceFormController extends GetxController {
       if (_createCustomerUseCase == null) {
         if (Get.isRegistered<CreateCustomerUseCase>()) {
           _createCustomerUseCase = Get.find<CreateCustomerUseCase>();
-          print('✅ CreateCustomerUseCase obtenido desde Get.find');
+
         } else {
-          print(
-            '❌ CreateCustomerUseCase no disponible - no se puede crear cliente',
-          );
-          print(
-            '💡 SOLUCIÓN: Crea manualmente un cliente "Consumidor Final" con documento "222222222222"',
-          );
           return null;
         }
       }
-
-      print('➕ Creando cliente "$DEFAULT_CUSTOMER_NAME" automáticamente...');
 
       final createResult = await _createCustomerUseCase!(
             CreateCustomerParams(
@@ -834,25 +730,20 @@ class InvoiceFormController extends GetxController {
 
       return createResult.fold(
         (failure) {
-          print('❌ Error creando cliente por defecto: ${failure.message}');
+
           return null;
         },
         (customer) {
-          print('✅ Cliente "$DEFAULT_CUSTOMER_NAME" creado exitosamente:');
-          print('   - ID: ${customer.id}');
-          print('   - Nombre: ${customer.displayName}');
-          print('   - Email: ${customer.email}');
 
           // ⚡ GUARDAR EN CACHE
           _cachedDefaultCustomer = customer;
           _customerCacheTime = DateTime.now();
-          print('💾 Nuevo cliente cacheado para futuras búsquedas');
 
           return customer;
         },
       );
     } catch (e) {
-      print('💥 Error inesperado creando cliente por defecto: $e');
+
       return null;
     }
   }
@@ -880,11 +771,7 @@ class InvoiceFormController extends GetxController {
     );
 
     _selectedCustomer.value = fallbackCustomer;
-    print('👤 Cliente fallback establecido: ${fallbackCustomer.displayName}');
-    print('   - ID temporal: ${fallbackCustomer.id}');
-    print(
-      '   - Nota: Se reemplazará automáticamente cuando se encuentre el cliente real "$DEFAULT_CUSTOMER_NAME"',
-    );
+
   }
 
   // ✅ FUNCIÓN OBSOLETA - YA NO SE USA
@@ -895,7 +782,6 @@ class InvoiceFormController extends GetxController {
   Future<void> _loadInvoiceForEdit(String invoiceId) async {
     try {
       _isLoading.value = true;
-      print('📄 Cargando factura para editar: $invoiceId');
 
       final result = await _getInvoiceByIdUseCase(
         GetInvoiceByIdParams(id: invoiceId),
@@ -903,17 +789,17 @@ class InvoiceFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar factura: ${failure.message}');
+
           _showError('Error al cargar factura', failure.message);
           Get.back();
         },
         (invoice) {
           _populateFormFromInvoice(invoice);
-          print('✅ Factura cargada para edición');
+
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar factura: $e');
+
       _showError('Error inesperado', 'No se pudo cargar la factura');
       Get.back();
     } finally {
@@ -1067,14 +953,14 @@ class InvoiceFormController extends GetxController {
       result.fold(
         (failure) {
           // Si falla (offline sin cache, etc.), seguimos con flujo legacy.
-          print('⚠️ No se pudieron cargar presentaciones: $failure');
+
         },
         (list) {
           active = list.where((p) => p.isActive).toList();
         },
       );
     } catch (e) {
-      print('⚠️ GetProductPresentationsUseCase no registrado o falló: $e');
+
     }
 
     if (active.length <= 1) {
@@ -1103,17 +989,8 @@ class InvoiceFormController extends GetxController {
     ProductPresentation? presentation,
   }) {
     final instanceId = hashCode;
-    print(
-      '🛒 Procesando producto: ${product.name} (cantidad: $quantity) (Instance: $instanceId)',
-    );
     if (presentation != null) {
-      print(
-        '   📐 Presentación: ${presentation.name} (factor=${presentation.factor}, precio=${presentation.price})',
-      );
     }
-    print('📊 Estado actual antes de agregar:');
-    print('   - Items en factura: ${_invoiceItems.length}');
-    print('   - Productos disponibles: ${_availableProducts.length}');
 
     // ✅ DETECCIÓN DE PRODUCTO TEMPORAL
     final isTemporary =
@@ -1122,9 +999,8 @@ class InvoiceFormController extends GetxController {
         (product.metadata?['isTemporary'] == true);
 
     if (isTemporary) {
-      print('🎭 Producto TEMPORAL detectado: ${product.name}');
+
     } else {
-      print('📦 Producto REGISTRADO: ${product.name}');
 
       // Solo validar stock si la preferencia está activa y no permite sobreventa
       if (shouldValidateStock && product.stock <= 0) {
@@ -1185,10 +1061,6 @@ class InvoiceFormController extends GetxController {
       // ✅ NUEVO: Actualizar en la misma posición, NO mover al inicio
       _invoiceItems[existingIndex] = updatedItem;
 
-      print(
-        '✅ Cantidad actualizada (mantiene posición): ${existingItem.description} -> $newQuantity (índice: $existingIndex)',
-      );
-
       // ✅ NUEVO: Notificar que este item fue actualizado para selección automática
       _lastUpdatedItemIndex.value = existingIndex;
       _shouldHighlightUpdatedItem.value = true;
@@ -1221,9 +1093,9 @@ class InvoiceFormController extends GetxController {
 
       if (hasTax) {
         itemTaxPercentage = product.taxRate;
-        print('💰 Item CON IVA: ${product.name} - ${itemTaxPercentage}% (${product.taxCategory.displayName})');
+
       } else {
-        print('📦 Item SIN IVA: ${product.name} (${product.taxCategory.displayName}, isTaxable: ${product.isTaxable}, taxRate: ${product.taxRate})');
+
       }
 
       final newItem = InvoiceItemFormData(
@@ -1255,13 +1127,7 @@ class InvoiceFormController extends GetxController {
       });
 
       if (isTemporary) {
-        print(
-          '➕ Producto TEMPORAL agregado al inicio: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
-        );
       } else {
-        print(
-          '➕ Producto REGISTRADO agregado al inicio: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
-        );
       }
     }
 
@@ -1276,17 +1142,8 @@ class InvoiceFormController extends GetxController {
 
     if (existingIndex == -1) {
       _availableProducts.add(product);
-      print(
-        '📦 Producto agregado a lista disponible: ${product.name} (Instance: $instanceId)',
-      );
-      print(
-        '📊 Total productos en esta instancia: ${_availableProducts.length}',
-      );
     } else {
       _availableProducts[existingIndex] = product;
-      print(
-        '📦 Producto actualizado en lista disponible: ${product.name} (Instance: $instanceId)',
-      );
     }
   }
 
@@ -1302,9 +1159,6 @@ class InvoiceFormController extends GetxController {
   }
 
   Future<List<Product>> searchProducts(String query) async {
-    print('🔍 Búsqueda OFFLINE: "$query" '
-        '(_availableProducts=${_availableProducts.length})');
-
     if (query.trim().isEmpty) return [];
 
     try {
@@ -1326,17 +1180,17 @@ class InvoiceFormController extends GetxController {
         final isarSearch = await Get.find<ProductOfflineRepository>()
             .searchProducts(query, limit: null);
         isarSearch.fold(
-          (failure) => print('⚠️ ISAR search falló: ${failure.message}'),
+          (failure) => AppLogger.w('ISAR search falló: ${failure.message}'),
           (list) => results = list,
         );
-        print('📦 ISAR retornó ${results.length} matches');
+
       }
 
       // Fallback: si por alguna razón el offline repo no está registrado
       // o devolvió vacío, intentamos la búsqueda en memoria igual.
       if (results.isEmpty) {
         results = _searchInLocalProducts(query);
-        print('💾 Fallback memoria: ${results.length} matches');
+
       }
 
       // Dedupe por id y filtrar SOLO activos. Los sin stock SÍ aparecen
@@ -1350,10 +1204,10 @@ class InvoiceFormController extends GetxController {
       }
 
       final finalResults = uniqueResults.values.toList();
-      print('✅ Búsqueda devolvió ${finalResults.length} productos activos');
+
       return finalResults;
     } catch (e) {
-      print('💥 Error inesperado en búsqueda: $e');
+
       return _searchInLocalProducts(query);
     }
   }
@@ -1386,7 +1240,7 @@ class InvoiceFormController extends GetxController {
 
   Future<void> _loadProducts() async {
     if (_getProductsUseCase == null) {
-      print('⚠️ GetProductsUseCase no disponible - no se cargarán productos');
+
       // No limpiar — preservar lo que pueda haber de un load anterior.
       _isLoadingProducts.value = false;
       return;
@@ -1408,7 +1262,7 @@ class InvoiceFormController extends GetxController {
     // Si falla (timeout, sin red, servidor caído): NO se limpia el cache.
     // ═══════════════════════════════════════════════════════════════════
     try {
-      print('📦 Refrescando productos desde servidor (background)...');
+
       await Future.delayed(const Duration(milliseconds: 50));
 
       final result = await _getProductsUseCase!(
@@ -1422,7 +1276,7 @@ class InvoiceFormController extends GetxController {
           .timeout(
             const Duration(seconds: 8),
             onTimeout: () {
-              print('⚠️ Timeout refrescando productos — usando cache');
+
               return Left(ServerFailure('Timeout al cargar productos'));
             },
           );
@@ -1432,12 +1286,9 @@ class InvoiceFormController extends GetxController {
       result.fold(
         (failure) {
           // Cache-first ya pobló los productos; log y seguimos con lo que hay.
-          print('❌ Remoto falló: ${failure.message} — conservando cache '
-              '(${_availableProducts.length} productos en memoria)');
         },
         (paginatedResult) {
           _availableProducts.value = paginatedResult.data;
-          print('✅ Productos refrescados: ${paginatedResult.data.length}');
 
           if (paginatedResult.data.length == 50 &&
               paginatedResult.meta.hasNextPage) {
@@ -1446,8 +1297,6 @@ class InvoiceFormController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error refrescando productos: $e — conservando cache '
-          '(${_availableProducts.length} productos)');
       // NO hacemos clear — el cache cargado en el paso 1 queda disponible.
     } finally {
       _isLoadingProducts.value = false;
@@ -1460,7 +1309,7 @@ class InvoiceFormController extends GetxController {
   Future<void> _loadProductsFromCacheFirst() async {
     try {
       if (!Get.isRegistered<ProductRepository>()) {
-        print('⚠️ ProductRepository no registrado — salto cache-first');
+
         return;
       }
       final repo = Get.find<ProductRepository>();
@@ -1469,7 +1318,7 @@ class InvoiceFormController extends GetxController {
       final cacheResult = await repo.getCachedProducts();
       cacheResult.fold(
         (failure) {
-          print('⚠️ Cache vacío o falló: ${failure.message}');
+
         },
         (products) {
           if (products.isNotEmpty) {
@@ -1478,13 +1327,11 @@ class InvoiceFormController extends GetxController {
                 .where((p) => p.status == ProductStatus.active)
                 .toList();
             _availableProducts.value = activos;
-            print('✅ Cache-first: ${activos.length} productos disponibles '
-                'offline inmediatamente');
           }
         },
       );
     } catch (e) {
-      print('⚠️ Error cache-first: $e — continuará con remoto');
+
     }
   }
 
@@ -1493,7 +1340,7 @@ class InvoiceFormController extends GetxController {
     // Esperar mucho tiempo antes de cargar más productos
     Timer(const Duration(seconds: 3), () {
       _loadMoreProducts(page).catchError((e) {
-        print('❌ Error cargando página $page: $e');
+
       });
     });
   }
@@ -1514,20 +1361,17 @@ class InvoiceFormController extends GetxController {
           .timeout(
             const Duration(seconds: 8),
             onTimeout: () {
-              print('⚠️ Timeout cargando página $page');
+
               return Left(ServerFailure('Timeout'));
             },
           );
 
       result.fold(
         (failure) {
-          print('❌ Error cargando página $page: ${failure.message}');
+
         },
         (paginatedResult) {
           _availableProducts.addAll(paginatedResult.data);
-          print(
-            '✅ Productos página $page cargados: ${paginatedResult.data.length}',
-          );
 
           if (page < 5 && paginatedResult.meta.hasNextPage) {
             // ✅ CARGAR SIGUIENTE PÁGINA DE FORMA ASÍNCRONA
@@ -1536,7 +1380,7 @@ class InvoiceFormController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error cargando página $page: $e');
+
     }
   }
 
@@ -1544,7 +1388,7 @@ class InvoiceFormController extends GetxController {
 
   Future<void> _loadCustomers() async {
     if (_getCustomersUseCase == null) {
-      print('⚠️ GetCustomersUseCase no disponible - no se cargarán clientes');
+
       _availableCustomers.clear();
       _isLoadingCustomers.value = false;
       return;
@@ -1552,7 +1396,6 @@ class InvoiceFormController extends GetxController {
 
     try {
       _isLoadingCustomers.value = true;
-      print('👥 Cargando clientes desde la base de datos...');
 
       // ✅ YIELD PARA NO BLOQUEAR
       await Future.delayed(const Duration(milliseconds: 50));
@@ -1567,7 +1410,7 @@ class InvoiceFormController extends GetxController {
           .timeout(
             const Duration(seconds: 6), // ✅ TIMEOUT MÁS CORTO
             onTimeout: () {
-              print('⚠️ Timeout cargando clientes');
+
               return Left(ServerFailure('Timeout al cargar clientes'));
             },
           );
@@ -1577,16 +1420,16 @@ class InvoiceFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar clientes: ${failure.message}');
+
           _availableCustomers.clear();
         },
         (paginatedResult) {
           _availableCustomers.value = paginatedResult.data;
-          print('✅ Clientes cargados: ${paginatedResult.data.length}');
+
         },
       );
     } catch (e) {
-      print('💥 Error al cargar clientes: $e');
+
       _availableCustomers.clear();
     } finally {
       _isLoadingCustomers.value = false;
@@ -1594,9 +1437,6 @@ class InvoiceFormController extends GetxController {
   }
 
   Future<List<Customer>> searchCustomers(String query) async {
-    print('🔍 Búsqueda clientes OFFLINE: "$query" '
-        '(_availableCustomers=${_availableCustomers.length})');
-
     if (query.trim().isEmpty) return [];
 
     try {
@@ -1608,26 +1448,25 @@ class InvoiceFormController extends GetxController {
         final isarSearch = await Get.find<CustomerOfflineRepository>()
             .searchCustomers(query, limit: null);
         isarSearch.fold(
-          (failure) => print('⚠️ ISAR customer search falló: ${failure.message}'),
+          (failure) => AppLogger.w('ISAR customer search falló: ${failure.message}'),
           (list) => results = list,
         );
-        print('📦 ISAR retornó ${results.length} clientes');
+
       }
 
       // Fallback defensivo si por algún motivo el offline repo no está.
       if (results.isEmpty) {
         results = _searchInLocalCustomers(query);
-        print('💾 Fallback memoria: ${results.length} clientes');
+
       }
 
       final filteredResults = results
           .where((customer) => customer.status == CustomerStatus.active)
           .toList();
 
-      print('✅ Búsqueda devolvió ${filteredResults.length} clientes activos');
       return filteredResults;
     } catch (e) {
-      print('💥 Error inesperado en búsqueda de clientes: $e');
+
       return [];
     }
   }
@@ -1649,7 +1488,6 @@ class InvoiceFormController extends GetxController {
 
   void selectCustomer(Customer customer) {
     _selectedCustomer.value = customer;
-    print('👤 Cliente seleccionado: ${customer.displayName}');
 
     if (customer.paymentTerms > 0) {
       _dueDate.value = _invoiceDate.value.add(
@@ -1662,7 +1500,7 @@ class InvoiceFormController extends GetxController {
 
   void clearCustomer() {
     _loadDefaultCustomer();
-    print('🔄 Cliente vuelto a consumidor final');
+
   }
 
   // ==================== ITEM MANAGEMENT ====================
@@ -1676,7 +1514,7 @@ class InvoiceFormController extends GetxController {
   void addItem(InvoiceItemFormData item) {
     _invoiceItems.insert(0, item); // Agregar al inicio
     _recalculateTotals();
-    print('➕ Item agregado al inicio: ${item.description}');
+
   }
 
   // void updateItem(int index, InvoiceItemFormData updatedItem) {
@@ -1691,9 +1529,6 @@ class InvoiceFormController extends GetxController {
     if (index >= 0 && index < _invoiceItems.length) {
       // ✅ CORREGIDO: Actualizar en la misma posición, NO mover al inicio
       _invoiceItems[index] = updatedItem;
-      print(
-        '✏️ Item actualizado (mantiene posición $index): ${updatedItem.description}',
-      );
 
       _recalculateTotals();
     }
@@ -1703,7 +1538,6 @@ class InvoiceFormController extends GetxController {
     if (index >= 0 && index < _invoiceItems.length) {
       final removedItem = _invoiceItems.removeAt(index);
       _recalculateTotals();
-      print('🗑️ Item removido: ${removedItem.description}');
 
       Get.snackbar(
         'Producto Eliminado',
@@ -1725,7 +1559,7 @@ class InvoiceFormController extends GetxController {
         toIndex < _invoiceItems.length) {
       final item = _invoiceItems.removeAt(fromIndex);
       _invoiceItems.insert(toIndex, item);
-      print('🔄 Item movido de $fromIndex a $toIndex');
+
     }
   }
 
@@ -1733,7 +1567,7 @@ class InvoiceFormController extends GetxController {
     _invoiceItems.clear();
     _clearUpdatedItemSelection(); // ✅ NUEVO: Limpiar selección
     _recalculateTotals();
-    print('🧹 Todos los items removidos');
+
   }
 
   // ✅ NUEVO: Método para limpiar la selección de item actualizado
@@ -1761,14 +1595,14 @@ class InvoiceFormController extends GetxController {
     if (daysDifference < 1) {
       _dueDate.value = DateTime(date.year, date.month, date.day).add(const Duration(days: 30));
     }
-    print('📅 Fecha de factura: $date');
+
   }
 
   void setDueDate(DateTime date) {
     if (date.isAfter(_invoiceDate.value) ||
         date.isAtSameMomentAs(_invoiceDate.value)) {
       _dueDate.value = date;
-      print('📅 Fecha de vencimiento: ${date.toString().split(' ')[0]}');
+
     } else {
       _showError(
         'Fecha inválida',
@@ -1781,14 +1615,14 @@ class InvoiceFormController extends GetxController {
 
   void setPaymentMethod(PaymentMethod method) {
     _paymentMethod.value = method;
-    print('💳 Método de pago: ${method.displayName}');
+
   }
 
   void setTaxPercentage(double percentage) {
     if (percentage >= 0 && percentage <= 100) {
       _taxPercentage.value = percentage;
       _recalculateTotals();
-      print('📊 Impuesto: $percentage%');
+
     }
   }
 
@@ -1796,7 +1630,7 @@ class InvoiceFormController extends GetxController {
     if (percentage >= 0 && percentage <= 100) {
       _discountPercentage.value = percentage;
       _recalculateTotals();
-      print('💰 Descuento porcentual: $percentage%');
+
     }
   }
 
@@ -1804,7 +1638,7 @@ class InvoiceFormController extends GetxController {
     if (amount >= 0) {
       _discountAmount.value = amount;
       _recalculateTotals();
-      print('💰 Descuento fijo: \${amount.toStringAsFixed(2)}');
+
     }
   }
 
@@ -1850,19 +1684,6 @@ class InvoiceFormController extends GetxController {
     try {
       _isSaving.value = true;
 
-      print('🚀 === INICIANDO GUARDADO DE FACTURA ===');
-      print('💾 Datos recibidos:');
-      print('   - Método: ${paymentMethod.displayName}');
-      print('   - Estado: ${status.displayName}');
-      print('   - Total: \${total.toStringAsFixed(2)}');
-      print('   - Recibido: \${receivedAmount.toStringAsFixed(2)}');
-      print('   - Cambio: \${change.toStringAsFixed(2)}');
-      print('   - Es edición: $isEditMode');
-      print('   - Debe imprimir: $shouldPrint');
-      print('   - Pagos múltiples: ${multiplePayments?.length ?? 0}');
-      print('   - Crear crédito por saldo: $createCreditForRemaining');
-      print('   - Saldo a favor aplicado: \${balanceApplied?.toStringAsFixed(2) ?? "0.00"}');
-
       _paymentMethod.value = paymentMethod;
 
       // ✅ CONSTRUIR NOTAS CON INFORMACIÓN DE PAGOS MÚLTIPLES
@@ -1873,24 +1694,22 @@ class InvoiceFormController extends GetxController {
 
       _adjustDueDateByPaymentMethod(paymentMethod, status);
 
-      print('📅 Fecha de vencimiento ajustada: ${_dueDate.value}');
-      print('📝 Notas generadas: ${paymentInfo.length} caracteres');
       if (bankAccountId != null) {
-        print('🏦 Cuenta bancaria seleccionada: $bankAccountId');
+
       }
       if (multiplePayments != null && multiplePayments.isNotEmpty) {
         for (final payment in multiplePayments) {
-          print('💳 Pago: ${payment.method.displayName} - \$${payment.amount.toStringAsFixed(2)}');
+
         }
       }
 
       Invoice? savedInvoice;
 
       if (isEditMode) {
-        print('✏️ Actualizando factura existente...');
+
         savedInvoice = await _updateExistingInvoice(status);
       } else {
-        print('➕ Creando nueva factura...');
+
         savedInvoice = await _createNewInvoice(
           status,
           bankAccountId: bankAccountId,
@@ -1904,19 +1723,13 @@ class InvoiceFormController extends GetxController {
       }
 
       // ✅ VALIDAR SI LA FACTURA SE GUARDÓ CORRECTAMENTE
-      print('🔍 DEBUG: Validando si savedInvoice es null...');
-      print('🔍 savedInvoice == null: ${savedInvoice == null}');
-      print('🔍 savedInvoice: $savedInvoice');
 
       if (savedInvoice != null) {
         // ✅ NUEVA LÓGICA: IMPRIMIR SI SE SOLICITÓ
         if (shouldPrint) {
-          print('🖨️ Iniciando impresión automática...');
+
           await _printInvoiceAutomatically(savedInvoice);
         }
-
-        print('✅ === FACTURA GUARDADA EXITOSAMENTE ===');
-        print('🎉 RETORNANDO TRUE - OPERACIÓN EXITOSA');
 
         // Phase 2: refrescar Caja Registradora si está abierta. La venta
         // en efectivo afecta el "esperado" del turno actual; el badge del
@@ -1931,12 +1744,11 @@ class InvoiceFormController extends GetxController {
         // ✅ NO MOSTRAR SNACKBAR AQUÍ - LA PANTALLA LO MOSTRARÁ
         return true; // ✅ ÉXITO
       } else {
-        print('❌ === FACTURA NO GUARDADA - OPERACIÓN BLOQUEADA ===');
-        print('🚫 RETORNANDO FALSE - OPERACIÓN FALLÓ');
+
         return false; // ✅ FALLÓ
       }
     } catch (e) {
-      print('💥 Error inesperado al guardar: $e');
+
       _showError('Error inesperado', 'No se pudo procesar la venta');
       return false; // ✅ ERROR
     } finally {
@@ -1948,20 +1760,13 @@ class InvoiceFormController extends GetxController {
   Future<void> _printInvoiceAutomatically(Invoice invoice) async {
     try {
       _isPrinting.value = true;
-      print('🖨️ === INICIANDO IMPRESIÓN AUTOMÁTICA ===');
-      print('   - Factura: ${invoice.number}');
-      print('   - Cliente: ${invoice.customerName}');
-      print('   - Total: \${invoice.total.toStringAsFixed(2)}');
 
       // ✅ NUEVO: Asegurar que la configuración de impresora esté cargada
-      print('🔄 Verificando configuración de impresora antes de imprimir...');
+
       final printerConfigLoaded =
           await _thermalPrinterController.ensurePrinterConfigLoaded();
 
       if (!printerConfigLoaded) {
-        print(
-          '❌ No se pudo cargar configuración de impresora',
-        );
         _showPrintError(
           'No hay impresora configurada. Configura una en Configuración > Impresoras.',
         );
@@ -1972,16 +1777,16 @@ class InvoiceFormController extends GetxController {
       final success = await _thermalPrinterController.printInvoice(invoice);
 
       if (success) {
-        print('✅ Impresión automática exitosa');
+
         //_showPrintSuccess('Factura impresa exitosamente');
       } else {
-        print('❌ Error en impresión automática');
+
         _showPrintError(
           'Error al imprimir: ${_thermalPrinterController.lastError ?? "Error desconocido"}',
         );
       }
     } catch (e) {
-      print('💥 Error inesperado en impresión automática: $e');
+
       _showPrintError('Error inesperado al imprimir: $e');
     } finally {
       _isPrinting.value = false;
@@ -1998,7 +1803,6 @@ class InvoiceFormController extends GetxController {
 
     try {
       _isPrinting.value = true;
-      print('🖨️ Impresión manual solicitada para factura: ${invoice.number}');
 
       // Asegurar que la configuración de impresora esté cargada
       final printerConfigLoaded =
@@ -2020,7 +1824,7 @@ class InvoiceFormController extends GetxController {
         );
       }
     } catch (e) {
-      print('💥 Error en impresión manual: $e');
+
       _showPrintError('Error inesperado al imprimir: $e');
     } finally {
       _isPrinting.value = false;
@@ -2042,9 +1846,6 @@ class InvoiceFormController extends GetxController {
     // Para borradores, siempre 30 días
     if (status == InvoiceStatus.draft) {
       _dueDate.value = _invoiceDate.value.add(const Duration(days: 30));
-      print(
-        '📅 Borrador - Fecha de vencimiento: ${_dueDate.value.toString().split(' ')[0]}',
-      );
       return;
     }
 
@@ -2082,9 +1883,6 @@ class InvoiceFormController extends GetxController {
         break;
     }
 
-    print(
-      '📅 Fecha de vencimiento ajustada: ${_dueDate.value.toString().split(' ')[0]}',
-    );
   }
 
   String _buildPaymentNotes(
@@ -2238,7 +2036,6 @@ class InvoiceFormController extends GetxController {
 
     try {
       _isSaving.value = true;
-      print('💾 Guardando factura...');
 
       const defaultStatus = InvoiceStatus.draft;
 
@@ -2248,7 +2045,7 @@ class InvoiceFormController extends GetxController {
         await _createNewInvoice(defaultStatus);
       }
     } catch (e) {
-      print('💥 Error inesperado al guardar: $e');
+
       _showError('Error inesperado', 'No se pudo guardar la factura');
     } finally {
       _isSaving.value = false;
@@ -2270,20 +2067,13 @@ class InvoiceFormController extends GetxController {
     // Usa validación ASYNC que consulta ISAR si no hay datos en memoria (offline)
     final canCreate = await SubscriptionValidationService.canCreateInvoiceAsync();
     if (!canCreate) {
-      print(
-        '🚫 FRONTEND BLOCK: Suscripción expirada o sin datos - BLOQUEANDO creación de factura',
-      );
       return null; // Bloquear operación
     }
-
-    print(
-      '✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de factura',
-    );
 
     // 🔍 VALIDAR Y RESOLVER CLIENTE ANTES DE CREAR FACTURA
     final validCustomer = await _ensureValidCustomer();
     if (validCustomer == null) {
-      print('❌ No se pudo obtener un cliente válido para crear la factura');
+
       _showError(
         'Cliente "Consumidor Final" requerido',
         'Crea un cliente "Consumidor Final" con documento "222222222222" en la sección de clientes antes de crear facturas.',
@@ -2317,7 +2107,7 @@ class InvoiceFormController extends GetxController {
         'clientBalanceApplied': balanceApplied,
         'clientId': validCustomer.id,
       };
-      print('💰 Saldo a favor aplicado: \$${balanceApplied.toStringAsFixed(2)}');
+
     }
 
     // Incluir info de moneda del pago simple en metadata
@@ -2328,7 +2118,7 @@ class InvoiceFormController extends GetxController {
         'paymentCurrencyAmount': paymentCurrencyAmount,
         'exchangeRate': exchangeRate,
       };
-      print('💱 Pago en moneda extranjera: $paymentCurrencyAmount $paymentCurrency (tasa: $exchangeRate)');
+
     }
 
     // Para facturas a crédito puro, señalar que se debe generar CustomerCredit
@@ -2339,7 +2129,7 @@ class InvoiceFormController extends GetxController {
         'remainingBalance': total,
         'isPureCreditInvoice': true,
       };
-      print('📝 Factura a crédito puro - metadata configurada para generar crédito por \$${total.toStringAsFixed(2)}');
+
     }
 
     if (multiplePayments != null && multiplePayments.isNotEmpty) {
@@ -2370,17 +2160,10 @@ class InvoiceFormController extends GetxController {
         'createCreditForRemaining': createCreditForRemaining && remaining > 0,
         'isMultiplePayment': true,
       };
-      print('💳 Metadata de pagos múltiples creada:');
-      print('   - Total factura: \$${total.toStringAsFixed(2)}');
-      print('   - Saldo aplicado: \$${balanceApplied?.toStringAsFixed(2) ?? "0.00"}');
-      print('   - Total efectivo: \$${effectiveTotal.toStringAsFixed(2)}');
-      print('   - Total pagado: \$${totalPaid.toStringAsFixed(2)}');
-      print('   - Saldo restante: \$${remaining > 0 ? remaining.toStringAsFixed(2) : "0.00"}');
-      print('   - Crear crédito: $createCreditForRemaining');
-      print('   - Número de pagos: ${multiplePayments.length}');
+
       for (var i = 0; i < multiplePayments.length; i++) {
         final p = multiplePayments[i];
-        print('   - Pago ${i + 1}: \$${p.amount.toStringAsFixed(2)} via ${p.method.name} (cuenta: ${p.bankAccountName ?? "N/A"})');
+
       }
     }
 
@@ -2405,9 +2188,6 @@ class InvoiceFormController extends GetxController {
 
     return result.fold(
       (failure) {
-        print('💥 _createNewInvoice FAILED: ${failure.message}');
-        print('💥 Failure code: ${failure.code}');
-        print('💥 Retornando NULL por error');
 
         // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
         final handled = SubscriptionErrorHandler.handleFailure(
@@ -2422,9 +2202,6 @@ class InvoiceFormController extends GetxController {
         return null;
       },
       (invoice) async {
-        print(
-          '✅ _createNewInvoice SUCCESS: Factura creada con ID ${invoice.id}',
-        );
 
         // ✅ PROCESAR INVENTARIO AUTOMÁTICAMENTE (si el servicio está disponible)
         if (_inventoryService != null) {
@@ -2432,17 +2209,14 @@ class InvoiceFormController extends GetxController {
             final inventoryProcessed = await _inventoryService!
                 .processInventoryForInvoice(invoice);
             if (inventoryProcessed) {
-              print(
-                '✅ Inventario procesado exitosamente para factura ${invoice.number}',
-              );
             } else {
-              print('⚠️ Inventario no procesado (configuración o error)');
+
             }
           } catch (e) {
-            print('❌ Error procesando inventario: $e');
+
           }
         } else {
-          print('ℹ️ Inventario no procesado (servicio no disponible)');
+
         }
 
         // 📊 Notificar al dashboard para que actualice sus datos
@@ -2452,7 +2226,6 @@ class InvoiceFormController extends GetxController {
           }
         } catch (_) {}
 
-        print('✅ Preparando para nueva venta...');
         _prepareForNewSale();
         return invoice; // ✅ RETORNAR LA FACTURA CREADA
       },
@@ -2465,22 +2238,12 @@ class InvoiceFormController extends GetxController {
     // Usa validación ASYNC que consulta ISAR si no hay datos en memoria (offline)
     final canUpdate = await SubscriptionValidationService.canUpdateInvoiceAsync();
     if (!canUpdate) {
-      print(
-        '🚫 FRONTEND BLOCK: Suscripción expirada o sin datos - BLOQUEANDO actualización de factura',
-      );
       return null; // Bloquear operación
     }
-
-    print(
-      '✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de factura',
-    );
 
     // 🔍 VALIDAR Y RESOLVER CLIENTE ANTES DE ACTUALIZAR FACTURA
     final validCustomer = await _ensureValidCustomer();
     if (validCustomer == null) {
-      print(
-        '❌ No se pudo obtener un cliente válido para actualizar la factura',
-      );
       _showError(
         'Cliente "Consumidor Final" requerido',
         'Crea un cliente "Consumidor Final" con documento "222222222222" en la sección de clientes antes de actualizar facturas.',
@@ -2570,7 +2333,6 @@ class InvoiceFormController extends GetxController {
     // siguiente búsqueda muestra cantidades obsoletas.
     unawaited(_loadProductsFromCacheFirst());
 
-    print('🔄 Formulario preparado para nueva venta');
   }
 
   void clearForm() {
@@ -2588,7 +2350,7 @@ class InvoiceFormController extends GetxController {
     _discountAmount.value = 0.0;
 
     formKey.currentState?.reset();
-    print('🧹 Formulario limpiado');
+
     _showSuccess('Formulario limpiado exitosamente');
   }
 
@@ -2626,10 +2388,10 @@ class InvoiceFormController extends GetxController {
 
   Future<void> confirmDraftInvoice(String invoiceId) async {
     try {
-      print('✅ Confirmando borrador de factura: $invoiceId');
+
       _showSuccess('Factura confirmada y lista para procesamiento');
     } catch (e) {
-      print('❌ Error al confirmar borrador: $e');
+
       _showError('Error', 'No se pudo confirmar la factura');
     }
   }
@@ -2806,14 +2568,7 @@ class InvoiceFormController extends GetxController {
   // ==================== DEBUG METHODS ====================
 
   void debugFormState() {
-    print('🔍 DEBUG Form State:');
-    print('   - Customer: ${selectedCustomer?.displayName ?? "None"}');
-    print('   - Items: ${invoiceItems.length}');
-    print('   - Subtotal: \${subtotal.toStringAsFixed(2)}');
-    print('   - Tax: \${taxAmount.toStringAsFixed(2)}');
-    print('   - Total: \${total.toStringAsFixed(2)}');
-    print('   - Can Save: $canSave');
-    print('   - Is Printing: $isPrinting');
+
   }
 
   /// Phase 2: bloqueo de ventas en efectivo cuando no hay caja abierta.

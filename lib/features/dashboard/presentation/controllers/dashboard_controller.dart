@@ -170,7 +170,6 @@ class DashboardController extends GetxController
   void onInit() {
     super.onInit();
     setupSyncListener();
-    print('🚀 DashboardController: onInit() - Controlador iniciado');
 
     // Establecer el rango de fechas para HOY
     final now = Get.find<TenantDateTimeService>().now();
@@ -178,7 +177,6 @@ class DashboardController extends GetxController
       start: DateTime(now.year, now.month, now.day, 0, 0, 0),
       end: DateTime(now.year, now.month, now.day, 23, 59, 59),
     );
-    print('🔄 Rango de fechas inicial (HOY): ${_selectedDateRange.value?.start} - ${_selectedDateRange.value?.end}');
 
     // ✅ Marcar como cargando desde el inicio
     _isLoadingStats.value = true;
@@ -190,7 +188,6 @@ class DashboardController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    print('🚀 DashboardController: onReady() - Widget construido, cargando datos...');
 
     // ✅ Cargar datos inmediatamente cuando el widget está listo (SIN DELAY, SIN DOBLE CARGA)
     _loadInitialData();
@@ -210,10 +207,8 @@ class DashboardController extends GetxController
         final subscriptionController = Get.find<SubscriptionController>();
         subscriptionController.showPendingSubscriptionDialogIfNeeded();
       } else {
-        print('⚠️ SubscriptionController no registrado');
       }
     } catch (e) {
-      print('⚠️ Error mostrando diálogo de suscripción: $e');
     }
   }
 
@@ -240,7 +235,6 @@ class DashboardController extends GetxController
 
       _showSubscriptionDialogIfNeeded();
     } catch (e) {
-      print('❌ Error crítico en _loadInitialData: $e');
       if (!_isAlive) return;
       _isLoadingStats.value = false;
       _isLoadingActivity.value = false;
@@ -274,9 +268,6 @@ class DashboardController extends GetxController
           if (Get.isRegistered<SyncService>()) {
             final pending = Get.find<SyncService>().pendingOperationsCount;
             if (pending > 0) {
-              print(
-                '🚫 Dashboard: skip server refresh — hay $pending operación(es) pendiente(s) en sync queue',
-              );
               return;
             }
           }
@@ -329,7 +320,6 @@ class DashboardController extends GetxController
         if (!_isAlive || v != _dataVersion) return;
         update();
       } catch (e) {
-        print('⚠️ Dashboard: Error en refresh background: $e');
       }
     }();
   }
@@ -377,8 +367,9 @@ class DashboardController extends GetxController
           // Fallback: usar ISAR revenue como base, pero intentar obtener ratio COGS del cache
           final fallbackProfitability = await _getFallbackProfitabilityStats();
           if (fallbackProfitability != null && fallbackProfitability.totalRevenue > 0) {
-            // Calcular ratio COGS del cache y aplicarlo al revenue de ISAR
-            final cogsRatio = fallbackProfitability.totalCOGS / fallbackProfitability.totalRevenue;
+            // Ratio COGS del cache aplicado al revenue de ISAR.
+            // Limitado a [0,1] para evitar que un período atípico genere pérdidas falsas.
+            final cogsRatio = (fallbackProfitability.totalCOGS / fallbackProfitability.totalRevenue).clamp(0.0, 1.0);
             final isarRevenue = stats.profitability.totalRevenue;
             final estimatedCOGS = isarRevenue * cogsRatio;
             final estimatedGrossProfit = isarRevenue - estimatedCOGS;
@@ -402,10 +393,8 @@ class DashboardController extends GetxController
                 dailyMargins: [],
               ),
             );
-            print('📴 Profitability offline: ISAR revenue=$isarRevenue + COGS ratio=${(cogsRatio * 100).toStringAsFixed(1)}% del cache');
           } else {
             _profitabilityStats.value = stats.profitability;
-            print('📴 Profitability offline: calculada desde ISAR (sin cache disponible)');
           }
         }
 
@@ -461,9 +450,7 @@ class DashboardController extends GetxController
       _smartNotifications.assignAll(notifications);
       _unreadNotificationsCount.value = notifications.where((n) => n.isUnread).length;
 
-      print('📴 Offline completo: ${activities.length} actividades, ${notifications.length} notificaciones');
     } catch (e) {
-      print('⚠️ Error cargando datos offline: $e');
     } finally {
       if (_isAlive) {
         _isLoadingStats.value = false;
@@ -504,7 +491,6 @@ class DashboardController extends GetxController
       if (!_isAlive) return;
       result.fold(
         (failure) {
-          print('❌ Error cargando dashboard stats: $failure');
           _statsError.value = _mapFailureToMessage(failure);
         },
         (stats) async {
@@ -529,10 +515,6 @@ class DashboardController extends GetxController
                       stats.sales.totalAmount < offlineStats.sales.totalAmount;
 
               if (serverHasLessData) {
-                print(
-                  '⚠️ [DASHBOARD] Server stats < local (server=\$${stats.totalCollected} vs local=\$${offlineStats.totalCollected}). '
-                  'Usando local — sync probablemente pendiente.',
-                );
                 finalStats = offlineStats;
               } else {
                 // Server tiene data igual o más reciente. Mergeamos:
@@ -565,23 +547,15 @@ class DashboardController extends GetxController
                   netRevenue: netRevenue,
                   expenses: mergedExpenses,
                 );
-                print(
-                  '[DASHBOARD] Stats armonizadas: server collected=\$${stats.totalCollected}, '
-                  'local NCs=\$$ncTotal ($ncCount), netRevenue=\$$netRevenue, '
-                  'expensesTotal=\$${mergedExpenses.totalAmount} (ISAR, server ignorado=\$${stats.expenses.totalAmount}), '
-                  'expensesCat=${mergedExpenses.expensesByCategory.length} cats',
-                );
               }
             }
           } catch (e) {
-            print('⚠️ Error armonizando NCs locales: $e');
           }
           _dashboardStats.value = finalStats;
           update();
         },
       );
     } catch (e) {
-      print('❌ Excepción no controlada en loadDashboardStats: $e');
       if (_isAlive) _statsError.value = 'Error inesperado';
     } finally {
       // CRÍTICO: el flag siempre se resetea para que el spinner del gráfico
@@ -618,7 +592,6 @@ class DashboardController extends GetxController
         update();
       } else {
         final failure = result.fold((f) => f, (_) => throw Exception());
-        print('❌ ERROR loadProfitabilityStats: $failure');
         final cached = await _getCachedProfitabilityStats(startDate, endDate);
         if (!_isAlive) return;
         if (cached != null) {
@@ -628,7 +601,6 @@ class DashboardController extends GetxController
         }
       }
     } catch (e) {
-      print('❌ Excepción no controlada en loadProfitabilityStats: $e');
     } finally {
       if (_isAlive) _isLoadingProfitability.value = false;
     }
@@ -658,7 +630,6 @@ class DashboardController extends GetxController
         );
       }
     } catch (e) {
-      print('❌ Excepción no controlada en loadRecentActivity: $e');
     } finally {
       if (_isAlive) _isLoadingActivity.value = false;
     }
@@ -725,9 +696,7 @@ class DashboardController extends GetxController
             _recentActivitiesAdvanced.addAll(activities);
           }
 
-          print('✅ Actividades cargadas: ${activities.length} items (página $page)');
         } else {
-          print('⚠️ No se encontraron actividades en la respuesta');
           _recentActivitiesAdvanced.clear();
         }
       } else {
@@ -741,12 +710,10 @@ class DashboardController extends GetxController
         if (!_isAlive) return;
         if (offlineActivities.isNotEmpty) {
           _recentActivitiesAdvanced.assignAll(offlineActivities);
-          print('📴 Actividades fallback desde ISAR: ${offlineActivities.length}');
           return;
         }
       } catch (_) {}
       if (_isAlive) _activityError.value = 'Error al cargar actividades: $e';
-      print('Error loading advanced activities: $e');
     }
   }
 
@@ -771,7 +738,6 @@ class DashboardController extends GetxController
         );
       }
     } catch (e) {
-      print('❌ Excepción no controlada en loadNotifications: $e');
     } finally {
       if (_isAlive) _isLoadingNotifications.value = false;
     }
@@ -843,9 +809,7 @@ class DashboardController extends GetxController
               ? thirdLevel['unreadCount'] as int? ?? 0
               : 0;
 
-          print('✅ Notificaciones cargadas: ${notifications.length} items (página $page)');
         } else {
-          print('⚠️ No se encontraron notificaciones en la respuesta');
           _smartNotifications.clear();
           _unreadNotificationsCount.value = 0;
         }
@@ -861,12 +825,10 @@ class DashboardController extends GetxController
         if (offlineNotifications.isNotEmpty) {
           _smartNotifications.assignAll(offlineNotifications);
           _unreadNotificationsCount.value = offlineNotifications.where((n) => n.isUnread).length;
-          print('📴 Notificaciones fallback desde ISAR: ${offlineNotifications.length}');
           return;
         }
       } catch (_) {}
       if (_isAlive) _notificationsError.value = 'Error al cargar notificaciones: $e';
-      print('Error loading advanced notifications: $e');
     }
   }
 
@@ -915,7 +877,6 @@ class DashboardController extends GetxController
   }
 
   void setDateRange(DateTimeRange? dateRange) {
-    print('🔄 Cambiando a rango personalizado: ${dateRange?.start} - ${dateRange?.end}');
     _selectedDateRange.value = dateRange;
     _selectedPeriod.value = 'custom';
 
@@ -936,7 +897,6 @@ class DashboardController extends GetxController
   }
 
   void setPredefinedPeriod(String period) {
-    print('🔄 Cambiando período a: $period');
     _selectedPeriod.value = period;
     final now = Get.find<TenantDateTimeService>().now();
     DateTimeRange? dateRange;
@@ -977,7 +937,6 @@ class DashboardController extends GetxController
     }
 
     _selectedDateRange.value = dateRange;
-    print('🔄 Nuevo rango de fechas: ${dateRange?.start} - ${dateRange?.end}');
 
     // ✅ Notificar a los widgets que usan GetBuilder
     update();
@@ -999,7 +958,6 @@ class DashboardController extends GetxController
         // ═══ PASO 2: Refresh background ═══
         _refreshFromServer(startDate, endDate, version);
       } catch (error) {
-        print('⚠️ Error cargando datos para $label: $error');
       }
     }();
   }
@@ -1009,7 +967,6 @@ class DashboardController extends GetxController
     try {
       await _loadInitialData();
     } catch (e) {
-      print('Error in refreshAll: $e');
       if (!_isAlive) return;
       _isLoadingStats.value = false;
       _isLoadingActivity.value = false;
@@ -1067,7 +1024,6 @@ class DashboardController extends GetxController
     try {
       await _loadExpensesByCategoryOffline();
     } catch (e) {
-      print('⚠️ Error cargando gastos por categoría desde ISAR: $e');
     } finally {
       if (_isAlive) _isLoadingExpenseChart.value = false;
     }
@@ -1102,7 +1058,6 @@ class DashboardController extends GetxController
       }
 
       _updateExpensesByCategoryInStats(namedExpenses);
-      print('📴 Gastos por categoría offline: ${namedExpenses.length} categorías');
     }
   }
 
@@ -1138,7 +1093,6 @@ class DashboardController extends GetxController
       final secureStorage = Get.find<SecureStorageService>();
       await secureStorage.write(_categoriesMapCacheKey, json.encode(categoriesMap));
     } catch (e) {
-      print('⚠️ Error cacheando categorías: $e');
     }
   }
 
@@ -1176,7 +1130,6 @@ class DashboardController extends GetxController
         }
       }
     } catch (e) {
-      print('⚠️ Error leyendo cache de categorías: $e');
     }
     return <String, String>{};
   }
@@ -1213,7 +1166,6 @@ class DashboardController extends GetxController
       await secureStorage.write(_profitabilityLatestKey, metadata);
 
     } catch (e) {
-      print('⚠️ Error cacheando profitability: $e');
     }
   }
 
@@ -1230,7 +1182,6 @@ class DashboardController extends GetxController
         return ProfitabilityStatsModel.fromJson(jsonMap);
       }
     } catch (e) {
-      print('⚠️ Error leyendo cache exacto de profitability: $e');
     }
     return null;
   }
@@ -1246,7 +1197,6 @@ class DashboardController extends GetxController
         return ProfitabilityStatsModel.fromJson(data);
       }
     } catch (e) {
-      print('⚠️ Error leyendo cache fallback de profitability: $e');
     }
     return null;
   }

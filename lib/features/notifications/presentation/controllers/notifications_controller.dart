@@ -168,7 +168,6 @@ class NotificationsController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    print('🔄 NotificationsController: onReady - Controller listo');
     ensureDataLoaded();
   }
 
@@ -202,7 +201,6 @@ class NotificationsController extends GetxController
   void _setupAutoRefresh() {
     _autoRefreshTimer = Timer.periodic(_autoRefreshInterval, (_) {
       if (!_isLoading.value && !_isLoadingMore.value) {
-        print('🔄 NotificationsController: Auto-refresh ejecutándose...');
         _refreshInBackground();
       }
     });
@@ -226,7 +224,6 @@ class NotificationsController extends GetxController
   Future<void> ensureDataLoaded() async {
     // Intentar usar caché para mostrar datos inmediatamente
     if (_notifications.isEmpty && _isCacheValid()) {
-      print('🚀 NotificationsController: Usando caché para carga instantánea');
       _notifications.value = List.from(_cachedNotifications!);
       if (_cachedUnreadCount != null) {
         _unreadCount.value = _cachedUnreadCount!;
@@ -246,10 +243,8 @@ class NotificationsController extends GetxController
 
     // Solo cargar si no hay datos y no está cargando
     if (_notifications.isEmpty && !_isLoading.value) {
-      print('🔄 NotificationsController: Cargando datos por primera vez...');
       await loadInitialData();
     } else {
-      print('🔄 NotificationsController: Datos ya cargados o cargando...');
     }
   }
 
@@ -268,14 +263,10 @@ class NotificationsController extends GetxController
     _cachedUnreadCount = _unreadCount.value;
     _cachedStats = _stats.value;
     _lastCacheTime = DateTime.now();
-    print(
-      '💾 NotificationsController: Caché actualizado con ${_notifications.length} notificaciones',
-    );
   }
 
   /// Refresca datos en segundo plano sin mostrar loading
   Future<void> _refreshInBackground() async {
-    print('🔄 NotificationsController: Refrescando en segundo plano...');
     try {
       await Future.wait([
         _loadNotificationsInternal(),
@@ -283,9 +274,7 @@ class NotificationsController extends GetxController
         _loadStatsInternal(),
       ]);
       _updateCache();
-      print('✅ Actualización en segundo plano completada');
     } catch (e) {
-      print('⚠️ Error en actualización en segundo plano: $e');
     }
   }
 
@@ -293,7 +282,6 @@ class NotificationsController extends GetxController
 
   /// Cargar datos iniciales
   Future<void> loadInitialData() async {
-    print('🚀 NotificationsController: Iniciando carga inicial...');
 
     _isLoading.value = true;
 
@@ -305,9 +293,7 @@ class NotificationsController extends GetxController
       ]);
 
       _updateCache();
-      print('✅ Carga inicial completada exitosamente');
     } catch (e) {
-      print('❌ Error en carga inicial: $e');
       _showError('Error de carga', 'No se pudo cargar la información inicial');
     } finally {
       _isLoading.value = false;
@@ -333,17 +319,14 @@ class NotificationsController extends GetxController
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar notificaciones: ${failure.message}');
           _notifications.clear();
         },
         (paginatedResult) {
           _notifications.value = paginatedResult.data;
           _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Notificaciones cargadas: ${paginatedResult.data.length}');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando notificaciones: $e');
       _notifications.clear();
     }
   }
@@ -355,16 +338,13 @@ class NotificationsController extends GetxController
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar contador no leídas: ${failure.message}');
           _unreadCount.value = 0;
         },
         (count) {
           _unreadCount.value = count;
-          print('✅ Contador no leídas: $count');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando contador: $e');
       _unreadCount.value = 0;
     }
   }
@@ -378,7 +358,6 @@ class NotificationsController extends GetxController
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar estadísticas: ${failure.message}');
         },
         (paginatedResult) {
           // Crear estadísticas desde la metadata
@@ -390,11 +369,9 @@ class NotificationsController extends GetxController
             byType: {},
             byPriority: {},
           );
-          print('✅ Estadísticas calculadas: ${_stats.value}');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando estadísticas: $e');
     }
   }
 
@@ -444,13 +421,7 @@ class NotificationsController extends GetxController
 
           if (newNotifications.isNotEmpty) {
             _notifications.addAll(newNotifications);
-            print(
-              '✅ NotificationsController: Agregadas ${newNotifications.length} notificaciones nuevas',
-            );
           } else {
-            print(
-              '⚠️ NotificationsController: No hay notificaciones nuevas para agregar',
-            );
           }
 
           _updatePaginationInfo(paginatedResult.meta);
@@ -463,7 +434,6 @@ class NotificationsController extends GetxController
 
   /// Refrescar notificaciones
   Future<void> refreshNotifications() async {
-    print('🔄 NotificationsController: Refrescando datos...');
 
     _currentPage.value = 1;
 
@@ -474,7 +444,6 @@ class NotificationsController extends GetxController
     ]);
 
     _updateCache();
-    print('✅ Datos refrescados exitosamente');
   }
 
   /// Buscar notificaciones
@@ -532,7 +501,6 @@ class NotificationsController extends GetxController
             _unreadCount.value--;
           }
 
-          print('✅ Notificación marcada como leída: $notificationId');
         },
       );
     } finally {
@@ -564,7 +532,6 @@ class NotificationsController extends GetxController
 
           _unreadCount.value = 0;
           _showSuccess('Todas las notificaciones marcadas como leídas');
-          print('✅ Todas las notificaciones marcadas como leídas');
         },
       );
     } finally {
@@ -600,7 +567,6 @@ class NotificationsController extends GetxController
           }
 
           _showSuccess('Notificación eliminada exitosamente');
-          print('✅ Notificación eliminada: $notificationId');
         },
       );
     } finally {
@@ -623,7 +589,6 @@ class NotificationsController extends GetxController
         (notification) => notification,
       );
     } catch (e) {
-      print('❌ Error inesperado obteniendo notificación: $e');
       return null;
     }
   }
@@ -689,32 +654,26 @@ class NotificationsController extends GetxController
 
   /// Limpiar todos los filtros y refrescar lista completamente
   Future<void> clearFiltersAndRefresh() async {
-    print('🔄 NotificationsController: Limpiando filtros y refrescando...');
 
     clearFilters();
     await refreshNotifications();
 
-    print('✅ NotificationsController: Filtros limpiados y lista refrescada');
   }
 
   /// Búsqueda con debounce
   void debouncedSearch(String query) {
-    print('🔍 debouncedSearch LLAMADO con: "$query"');
 
     _searchDebounceTimer?.cancel();
     _searchTerm.value = query;
 
     if (query.trim().isEmpty) {
-      print('   🧹 Query vacío, limpiando resultados');
       _searchResults.clear();
       loadNotifications();
       return;
     }
 
     if (query.trim().length >= 2) {
-      print('   ⏱️ Creando timer de 500ms para buscar: "$query"');
       _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-        print('   🚀 Timer expiró, ejecutando searchNotifications("$query")');
         searchNotifications(query);
       });
     }
@@ -730,7 +689,6 @@ class NotificationsController extends GetxController
       return;
     }
 
-    print('🔄 NotificationsController: Navegando a página $pageNumber');
     _currentPage.value = pageNumber;
     await loadNotifications();
   }

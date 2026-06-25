@@ -87,9 +87,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         }
       });
 
-      print('📦 ISAR: ${credits.length} créditos cacheados exitosamente');
     } catch (e) {
-      print('❌ Error al cachear créditos en ISAR: $e');
       throw CacheException('Error al cachear créditos en ISAR: $e');
     }
   }
@@ -163,9 +161,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         await isar.isarCustomerCredits.put(isarCredit);
       });
 
-      print('📦 ISAR: Crédito ${credit.id} cacheado exitosamente');
     } catch (e) {
-      print('❌ Error al cachear crédito en ISAR: $e');
       throw CacheException('Error al cachear crédito en ISAR: $e');
     }
   }
@@ -182,18 +178,15 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           .findAll();
 
       if (isarCredits.isEmpty) {
-        print('📦 ISAR: No hay créditos en cache local');
         throw const CacheException('No hay créditos en cache local');
       }
 
       final credits =
           isarCredits.map((isarCredit) => _convertToModel(isarCredit)).toList();
 
-      print('📦 ISAR: ${credits.length} créditos obtenidos del cache local');
       return credits;
     } catch (e) {
       if (e is CacheException) rethrow;
-      print('❌ Error al obtener créditos de ISAR: $e');
       throw CacheException('Error al obtener créditos de ISAR: $e');
     }
   }
@@ -211,13 +204,11 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           .findFirst();
 
       if (isarCredit == null) {
-        print('📦 ISAR: Crédito con ID $id no encontrado en cache');
         return null;
       }
 
       return _convertToModel(isarCredit);
     } catch (e) {
-      print('❌ Error al obtener crédito de ISAR: $e');
       throw CacheException('Error al obtener crédito de ISAR: $e');
     }
   }
@@ -240,9 +231,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         }
       });
 
-      print('🗑️ ISAR: Crédito $id marcado como eliminado');
     } catch (e) {
-      print('❌ Error al remover crédito de ISAR: $e');
       throw CacheException('Error al remover crédito de ISAR: $e');
     }
   }
@@ -256,9 +245,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         await isar.isarCustomerCredits.clear();
       });
 
-      print('🧹 ISAR: Cache de créditos limpiado');
     } catch (e) {
-      print('❌ Error al limpiar cache de ISAR: $e');
       throw CacheException('Error al limpiar cache de ISAR: $e');
     }
   }
@@ -328,7 +315,6 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         await isar.isarCustomerCredits.put(isarCredit);
       });
 
-      print('✅ ISAR: Crédito guardado para sincronizar: ${credit.id}');
     } catch (e) {
       throw CacheException('Error guardando crédito para sync en ISAR: $e');
     }
@@ -352,11 +338,9 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           final entity = _modelToEntity(model);
           unsyncedCredits.add(entity);
         } catch (e) {
-          print('⚠️ Error convirtiendo crédito no sincronizado ${isarCredit.serverId}: $e');
         }
       }
 
-      print('📋 ISAR: ${unsyncedCredits.length} créditos sin sincronizar');
       return unsyncedCredits;
     } catch (e) {
       throw CacheException('Error obteniendo créditos no sincronizados: $e');
@@ -384,7 +368,6 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         }
       });
 
-      print('✅ ISAR: Crédito marcado como sincronizado: $tempId -> $serverId');
     } catch (e) {
       throw CacheException('Error marcando crédito como sincronizado: $e');
     }
@@ -433,7 +416,6 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           ).toList();
         }
       } catch (e) {
-        print('⚠️ Error deserializando metadataJson del crédito: $e');
       }
     }
 
@@ -537,7 +519,6 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         'invoiceItems': itemsJson,
       });
     } catch (e) {
-      print('❌ Error serializando datos del crédito: $e');
       return '{}';
     }
   }
@@ -599,7 +580,6 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           .deletedAtIsNull()
           .count();
 
-      print('📦 ISAR: $count créditos disponibles offline');
       return count > 0;
     } catch (e) {
       return false;

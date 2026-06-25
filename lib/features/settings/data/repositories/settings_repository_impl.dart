@@ -125,13 +125,11 @@ class SettingsRepositoryImpl implements SettingsRepository {
           return localResult;
         } on ServerException catch (e) {
           // Si falla el servidor, guardar localmente y encolar
-          print('Error servidor al guardar impresora: ${e.message} - guardando offline');
           if (_networkInfo != null) {
             _networkInfo.markServerUnreachable();
           }
           return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
         } catch (e) {
-          print('Error inesperado al guardar impresora online: $e - guardando offline');
           return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
         }
       } else {
@@ -156,7 +154,6 @@ class SettingsRepositoryImpl implements SettingsRepository {
         try {
           await _printerRemoteDataSource!.deletePrinterSetting(settingsId);
         } on ServerException catch (e) {
-          print('Error servidor al eliminar impresora: ${e.message} - encolando');
           if (_networkInfo != null) {
             _networkInfo.markServerUnreachable();
           }
@@ -239,7 +236,6 @@ class SettingsRepositoryImpl implements SettingsRepository {
         priority: 2,
       );
     } catch (e) {
-      print('Error encolando operación de impresora: $e');
     }
   }
 

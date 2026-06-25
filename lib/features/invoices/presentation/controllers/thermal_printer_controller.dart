@@ -161,7 +161,6 @@ class ThermalPrinterController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🖨️ ThermalPrinterController: Inicializando...');
     _loadOrganizationData();
     _initializeSettingsController();
     _initializePrinter();
@@ -193,7 +192,6 @@ class ThermalPrinterController extends GetxController {
 
   // ✅ NUEVA FUNCIÓN: Configurar impresora temporal para pruebas
   Future<void> setTempPrinterConfig(settings.PrinterSettings config) async {
-    print('🔧 Configurando impresora temporal para pruebas: ${config.name}');
     _currentPrinterConfig.value = config;
   }
 
@@ -201,15 +199,10 @@ class ThermalPrinterController extends GetxController {
     try {
       // Intentar obtener SettingsController existente
       _settingsController = Get.find<SettingsController>();
-      print('✅ SettingsController encontrado');
 
       // Cargar configuración de impresora por defecto
       await _loadDefaultPrinterConfig();
     } catch (e) {
-      print('⚠️ SettingsController no encontrado inicialmente: $e');
-      print(
-        '🔄 Configurando reintento para cargar configuración de impresora...',
-      );
       _settingsController = null;
 
       // ✅ NUEVO: Programa reintento para cargar configuración después
@@ -234,21 +227,13 @@ class ThermalPrinterController extends GetxController {
   /// ✅ NUEVO: Reintenta cargar configuración de impresora
   Future<void> _retryLoadingSettings(int attempt, int maxAttempts) async {
     try {
-      print('🔄 Intento $attempt/$maxAttempts: Buscando SettingsController...');
       _settingsController = Get.find<SettingsController>();
-      print('✅ SettingsController encontrado en intento $attempt');
 
       // Cargar configuración de impresora
       await _loadDefaultPrinterConfig();
     } catch (e) {
-      print(
-        '⚠️ Intento $attempt fallido: SettingsController aún no disponible',
-      );
 
       if (attempt == maxAttempts) {
-        print(
-          '❌ Todos los reintentos agotados. Impresora usará configuración por defecto.',
-        );
       }
     }
   }
@@ -257,46 +242,31 @@ class ThermalPrinterController extends GetxController {
     if (_settingsController == null) return;
 
     try {
-      print('🔍 Cargando configuración de impresora por defecto...');
       await _settingsController!.loadPrinterSettings();
 
       final defaultPrinter = _settingsController!.defaultPrinter;
       if (defaultPrinter != null) {
         _currentPrinterConfig.value = defaultPrinter;
-        print('📄 Impresora por defecto cargada: ${defaultPrinter.name}');
-        print('   - Tipo: ${defaultPrinter.connectionType}');
-        print('   - IP: ${defaultPrinter.ipAddress}');
-        print('   - Puerto: ${defaultPrinter.port}');
-        print('   - Papel: ${defaultPrinter.paperSize}mm');
       } else {
-        print('⚠️ No hay impresora por defecto configurada');
       }
     } catch (e) {
-      print('❌ Error cargando configuración de impresora: $e');
     }
   }
 
   /// ✅ NUEVO: Método público para forzar recarga de configuración de impresora
   /// Este método puede ser llamado desde enhanced_payment_dialog.dart antes de imprimir
   Future<bool> ensurePrinterConfigLoaded() async {
-    print('🔄 === ASEGURANDO CONFIGURACIÓN DE IMPRESORA ===');
 
     // Si ya tenemos configuración, verificar que sigue siendo válida
     if (_currentPrinterConfig.value != null) {
-      print(
-        '✅ Configuración de impresora ya disponible: ${_currentPrinterConfig.value!.name}',
-      );
       return true;
     }
 
     // Intentar cargar SettingsController si no está disponible
     if (_settingsController == null) {
       try {
-        print('🔍 Intentando obtener SettingsController...');
         _settingsController = Get.find<SettingsController>();
-        print('✅ SettingsController obtenido exitosamente');
       } catch (e) {
-        print('❌ SettingsController no disponible: $e');
         return false;
       }
     }
@@ -311,9 +281,7 @@ class ThermalPrinterController extends GetxController {
 
     final hasConfig = _currentPrinterConfig.value != null;
     if (hasConfig) {
-      print('✅ Configuración de impresora cargada exitosamente');
     } else {
-      print('⚠️ No se pudo cargar configuración de impresora');
     }
 
     return hasConfig;
@@ -321,7 +289,6 @@ class ThermalPrinterController extends GetxController {
 
   @override
   void onClose() {
-    print('🔚 ThermalPrinterController: Cerrando conexiones...');
     _isControllerActive = false; // ✅ NUEVO: Marcar controlador como inactivo
     _closeAllConnections();
     super.onClose();
@@ -334,17 +301,13 @@ class ThermalPrinterController extends GetxController {
       // Determinar estrategia según plataforma
       if (kIsWeb || GetPlatform.isMobile) {
         _preferUSB.value = false; // Móvil/Web solo red
-        print('📱 Plataforma móvil/web detectada - Solo impresión por red');
       } else {
         _preferUSB.value = true; // Desktop prefiere USB
-        print('💻 Plataforma desktop detectada - Preferencia USB');
       }
 
       await _discoverNetworkPrinters();
 
-      print('✅ ThermalPrinterController inicializado');
     } catch (e) {
-      print('❌ Error inicializando impresora térmica: $e');
       _lastError.value = e.toString();
     }
   }
@@ -361,7 +324,6 @@ class ThermalPrinterController extends GetxController {
 
   Future<void> _discoverNetworkPrinters() async {
     try {
-      print('🔍 Buscando impresoras en red...');
 
       _networkPrinters.clear();
 
@@ -386,10 +348,7 @@ class ThermalPrinterController extends GetxController {
           }
         }
       } catch (e) {
-        print('⚠️ No se pudo detectar subnet local: $e');
       }
-
-      print('🔍 Escaneando ${ipsToScan.length} IPs...');
 
       // Escanear en paralelo con timeout corto
       final futures = ipsToScan.map((ip) async {
@@ -418,14 +377,11 @@ class ThermalPrinterController extends GetxController {
           port: SATQ22UEConfig.defaultNetworkPort,
           isConnected: true,
         ));
-        print('✅ Impresora encontrada en $ip');
       }
 
       if (_networkPrinters.isEmpty) {
-        print('⚠️ No se encontraron impresoras en red');
       }
     } catch (e) {
-      print('❌ Error en descubrimiento de red: $e');
       _lastError.value = 'Error buscando impresoras: $e';
     }
   }
@@ -447,21 +403,18 @@ class ThermalPrinterController extends GetxController {
         } catch (disconnectError) {
           // Ignorar error de desconexión
         }
-        print('✅ Impresora encontrada en $ip:$port');
         return true;
       }
 
       // No intentar desconectar si la conexión falló
       return false;
     } catch (e) {
-      print('⚠️ No hay impresora en $ip:$port - $e');
       // No intentar desconectar si hubo una excepción durante la conexión
       return false;
     }
   }
 
   Future<void> refreshPrinters() async {
-    print('🔄 Refrescando lista de impresoras...');
     await _discoverNetworkPrinters();
   }
   // ==================== IMPRESIÓN PRINCIPAL ====================
@@ -480,18 +433,9 @@ class ThermalPrinterController extends GetxController {
       _isPrinting.value = true;
       _lastError.value = null;
 
-      print('🖨️ === IMPRIMIENDO PÁGINA DE PRUEBA ===');
-
       final printerConfig = _currentPrinterConfig.value;
       if (printerConfig != null) {
-        print('📄 Usando impresora configurada: ${printerConfig.name}');
-        print('   - Tipo: ${printerConfig.connectionType}');
-        print('   - IP: ${printerConfig.ipAddress}');
-        print('   - Puerto: ${printerConfig.port}');
-        print('   - USB: ${printerConfig.usbPath}');
-        print('   - Papel: ${printerConfig.paperSize}mm');
       } else {
-        print('⚠️ No hay impresora configurada, usando valores por defecto');
       }
 
       bool success = false;
@@ -500,29 +444,23 @@ class ThermalPrinterController extends GetxController {
       if (printerConfig != null) {
         if (printerConfig.connectionType ==
             settings.PrinterConnectionType.usb) {
-          print('🔌 Página de prueba USB configurada');
           success = await _printTestPageUSB(printerConfig);
         } else {
-          print('🌐 Página de prueba por red configurada');
           success = await _printTestPageNetworkWithConfig(printerConfig);
         }
       } else {
         // Fallback a la lógica por defecto
-        print('📱 Imprimiendo página de prueba por red...');
         success = await _printTestPageNetwork();
       }
 
       if (success) {
         _addToPrintHistory(null, true, null, 'Test Page');
-        print('✅ Página de prueba impresa exitosamente');
       } else {
         _addToPrintHistory(null, false, _lastError.value, 'Test Page');
-        print('❌ Error al imprimir página de prueba');
       }
 
       return success;
     } catch (e) {
-      print('💥 Error inesperado en impresión de página de prueba: $e');
       _lastError.value = e.toString();
       _addToPrintHistory(null, false, e.toString(), 'Test Page');
       return false;
@@ -544,21 +482,12 @@ class ThermalPrinterController extends GetxController {
       _isPrinting.value = true;
       _lastError.value = null;
 
-      print('🖨️ === INICIANDO IMPRESIÓN TÉRMICA ===');
-      print('   - Factura: ${invoice.number}');
-
       // Asegurar datos de organización cargados
       if (_cachedOrganization == null) await _loadOrganizationData();
 
       final printerConfig = _currentPrinterConfig.value;
       if (printerConfig != null) {
-        print('📄 Usando impresora configurada: ${printerConfig.name}');
-        print('   - Tipo: ${printerConfig.connectionType}');
-        print('   - IP: ${printerConfig.ipAddress}');
-        print('   - Puerto: ${printerConfig.port}');
-        print('   - Papel: ${printerConfig.paperSize}mm');
       } else {
-        print('⚠️ No hay impresora configurada, usando valores por defecto');
       }
 
       bool success = false;
@@ -567,15 +496,12 @@ class ThermalPrinterController extends GetxController {
       if (printerConfig != null) {
         if (printerConfig.connectionType ==
             settings.PrinterConnectionType.usb) {
-          print('🔌 Impresión USB configurada');
           success = await _printViaUSB(invoice);
         } else {
-          print('🌐 Impresión por red configurada');
           success = await _printViaNetworkWithConfig(invoice, printerConfig);
         }
       } else {
         // Sin configuración de impresora
-        print('❌ No hay impresora configurada');
         _lastError.value =
             'No hay impresora configurada. Ve a Configuración > Impresoras para agregar una.';
         success = false;
@@ -584,19 +510,16 @@ class ThermalPrinterController extends GetxController {
       if (success) {
         _addToPrintHistory(invoice, true);
         //_showSuccess('Factura impresa exitosamente');
-        print('✅ Impresión completada exitosamente');
       } else {
         _addToPrintHistory(invoice, false, _lastError.value);
         _showError(
           'Error al imprimir',
           _lastError.value ?? "Error desconocido",
         );
-        print('❌ Impresión falló');
       }
 
       return success;
     } catch (e) {
-      print('💥 Error inesperado en impresión: $e');
       _lastError.value = e.toString();
       _addToPrintHistory(invoice, false, e.toString());
       _showError('Error inesperado', e.toString());
@@ -610,7 +533,6 @@ class ThermalPrinterController extends GetxController {
 
   Future<bool> _printViaUSB(Invoice invoice) async {
     try {
-      print('🔌 Intentando impresión USB...');
 
       final config = _currentPrinterConfig.value;
       final usbPath = config?.usbPath;
@@ -631,11 +553,9 @@ class ThermalPrinterController extends GetxController {
         return await _printToUSBMacOS(usbPath, bytes);
       }
 
-      print('⚠️ Impresión USB no soportada en esta plataforma');
       _lastError.value = 'Impresión USB no soportada en esta plataforma';
       return false;
     } catch (e) {
-      print('❌ Error en impresión USB: $e');
       _lastError.value = 'USB: $e';
       return false;
     }
@@ -719,7 +639,6 @@ class ThermalPrinterController extends GetxController {
         }
       }
     } catch (e) {
-      print('⚠️ Logo no disponible para USB: $e');
     }
 
     // Si no hay logo, imprimir nombre de empresa grande
@@ -965,7 +884,6 @@ class ThermalPrinterController extends GetxController {
       bytes.addAll(SATQ22UEConfig.openDrawerCommands);
     }
 
-    print('📝 Factura ESC/POS generada: ${bytes.length} bytes');
     return Uint8List.fromList(bytes);
   }
 
@@ -974,9 +892,6 @@ class ThermalPrinterController extends GetxController {
   Future<Uint8List> _generateTestPageContentUSB(
     settings.PrinterSettings config,
   ) async {
-    print(
-      '📄 Generando contenido USB para página de prueba (formato ESC/POS)...',
-    );
 
     try {
       final profile = await esc_pos.CapabilityProfile.load();
@@ -1134,10 +1049,8 @@ class ThermalPrinterController extends GetxController {
       }
 
       final data = Uint8List.fromList(commands);
-      print('✅ Contenido USB generado: ${data.length} bytes');
       return data;
     } catch (e) {
-      print('❌ Error generando contenido USB: $e');
       return Uint8List.fromList(
         utf8.encode('Error generando contenido de prueba: $e'),
       );
@@ -1146,14 +1059,12 @@ class ThermalPrinterController extends GetxController {
 
   Future<bool> _printToUSBWindows(String usbPath, Uint8List data) async {
     try {
-      print("🪟 Imprimiendo RAW a USB Windows: $usbPath");
 
       // Crear archivo temporal con los datos binarios RAW
       final tempFile =
           "${Directory.systemTemp.path}\\temp_print_${DateTime.now().millisecondsSinceEpoch}.bin";
       final file = File(tempFile);
       await file.writeAsBytes(data);
-      print("📁 Archivo temporal creado: $tempFile (${data.length} bytes)");
 
       // Método 1: Enviar RAW vía PowerShell con .NET RawPrinterHelper
       // Esto envía bytes binarios directamente al spooler sin conversión de texto
@@ -1219,20 +1130,13 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         psScript,
       ]);
 
-      print("🔍 Resultado RAW Print:");
-      print("   - Código de salida: ${psResult.exitCode}");
-      print("   - Salida: ${psResult.stdout.toString().trim()}");
       if (psResult.stderr.toString().trim().isNotEmpty) {
-        print("   - Error: ${psResult.stderr}");
       }
 
       if (psResult.exitCode == 0 && psResult.stdout.toString().trim() == 'OK') {
-        print("✅ Impresión RAW exitosa");
         await _cleanupTempFile(file);
         return true;
       }
-
-      print("⚠️ RAW Print falló, intentando método copy /b...");
 
       // Método 2: Usar cmd copy /b con compartido de red local
       final copyResult = await Process.run("cmd", [
@@ -1244,11 +1148,9 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       ]);
 
       if (copyResult.exitCode == 0) {
-        print("✅ Impresión exitosa con copy /b UNC");
         await _cleanupTempFile(file);
         return true;
       } else {
-        print("❌ Error con copy /b UNC: ${copyResult.stderr}");
       }
 
       // Método 3: Intentar con puerto USB directo
@@ -1262,7 +1164,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       if (portResult.exitCode == 0) {
         final portName = portResult.stdout.toString().trim();
         if (portName.isNotEmpty && portName.startsWith('USB')) {
-          print("🔌 Puerto detectado: $portName");
           // Intentar escribir directamente al puerto
           final portCopy = await Process.run("cmd", [
             "/c",
@@ -1273,7 +1174,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
           ]);
 
           if (portCopy.exitCode == 0) {
-            print("✅ Impresión exitosa directa a puerto $portName");
             await _cleanupTempFile(file);
             return true;
           }
@@ -1281,11 +1181,9 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       }
 
       await _cleanupTempFile(file);
-      print("❌ No se pudo enviar datos RAW a la impresora USB");
       _lastError.value = "No se pudo acceder a la impresora USB '$usbPath'";
       return false;
     } catch (e) {
-      print("❌ Error en impresión USB Windows: $e");
       _lastError.value = "Error USB Windows: $e";
       return false;
     }
@@ -1294,15 +1192,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
   Future<void> _cleanupTempFile(File file) async {
     try {
       await file.delete();
-      print('🧹 Archivo temporal eliminado');
     } catch (e) {
-      print('⚠️ No se pudo eliminar archivo temporal: $e');
     }
   }
 
   Future<bool> _printToUSBLinux(String usbPath, Uint8List data) async {
     try {
-      print('🐧 Imprimiendo a USB Linux: $usbPath');
 
       // En Linux, las impresoras USB suelen estar en /dev/usb/lp0, /dev/usb/lp1, etc.
       String devicePath = usbPath;
@@ -1312,12 +1207,9 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         devicePath = '/dev/usb/$usbPath';
       }
 
-      print('📂 Ruta del dispositivo: $devicePath');
-
       // Verificar que el dispositivo existe
       final deviceFile = File(devicePath);
       if (!await deviceFile.exists()) {
-        print('❌ El dispositivo $devicePath no existe');
         _lastError.value = 'El dispositivo $devicePath no existe';
         return false;
       }
@@ -1325,15 +1217,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       // Escribir datos directamente al dispositivo
       try {
         await deviceFile.writeAsBytes(data, mode: FileMode.write);
-        print('✅ Datos enviados exitosamente a USB Linux');
         return true;
       } catch (e) {
-        print('❌ Error escribiendo al dispositivo: $e');
         _lastError.value = 'Error escribiendo al dispositivo: $e';
         return false;
       }
     } catch (e) {
-      print('❌ Error en impresión USB Linux: $e');
       _lastError.value = 'Error USB Linux: $e';
       return false;
     }
@@ -1341,7 +1230,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<bool> _printToUSBMacOS(String usbPath, Uint8List data) async {
     try {
-      print('🍎 Imprimiendo a USB macOS: $usbPath');
 
       // En macOS, podemos usar el sistema de impresión CUPS
       // Primero intentar con lpr
@@ -1363,19 +1251,15 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       try {
         await file.delete();
       } catch (e) {
-        print('⚠️ No se pudo eliminar archivo temporal: $e');
       }
 
       if (result.exitCode == 0) {
-        print('✅ Datos enviados exitosamente a USB macOS');
         return true;
       } else {
-        print('❌ Error en lpr: ${result.stderr}');
         _lastError.value = 'Error en lpr: ${result.stderr}';
         return false;
       }
     } catch (e) {
-      print('❌ Error en impresión USB macOS: $e');
       _lastError.value = 'Error USB macOS: $e';
       return false;
     }
@@ -1385,7 +1269,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<bool> _printViaNetwork(Invoice invoice) async {
     try {
-      print('🌐 Intentando impresión por red...');
 
       if (_networkPrinters.isEmpty) {
         await _discoverNetworkPrinters();
@@ -1400,7 +1283,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final printerInfo = _networkPrinters.first;
       return await _sendToPrinter(printerInfo, invoice);
     } catch (e) {
-      print('❌ Error en impresión por red: $e');
       _lastError.value = 'Red: $e';
       return false;
     }
@@ -1412,10 +1294,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     settings.PrinterSettings config,
   ) async {
     try {
-      print('🌐 Impresión por red con configuración específica...');
-      print('   - IP: ${config.ipAddress}');
-      print('   - Puerto: ${config.port}');
-      print('   - Papel: ${config.paperSize}mm');
 
       final printerInfo = NetworkPrinterInfo(
         name: config.name,
@@ -1426,7 +1304,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       return await _sendToPrinterWithConfig(printerInfo, invoice, config);
     } catch (e) {
-      print('❌ Error en impresión por red con configuración: $e');
       _lastError.value = 'Red (configurada): $e';
       return false;
     }
@@ -1442,8 +1319,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final profile = await esc_pos.CapabilityProfile.load();
       printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
 
-      print('🔗 Conectando a ${printerInfo.ip}:${printerInfo.port}...');
-
       final result = await printer.connect(
         printerInfo.ip,
         port: printerInfo.port,
@@ -1455,7 +1330,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       }
 
       _isConnected.value = true;
-      print('✅ Conectado a impresora SAT');
 
       // ⚡ GENERACIÓN Y ENVÍO CONTINUO
       try {
@@ -1468,15 +1342,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         // Enviar comandos de corte
         printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
 
-        print('📄 Contenido enviado a impresora exitosamente');
         return true;
       } catch (contentError) {
-        print('❌ Error generando contenido: $contentError');
         _lastError.value = 'Error en contenido: $contentError';
         return false;
       }
     } catch (e) {
-      print('❌ Error enviando a impresora: $e');
       _lastError.value = e.toString();
       return false;
     } finally {
@@ -1485,7 +1356,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         await Future.delayed(const Duration(milliseconds: 200));
         printer.disconnect();
         _isConnected.value = false;
-        print('🔌 Desconectado de impresora');
       }
     }
   }
@@ -1509,8 +1379,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       printer = NetworkPrinter(paperSize, profile);
 
-      print('🔗 Conectando a ${printerInfo.ip}:${printerInfo.port}...');
-
       final result = await printer.connect(
         printerInfo.ip,
         port: printerInfo.port,
@@ -1522,7 +1390,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       }
 
       _isConnected.value = true;
-      print('✅ Conectado a impresora ${config.name}');
 
       // ⚡ GENERACIÓN Y ENVÍO CONTINUO
       try {
@@ -1537,15 +1404,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
           printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
         }
 
-        print('📄 Contenido enviado a impresora exitosamente');
         return true;
       } catch (contentError) {
-        print('❌ Error generando contenido: $contentError');
         _lastError.value = 'Error en contenido: $contentError';
         return false;
       }
     } catch (e) {
-      print('❌ Error enviando a impresora: $e');
       _lastError.value = e.toString();
       return false;
     } finally {
@@ -1554,7 +1418,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         await Future.delayed(const Duration(milliseconds: 200));
         printer.disconnect();
         _isConnected.value = false;
-        print('🔌 Desconectado de impresora');
       }
     }
   }
@@ -1566,7 +1429,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     Invoice invoice,
   ) async {
     try {
-      print('📝 === GENERANDO CONTENIDO DE IMPRESIÓN ===');
 
       // Inicializar impresora con comandos específicos SAT
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
@@ -1575,35 +1437,27 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       await Future.delayed(const Duration(milliseconds: 50));
 
       // Header de empresa
-      print('📝 Imprimiendo header...');
       await _printBusinessHeader(printer);
 
       // Información de factura
-      print('📝 Imprimiendo info factura...');
       await _printInvoiceInfo(printer, invoice);
 
       // Información del cliente
-      print('📝 Imprimiendo info cliente...');
       await _printCustomerInfo(printer, invoice);
 
       // Items
-      print('📝 Imprimiendo items...');
       await _printItems(printer, invoice);
 
       // Totales
-      print('📝 Imprimiendo totales...');
       await _printTotals(printer, invoice);
 
       // Footer
-      print('📝 Imprimiendo footer...');
       await _printFooter(printer, invoice);
 
       // Espaciado final
       printer.feed(3);
 
-      print('✅ Contenido de impresión generado completamente');
     } catch (e) {
-      print('❌ Error generando contenido: $e');
       throw Exception('Error en generación de contenido: $e');
     }
   }
@@ -1615,10 +1469,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     settings.PrinterSettings config,
   ) async {
     try {
-      print('📝 === GENERANDO CONTENIDO CON CONFIGURACIÓN ===');
-      print('   - Impresora: ${config.name}');
-      print('   - Papel: ${config.paperSize}mm');
-      print('   - Auto corte: ${config.autoCut}');
 
       // Inicializar impresora con comandos específicos SAT
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
@@ -1627,37 +1477,27 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       await Future.delayed(const Duration(milliseconds: 50));
 
       // Header de empresa
-      print('📝 Imprimiendo header...');
       await _printBusinessHeader(printer);
 
       // Información de factura
-      print('📝 Imprimiendo info factura...');
       await _printInvoiceInfo(printer, invoice);
 
       // Información del cliente
-      print('📝 Imprimiendo info cliente...');
       await _printCustomerInfo(printer, invoice);
 
       // Items
-      print('📝 Imprimiendo items...');
       await _printItems(printer, invoice);
 
       // Totales
-      print('📝 Imprimiendo totales...');
       await _printTotals(printer, invoice);
 
       // Footer
-      print('📝 Imprimiendo footer...');
       await _printFooter(printer, invoice);
 
       // Espaciado final
       printer.feed(3);
 
-      print(
-        '✅ Contenido de impresión con configuración generado completamente',
-      );
     } catch (e) {
-      print('❌ Error generando contenido con configuración: $e');
       throw Exception('Error en generación de contenido: $e');
     }
   }
@@ -1684,7 +1524,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       Uint8List? bytes;
 
       if (await logoFile.exists()) {
-        print('🖼️ Logo encontrado en archivo local: $logoPath');
         bytes = await logoFile.readAsBytes();
       } else {
         // 2. Fallback: intentar descargar desde URL del servidor
@@ -1694,7 +1533,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         String fullUrl = logoUrl;
         if (!logoUrl.startsWith('http')) return null;
 
-        print('🌐 Descargando logo desde: $fullUrl');
         final client = HttpClient();
         client.connectionTimeout = const Duration(seconds: 5);
         final request = await client.getUrl(Uri.parse(fullUrl));
@@ -1708,9 +1546,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       // Paso 1: dart:ui decodifica CUALQUIER formato (AVIF, HEIF, WebP, PNG, JPG)
       final ui.Codec codec = await ui.instantiateImageCodec(bytes);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
-      print(
-        '🖼️ Logo decodificado: ${frameInfo.image.width}x${frameInfo.image.height}',
-      );
 
       // Paso 2: Convertir a PNG bytes (formato universal, buffer mutable)
       final ByteData? pngData = await frameInfo.image.toByteData(
@@ -1719,14 +1554,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       frameInfo.image.dispose();
 
       if (pngData == null) {
-        print('⚠️ No se pudo convertir logo a PNG');
         return null;
       }
 
       // Paso 3: Decodificar PNG con paquete image (crea buffer mutable)
       final originalImage = img.decodePng(pngData.buffer.asUint8List());
       if (originalImage == null) {
-        print('⚠️ No se pudo decodificar PNG del logo');
         return null;
       }
 
@@ -1737,14 +1570,11 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         interpolation: img.Interpolation.linear,
       );
 
-      print('🖼️ Logo listo para impresora: ${resized.width}x${resized.height}');
-
       _cachedLogo = resized;
       _logoLoadTime = DateTime.now();
 
       return resized;
     } catch (e) {
-      print('⚠️ Logo no disponible: $e');
       return null;
     }
   }
@@ -1765,28 +1595,21 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<void> _printBusinessHeader(NetworkPrinter printer) async {
     try {
-      print('🏢 Imprimiendo header de empresa...');
 
       // ⚠️ CAMBIO: Intentar logo pero con mejor manejo de errores
       final bool hasLogo = await _hasLogoAvailable();
 
       if (hasLogo) {
-        print('🖼️ Imprimiendo header con logo...');
         try {
           await _printBusinessHeaderWithImage(printer);
-          print('✅ Logo impreso exitosamente');
         } catch (logoError) {
-          print('❌ Error con logo, usando texto: $logoError');
           await _printBusinessHeaderTextOnly(printer);
         }
       } else {
-        print('📝 Imprimiendo header sin logo...');
         await _printBusinessHeaderTextOnly(printer);
       }
 
-      print('✅ Header de empresa completado');
     } catch (e) {
-      print('❌ Error en header, usando versión de texto: $e');
       await _printBusinessHeaderTextOnly(printer);
     }
   }
@@ -1830,7 +1653,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         await _printBusinessHeaderTextOnly(printer);
       }
     } catch (e) {
-      print('❌ Error imprimiendo logo: $e');
       await _printBusinessHeaderTextOnly(printer);
     }
   }
@@ -1891,28 +1713,19 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     int contrast = 250,
   }) {
     // Estas configuraciones se pueden usar en el procesamiento de imagen
-    print('⚙️ Configuración de imagen actualizada');
-    print('   - Ancho máximo: ${maxWidth}px');
-    print('   - Monocromo: $useMonochrome');
-    print('   - Contraste: $contrast');
   }
 
   /// Debug de imagen
   Future<void> debugImageInfo() async {
     try {
       final hasLogo = await _hasLogoAvailable();
-      print('🔍 === INFO DE IMAGEN ===');
-      print('   - Logo disponible: $hasLogo');
 
       if (hasLogo) {
         final logo = await _loadLogoImage();
         if (logo != null) {
-          print('   - Dimensiones: ${logo.width}x${logo.height}');
-          print('   - Canales: ${logo.numChannels}');
         }
       }
     } catch (e) {
-      print('❌ Error en debug de imagen: $e');
     }
   }
 
@@ -1982,7 +1795,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       printer.hr();
     } catch (e) {
-      print('❌ Error imprimiendo info factura: $e');
       rethrow;
     }
   }
@@ -2001,7 +1813,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       printer.hr();
     } catch (e) {
-      print('❌ Error imprimiendo info cliente: $e');
       rethrow;
     }
   }
@@ -2101,7 +1912,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       );
       printer.feed(1);
     } catch (e) {
-      print('❌ Error imprimiendo items: $e');
       rethrow;
     }
   }
@@ -2192,7 +2002,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       printer.feed(1);
     } catch (e) {
-      print('❌ Error imprimiendo totales: $e');
       rethrow;
     }
   }
@@ -2344,7 +2153,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         printer.feed(1);
       }
     } catch (e) {
-      print('❌ Error imprimiendo información de pago en efectivo: $e');
     }
   }
 
@@ -2390,7 +2198,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         ),
       );
     } catch (e) {
-      print('❌ Error imprimiendo footer: $e');
       rethrow;
     }
   }
@@ -2409,8 +2216,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       _isPrinting.value = true;
       _lastError.value = null;
 
-      print('⚡ === IMPRESIÓN RÁPIDA INICIADA ===');
-
       // Asegurar datos de organización cargados
       if (_cachedOrganization == null) await _loadOrganizationData();
 
@@ -2422,19 +2227,16 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       if (success) {
         _addToPrintHistory(invoice, true);
         //_showSuccess('Factura impresa exitosamente');
-        print('✅ Impresión rápida completada');
       } else {
         _addToPrintHistory(invoice, false, _lastError.value);
         _showError(
           'Error al imprimir',
           _lastError.value ?? "Error desconocido",
         );
-        print('❌ Impresión rápida falló');
       }
 
       return success;
     } catch (e) {
-      print('💥 Error en impresión rápida: $e');
       _lastError.value = e.toString();
       _addToPrintHistory(invoice, false, e.toString());
       _showError('Error inesperado', e.toString());
@@ -2447,7 +2249,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
   // ⚡ Versión optimizada sin delays
   Future<bool> _printViaNetworkFast(Invoice invoice) async {
     try {
-      print('⚡ Impresión rápida por red...');
 
       if (_networkPrinters.isEmpty) {
         await _discoverNetworkPrinters();
@@ -2461,7 +2262,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final printerInfo = _networkPrinters.first;
       return await _sendToPrinterFast(printerInfo, invoice);
     } catch (e) {
-      print('❌ Error en impresión rápida: $e');
       _lastError.value = 'Red: $e';
       return false;
     }
@@ -2478,8 +2278,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final profile = await esc_pos.CapabilityProfile.load();
       printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
 
-      print('⚡ Conectando rápido a ${printerInfo.ip}:${printerInfo.port}...');
-
       final result = await printer.connect(
         printerInfo.ip,
         port: printerInfo.port,
@@ -2491,7 +2289,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       }
 
       _isConnected.value = true;
-      print('✅ Conectado para impresión rápida');
 
       // ⚡ GENERACIÓN CONTINUA SIN PAUSA
       try {
@@ -2500,22 +2297,18 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         // Solo cortar al final
         printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
 
-        print('⚡ Contenido enviado de forma continua');
         return true;
       } catch (contentError) {
-        print('❌ Error en contenido rápido: $contentError');
         _lastError.value = 'Error en contenido: $contentError';
         return false;
       }
     } catch (e) {
-      print('❌ Error en envío rápido: $e');
       _lastError.value = e.toString();
       return false;
     } finally {
       if (printer != null) {
         printer.disconnect();
         _isConnected.value = false;
-        print('⚡ Desconectado rápido');
       }
     }
   }
@@ -2526,7 +2319,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     Invoice invoice,
   ) async {
     try {
-      print('⚡ === GENERACIÓN CONTINUA ===');
 
       // Inicializar
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
@@ -2541,9 +2333,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       printer.feed(3);
 
-      print('⚡ Generación continua completada');
     } catch (e) {
-      print('❌ Error en generación continua: $e');
       throw Exception('Error en generación continua: $e');
     }
   }
@@ -2581,7 +2371,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<bool> _printTestPageNetwork() async {
     try {
-      print('🌐 Imprimiendo página de prueba por red...');
 
       if (_networkPrinters.isEmpty) {
         await _discoverNetworkPrinters();
@@ -2595,7 +2384,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final printerInfo = _networkPrinters.first;
       return await _sendTestPageToPrinter(printerInfo);
     } catch (e) {
-      print('❌ Error en impresión de página de prueba por red: $e');
       _lastError.value = 'Red: $e';
       return false;
     }
@@ -2605,18 +2393,15 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     settings.PrinterSettings config,
   ) async {
     try {
-      print('🌐 Imprimiendo página de prueba por red con configuración...');
 
       // Validar configuración
       if (config.ipAddress == null || config.ipAddress!.isEmpty) {
         _lastError.value = 'IP no configurada';
-        print('❌ IP no configurada');
         return false;
       }
 
       if (config.port == null || config.port! <= 0) {
         _lastError.value = 'Puerto no configurado';
-        print('❌ Puerto no configurado');
         return false;
       }
 
@@ -2629,9 +2414,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       return await _sendTestPageToPrinterWithConfig(printerInfo, config);
     } catch (e) {
-      print(
-        '❌ Error en impresión de página de prueba por red con configuración: $e',
-      );
       _lastError.value = 'Red (configurada): $e';
       return false;
     }
@@ -2639,8 +2421,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<bool> _printTestPageUSB(settings.PrinterSettings config) async {
     try {
-      print('🔌 Imprimiendo página de prueba USB...');
-      print('   - Ruta USB: ${config.usbPath}');
 
       // Generar contenido de página de prueba
       final testPageContent = await _generateTestPageContentUSB(config);
@@ -2655,20 +2435,16 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       } else if (Platform.isMacOS) {
         success = await _printToUSBMacOS(config.usbPath!, testPageContent);
       } else {
-        print('⚠️ Sistema operativo no soportado para impresión USB');
         _lastError.value = 'Sistema operativo no soportado para impresión USB';
         return false;
       }
 
       if (success) {
-        print('✅ Página de prueba USB enviada exitosamente');
       } else {
-        print('❌ Error al enviar página de prueba USB');
       }
 
       return success;
     } catch (e) {
-      print('❌ Error en impresión de página de prueba USB: $e');
       _lastError.value = 'USB: $e';
       return false;
     }
@@ -2682,26 +2458,14 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final profile = await esc_pos.CapabilityProfile.load();
       printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
 
-      print(
-        '🔗 Conectando a ${printerInfo.ip}:${printerInfo.port} para página de prueba...',
-      );
-      print('📊 Detalles de conexión:');
-      print('   - IP: ${printerInfo.ip}');
-      print('   - Puerto: ${printerInfo.port}');
-      print('   - Nombre: ${printerInfo.name}');
-      print('   - Papel: ${SATQ22UEConfig.paperSize.toString()}');
-
       final result = await printer
           .connect(printerInfo.ip, port: printerInfo.port)
           .timeout(
             const Duration(seconds: 15),
             onTimeout: () {
-              print('⏰ Timeout en conexión a impresora (15 segundos)');
               return PosPrintResult.timeout;
             },
           );
-
-      print('📡 Resultado de conexión: ${result.msg}');
 
       if (result != PosPrintResult.success) {
         String errorMsg = 'Error de conexión: ${result.msg}';
@@ -2716,12 +2480,10 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         }
 
         _lastError.value = errorMsg;
-        print('❌ Falló la conexión: $errorMsg');
         return false;
       }
 
       connectionEstablished = true;
-      print('✅ Conectado a impresora para página de prueba');
 
       // Generar página de prueba
       await _generateTestPageContent(printer);
@@ -2732,10 +2494,8 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       // Enviar comandos de corte
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
 
-      print('📄 Página de prueba enviada exitosamente');
       return true;
     } catch (e) {
-      print('❌ Error enviando página de prueba: $e');
       _lastError.value = e.toString();
       return false;
     } finally {
@@ -2744,9 +2504,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         try {
           await Future.delayed(const Duration(milliseconds: 200));
           printer.disconnect();
-          print('🔌 Desconectado de impresora');
         } catch (disconnectError) {
-          print('⚠️ Error al desconectar impresora: $disconnectError');
         }
       }
     }
@@ -2770,26 +2528,14 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       printer = NetworkPrinter(paperSize, profile);
 
-      print(
-        '🔗 Conectando a ${printerInfo.ip}:${printerInfo.port} para página de prueba...',
-      );
-      print('📊 Detalles de conexión:');
-      print('   - IP: ${printerInfo.ip}');
-      print('   - Puerto: ${printerInfo.port}');
-      print('   - Nombre: ${printerInfo.name}');
-      print('   - Papel: ${paperSize.toString()}');
-
       final result = await printer
           .connect(printerInfo.ip, port: printerInfo.port)
           .timeout(
             const Duration(seconds: 15),
             onTimeout: () {
-              print('⏰ Timeout en conexión a impresora (15 segundos)');
               return PosPrintResult.timeout;
             },
           );
-
-      print('📡 Resultado de conexión: ${result.msg}');
 
       if (result != PosPrintResult.success) {
         String errorMsg = 'Error de conexión: ${result.msg}';
@@ -2804,12 +2550,10 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         }
 
         _lastError.value = errorMsg;
-        print('❌ Falló la conexión: $errorMsg');
         return false;
       }
 
       connectionEstablished = true;
-      print('✅ Conectado a impresora ${config.name} para página de prueba');
 
       // Generar página de prueba con configuración
       await _generateTestPageContentWithConfig(printer, config);
@@ -2822,10 +2566,8 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
       }
 
-      print('📄 Página de prueba con configuración enviada exitosamente');
       return true;
     } catch (e) {
-      print('❌ Error enviando página de prueba con configuración: $e');
       _lastError.value = e.toString();
       return false;
     } finally {
@@ -2834,9 +2576,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         try {
           await Future.delayed(const Duration(milliseconds: 200));
           printer.disconnect();
-          print('🔌 Desconectado de impresora');
         } catch (disconnectError) {
-          print('⚠️ Error al desconectar impresora: $disconnectError');
         }
       }
     }
@@ -2844,7 +2584,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<void> _generateTestPageContent(NetworkPrinter printer) async {
     try {
-      print('📝 Generando contenido de página de prueba...');
 
       // Inicializar impresora
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
@@ -2917,9 +2656,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       );
       printer.feed(3);
 
-      print('✅ Contenido de página de prueba generado');
     } catch (e) {
-      print('❌ Error generando contenido de página de prueba: $e');
       throw Exception('Error en generación de página de prueba: $e');
     }
   }
@@ -2929,7 +2666,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     settings.PrinterSettings config,
   ) async {
     try {
-      print('📝 Generando contenido de página de prueba con configuración...');
 
       // Inicializar impresora
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
@@ -3036,11 +2772,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       );
       printer.feed(3);
 
-      print('✅ Contenido de página de prueba con configuración generado');
     } catch (e) {
-      print(
-        '❌ Error generando contenido de página de prueba con configuración: $e',
-      );
       throw Exception('Error en generación de página de prueba: $e');
     }
   }
@@ -3051,15 +2783,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     try {
       _isConnected.value = false;
       _networkPrinters.clear();
-      print('🔌 Todas las conexiones cerradas');
     } catch (e) {
-      print('❌ Error cerrando conexiones: $e');
     }
   }
 
   void setPreferUSB(bool prefer) {
     _preferUSB.value = prefer;
-    print('⚙️ Preferencia USB cambiada a: $prefer');
   }
 
   // ==================== MENSAJES ====================
@@ -3091,31 +2820,20 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
   // ==================== DEBUG Y PRUEBAS ====================
 
   void debugPrintStatus() {
-    print('🔍 === ESTADO IMPRESORA TÉRMICA ===');
-    print('   - Conectado: $isConnected');
-    print('   - Imprimiendo: $isPrinting');
-    print('   - Preferir USB: $preferUSB');
-    print('   - Impresoras red: ${networkPrinters.length}');
-    print('   - Último error: $lastError');
-    print('   - Historial: ${printHistory.length} trabajos');
   }
 
   // ⚠️ NUEVO: Método para probar impresión paso a paso
   Future<void> testPrintSteps(Invoice invoice) async {
-    print('🧪 === PRUEBA PASO A PASO ===');
 
     try {
       // Paso 1: Verificar conexión
-      print('🔍 Paso 1: Verificando impresoras...');
       await _discoverNetworkPrinters();
 
       if (_networkPrinters.isEmpty) {
-        print('❌ No hay impresoras disponibles');
         return;
       }
 
       // Paso 2: Conectar
-      print('🔗 Paso 2: Conectando...');
       final profile = await esc_pos.CapabilityProfile.load();
       final printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
       final printerInfo = _networkPrinters.first;
@@ -3126,34 +2844,25 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       );
 
       if (result != PosPrintResult.success) {
-        print('❌ Error de conexión: ${result.msg}');
         return;
       }
 
-      print('✅ Conectado exitosamente');
-
       // Paso 3: Probar cada sección individualmente
-      print('🧪 Paso 3: Probando header...');
       await _printBusinessHeaderTextOnly(printer);
       await Future.delayed(const Duration(seconds: 2));
 
-      print('🧪 Paso 4: Probando info factura...');
       await _printInvoiceInfo(printer, invoice);
       await Future.delayed(const Duration(seconds: 2));
 
-      print('🧪 Paso 5: Probando info cliente...');
       await _printCustomerInfo(printer, invoice);
       await Future.delayed(const Duration(seconds: 2));
 
-      print('🧪 Paso 6: Probando items...');
       await _printItems(printer, invoice);
       await Future.delayed(const Duration(seconds: 2));
 
-      print('🧪 Paso 7: Probando totales...');
       await _printTotals(printer, invoice);
       await Future.delayed(const Duration(seconds: 2));
 
-      print('🧪 Paso 8: Probando footer...');
       await _printFooter(printer, invoice);
 
       // Paso 4: Cortar y desconectar
@@ -3163,24 +2872,19 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       await Future.delayed(const Duration(milliseconds: 500));
       printer.disconnect();
 
-      print('✅ Prueba completada exitosamente');
     } catch (e) {
-      print('❌ Error en prueba: $e');
     }
   }
 
   // ⚠️ NUEVO: Método simple para debug sin logo
   Future<bool> printInvoiceDebug(Invoice invoice) async {
     if (_isPrinting.value) {
-      print('⚠️ Ya hay una impresión en curso');
       return false;
     }
 
     try {
       _isPrinting.value = true;
       _lastError.value = null;
-
-      print('🐛 === MODO DEBUG SIN LOGO ===');
 
       // Solo impresión por red
       if (_networkPrinters.isEmpty) {
@@ -3196,7 +2900,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final profile = await esc_pos.CapabilityProfile.load();
       final printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
 
-      print('🔗 Conectando en modo debug...');
       final result = await printer.connect(
         printerInfo.ip,
         port: printerInfo.port,
@@ -3224,10 +2927,8 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       await Future.delayed(const Duration(milliseconds: 500));
       printer.disconnect();
 
-      print('✅ Impresión debug completada');
       return true;
     } catch (e) {
-      print('❌ Error en impresión debug: $e');
       _lastError.value = e.toString();
       return false;
     } finally {
@@ -3240,22 +2941,17 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
   void setPaperWidth(int width) {
     if (width == 58 || width == 80) {
       _paperWidth.value = width;
-      print('📏 Ancho de papel configurado a: ${width}mm');
       update(); // Notificar cambios a GetBuilder
     }
   }
 
   void setAutoCut(bool enabled) {
     _autoCut.value = enabled;
-    print('✂️ Corte automático: ${enabled ? 'activado' : 'desactivado'}');
     update();
   }
 
   void setOpenCashDrawer(bool enabled) {
     _openCashDrawer.value = enabled;
-    print(
-      '💰 Abrir caja registradora: ${enabled ? 'activado' : 'desactivado'}',
-    );
     update();
   }
 
@@ -3276,11 +2972,9 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       if (existingIndex != -1) {
         // Actualizar impresora existente
         _networkPrinters[existingIndex] = newPrinter;
-        print('🔄 Impresora actualizada: $name ($ip:$port)');
       } else {
         // Agregar nueva impresora
         _networkPrinters.add(newPrinter);
-        print('➕ Impresora agregada manualmente: $name ($ip:$port)');
       }
 
       update();
@@ -3288,16 +2982,12 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       // Probar conexión automáticamente
       _testAndUpdatePrinterStatus(newPrinter);
     } catch (e) {
-      print('❌ Error agregando impresora manual: $e');
       _showError('Error', 'No se pudo agregar la impresora: $e');
     }
   }
 
   void selectPrinter(NetworkPrinterInfo printer) {
     _selectedPrinter.value = printer;
-    print(
-      '🖨️ Impresora seleccionada: ${printer.name} (${printer.ip}:${printer.port})',
-    );
     update();
 
     // Intentar conectar automáticamente
@@ -3306,7 +2996,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   Future<void> connectToPrinter(NetworkPrinterInfo printerInfo) async {
     try {
-      print('🔗 Intentando conectar a ${printerInfo.name}...');
 
       final profile = await esc_pos.CapabilityProfile.load();
       final printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
@@ -3329,23 +3018,19 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
         _selectedPrinter.value = updatedPrinter;
 
-        print('✅ Conectado exitosamente a ${printerInfo.name}');
         _showSuccess('Conectado a ${printerInfo.name}');
 
         // Desconectar inmediatamente (solo para prueba)
         try {
           printer.disconnect();
         } catch (e) {
-          print('⚠️ Error al desconectar después de prueba: $e');
         }
       } else {
         _isConnected.value = false;
-        print('❌ Error conectando: ${result.msg}');
         _showError('Error de conexión', result.msg);
       }
     } catch (e) {
       _isConnected.value = false;
-      print('❌ Error en conexión: $e');
       _showError('Error', 'No se pudo conectar: $e');
     }
 
@@ -3365,7 +3050,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
     try {
       _isPrinting.value = true;
-      print('🧪 Imprimiendo recibo de prueba...');
 
       final profile = await esc_pos.CapabilityProfile.load();
       final printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
@@ -3459,13 +3143,10 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       try {
         printer.disconnect();
       } catch (e) {
-        print('⚠️ Error al desconectar después de prueba: $e');
       }
 
       _showSuccess('Recibo de prueba impreso exitosamente');
-      print('✅ Recibo de prueba completado');
     } catch (e) {
-      print('❌ Error imprimiendo recibo de prueba: $e');
       _showError('Error', 'No se pudo imprimir el recibo de prueba: $e');
     } finally {
       _isPrinting.value = false;
@@ -3495,7 +3176,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         update();
       }
     } catch (e) {
-      print('⚠️ Error probando estado de impresora: $e');
     }
   }
 }

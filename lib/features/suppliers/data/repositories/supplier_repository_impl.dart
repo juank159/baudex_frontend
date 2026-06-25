@@ -76,7 +76,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
           meta: remoteResult.meta,
         ));
       } catch (e) {
-        print('⚠️ Error del servidor en getSuppliers: $e - intentando cache local...');
         return _getSuppliersFromCache(params);
       }
     } else {
@@ -120,7 +119,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
         return Right(supplierModel.toEntity());
       } catch (e) {
-        print('⚠️ Error del servidor en getSupplierById: $e - intentando cache local...');
         return _getSupplierByIdFromCache(id);
       }
     } else {
@@ -162,7 +160,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
         final suppliers = supplierModels.map((model) => model.toEntity()).toList();
         return Right(suppliers);
       } catch (e) {
-        print('⚠️ Error del servidor en searchSuppliers: $e - intentando cache local...');
         return _searchSuppliersFromCache(searchTerm, limit: limit);
       }
     } else {
@@ -186,7 +183,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
       );
       final suppliers = supplierModels.map((model) => model.toEntity()).toList();
       if (suppliers.isNotEmpty) {
-        print('✅ ${suppliers.length} proveedores encontrados en cache local');
       }
       return Right(suppliers);
     } catch (_) {
@@ -208,7 +204,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
         final suppliers = supplierModels.map((model) => model.toEntity()).toList();
         return Right(suppliers);
       } catch (e) {
-        print('⚠️ Error del servidor en getActiveSuppliers: $e - intentando cache local...');
         return _getActiveSuppliersFromCache();
       }
     } else {
@@ -221,7 +216,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
       final supplierModels = await localDataSource.getActiveSuppliers();
       final suppliers = supplierModels.map((model) => model.toEntity()).toList();
       if (suppliers.isNotEmpty) {
-        print('✅ ${suppliers.length} proveedores activos encontrados en cache local');
       }
       return Right(suppliers);
     } catch (_) {
@@ -240,7 +234,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
         return Right(statsModel.toEntity());
       } catch (e) {
-        print('⚠️ Error del servidor en getSupplierStats: $e - intentando cache local...');
         return _getSupplierStatsFromCache();
       }
     } else {
@@ -252,7 +245,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
     try {
       final statsModel = await localDataSource.getCachedSupplierStats();
       if (statsModel != null) {
-        print('✅ Estadísticas de proveedores obtenidas desde cache local');
         return Right(statsModel.toEntity());
       }
     } catch (_) {}
@@ -330,7 +322,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
         return Right(supplierModel.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ [SUPPLIER_REPO] ServerException: ${e.message} - Fallback offline...');
         return _createSupplierOffline(
           name: name,
           code: code,
@@ -355,7 +346,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
           metadata: metadata,
         );
       } catch (e) {
-        print('⚠️ [SUPPLIER_REPO] Exception: $e - Fallback offline...');
         return _createSupplierOffline(
           name: name,
           code: code,
@@ -466,7 +456,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
         return Right(supplierModel.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ [SUPPLIER_REPO] ServerException: ${e.message} - Fallback offline...');
         return _updateSupplierOffline(
           id: id,
           name: name,
@@ -492,7 +481,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
           metadata: metadata,
         );
       } catch (e) {
-        print('⚠️ [SUPPLIER_REPO] Exception: $e - Fallback offline...');
         return _updateSupplierOffline(
           id: id,
           name: name,
@@ -626,10 +614,8 @@ class SupplierRepositoryImpl implements SupplierRepository {
             await isar.writeTxn(() async {
               await isar.isarSuppliers.put(isarSupplier);
             });
-            print('✅ Supplier marcado como eliminado en ISAR: $id');
           }
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
         }
 
         // Remover del cache
@@ -637,10 +623,8 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
         return const Right(unit);
       } on ServerException catch (e) {
-        print('⚠️ [SUPPLIER_REPO] ServerException: ${e.message} - Fallback offline...');
         return _deleteSupplierOffline(id);
       } catch (e) {
-        print('⚠️ [SUPPLIER_REPO] Exception: $e - Fallback offline...');
         return _deleteSupplierOffline(id);
       }
     } else {
@@ -846,7 +830,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
     String? notes,
     Map<String, dynamic>? metadata,
   }) async {
-    print('📱 SupplierRepository: Creating supplier offline: $name');
     try {
       final now = DateTime.now();
       final tempId = 'supplier_offline_${now.millisecondsSinceEpoch}_${name.hashCode}';
@@ -860,7 +843,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
           throw Exception('No hay usuario autenticado o organizationId no disponible');
         }
       } catch (e) {
-        print('❌ Error obteniendo organizationId: $e');
         return Left(CacheFailure('Error al obtener organizationId del usuario: $e'));
       }
 
@@ -901,9 +883,7 @@ class SupplierRepositoryImpl implements SupplierRepository {
         await isar.writeTxn(() async {
           await isar.isarSuppliers.put(isarSupplier);
         });
-        print('✅ SupplierRepository: Supplier saved to ISAR');
       } catch (e) {
-        print('❌ Error saving to ISAR: $e');
         return Left(CacheFailure('Error al guardar en ISAR: $e'));
       }
 
@@ -942,15 +922,11 @@ class SupplierRepositoryImpl implements SupplierRepository {
           },
           priority: 1,
         );
-        print('📤 SupplierRepository: Operación agregada a cola');
       } catch (e) {
-        print('⚠️ Error agregando a cola: $e');
       }
 
-      print('✅ Supplier created offline successfully');
       return Right(tempSupplier);
     } catch (e) {
-      print('❌ Error creating supplier offline: $e');
       return Left(CacheFailure('Error al crear proveedor offline: $e'));
     }
   }
@@ -980,7 +956,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
     String? notes,
     Map<String, dynamic>? metadata,
   }) async {
-    print('📱 SupplierRepository: Updating supplier offline: $id');
     try {
       // PASO 1: Actualizar en ISAR primero
       final isar = IsarDatabase.instance.database;
@@ -1026,7 +1001,6 @@ class SupplierRepositoryImpl implements SupplierRepository {
       await isar.writeTxn(() async {
         await isar.isarSuppliers.put(isarSupplier);
       });
-      print('✅ SupplierRepository: Supplier updated in ISAR');
 
       // PASO 2: Actualizar en SecureStorage
       final cachedSupplierModel = await localDataSource.getSupplierById(id);
@@ -1097,22 +1071,17 @@ class SupplierRepositoryImpl implements SupplierRepository {
           },
           priority: 1,
         );
-        print('📤 Actualización agregada a cola');
       } catch (e) {
-        print('⚠️ Error agregando a cola: $e');
       }
 
-      print('✅ Supplier updated offline successfully');
       return Right(updatedSupplier);
     } catch (e) {
-      print('❌ Error updating supplier offline: $e');
       return Left(CacheFailure('Error al actualizar proveedor offline: $e'));
     }
   }
 
   /// Eliminar proveedor offline (usado como fallback cuando falla el servidor o no hay conexión)
   Future<Either<Failure, Unit>> _deleteSupplierOffline(String id) async {
-    print('📱 SupplierRepository: Deleting supplier offline: $id');
     try {
       // Soft delete en ISAR
       try {
@@ -1127,10 +1096,8 @@ class SupplierRepositoryImpl implements SupplierRepository {
           await isar.writeTxn(() async {
             await isar.isarSuppliers.put(isarSupplier);
           });
-          print('✅ Supplier marcado como eliminado en ISAR (offline): $id');
         }
       } catch (e) {
-        print('⚠️ Error actualizando ISAR (no crítico): $e');
       }
 
       // Remover del cache
@@ -1146,15 +1113,11 @@ class SupplierRepositoryImpl implements SupplierRepository {
           data: {'id': id},
           priority: 1,
         );
-        print('📤 Eliminación agregada a cola');
       } catch (e) {
-        print('⚠️ Error agregando a cola: $e');
       }
 
-      print('✅ Supplier deleted offline successfully');
       return const Right(unit);
     } catch (e) {
-      print('❌ Error deleting supplier offline: $e');
       return Left(CacheFailure('Error al eliminar proveedor offline: $e'));
     }
   }

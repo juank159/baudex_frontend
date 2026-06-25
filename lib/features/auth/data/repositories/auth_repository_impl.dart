@@ -44,7 +44,6 @@ class AuthRepositoryImpl implements AuthRepository {
     // El pre-check de NetworkInfo puede fallar por timeout del health ping,
     // pero el servidor puede responder bien a requests reales.
     try {
-      print('🔧 AuthRepository: Intentando login online...');
       final request = LoginRequestModel(email: email, password: password);
       final response = await remoteDataSource.login(request);
 
@@ -56,13 +55,11 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Guardar credenciales hasheadas para login offline
       await localDataSource.saveOfflineCredentials(email, passwordHash);
-      print('🔐 AuthRepository: Credenciales offline guardadas para login futuro');
 
       return Right(response.toAuthResult());
     } on ServerException catch (e) {
       return Left(_mapServerExceptionToFailure(e));
     } on ConnectionException catch (e) {
-      print('⚠️ AuthRepository: Error de conexión, intentando login offline...');
       return _attemptOfflineLogin(email, passwordHash);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
@@ -72,7 +69,6 @@ class AuthRepositoryImpl implements AuthRepository {
           e.toString().contains('Connection') ||
           e.toString().contains('Network') ||
           e.toString().contains('timeout')) {
-        print('⚠️ AuthRepository: Error de red detectado, intentando login offline...');
         return _attemptOfflineLogin(email, passwordHash);
       }
       return Left(UnknownFailure('Error inesperado durante el login: $e'));
@@ -134,8 +130,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Obtener refresh token local
       final localRefreshToken = await localDataSource.getRefreshToken();
-
-      print('✅ AuthRepository: Login offline exitoso para ${localUser.email}');
 
       // Retornar AuthResult con datos locales
       return Right(AuthResult(
@@ -219,14 +213,10 @@ class AuthRepositoryImpl implements AuthRepository {
           organizationName: organizationName,
         );
 
-        print(
-          '🏗️ AuthRepository: Ejecutando registro con onboarding automático...',
-        );
         final response = await remoteDataSource.registerWithOnboarding(request);
 
         // Guardar datos localmente
         await localDataSource.saveAuthData(response);
-        print('✅ AuthRepository: Onboarding completado exitosamente');
 
         return Right(response.toAuthResult());
       } on ServerException catch (e) {
@@ -317,10 +307,8 @@ class AuthRepositoryImpl implements AuthRepository {
         if (currentUser != null) {
           final storage = Get.find<SecureStorageService>();
           await storage.setLastUserId(currentUser.id);
-          print('🔖 lastUserId persistido: ${currentUser.id}');
         }
       } catch (e) {
-        print('⚠️ No se pudo persistir lastUserId: $e');
       }
 
       // 2. Logout remoto best-effort
@@ -328,7 +316,6 @@ class AuthRepositoryImpl implements AuthRepository {
         try {
           await remoteDataSource.logout();
         } catch (e) {
-          print('Error en logout remoto (continuando con local): $e');
         }
       }
 
@@ -340,19 +327,16 @@ class AuthRepositoryImpl implements AuthRepository {
       try {
         await localDataSource.clearAuthData();
       } catch (e) {
-        print('⚠️ clearAuthData falló: $e — intentando borrar token directamente');
         try {
           final storage = Get.find<SecureStorageService>();
           await storage.deleteToken();
           await storage.deleteRefreshToken();
           await storage.deleteUserData();
         } catch (e2) {
-          print('💥 No se pudo borrar token tampoco: $e2');
           return Left(UnknownFailure('No se pudo limpiar credenciales: $e2'));
         }
       }
 
-      print('✅ Logout completado — BD ISAR preservada (logout perezoso)');
       return const Right(unit);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
@@ -433,7 +417,6 @@ class AuthRepositoryImpl implements AuthRepository {
             },
           );
         } catch (e) {
-          print('Warning: Could not add profile update to sync queue: $e');
         }
 
         return Right(updatedUserModel.toEntity());
@@ -526,11 +509,9 @@ class AuthRepositoryImpl implements AuthRepository {
           await storage.setLastUserId(currentUser.id);
         }
       } catch (e) {
-        print('⚠️ No se pudo persistir lastUserId en clearLocalAuth: $e');
       }
 
       await localDataSource.clearAuthData();
-      print('✅ clearLocalAuth completado — BD ISAR preservada');
       return const Right(unit);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));

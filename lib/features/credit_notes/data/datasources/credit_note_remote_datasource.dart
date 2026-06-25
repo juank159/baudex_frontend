@@ -37,13 +37,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
     CreateCreditNoteRequestModel request,
   ) async {
     try {
-      print('📝 CreditNoteRemoteDataSource: Creando nota de crédito...');
       final response = await dioClient.post(
         _baseEndpoint,
         data: request.toJson(),
       );
-
-      print('✅ Nota de crédito creada - Response type: ${response.data.runtimeType}');
 
       // La respuesta puede venir envuelta en {success: true, data: {...}}
       final responseData = response.data;
@@ -52,25 +49,19 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       if (responseData is Map<String, dynamic>) {
         if (responseData.containsKey('data') && responseData['data'] is Map<String, dynamic>) {
           // Respuesta envuelta
-          print('📦 Respuesta envuelta detectada');
           creditNoteJson = responseData['data'] as Map<String, dynamic>;
         } else if (responseData.containsKey('id')) {
           // Respuesta directa (tiene el id de la nota de crédito)
-          print('📦 Respuesta directa detectada');
           creditNoteJson = responseData;
         } else {
-          print('⚠️ Formato de respuesta inesperado: $responseData');
           throw ServerException('Formato de respuesta inesperado del servidor');
         }
       } else {
-        print('⚠️ Respuesta no es un Map: ${responseData.runtimeType}');
         throw ServerException('Formato de respuesta inesperado del servidor');
       }
 
-      print('📋 Parseando nota de crédito: ${creditNoteJson['number']}');
       return CreditNoteModel.fromJson(creditNoteJson);
     } on DioException catch (e) {
-      print('❌ Error Dio al crear nota de crédito: ${e.response?.statusCode}');
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -87,7 +78,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al crear nota de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al crear nota de crédito: $e');
       throw ServerException('Error inesperado al crear nota de crédito: $e');
     }
   }
@@ -95,7 +85,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<CreditNoteModel> getCreditNoteById(String id) async {
     try {
-      print('📄 CreditNoteRemoteDataSource: Obteniendo nota de crédito $id');
       final response = await dioClient.get('$_baseEndpoint/$id');
 
       // La respuesta puede venir envuelta en {success: true, data: {...}}
@@ -105,27 +94,19 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       if (responseData is Map<String, dynamic>) {
         if (responseData.containsKey('data') && responseData['data'] is Map<String, dynamic>) {
           // Respuesta envuelta
-          print('📦 Respuesta envuelta detectada');
           creditNoteJson = responseData['data'] as Map<String, dynamic>;
         } else if (responseData.containsKey('id')) {
           // Respuesta directa (tiene el id de la nota de crédito)
-          print('📦 Respuesta directa detectada');
           creditNoteJson = responseData;
         } else {
-          print('⚠️ Formato de respuesta inesperado: ${responseData.keys}');
           throw ServerException('Formato de respuesta inesperado del servidor');
         }
       } else {
-        print('⚠️ Respuesta no es un Map: ${responseData.runtimeType}');
         throw ServerException('Formato de respuesta inesperado del servidor');
       }
 
-      print('📋 Parseando nota de crédito: ${creditNoteJson['number']}');
       return CreditNoteModel.fromJson(creditNoteJson);
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al obtener nota de crédito: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -135,7 +116,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al obtener nota de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al obtener nota de crédito: $e');
       throw ServerException('Error inesperado al obtener nota de crédito');
     }
   }
@@ -145,26 +125,20 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
     QueryCreditNotesParams params,
   ) async {
     try {
-      print('📄 CreditNoteRemoteDataSource: Obteniendo notas de crédito...');
       final response = await dioClient.get(
         _baseEndpoint,
         queryParameters: params.toQueryParameters(),
       );
 
-      print('✅ Notas de crédito obtenidas: ${response.data['data'].length}');
       return CreditNotePaginatedResponseModel.fromJson(
         response.data as Map<String, dynamic>,
       );
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al obtener notas de crédito: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       throw ServerException(
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener notas de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al obtener notas de crédito: $e');
       throw ServerException('Error inesperado al obtener notas de crédito');
     }
   }
@@ -174,9 +148,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
     String invoiceId,
   ) async {
     try {
-      print(
-        '📄 CreditNoteRemoteDataSource: Obteniendo notas de crédito de factura $invoiceId',
-      );
       final response = await dioClient.get('$_baseEndpoint/invoice/$invoiceId');
 
       // La respuesta viene envuelta en {success: true, data: [...]}
@@ -190,18 +161,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         // Respuesta directa: [...]
         data = responseData;
       } else {
-        print('⚠️ Formato de respuesta inesperado: ${responseData.runtimeType}');
         return [];
       }
 
-      print('✅ Notas de crédito de factura obtenidas: ${data.length}');
       return data
           .map((json) => CreditNoteModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al obtener notas de crédito de factura: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -211,7 +177,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al obtener notas de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al obtener notas de crédito de factura: $e');
       throw ServerException('Error inesperado al obtener notas de crédito');
     }
   }
@@ -222,13 +187,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
     UpdateCreditNoteRequestModel request,
   ) async {
     try {
-      print('📝 CreditNoteRemoteDataSource: Actualizando nota de crédito $id');
       final response = await dioClient.patch(
         '$_baseEndpoint/$id',
         data: request.toJson(),
       );
-
-      print('✅ Nota de crédito actualizada');
 
       // La respuesta puede venir envuelta en {success: true, data: {...}}
       final responseData = response.data;
@@ -248,9 +210,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
 
       return CreditNoteModel.fromJson(creditNoteJson);
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al actualizar nota de crédito: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -265,7 +224,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al actualizar nota de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al actualizar nota de crédito: $e');
       throw ServerException('Error inesperado al actualizar nota de crédito');
     }
   }
@@ -273,10 +231,7 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<CreditNoteModel> confirmCreditNote(String id) async {
     try {
-      print('✅ CreditNoteRemoteDataSource: Confirmando nota de crédito $id');
       final response = await dioClient.post('$_baseEndpoint/$id/confirm');
-
-      print('✅ Nota de crédito confirmada');
 
       // La respuesta puede venir envuelta en {success: true, data: {...}}
       final responseData = response.data;
@@ -296,9 +251,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
 
       return CreditNoteModel.fromJson(creditNoteJson);
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al confirmar nota de crédito: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -313,7 +265,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al confirmar nota de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al confirmar nota de crédito: $e');
       throw ServerException('Error inesperado al confirmar nota de crédito');
     }
   }
@@ -321,10 +272,7 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<CreditNoteModel> cancelCreditNote(String id) async {
     try {
-      print('❌ CreditNoteRemoteDataSource: Cancelando nota de crédito $id');
       final response = await dioClient.post('$_baseEndpoint/$id/cancel');
-
-      print('✅ Nota de crédito cancelada');
 
       // La respuesta puede venir envuelta en {success: true, data: {...}}
       final responseData = response.data;
@@ -344,9 +292,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
 
       return CreditNoteModel.fromJson(creditNoteJson);
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al cancelar nota de crédito: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -361,7 +306,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al cancelar nota de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al cancelar nota de crédito: $e');
       throw ServerException('Error inesperado al cancelar nota de crédito');
     }
   }
@@ -369,13 +313,8 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<void> deleteCreditNote(String id) async {
     try {
-      print('🗑️ CreditNoteRemoteDataSource: Eliminando nota de crédito $id');
       await dioClient.delete('$_baseEndpoint/$id');
-      print('✅ Nota de crédito eliminada');
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al eliminar nota de crédito: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -390,7 +329,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al eliminar nota de crédito',
       );
     } catch (e) {
-      print('❌ Error inesperado al eliminar nota de crédito: $e');
       throw ServerException('Error inesperado al eliminar nota de crédito');
     }
   }
@@ -398,9 +336,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<double> getRemainingCreditableAmount(String invoiceId) async {
     try {
-      print(
-        '💰 CreditNoteRemoteDataSource: Obteniendo monto acreditable de factura $invoiceId',
-      );
       final response = await dioClient.get(
         '$_baseEndpoint/invoice/$invoiceId/remaining-creditable',
       );
@@ -418,12 +353,8 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       }
 
       final amount = (data['remainingCreditableAmount'] as num?)?.toDouble() ?? 0.0;
-      print('✅ Monto acreditable: $amount');
       return amount;
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al obtener monto acreditable: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -433,7 +364,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al obtener monto acreditable',
       );
     } catch (e) {
-      print('❌ Error inesperado al obtener monto acreditable: $e');
       throw ServerException('Error inesperado al obtener monto acreditable');
     }
   }
@@ -441,18 +371,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<List<int>> downloadCreditNotePdf(String id) async {
     try {
-      print(
-        '📄 CreditNoteRemoteDataSource: Descargando PDF de nota de crédito $id',
-      );
       final response = await dioClient.get(
         '$_baseEndpoint/$id/pdf',
         options: Options(responseType: ResponseType.bytes),
       );
 
-      print('✅ PDF descargado: ${response.data.length} bytes');
       return response.data as List<int>;
     } on DioException catch (e) {
-      print('❌ Error Dio al descargar PDF: ${e.response?.statusCode}');
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -462,7 +387,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al descargar PDF',
       );
     } catch (e) {
-      print('❌ Error inesperado al descargar PDF: $e');
       throw ServerException('Error inesperado al descargar PDF');
     }
   }
@@ -472,9 +396,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
     String invoiceId,
   ) async {
     try {
-      print(
-        '📊 CreditNoteRemoteDataSource: Obteniendo cantidades disponibles para factura $invoiceId',
-      );
       final response = await dioClient.get(
         '$_baseEndpoint/invoice/$invoiceId/available-quantities',
       );
@@ -491,12 +412,8 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         data = responseData as Map<String, dynamic>;
       }
 
-      print('✅ Cantidades disponibles obtenidas: ${data['items']?.length ?? 0} items');
       return AvailableQuantitiesResponseModel.fromJson(data);
     } on DioException catch (e) {
-      print(
-        '❌ Error Dio al obtener cantidades disponibles: ${e.response?.statusCode}',
-      );
       final errData = e.response?.data;
       final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
@@ -506,7 +423,6 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
         errMsg ?? 'Error al obtener cantidades disponibles',
       );
     } catch (e) {
-      print('❌ Error inesperado al obtener cantidades disponibles: $e');
       throw ServerException('Error inesperado al obtener cantidades disponibles');
     }
   }

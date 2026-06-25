@@ -406,20 +406,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       final fullUrl =
           '$baseEndpoint?${queryParams.entries.map((e) => '${e.key}=${e.value}').join('&')}';
 
-      print('🌐 CALLING INVENTORY BALANCES API:');
-      print('   📍 URL: $fullUrl');
-      print(
-        '   🏬 WarehouseId: ${warehouseId ?? "NULL (getting ALL warehouses)"}',
-      );
-      print('   📦 ProductId: $productId');
-
       final response = await dio.get(
         baseEndpoint,
         queryParameters: queryParams,
       );
-
-      print('📦 INVENTORY BALANCES API RESPONSE:');
-      print('   💾 Raw Response: ${response.data}');
 
       // ✅ El endpoint /inventory/balances puede devolver formato paginado: {success: true, data: {data: [array], meta: {...}}}
       // O formato directo: {success: true, data: [array of balances]}
@@ -444,25 +434,9 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         );
 
         if (specificBalance != null) {
-          print(
-            '   🏷️  Balance found for product: ${specificBalance['productId']}',
-          );
-          print(
-            '   📊 Available Quantity: ${specificBalance['availableQuantity'] ?? specificBalance['totalQuantity']}',
-          );
-          print('   🏬 For warehouse: ${warehouseId ?? "ALL_WAREHOUSES"}');
-          print(
-            '   ✅ Product $productId has ${specificBalance['totalQuantity']} units in warehouse $warehouseId',
-          );
 
           return InventoryBalanceModel.fromJson(specificBalance);
         } else {
-          print(
-            '   ⚠️ Product $productId NOT FOUND in warehouse $warehouseId balances',
-          );
-          print(
-            '   📋 Available products in response: ${balances.map((b) => b['productId']).toList()}',
-          );
           // Crear balance vacío para producto no encontrado en almacén específico
           final emptyBalance = {
             'productId': productId,
@@ -487,9 +461,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         }
       } else {
         // No hay balance para este producto en este almacén
-        print(
-          '   ⚠️ No balance found for product $productId in warehouse ${warehouseId ?? "ALL"}',
-        );
 
         // Crear un balance vacío
         final emptyBalance = {
@@ -589,36 +560,17 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParams['categoryId'] = params.categoryId;
       }
 
-      print(
-        '🔍 DEBUG: About to call dio.get with URL: ${ApiConstants.inventoryStats}',
-      );
-      print('🔍 DEBUG: queryParams: $queryParams');
-      print('🔍 DEBUG: dio instance: ${dio.runtimeType}');
-      print('🔍 DEBUG: dio base url: ${dio.options.baseUrl}');
-
       final Response response;
       try {
         response = await dio.get(
           ApiConstants.inventoryStats,
           queryParameters: queryParams,
         );
-        print(
-          '🔍 DEBUG: dio.get completed with status: ${response.statusCode}',
-        );
       } catch (dioError) {
-        print('❌ DEBUG: dio.get failed with error: $dioError');
-        print('❌ DEBUG: dio error type: ${dioError.runtimeType}');
         rethrow;
       }
 
-      print('🔍 DEBUG getInventoryStats response:');
-      print('   Response status: ${response.statusCode}');
-      print('   Response data: ${response.data}');
-      print('   Response data type: ${response.data.runtimeType}');
       if (response.data is Map) {
-        print('   Response keys: ${(response.data as Map).keys.toList()}');
-        print('   data field: ${response.data['data']}');
-        print('   data field type: ${response.data['data'].runtimeType}');
       }
 
       // El backend devuelve: {success: true, data: {...}, timestamp: ...}
@@ -627,16 +579,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         throw Exception('Backend returned null data field');
       }
 
-      print('🔍 DEBUG: About to parse dataField: $dataField');
-      print('🔍 DEBUG: dataField type: ${dataField.runtimeType}');
-
       try {
         final model = InventoryStatsModel.fromJson(dataField);
-        print('✅ DEBUG: InventoryStatsModel parsed successfully: $model');
         return model;
       } catch (parseError) {
-        print('❌ DEBUG: InventoryStatsModel.fromJson failed: $parseError');
-        print('❌ DEBUG: Parse error type: ${parseError.runtimeType}');
         rethrow;
       }
     } on DioException catch (e) {
@@ -787,7 +733,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     Map<String, dynamic> request,
   ) async {
     try {
-      print('📝 Ajuste individual - Datos enviados: $request');
 
       // ✅ USANDO EL MISMO ENDPOINT QUE AJUSTES MASIVOS
       final response = await dio.post(
@@ -795,7 +740,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         data: request,
       );
 
-      print('📊 Ajuste individual - Respuesta: ${response.data}');
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -809,17 +753,12 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     List<Map<String, dynamic>> requestsList,
   ) async {
     try {
-      print('🔧 Iniciando ajustes masivos: ${requestsList.length} ajustes');
 
       final List<InventoryMovementModel> results = [];
 
       // Hacer llamadas individuales para cada ajuste usando el endpoint correcto
       for (int i = 0; i < requestsList.length; i++) {
         final request = requestsList[i];
-
-        print(
-          '🔄 Procesando ajuste ${i + 1}/${requestsList.length}: ${request['productId']}',
-        );
 
         // Mapear los parámetros al formato esperado por /inventory/adjustments/relative
         final adjustmentData = {
@@ -834,45 +773,28 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
               0.0, // Ya viene calculado desde el controlador
         };
 
-        print('📝 Datos del ajuste a enviar: $adjustmentData');
-
         try {
           final response = await dio.post(
             ApiConstants.createStockAdjustment,
             data: adjustmentData,
           );
 
-          print(
-            '✅ Ajuste ${i + 1} completado para producto ${request['productId']}',
-          );
-          print('📊 Respuesta del backend: ${response.data}');
-
           // El endpoint /adjustments/relative devuelve el movimiento creado
           final movementData = response.data['data'];
-          print('📋 Datos del movimiento: $movementData');
 
           final movement = InventoryMovementModel.fromJson(movementData);
-          print(
-            '🎯 Movimiento creado - Estado: ${movement.statusString}, Cantidad: ${movement.quantity}',
-          );
 
           results.add(movement);
         } catch (e) {
-          print(
-            '❌ Error en ajuste ${i + 1} para producto ${request['productId']}: $e',
-          );
           // Si un ajuste falla, continuar con los demás pero loggear el error
           rethrow; // Re-lanzar para detener el proceso completo si hay error
         }
       }
 
-      print('🎉 Ajustes masivos completados: ${results.length} exitosos');
       return results;
     } on DioException catch (e) {
-      print('❌ Error DIO en ajustes masivos: ${e.message}');
       throw _handleDioException(e);
     } catch (e) {
-      print('❌ Error inesperado en ajustes masivos: $e');
       throw Exception('Error inesperado al crear ajustes de stock en lote: $e');
     }
   }
@@ -883,8 +805,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   ) async {
     try {
       final items = request['items'] as List<Map<String, dynamic>>;
-
-      print('🚀 Creating transfer with ${items.length} items: $items');
 
       // For now, handle multiple products by creating separate transfers
       // TODO: Check if backend supports multiple products in single transfer
@@ -904,16 +824,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
                   : 'Transfer between warehouses',
         };
 
-        print(
-          '🔄 Creating transfer ${i + 1}/${items.length}: $transferRequest',
-        );
-
         final response = await dio.post(
           ApiConstants.inventoryTransfers,
           data: transferRequest,
         );
-
-        print('✅ Transfer ${i + 1}/${items.length} created successfully');
 
         // Return the first transfer as the main response
         if (i == 0) {
@@ -923,7 +837,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         }
       }
 
-      print('✅ All ${items.length} transfers created successfully');
       return mainTransfer!;
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -1085,8 +998,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       if (sortBy != null) queryParams['sortBy'] = sortBy;
       if (sortOrder != null) queryParams['sortOrder'] = sortOrder;
 
-      print('🔍 DATASOURCE DEBUG: Enviando queryParams: $queryParams');
-
       final response = await dio.get(
         '/inventory/batches',
         queryParameters: queryParams,
@@ -1106,10 +1017,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
             batchList = responseData['batches'] as List? ??
                         responseData['items'] as List? ??
                         [];
-            print('📦 BATCHES API: total=${responseData['total']}, page=${responseData['page']}, '
-                  'totalPages=${responseData['totalPages']}, recibidos=${batchList.length}');
           } else {
-            print('⚠️ BATCHES API: Formato inesperado: ${responseData.runtimeType}');
             return [];
           }
           return List<Map<String, dynamic>>.from(batchList);
@@ -1303,9 +1211,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     } on DioException catch (e) {
       // If 404, fallback to general endpoint with warehouseId filter
       if (e.response?.statusCode == 404) {
-        print(
-          '🔄 Warehouse-specific endpoint not available, falling back to general endpoint with filter',
-        );
         return await _fallbackToGeneralEndpoint(warehouseId, params);
       }
       throw _handleDioException(e);

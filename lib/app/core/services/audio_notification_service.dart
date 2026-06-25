@@ -25,11 +25,9 @@ class AudioNotificationService {
     if (_isInitialized) return;
 
     try {
-      print('🔊 AudioNotificationService: Inicializando TTS...');
 
       // Configurar idioma a español
       List<dynamic> languages = await _tts.getLanguages;
-      print('🌐 Idiomas disponibles: $languages');
 
       // Intentar configurar español en orden de preferencia
       bool langSet = false;
@@ -38,14 +36,12 @@ class AudioNotificationService {
       for (String lang in spanishLanguages) {
         if (languages.contains(lang)) {
           await _tts.setLanguage(lang);
-          print('✅ Idioma configurado: $lang');
           langSet = true;
           break;
         }
       }
 
       if (!langSet) {
-        print('⚠️ No se encontró español, usando idioma por defecto');
       }
 
       // Configurar parámetros de voz
@@ -55,19 +51,15 @@ class AudioNotificationService {
 
       // Configurar callbacks
       _tts.setStartHandler(() {
-        print('🔊 TTS: Iniciando reproducción');
       });
 
       _tts.setCompletionHandler(() {
-        print('✅ TTS: Reproducción completada');
       });
 
       _tts.setErrorHandler((message) {
-        print('❌ TTS Error: $message');
       });
 
       _isInitialized = true;
-      print('✅ AudioNotificationService: TTS inicializado correctamente');
 
       // Prueba inicial silenciosa con mensaje más lento
       if (kDebugMode) {
@@ -75,7 +67,6 @@ class AudioNotificationService {
         await _speak('Bienvenido a Baúdex', priority: false);
       }
     } catch (e) {
-      print('❌ AudioNotificationService: Error al inicializar TTS: $e');
       _isInitialized = false;
     }
   }
@@ -92,10 +83,8 @@ class AudioNotificationService {
         await _tts.stop();
       }
 
-      print('🗣️ TTS: "$text"');
       await _tts.speak(text);
     } catch (e) {
-      print('❌ TTS Error al hablar: $e');
     }
   }
 
@@ -154,9 +143,6 @@ class AudioNotificationService {
   /// Activar/desactivar notificaciones de audio
   void setEnabled(bool enabled) {
     _isEnabled = enabled;
-    print(
-      '🔊 AudioNotificationService: ${enabled ? 'Activado' : 'Desactivado'}',
-    );
   }
 
   /// Verificar si está activado
@@ -168,7 +154,6 @@ class AudioNotificationService {
 
     _speechRate = rate.clamp(0.1, 2.0);
     await _tts.setSpeechRate(_speechRate);
-    print('🔊 Velocidad de voz: $_speechRate');
   }
 
   /// Configurar volumen (0.0 - 1.0)
@@ -177,7 +162,6 @@ class AudioNotificationService {
 
     _volume = volume.clamp(0.0, 1.0);
     await _tts.setVolume(_volume);
-    print('🔊 Volumen: $_volume');
   }
 
   /// Configurar tono de voz (0.5 - 2.0)
@@ -186,7 +170,6 @@ class AudioNotificationService {
 
     _pitch = pitch.clamp(0.5, 2.0);
     await _tts.setPitch(_pitch);
-    print('🔊 Tono: $_pitch');
   }
 
   /// Obtener configuración actual
@@ -211,9 +194,7 @@ class AudioNotificationService {
   Future<void> dispose() async {
     try {
       await _tts.stop();
-      print('🔊 AudioNotificationService: Recursos liberados');
     } catch (e) {
-      print('⚠️ Error al liberar recursos TTS: $e');
     }
   }
 }

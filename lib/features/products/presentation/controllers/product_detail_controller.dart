@@ -42,7 +42,6 @@ class ProductDetailController extends GetxController
   }) : _getProductByIdUseCase = getProductByIdUseCase,
        _updateProductStockUseCase = updateProductStockUseCase,
        _deleteProductUseCase = deleteProductUseCase {
-    print('🎮 ProductDetailController: Instancia creada correctamente');
   }
   // ==================== OBSERVABLES Y ESTADO ====================
 
@@ -97,7 +96,6 @@ class ProductDetailController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    print('🚀 ProductDetailController: Inicializando con ID: $productId');
     setupSyncListener();
 
     // Inicializar TabController para 3 pestañas: Detalles, Precios, Movimientos
@@ -115,7 +113,6 @@ class ProductDetailController extends GetxController
     } else {
       // Mostrar error si no hay ID válido
       _showError('Error', 'ID de producto no válido');
-      print('❌ ProductDetailController: ID de producto vacío o inválido');
     }
   }
 
@@ -134,7 +131,6 @@ class ProductDetailController extends GetxController
 
   @override
   void onClose() {
-    print('🔚 ProductDetailController: Liberando recursos...');
 
     // Liberar recursos de UI
     tabController.dispose();
@@ -143,7 +139,6 @@ class ProductDetailController extends GetxController
     // Llamar al método padre
     super.onClose();
 
-    print('✅ ProductDetailController: Recursos liberados correctamente');
   }
   // ==================== MÉTODOS DE CARGA DE DATOS ====================
 
@@ -155,7 +150,6 @@ class ProductDetailController extends GetxController
   /// - Validación de datos recibidos
   /// - Manejo de errores robusto
   Future<void> loadProductDetails() async {
-    print('📥 Cargando detalles del producto: $productId');
 
     // Activar indicador de carga
     _isLoading.value = true;
@@ -172,7 +166,6 @@ class ProductDetailController extends GetxController
       result.fold(
         // Caso de error
         (failure) {
-          print('❌ Error al cargar producto: ${failure.message}');
           if (!isClosed) {
             _showError('Error al cargar producto', failure.message);
             _product.value = null;
@@ -180,14 +173,11 @@ class ProductDetailController extends GetxController
         },
         // Caso de éxito
         (product) {
-          print('✅ Producto cargado exitosamente: ${product.name}');
           if (isClosed) return;
 
           if (_validateProductData(product)) {
             _product.value = product;
-            print('✅ Producto asignado correctamente al estado');
           } else {
-            print('⚠️ Datos del producto incompletos o inválidos');
             _showError(
               'Error de datos',
               'Los datos del producto están incompletos',
@@ -198,8 +188,6 @@ class ProductDetailController extends GetxController
       );
     } catch (e, stackTrace) {
       // Manejo de errores inesperados
-      print('💥 Error inesperado en loadProductDetails: $e');
-      print('🔍 StackTrace: $stackTrace');
 
       _showError('Error inesperado', 'Ocurrió un error al cargar el producto');
       _product.value = null;
@@ -213,7 +201,6 @@ class ProductDetailController extends GetxController
   ///
   /// Método simple que recarga los datos sin mostrar indicadores adicionales
   Future<void> refreshData() async {
-    print('🔄 Refrescando datos del producto: $productId');
     await loadProductDetails();
   }
 
@@ -227,30 +214,24 @@ class ProductDetailController extends GetxController
     try {
       // Validar campos básicos obligatorios
       if (product.id.isEmpty) {
-        print('❌ Producto sin ID');
         return false;
       }
 
       if (product.name.isEmpty) {
-        print('❌ Producto sin nombre');
         return false;
       }
 
       if (product.sku.isEmpty) {
-        print('❌ Producto sin SKU');
         return false;
       }
 
       // Validar valores numéricos básicos
       if (product.stock < 0) {
-        print('⚠️ Stock negativo detectado: ${product.stock}');
         // No es error crítico, pero se logea
       }
 
-      print('✅ Datos del producto validados correctamente');
       return true;
     } catch (e) {
-      print('❌ Error durante validación de datos del producto: $e');
       return false;
     }
   }
@@ -279,10 +260,6 @@ class ProductDetailController extends GetxController
       return;
     }
 
-    print(
-      '📦 Actualizando stock: $operation $quantity para producto $productId',
-    );
-
     // Activar indicador de carga
     _isUpdatingStock.value = true;
 
@@ -300,13 +277,10 @@ class ProductDetailController extends GetxController
       result.fold(
         // Caso de error
         (failure) {
-          print('❌ Error al actualizar stock: ${failure.message}');
           _showError('Error al actualizar stock', failure.message);
         },
         // Caso de éxito
         (updatedProduct) {
-          print('✅ Stock actualizado exitosamente');
-          print('📊 Nuevo stock: ${updatedProduct.stock}');
 
           // Actualizar el producto en el estado
           _product.value = updatedProduct;
@@ -319,7 +293,6 @@ class ProductDetailController extends GetxController
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al actualizar stock: $e');
       _showError('Error inesperado', 'No se pudo actualizar el stock');
     } finally {
       // Siempre desactivar indicador de carga
@@ -337,8 +310,6 @@ class ProductDetailController extends GetxController
       return;
     }
 
-    print('🗑️ Eliminando producto: $productId ($productName)');
-
     // Activar indicador de carga
     _isDeleting.value = true;
 
@@ -352,12 +323,10 @@ class ProductDetailController extends GetxController
       result.fold(
         // Caso de error
         (failure) {
-          print('❌ Error al eliminar producto: ${failure.message}');
           _showError('Error al eliminar producto', failure.message);
         },
         // Caso de éxito
         (_) {
-          print('✅ Producto eliminado exitosamente');
 
           _showSuccess('Producto eliminado exitosamente');
 
@@ -379,7 +348,6 @@ class ProductDetailController extends GetxController
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al eliminar producto: $e');
       _showError('Error inesperado', 'No se pudo eliminar el producto');
     } finally {
       // Siempre desactivar indicador de carga
@@ -395,7 +363,6 @@ class ProductDetailController extends GetxController
       return;
     }
 
-    print('📝 Navegando a editar producto: $productId');
     Get.toNamed('/products/edit/$productId');
   }
 
@@ -887,7 +854,6 @@ class ProductDetailController extends GetxController
 
       return null;
     } catch (e) {
-      print('❌ Error al obtener precio por tipo "$priceType": $e');
       return null;
     }
   }
@@ -905,7 +871,6 @@ class ProductDetailController extends GetxController
 
       return '\$${price.toStringAsFixed(2)}';
     } catch (e) {
-      print('❌ Error al formatear precio "$priceType": $e');
       return 'Error';
     }
   }
@@ -932,7 +897,6 @@ class ProductDetailController extends GetxController
 
       return false;
     } catch (e) {
-      print('❌ Error al verificar descuento "$priceType": $e');
       return false;
     }
   }
@@ -950,7 +914,6 @@ class ProductDetailController extends GetxController
           product!.prices!.isNotEmpty &&
           product!.prices!.any((price) => price.isActive);
     } catch (e) {
-      print('❌ Error al verificar precios válidos: $e');
       return false;
     }
   }
@@ -966,7 +929,6 @@ class ProductDetailController extends GetxController
 
       return product!.prices!.where((price) => price.isActive).toList();
     } catch (e) {
-      print('❌ Error al obtener precios activos: $e');
       return [];
     }
   }
@@ -1013,7 +975,6 @@ class ProductDetailController extends GetxController
     }
 
     if (product!.category != null) {
-      print('📂 Navegando a categoría: ${product!.category!.name}');
       Get.toNamed('/categories/detail/${product!.category!.id}');
     } else {
       _showInfo('Sin categoría', 'Este producto no tiene categoría asignada');
@@ -1038,8 +999,6 @@ class ProductDetailController extends GetxController
 📊 Estado Stock: ${getStockStatusText()}
 ''';
 
-    print('📤 Compartiendo producto: $shareText');
-
     // TODO: Implementar funcionalidad de compartir real con share_plus
     _showInfo(
       'Compartir',
@@ -1056,8 +1015,6 @@ class ProductDetailController extends GetxController
       return;
     }
 
-    print('🖨️ Imprimiendo etiqueta para: $productName (SKU: $productSku)');
-
     // TODO: Implementar funcionalidad de impresión real
     _showInfo(
       'Imprimir Etiqueta',
@@ -1073,8 +1030,6 @@ class ProductDetailController extends GetxController
       _showError('Error', 'No hay producto cargado');
       return;
     }
-
-    print('📊 Generando reporte para: $productName');
 
     // TODO: Implementar generación de reportes real
     _showInfo(
@@ -1120,12 +1075,8 @@ class ProductDetailController extends GetxController
         return parsed ?? 0.0;
       }
 
-      print(
-        '⚠️ Tipo no reconocido para conversión a double: ${value.runtimeType}',
-      );
       return 0.0;
     } catch (e) {
-      print('❌ Error al parsear double desde "$value": $e');
       return 0.0;
     }
   }

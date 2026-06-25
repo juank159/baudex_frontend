@@ -111,7 +111,6 @@ class ExpensesController extends GetxController
     super.onInit();
     _setupScrollListener();
     setupSyncListener();
-    print('🎯 ExpensesController onInit() llamado');
   }
 
   @override
@@ -129,7 +128,6 @@ class ExpensesController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    print('🎯 ExpensesController onReady() llamado - Cargando gastos...');
     _initializeData();
   }
 
@@ -144,12 +142,10 @@ class ExpensesController extends GetxController
 
   Future<void> _initializeData() async {
     if (_isInitialized) {
-      print('⚠️ ExpensesController ya inicializado, omitiendo...');
       return;
     }
 
     try {
-      print('🚀 Inicializando ExpensesController...');
 
       await Future.wait([
         loadExpenses(),
@@ -157,9 +153,7 @@ class ExpensesController extends GetxController
       ]);
 
       _isInitialized = true;
-      print('✅ ExpensesController inicializado correctamente');
     } catch (e) {
-      print('❌ Error al inicializar ExpensesController: $e');
     }
   }
 
@@ -189,7 +183,6 @@ class ExpensesController extends GetxController
     try {
       await _fetchExpenses();
     } catch (e) {
-      print('❌ Error inesperado al cargar gastos: $e');
     } finally {
       _isLoading.value = false;
     }
@@ -239,7 +232,6 @@ class ExpensesController extends GetxController
     _isLoadingMore.value = true;
 
     try {
-      print('📄 Cargando más gastos (página ${_currentPage.value + 1})...');
 
       final result = await _getExpensesUseCase(
         GetExpensesParams(
@@ -263,7 +255,6 @@ class ExpensesController extends GetxController
         (paginatedResult) {
           _expenses.addAll(paginatedResult.data);
           _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Más gastos cargados: ${paginatedResult.data.length}');
         },
       );
     } finally {
@@ -284,7 +275,6 @@ class ExpensesController extends GetxController
         loadStats(),
       ]);
     } catch (e) {
-      print('❌ Error durante el refresco: $e');
     } finally {
       _isRefreshing.value = false;
     }
@@ -294,7 +284,6 @@ class ExpensesController extends GetxController
     _isDeleting.value = true;
 
     try {
-      print('🗑️ Eliminando gasto: $expenseId');
 
       final result = await _deleteExpenseUseCase(
         DeleteExpenseParams(id: expenseId),
@@ -309,7 +298,6 @@ class ExpensesController extends GetxController
           _expenses.removeWhere((expense) => expense.id == expenseId);
           invalidateCache();
           refreshExpenses();
-          print('✅ Gasto eliminado exitosamente');
         },
       );
     } finally {
@@ -321,7 +309,6 @@ class ExpensesController extends GetxController
     _isApproving.value = true;
 
     try {
-      print('✅ Aprobando gasto: $expenseId');
 
       final result = await _approveExpenseUseCase(
         ApproveExpenseParams(id: expenseId),
@@ -339,7 +326,6 @@ class ExpensesController extends GetxController
           }
           invalidateCache();
           refreshExpenses();
-          print('✅ Gasto aprobado exitosamente');
         },
       );
     } finally {
@@ -351,7 +337,6 @@ class ExpensesController extends GetxController
     _isSubmitting.value = true;
 
     try {
-      print('📤 Enviando gasto para aprobación: $expenseId');
 
       final result = await _submitExpenseUseCase(
         SubmitExpenseParams(id: expenseId),
@@ -369,7 +354,6 @@ class ExpensesController extends GetxController
           }
           invalidateCache();
           refreshExpenses();
-          print('✅ Gasto enviado para aprobación');
         },
       );
     } finally {
@@ -379,21 +363,17 @@ class ExpensesController extends GetxController
 
   Future<void> loadStats() async {
     try {
-      print('📊 Cargando estadísticas...');
 
       final result = await _getExpenseStatsUseCase(GetExpenseStatsParams());
 
       result.fold(
         (failure) {
-          print('⚠️ Error al cargar estadísticas: ${failure.message}');
         },
         (stats) {
           _stats.value = stats;
-          print('✅ Estadísticas cargadas: total=\$${stats.totalAmount}');
         },
       );
     } catch (e) {
-      print('⚠️ Error inesperado al cargar estadísticas: $e');
     }
   }
 

@@ -66,12 +66,10 @@ class IsarDatabase implements IIsarDatabase {
   /// Inicializar la base de datos ISAR
   Future<void> initialize() async {
     if (_isar != null) {
-      print('💾 ISAR database already initialized');
       return;
     }
 
     try {
-      print('💾 Inicializando base de datos ISAR...');
 
       // Obtener el directorio para la base de datos
       final dir = await getApplicationDocumentsDirectory();
@@ -108,14 +106,9 @@ class IsarDatabase implements IIsarDatabase {
         name: 'baudex_offline',
       );
 
-      print('✅ Base de datos ISAR inicializada exitosamente');
-      print('📍 Ubicación: ${dir.path}/baudex_business.isar');
-
       // Mostrar estadísticas iniciales
       final stats = await getStats();
-      print('📊 Estadísticas iniciales: $stats');
     } catch (e) {
-      print('❌ Error inicializando ISAR database: $e');
       rethrow;
     }
   }
@@ -125,7 +118,6 @@ class IsarDatabase implements IIsarDatabase {
     if (_isar != null) {
       await _isar!.close();
       _isar = null;
-      print('💾 Base de datos ISAR cerrada exitosamente');
     }
     _instance = null;
   }
@@ -138,7 +130,6 @@ class IsarDatabase implements IIsarDatabase {
       await _isar!.clear();
     });
 
-    print('💾 Base de datos ISAR limpiada exitosamente');
   }
 
   /// Verificar si la base de datos está inicializada
@@ -189,7 +180,6 @@ class IsarDatabase implements IIsarDatabase {
       };
     } catch (e) {
       // Schema mismatch - return empty stats
-      print('⚠️ Error obteniendo stats de ISAR (posible schema mismatch): $e');
       return {'error': -1};
     }
   }
@@ -199,7 +189,6 @@ class IsarDatabase implements IIsarDatabase {
     if (_isar == null) return;
 
     await _isar!.copyToFile(path);
-    print('💾 Backup creado en: $path');
   }
 
   /// Obtener el tamaño de la base de datos en bytes
@@ -219,7 +208,6 @@ class IsarDatabase implements IIsarDatabase {
     await initialize();
     final sizeAfter = await getDatabaseSize();
 
-    print('💾 Base de datos compactada: ${sizeBefore}B -> ${sizeAfter}B');
   }
 
   /// Verificar la integridad de la base de datos
@@ -248,10 +236,8 @@ class IsarDatabase implements IIsarDatabase {
       await _isar!.isarSubscriptions.count();
       await _isar!.printerSettingsModels.count();
 
-      print('✅ Integridad de base de datos verificada');
       return true;
     } catch (e) {
-      print('❌ Error en verificación de integridad: $e');
       return false;
     }
   }
@@ -306,11 +292,9 @@ class IsarDatabase implements IIsarDatabase {
       await _isar!.writeTxn(() async {
         await _isar!.syncOperations.put(operation);
       });
-      print('🔄 Operación agregada a cola: ${operation.entityType} ${operation.operationType.name}');
     } catch (e) {
       // Registrar error pero no propagar (puede ser schema mismatch temporal)
       AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');
-      print('⚠️ No se pudo agregar operación a cola sync: $e');
     }
   }
 
@@ -355,7 +339,6 @@ class IsarDatabase implements IIsarDatabase {
           !error.contains('SocketException') &&
           !error.contains('Conflicto:') &&
           !error.contains('409')) {
-        print('❌ Operación falló: ID $operationId, Error: $error');
       }
     } catch (e) {
       // Registrar error pero no propagar (puede ser schema mismatch temporal)
@@ -382,7 +365,6 @@ class IsarDatabase implements IIsarDatabase {
         await _isar!.syncOperations.deleteAll(ids);
 
         if (ids.isNotEmpty) {
-          print('🧹 Limpiadas ${ids.length} operaciones antiguas');
         }
       });
     } catch (e) {
@@ -399,7 +381,6 @@ class IsarDatabase implements IIsarDatabase {
       await _isar!.writeTxn(() async {
         final deleted = await _isar!.syncOperations.delete(operationId);
         if (deleted) {
-          print('🗑️ Operación de sync eliminada: ID $operationId');
         }
       });
     } catch (e) {
@@ -423,7 +404,6 @@ class IsarDatabase implements IIsarDatabase {
         await _isar!.syncOperations.deleteAll(ids);
 
         if (ids.isNotEmpty) {
-          print('🗑️ Eliminadas ${ids.length} operaciones de sync para entityId: $entityId');
         }
       });
     } catch (e) {
@@ -443,11 +423,9 @@ class IsarDatabase implements IIsarDatabase {
           operation.payload = newPayload;
           operation.updatedAt = DateTime.now();
           await _isar!.syncOperations.put(operation);
-          print('✏️ Payload actualizado para operación ID $operationId');
         }
       });
     } catch (e) {
-      print('⚠️ Error actualizando payload de operación $operationId: $e');
     }
   }
 
@@ -458,25 +436,11 @@ class IsarDatabase implements IIsarDatabase {
     try {
       final operations = await _isar!.syncOperations.where().findAll();
 
-      print('📋 ==================== OPERACIONES DE SYNC ====================');
-      print('📊 Total: ${operations.length}');
-      print('');
-
       for (final op in operations) {
-        print('🔄 ID: ${op.id}');
-        print('   Entity: ${op.entityType} (${op.entityId})');
-        print('   Operation: ${op.operationType.name}');
-        print('   Status: ${op.status.name}');
-        print('   Retries: ${op.retryCount}');
         if (op.error != null) {
-          print('   Error: ${op.error}');
         }
-        print('   Created: ${op.createdAt}');
-        print('');
       }
-      print('📋 ==================== FIN ====================');
     } catch (e) {
-      print('⚠️ No se pudo listar operaciones sync: schema mismatch');
     }
   }
 
@@ -602,7 +566,6 @@ class IsarDatabase implements IIsarDatabase {
         }
       });
 
-      print('⚠️ Operación marcada como conflicto: ID $operationId - $conflictDetails');
     } catch (e) {
       // Registrar error pero no propagar (puede ser schema mismatch temporal)
       AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');

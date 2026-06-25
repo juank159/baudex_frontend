@@ -82,17 +82,14 @@ class CustomerCreditLocalDataSourceImpl implements CustomerCreditLocalDataSource
         final existingIndex = credits.indexWhere((c) => c.id == credit.id);
         if (existingIndex >= 0) {
           credits[existingIndex] = credit;
-          print('📝 Crédito actualizado en lista principal: ${credit.id}');
         } else {
           credits.add(credit);
-          print('➕ Crédito agregado a lista principal: ${credit.id}');
         }
 
         // Guardar lista actualizada
         final creditsJson = credits.map((c) => c.toJson()).toList();
         await storageService.write(_creditsKey, json.encode(creditsJson));
       } catch (e) {
-        print('⚠️ Error actualizando lista principal (solo cache individual guardado): $e');
       }
 
       await _updateCacheTimestamp();
@@ -140,10 +137,8 @@ class CustomerCreditLocalDataSourceImpl implements CustomerCreditLocalDataSource
           // Guardar lista actualizada
           final updatedCreditsJson = credits.map((c) => c.toJson()).toList();
           await storageService.write(_creditsKey, json.encode(updatedCreditsJson));
-          print('🗑️ Crédito eliminado de lista principal: $id');
         }
       } catch (e) {
-        print('⚠️ Error eliminando de lista principal (solo cache individual eliminado): $e');
       }
     } catch (e) {
       throw CacheException('Error al eliminar crédito del cache: $e');
@@ -193,7 +188,6 @@ class CustomerCreditLocalDataSourceImpl implements CustomerCreditLocalDataSource
       final now = DateTime.now().toIso8601String();
       await storageService.write(_cacheTimestampKey, now);
     } catch (e) {
-      print('Error al actualizar timestamp del cache: $e');
     }
   }
 }

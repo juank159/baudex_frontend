@@ -113,11 +113,9 @@ class InventoryAdjustmentsController extends GetxController {
       final result = await searchProductsUseCase(params);
 
       return result.fold((failure) {
-        print('❌ Error buscando productos: ${failure.message}');
         return <Product>[];
       }, (products) => products);
     } catch (e) {
-      print('❌ Error inesperado buscando productos: $e');
       return <Product>[];
     }
   }
@@ -183,9 +181,6 @@ class InventoryAdjustmentsController extends GetxController {
           newQuantityController.text = balance.totalQuantity.toString();
           newQuantity.value = balance.totalQuantity;
 
-          print('📊 Balance cargado para ${selectedProductName.value}:');
-          print('   🏪 Almacén: ${selectedWarehouseName.value}');
-          print('   📦 Cantidad actual: ${balance.totalQuantity}');
         },
       );
     } catch (e) {
@@ -206,14 +201,10 @@ class InventoryAdjustmentsController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error cargando almacenes: ${failure.message}');
           error.value = 'Error cargando almacenes: ${failure.message}';
         },
         (warehousesList) {
           warehouses.value = warehousesList;
-          print(
-            '✅ Almacenes cargados para ajustes individuales: ${warehousesList.length}',
-          );
           // Auto-seleccionar si hay exactamente un almacén disponible
           if (warehousesList.length == 1) {
             final w = warehousesList.first;
@@ -222,7 +213,6 @@ class InventoryAdjustmentsController extends GetxController {
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando almacenes: $e');
       error.value = 'Error inesperado cargando almacenes: $e';
     } finally {
       isLoading.value = false;
@@ -237,10 +227,6 @@ class InventoryAdjustmentsController extends GetxController {
   void setSelectedWarehouse(String warehouseId, String warehouseName) {
     selectedWarehouseId.value = warehouseId;
     selectedWarehouseName.value = warehouseName;
-
-    print(
-      '🏪 Almacén seleccionado para ajuste individual: $warehouseName ($warehouseId)',
-    );
 
     // If a product is already selected, reload its balance for the new warehouse
     if (selectedProductId.value.isNotEmpty) {
@@ -283,13 +269,6 @@ class InventoryAdjustmentsController extends GetxController {
         'movementDate': DateTime.now().toIso8601String(),
         'unitCost': unitCost.value > 0 ? unitCost.value : 0.0,
       };
-
-      print('📝 Ajuste individual - Producto: ${selectedProductName.value}');
-      print('📝 Ajuste individual - Almacén: ${selectedWarehouseName.value}');
-      print('📝 Ajuste individual - Cantidad actual: ${currentStock.value}');
-      print('📝 Ajuste individual - Nueva cantidad: ${newQuantity.value}');
-      print('📝 Ajuste individual - Diferencia: $adjustmentQuantity');
-      print('📝 Ajuste individual - Datos a enviar: $requestData');
 
       final result = await createStockAdjustmentUseCase(requestData);
 

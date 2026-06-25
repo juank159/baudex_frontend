@@ -126,7 +126,6 @@ class ExpenseLocalDataSourceIsar implements ExpenseLocalDataSource {
       }
       _categoriesCacheLoaded = true;
     } catch (e) {
-      print('⚠️ Error cargando categorías desde SecureStorage: $e');
       _categoriesCacheLoaded = true;
     }
   }
@@ -142,7 +141,6 @@ class ExpenseLocalDataSourceIsar implements ExpenseLocalDataSource {
         json.encode(jsonList),
       );
     } catch (e) {
-      print('⚠️ Error persistiendo categorías a SecureStorage: $e');
     }
   }
 

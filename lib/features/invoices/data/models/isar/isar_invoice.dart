@@ -400,6 +400,8 @@ class IsarInvoice {
     return null;
   }
 
+  static List<InvoiceItem> decodeItemsPublic(String? itemsJson) => _decodeItems(itemsJson);
+
   static List<InvoiceItem> _decodeItems(String? itemsJson) {
     if (itemsJson == null || itemsJson.isEmpty || itemsJson == '[]') {
       return [];

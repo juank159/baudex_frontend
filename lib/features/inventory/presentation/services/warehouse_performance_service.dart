@@ -287,17 +287,14 @@ class WarehousePerformanceService {
       final result = await operation();
       stopwatch.stop();
       
-      print('⏱️ $operationName ejecutado en ${stopwatch.elapsedMilliseconds}ms');
       
       // Log warning si toma mucho tiempo
       if (stopwatch.elapsedMilliseconds > 1000) {
-        print('⚠️ Operación lenta detectada: $operationName (${stopwatch.elapsedMilliseconds}ms)');
       }
       
       return result;
     } catch (e) {
       stopwatch.stop();
-      print('❌ $operationName falló después de ${stopwatch.elapsedMilliseconds}ms: $e');
       rethrow;
     }
   }

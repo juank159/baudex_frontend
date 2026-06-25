@@ -217,7 +217,6 @@ class InvoiceModel extends Invoice {
     }
 
     // Si todo falla, retornar 0
-    print('⚠️ No se pudo convertir a double: $value (${value.runtimeType})');
     return 0.0;
   }
 
@@ -229,7 +228,6 @@ class InvoiceModel extends Invoice {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('⚠️ Error parsing date: $value - $e');
         return DateTime.now();
       }
     }
@@ -296,8 +294,6 @@ class InvoiceModel extends Invoice {
                 : null,
       );
     } catch (e) {
-      print('❌ Error en InvoiceModel.fromJson: $e');
-      print('📋 JSON data: $json');
       rethrow;
     }
   }
@@ -307,7 +303,6 @@ class InvoiceModel extends Invoice {
     if (itemsData == null) return [];
 
     if (itemsData is! List) {
-      print('⚠️ Items no es una lista: ${itemsData.runtimeType}');
       return [];
     }
 
@@ -320,10 +315,8 @@ class InvoiceModel extends Invoice {
           final item = InvoiceItemModel.fromJson(itemJson);
           items.add(item);
         } else {
-          print('⚠️ Item $i no es un Map válido');
         }
       } catch (e) {
-        print('❌ Error parseando item $i: $e');
         // Continuar con los demás items
       }
     }
@@ -336,7 +329,6 @@ class InvoiceModel extends Invoice {
     if (paymentsData == null) return [];
 
     if (paymentsData is! List) {
-      print('⚠️ Payments no es una lista: ${paymentsData.runtimeType}');
       return [];
     }
 
@@ -349,10 +341,8 @@ class InvoiceModel extends Invoice {
           final paymentModel = InvoicePaymentModel.fromJson(paymentJson);
           payments.add(paymentModel.toEntity());
         } else {
-          print('⚠️ Payment $i no es un Map válido');
         }
       } catch (e) {
-        print('❌ Error parseando payment $i: $e');
         // Continuar con los demás payments
       }
     }

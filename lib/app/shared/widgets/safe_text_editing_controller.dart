@@ -250,9 +250,6 @@ class SafeTextEditingController extends TextEditingController {
 
   /// ✅ LOGGING: Método privado para logging consistente
   void _log(String message) {
-    print(
-      '🛡️ SafeTextEditingController${_debugLabel != null ? " ($_debugLabel)" : ""}: $message',
-    );
   }
 
   /// ✅ FACTORY: Crear desde controlador existente (si es necesario)
@@ -276,9 +273,6 @@ class SafeTextEditingController extends TextEditingController {
     }
 
     if (isDisposed) {
-      print(
-        '⚠️ SafeTextEditingController.fromExisting: Controlador fuente disposed, creando nuevo vacío',
-      );
       return SafeTextEditingController(debugLabel: debugLabel);
     }
 
@@ -290,9 +284,6 @@ class SafeTextEditingController extends TextEditingController {
         debugLabel: debugLabel,
       );
     } catch (e) {
-      print(
-        '⚠️ SafeTextEditingController.fromExisting: Error copiando texto, creando nuevo vacío',
-      );
       return SafeTextEditingController(debugLabel: debugLabel);
     }
   }

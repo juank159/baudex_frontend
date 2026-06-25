@@ -55,8 +55,6 @@ class CategoryModel extends Category {
   // }
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
-    print('🏗️ CategoryModel.fromJson processing: ${json['name']}');
-    print('   Available fields: ${json.keys.toList()}');
 
     try {
       return CategoryModel(
@@ -97,8 +95,6 @@ class CategoryModel extends Category {
                 : null,
       );
     } catch (e) {
-      print('❌ Error in CategoryModel.fromJson: $e');
-      print('   JSON data: $json');
       rethrow;
     }
   }

@@ -33,7 +33,6 @@ mixin SearchLifecycleMixin<T> on GetxController {
   // Lógica central
   void _handleReturn() {
     final last = _memory[sectionName];
-    print('📦 _handleReturn: último search = ${last?.text}');
     if (last == null) {
       // primera vez o después de abandonar la sección
       _clearSearch();

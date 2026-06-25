@@ -208,13 +208,8 @@ class DashboardStatsModel extends DashboardStats {
     return {
       'totalRevenue': sales.totalAmount,
       'totalExpenses': expenses.totalAmount,
-      'netProfit': sales.totalAmount - expenses.totalAmount,
-      'profitMargin':
-          sales.totalAmount > 0
-              ? ((sales.totalAmount - expenses.totalAmount) /
-                  sales.totalAmount *
-                  100)
-              : 0.0,
+      'netProfit': profitability.netProfit,
+      'profitMargin': profitability.netMarginPercentage,
       'totalInvoices': invoices.totalInvoices,
       'paidInvoices': invoices.paidInvoices,
       'pendingInvoices': invoices.pendingInvoices,

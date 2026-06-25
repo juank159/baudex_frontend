@@ -999,7 +999,6 @@ class FuturisticTransferFormWidget
       // Use the real search function from the controller
       return await controller.searchProducts(query);
     } catch (e) {
-      print('Error searching products in transfer form: $e');
       return [];
     }
   }
@@ -1008,29 +1007,16 @@ class FuturisticTransferFormWidget
     try {
       // Only get stock if origin warehouse is selected
       if (controller.selectedFromWarehouseId.value.isEmpty) {
-        print(
-          '🚫 No origin warehouse selected, returning 0 stock for product $productId',
-        );
         return 0;
       }
 
       final warehouseId = controller.selectedFromWarehouseId.value;
       final warehouse = _getWarehouseById(warehouseId);
 
-      print('🔍 GETTING STOCK for product: $productId');
-      print(
-        '🏬 From warehouse: ${warehouse?.name ?? 'Unknown'} (ID: $warehouseId)',
-      );
-
       final stock = await controller.getProductStock(productId, warehouseId);
-
-      print(
-        '📦 Stock result: $stock units for product $productId in warehouse ${warehouse?.name}',
-      );
 
       return stock;
     } catch (e) {
-      print('❌ Error getting product stock in transfer form: $e');
       return 0;
     }
   }
@@ -1045,7 +1031,6 @@ class FuturisticTransferFormWidget
       );
       return product.name;
     } catch (e) {
-      print('Error getting product name: $e');
       return 'Producto';
     }
   }

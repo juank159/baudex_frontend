@@ -61,9 +61,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
               _selectedIndex = index;
-              print(
-                '🎯 SCREEN: Producto actualizado seleccionado automáticamente en índice: $index',
-              );
             });
             // ✅ MEJORADO: Hacer scroll suave al item seleccionado con delay
             _scrollToSelectedWithDelay();
@@ -91,7 +88,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     // Verificar si hay un overlay activo (como un Dialog)
     final overlay = Overlay.of(context);
     if (overlay.mounted && ModalRoute.of(context)?.isCurrent != true) {
-      print('🚫 SCREEN Shortcuts deshabilitados - Dialog activo');
       return false;
     }
 
@@ -100,9 +96,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
       if (focusedWidget != null &&
           focusedWidget.toString().contains('TextField')) {
-        print(
-          '🚫 SCREEN Enter ignorado - Focus está en campo de búsqueda de productos',
-        );
         return false;
       }
     }
@@ -112,13 +105,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
           event.logicalKey == LogicalKeyboardKey.shiftRight) {
         _isShiftPressed = true;
-        print('🔧 SCREEN Shift PRESIONADO');
         return true;
       }
       if (event.logicalKey == LogicalKeyboardKey.controlLeft ||
           event.logicalKey == LogicalKeyboardKey.controlRight) {
         _isCtrlPressed = true;
-        print('🔧 SCREEN Ctrl PRESIONADO');
         return true;
       }
 
@@ -165,7 +156,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           // Ctrl + T - NATIVO (nuevo shortcut)
           if (event.logicalKey == LogicalKeyboardKey.keyT) {
             // Acción para Ctrl + T (puedes definir qué hace)
-            print('🎹 SCREEN Ctrl+T detectado (NATIVO)');
             // TODO: Implementar acción específica para Ctrl + T
             return true;
           }
@@ -173,7 +163,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           // Ctrl + W - NATIVO (nuevo shortcut)
           if (event.logicalKey == LogicalKeyboardKey.keyW) {
             // Acción para Ctrl + W (puedes definir qué hace)
-            print('🎹 SCREEN Ctrl+W detectado (NATIVO)');
             // TODO: Implementar acción específica para Ctrl + W
             return true;
           }
@@ -181,23 +170,18 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           // Ctrl + Tab - NATIVO (nuevo shortcut)
           if (event.logicalKey == LogicalKeyboardKey.tab) {
             // Acción para Ctrl + Tab (puedes definir qué hace)
-            print('🎹 SCREEN Ctrl+Tab detectado (NATIVO)');
             // TODO: Implementar acción específica para Ctrl + Tab
             return true;
           }
 
           // Ctrl + Enter para procesar venta - NATIVO
           if (event.logicalKey == LogicalKeyboardKey.enter) {
-            print('🔍 SCREEN Enter detectado - Ctrl nativo: $isCtrlPressed');
 
             // ✅ VERIFICACIÓN: Asegurar que no haya focus en TextField
             final focusedWidget =
                 FocusManager.instance.primaryFocus?.context?.widget;
             if (focusedWidget != null &&
                 focusedWidget.toString().contains('TextField')) {
-              print(
-                '🚫 SCREEN Ctrl+Enter cancelado - Focus en campo de búsqueda',
-              );
               return false;
             }
 
@@ -205,18 +189,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             final now = DateTime.now();
             if (_lastEnterEvent != null &&
                 now.difference(_lastEnterEvent!).inMilliseconds < 500) {
-              print(
-                '🚫 SCREEN Ctrl+Enter ignorado - Evento muy reciente (${now.difference(_lastEnterEvent!).inMilliseconds}ms)',
-              );
               return false;
             }
             _lastEnterEvent = now;
 
-            print(
-              '🎹 SCREEN Ctrl+Enter detectado (NATIVO) - canSave: ${controller.canSave}, isSaving: ${controller.isSaving}',
-            );
             if (controller.canSave && !controller.isSaving) {
-              print('🎯 SCREEN Abriendo diálogo de pago...');
               _showPaymentDialog(context, controller);
             }
             return true;
@@ -246,12 +223,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
           event.logicalKey == LogicalKeyboardKey.shiftRight) {
         _isShiftPressed = false;
-        print('🔧 SCREEN Shift LIBERADO');
       }
       if (event.logicalKey == LogicalKeyboardKey.controlLeft ||
           event.logicalKey == LogicalKeyboardKey.controlRight) {
         _isCtrlPressed = false;
-        print('🔧 SCREEN Ctrl LIBERADO');
       }
     }
 
@@ -339,9 +314,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) {
         _scrollToSelected();
-        print(
-          '📜 SCREEN: Scroll automático ejecutado para índice: $_selectedIndex',
-        );
       }
     });
   }
@@ -1299,16 +1271,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               double? paymentCurrencyAmount,
               double? exchangeRate,
             }) async {
-              print('🎯 === PROCESANDO VENTA ===');
-              print('📋 Estado: ${status.displayName}');
-              print('💰 Método: ${paymentMethod.displayName}');
-              print('🖨️ Imprimir: $shouldPrint');
-              print('🏦 Cuenta: $bankAccountId');
-              print('💳 Pagos múltiples: ${multiplePayments?.length ?? 0}');
-              print('📋 Crear crédito: $createCreditForRemaining');
-              print('💰 Saldo aplicado: ${balanceApplied ?? 0}');
               if (paymentCurrency != null) {
-                print('💱 Moneda pago: $paymentCurrency, Monto: $paymentCurrencyAmount, Tasa: $exchangeRate');
               }
 
               try {
@@ -1328,13 +1291,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   exchangeRate: exchangeRate,
                 );
 
-                print('🔍 SCREEN: saveInvoiceWithPayment returned: $success');
-
                 // ✅ SOLO CONTINUAR SI LA OPERACIÓN FUE EXITOSA
                 if (success) {
-                  print(
-                    '✅ SCREEN: Operación exitosa - continuando con limpieza y snackbar',
-                  );
 
                   // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
 
@@ -1345,17 +1303,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     if (tabsController.currentTab != null) {
                       // ✅ NUEVA VALIDACIÓN: Solo cerrar si hay más de una pestaña
                       if (tabsController.tabs.length > 1) {
-                        print(
-                          '🔖 Cerrando pestaña después de procesar venta (quedan ${tabsController.tabs.length - 1} pestañas)...',
-                        );
                         tabsController.closeTab(
                           tabsController.currentTab!.id,
                           forceClose: true,
                         );
                       } else {
-                        print(
-                          '🔖 No se cierra la pestaña: es la única abierta',
-                        );
                         // ✅ Limpiar la factura actual para una nueva venta
                         // y devolver el focus al campo de búsqueda — así
                         // el cajero puede empezar a escanear el siguiente
@@ -1375,7 +1327,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   }
 
                   // ✅ MOSTRAR MENSAJE DE ÉXITO SOLO SI LA OPERACIÓN FUE EXITOSA
-                  print('🎉 SCREEN: Mostrando snackbar de éxito');
                   Get.snackbar(
                     'Venta Procesada',
                     status == InvoiceStatus.draft
@@ -1388,7 +1339,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     duration: const Duration(seconds: 3),
                   );
                 } else {
-                  print('❌ SCREEN: Operación falló - mostrando error al usuario');
                   // El controller llama _showError() cuando hay un ServerFailure,
                   // pero si retorna false por cualquier otra razón sin mostrar nada,
                   // mostramos un snackbar genérico de fallback para que el usuario
@@ -1406,7 +1356,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   }
                 }
               } catch (e) {
-                print('❌ Error al procesar venta: $e');
                 // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
 
                 Get.snackbar(

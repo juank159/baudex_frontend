@@ -83,9 +83,6 @@ class ProductPriceModel {
                 : DateTime.now(),
       );
     } catch (e, stackTrace) {
-      print('❌ Error en ProductPriceModel.fromJson: $e');
-      print('📋 JSON problemático: $json');
-      print('🔍 StackTrace: $stackTrace');
 
       // ✅ AÑADIDO: Retornar objeto por defecto en caso de error crítico
       return ProductPriceModel(
@@ -166,7 +163,6 @@ class ProductPriceModel {
         updatedAt: updatedAt,
       );
     } catch (e) {
-      print('❌ Error al convertir ProductPriceModel a entidad: $e');
 
       // Retornar entidad por defecto en caso de error
       return ProductPrice(
@@ -212,7 +208,6 @@ class ProductPriceModel {
         updatedAt: price.updatedAt,
       );
     } catch (e) {
-      print('❌ Error al convertir ProductPrice a modelo: $e');
       rethrow;
     }
   }
@@ -233,9 +228,6 @@ class ProductPriceModel {
       case 'cost':
         return PriceType.cost;
       default:
-        print(
-          '⚠️ Tipo de precio desconocido: $type, usando price1 por defecto',
-        );
         return PriceType.price1;
     }
   }
@@ -248,9 +240,6 @@ class ProductPriceModel {
       case 'inactive':
         return PriceStatus.inactive;
       default:
-        print(
-          '⚠️ Estado de precio desconocido: $status, usando active por defecto',
-        );
         return PriceStatus.active;
     }
   }
@@ -289,7 +278,6 @@ class ProductPriceModel {
       return (discountPercentage > 0) ||
           (discountAmount != null && discountAmount! > 0);
     } catch (e) {
-      print('❌ Error al verificar descuento: $e');
       return false;
     }
   }
@@ -311,7 +299,6 @@ class ProductPriceModel {
       // Asegurar que el precio final no sea negativo
       return finalPrice < 0 ? 0.0 : finalPrice;
     } catch (e) {
-      print('❌ Error al calcular precio final: $e');
       return amount;
     }
   }
@@ -331,7 +318,6 @@ class ProductPriceModel {
 
       return true;
     } catch (e) {
-      print('❌ Error al verificar si el precio está activo: $e');
       return false;
     }
   }
@@ -359,7 +345,6 @@ class ProductPriceModel {
     try {
       return '$currency ${finalAmount.toStringAsFixed(2)}';
     } catch (e) {
-      print('❌ Error al formatear precio: $e');
       return '$currency 0.00';
     }
   }

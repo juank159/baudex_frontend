@@ -38,7 +38,6 @@ import '../controllers/product_form_controller.dart';
 class ProductBinding implements Bindings {
   @override
   void dependencies() {
-    print('🔧 ProductBinding: Iniciando registro de dependencias...');
 
     try {
       // ==================== STEP 1: VERIFICAR DEPENDENCIAS CORE ====================
@@ -56,20 +55,13 @@ class ProductBinding implements Bindings {
       // ==================== STEP 5: REGISTRAR CONTROLLERS ====================
       _registerControllers();
 
-      print(
-        '✅ ProductBinding: Todas las dependencias registradas exitosamente',
-      );
     } catch (e, stackTrace) {
-      print('💥 ProductBinding: Error durante el registro de dependencias');
-      print('   Error: $e');
-      print('   StackTrace: $stackTrace');
       rethrow;
     }
   }
 
   /// Verificar dependencias core del sistema
   void _verifyCoreDependencies() {
-    print('🔍 ProductBinding: Verificando dependencias core...');
 
     final requiredDependencies = <String, bool>{
       'DioClient': Get.isRegistered<DioClient>(),
@@ -95,18 +87,15 @@ SOLUCIÓN:
 2. Verifica que las dependencias core estén correctamente registradas en InitialBinding
 ''';
 
-      print(errorMsg);
       throw Exception(
         'ProductBinding requiere InitialBinding. Dependencias faltantes: ${missingDependencies.join(', ')}',
       );
     }
 
-    print('✅ ProductBinding: Dependencias core verificadas');
   }
 
   /// Verificar dependencias de categorías (requeridas para ProductFormController)
   void _verifyCategoryDependencies() {
-    print('🔍 ProductBinding: Verificando dependencias de categorías...');
 
     final categoryDependencies = <String, bool>{
       'GetCategoriesUseCase': Get.isRegistered<GetCategoriesUseCase>(),
@@ -121,25 +110,12 @@ SOLUCIÓN:
             .toList();
 
     if (missingCategoryDeps.isNotEmpty) {
-      print('''
-⚠️ ProductBinding Warning: Dependencias de categorías faltantes
-
-Dependencias faltantes: ${missingCategoryDeps.join(', ')}
-
-NOTA: El selector de categorías en ProductFormController tendrá funcionalidad limitada.
-
-SOLUCIÓN RECOMENDADA:
-1. Ejecutar CategoryBinding().dependencies() ANTES de ProductBinding
-2. Orden correcto: InitialBinding → CategoryBinding → ProductBinding
-''');
     } else {
-      print('✅ ProductBinding: Dependencias de categorías verificadas');
     }
   }
 
   /// Registrar capa de datos
   void _registerDataLayer() {
-    print('💾 ProductBinding: Registrando capa de datos...');
 
     // Remote DataSource
     if (!Get.isRegistered<ProductRemoteDataSource>()) {
@@ -147,7 +123,6 @@ SOLUCIÓN RECOMENDADA:
         () => ProductRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
         fenix: true,
       );
-      print('  ✅ ProductRemoteDataSource registrado');
     }
 
     // Local DataSource - ISAR Implementation (offline-first)
@@ -156,7 +131,6 @@ SOLUCIÓN RECOMENDADA:
         () => ProductLocalDataSourceIsar(Get.find<IsarDatabase>()),
         fenix: true,
       );
-      print('  ✅ ProductLocalDataSource (ISAR) registrado');
     }
 
     // Repository
@@ -169,13 +143,11 @@ SOLUCIÓN RECOMENDADA:
         ),
         fenix: true,
       );
-      print('  ✅ ProductRepository registrado');
     }
   }
 
   /// Registrar casos de uso
   void _registerUseCases() {
-    print('🎯 ProductBinding: Registrando casos de uso...');
 
     final repository = Get.find<ProductRepository>();
 
@@ -193,12 +165,10 @@ SOLUCIÓN RECOMENDADA:
     Get.lazyPut(() => UpdateProductStockUseCase(repository), fenix: true);
     Get.lazyPut(() => DeleteProductUseCase(repository), fenix: true);
 
-    print('  ✅ Todos los casos de uso de productos registrados');
   }
 
   /// Registrar controladores
   void _registerControllers() {
-    print('🎮 ProductBinding: Registrando controladores...');
 
     // ProductsController - PERMANENTE para evitar disposal al navegar
     if (!Get.isRegistered<ProductsController>()) {
@@ -214,7 +184,6 @@ SOLUCIÓN RECOMENDADA:
         ),
         permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
       );
-      print('  ✅ ProductsController registrado (permanente)');
     }
 
     // ProductDetailController
@@ -227,7 +196,6 @@ SOLUCIÓN RECOMENDADA:
         ),
         fenix: true,
       );
-      print('  ✅ ProductDetailController registrado');
     }
 
     // ProductFormController (con dependencias de categorías)
@@ -244,7 +212,6 @@ SOLUCIÓN RECOMENDADA:
         ),
         fenix: true, // ✅ USAR fenix: true para evitar disposal prematuro
       );
-      print('  ✅ ProductFormController registrado');
     }
   }
 
@@ -255,13 +222,9 @@ SOLUCIÓN RECOMENDADA:
         return Get.find<GetCategoriesUseCase>();
       } else {
         // Crear una implementación mock si no está disponible
-        print(
-          '⚠️ GetCategoriesUseCase no disponible, usando implementación mock',
-        );
         return _createMockGetCategoriesUseCase();
       }
     } catch (e) {
-      print('⚠️ Error al obtener GetCategoriesUseCase: $e');
       return _createMockGetCategoriesUseCase();
     }
   }
@@ -283,13 +246,9 @@ SOLUCIÓN RECOMENDADA:
         return Get.find<CreateCategoryUseCase>();
       } else {
         // Crear una implementación mock si no está disponible
-        print(
-          '⚠️ CreateCategoryUseCase no disponible, usando implementación mock',
-        );
         return _createMockCreateCategoryUseCase();
       }
     } catch (e) {
-      print('⚠️ Error al obtener CreateCategoryUseCase: $e');
       return _createMockCreateCategoryUseCase();
     }
   }
@@ -304,7 +263,6 @@ SOLUCIÓN RECOMENDADA:
 
   @override
   void onDispose() {
-    print('🧹 ProductBinding: Iniciando limpieza de dependencias...');
 
     try {
       // Controllers
@@ -316,9 +274,7 @@ SOLUCIÓN RECOMENDADA:
       // Data Layer (opcional, ya que son fenix)
       _cleanupDataLayer();
 
-      print('✅ ProductBinding: Limpieza completada exitosamente');
     } catch (e) {
-      print('⚠️ ProductBinding: Error durante limpieza: $e');
     }
   }
 
@@ -326,28 +282,22 @@ SOLUCIÓN RECOMENDADA:
     try {
       if (Get.isRegistered<ProductsController>()) {
         Get.delete<ProductsController>(force: true);
-        print('  🗑️ ProductsController eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando ProductsController: $e');
     }
 
     try {
       if (Get.isRegistered<ProductDetailController>()) {
         Get.delete<ProductDetailController>(force: true);
-        print('  🗑️ ProductDetailController eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando ProductDetailController: $e');
     }
 
     try {
       if (Get.isRegistered<ProductFormController>()) {
         Get.delete<ProductFormController>(force: true);
-        print('  🗑️ ProductFormController eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando ProductFormController: $e');
     }
   }
 
@@ -381,9 +331,7 @@ SOLUCIÓN RECOMENDADA:
     for (int i = 0; i < useCases.length; i++) {
       try {
         useCases[i]();
-        print('  🗑️ ${names[i]} eliminado');
       } catch (e) {
-        print('  ⚠️ Error eliminando ${names[i]}: $e');
       }
     }
   }
@@ -392,28 +340,22 @@ SOLUCIÓN RECOMENDADA:
     try {
       if (Get.isRegistered<ProductRepository>()) {
         Get.delete<ProductRepository>(force: true);
-        print('  🗑️ ProductRepository eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando ProductRepository: $e');
     }
 
     try {
       if (Get.isRegistered<ProductRemoteDataSource>()) {
         Get.delete<ProductRemoteDataSource>(force: true);
-        print('  🗑️ ProductRemoteDataSource eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando ProductRemoteDataSource: $e');
     }
 
     try {
       if (Get.isRegistered<ProductLocalDataSource>()) {
         Get.delete<ProductLocalDataSource>(force: true);
-        print('  🗑️ ProductLocalDataSource eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando ProductLocalDataSource: $e');
     }
   }
 
@@ -431,7 +373,6 @@ SOLUCIÓN RECOMENDADA:
 
   /// Verificar dependencias específicas
   static void verifyDependencies() {
-    print('🔍 Verificando dependencias del módulo Products...');
 
     final dependencies = {
       // Core Dependencies
@@ -458,7 +399,6 @@ SOLUCIÓN RECOMENDADA:
 
     dependencies.forEach((name, isRegistered) {
       final status = isRegistered ? '✅' : '❌';
-      print('   $status $name');
     });
 
     final allCoreRegistered = [
@@ -473,8 +413,6 @@ SOLUCIÓN RECOMENDADA:
             ? '✅ DEPENDENCIAS CORE REGISTRADAS'
             : '❌ FALTAN DEPENDENCIAS CORE';
 
-    print('📋 Estado: $statusMsg');
-    print('🔍 Verificación completada');
   }
 
   /// Obtener información de estado para debugging
@@ -499,7 +437,5 @@ SOLUCIÓN RECOMENDADA:
   /// Imprimir información de debugging
   static void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 ProductBinding Debug Info:');
-    print('   ${info.toString()}');
   }
 }

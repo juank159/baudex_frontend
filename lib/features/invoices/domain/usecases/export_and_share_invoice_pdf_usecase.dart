@@ -27,14 +27,12 @@ class ExportAndShareInvoicePdfUseCase {
     bool shareDirectly = true,
   }) async {
     try {
-      print('📄 ExportAndShareInvoicePdfUseCase: Iniciando para factura $invoiceNumber');
 
       // 1. Descargar PDF desde el backend
       final result = await repository.downloadInvoicePdf(invoiceId);
 
       return result.fold(
         (failure) {
-          print('❌ Error al descargar PDF: $failure');
           return Left(failure);
         },
         (pdfBytes) async {
@@ -42,8 +40,6 @@ class ExportAndShareInvoicePdfUseCase {
             // 2. Guardar PDF en archivo temporal
             final fileName = 'Factura-$invoiceNumber.pdf';
             final filePath = await _savePdfToFile(pdfBytes, fileName);
-
-            print('✅ PDF guardado en: $filePath');
 
             if (shareDirectly) {
               // 3. Compartir usando share_plus
@@ -53,21 +49,17 @@ class ExportAndShareInvoicePdfUseCase {
                 subject: 'Factura $invoiceNumber - Baudex',
               );
 
-              print('✅ PDF compartido: ${shareResult.status}');
               return Right(shareResult);
             } else {
               // Solo descargado, no compartir
-              print('✅ PDF descargado sin compartir');
               return const Right(null);
             }
           } catch (e) {
-            print('❌ Error al guardar/compartir PDF: $e');
             return Left(CacheFailure('Error al procesar PDF: $e'));
           }
         },
       );
     } catch (e) {
-      print('❌ Error inesperado en ExportAndShareInvoicePdfUseCase: $e');
       return Left(ServerFailure('Error inesperado al exportar PDF: $e'));
     }
   }
@@ -93,7 +85,6 @@ class ExportAndShareInvoicePdfUseCase {
 
       return filePath;
     } catch (e) {
-      print('❌ Error al guardar PDF en archivo: $e');
       rethrow;
     }
   }
@@ -113,7 +104,6 @@ class ExportAndShareInvoicePdfUseCase {
       }
       return null;
     } catch (e) {
-      print('❌ Error al buscar PDF: $e');
       return null;
     }
   }

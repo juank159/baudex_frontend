@@ -64,7 +64,6 @@ class InvoiceTabsController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    print('🔖 InvoiceTabsController: Inicializando...');
 
     // ✅ LIMPIAR CONTROLADOR SIN TAG QUE PUEDA EXISTIR DEL WRAPPER
     _cleanupGlobalController();
@@ -76,18 +75,14 @@ class InvoiceTabsController extends GetxController
   void _cleanupGlobalController() {
     try {
       if (Get.isRegistered<InvoiceFormController>()) {
-        print('🧹 Limpiando InvoiceFormController global sin tag...');
         Get.delete<InvoiceFormController>();
-        print('✅ InvoiceFormController global eliminado');
       }
     } catch (e) {
-      print('⚠️ Error al limpiar controlador global: $e');
     }
   }
 
   @override
   void onClose() {
-    print('🔖 InvoiceTabsController: Cerrando...');
     _disposeAllTabs();
     _tabController?.dispose();
     super.onClose();
@@ -96,7 +91,6 @@ class InvoiceTabsController extends GetxController
   // ==================== INICIALIZACIÓN ====================
 
   void _initializeWithFirstTab() {
-    print('🔖 Inicializando con primera pestaña...');
     addNewTab();
     _isInitialized.value = true;
   }
@@ -128,8 +122,6 @@ class InvoiceTabsController extends GetxController
       return '';
     }
 
-    print('🔖 Agregando nueva pestaña...');
-
     final tabId = DateTime.now().millisecondsSinceEpoch.toString();
     final isEdit = invoiceId != null;
 
@@ -154,12 +146,8 @@ class InvoiceTabsController extends GetxController
 
       _updateTabController();
 
-      print('✅ Pestaña agregada: ${tab.title} (ID: $tabId)');
-      print('🔖 DEBUG: Tabs list length: ${_tabs.length}');
-      print('🔖 DEBUG: Current tab index: ${_currentTabIndex.value}');
       return tabId;
     } catch (e) {
-      print('💥 Error al crear pestaña: $e');
       _showError('Error', 'No se pudo crear la nueva pestaña');
       return '';
     }
@@ -170,7 +158,6 @@ class InvoiceTabsController extends GetxController
     if (tabIndex == -1) return;
 
     final tab = _tabs[tabIndex];
-    print('🔖 Cerrando pestaña: ${tab.title}');
 
     // Verificar si hay cambios sin guardar (verificar si hay items en la factura)
     if (!forceClose && tab.controller.invoiceItems.isNotEmpty) {
@@ -196,7 +183,6 @@ class InvoiceTabsController extends GetxController
       _updateTabController();
     }
 
-    print('✅ Pestaña cerrada. Pestañas restantes: ${_tabs.length}');
   }
 
   void switchToTab(int index) {
@@ -303,7 +289,6 @@ class InvoiceTabsController extends GetxController
         tag: tabId,
       );
     } catch (e) {
-      print('💥 Error específico al crear controlador de pestaña: $e');
       rethrow;
     }
   }
@@ -312,7 +297,6 @@ class InvoiceTabsController extends GetxController
     try {
       return Get.find<T>();
     } catch (e) {
-      print('⚠️ Dependencia opcional no encontrada: ${T.toString()}');
       return null;
     }
   }
@@ -321,7 +305,6 @@ class InvoiceTabsController extends GetxController
     try {
       Get.delete<InvoiceFormController>(tag: tab.id);
     } catch (e) {
-      print('⚠️ Error al liberar controlador de pestaña: $e');
     }
   }
 
@@ -396,15 +379,8 @@ class InvoiceTabsController extends GetxController
   // ==================== INFORMACIÓN DEBUG ====================
 
   void printTabsInfo() {
-    print('🔖 === ESTADO DE PESTAÑAS ===');
-    print('🔖 Total pestañas: ${_tabs.length}');
-    print('🔖 Pestaña actual: ${_currentTabIndex.value}');
     for (int i = 0; i < _tabs.length; i++) {
       final tab = _tabs[i];
-      print(
-        '🔖 [$i] ${tab.title} (${tab.id}) - Items: ${tab.controller.invoiceItems.length}',
-      );
     }
-    print('🔖 ========================');
   }
 }

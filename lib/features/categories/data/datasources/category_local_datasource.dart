@@ -152,9 +152,7 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
 
           await isar.isarCategorys.put(isarCategory);
         });
-        print('✅ Category guardado en ISAR: ${category.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (fallback legacy)
@@ -177,24 +175,20 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
         final existingIndex = categories.indexWhere((c) => c.id == category.id);
         if (existingIndex >= 0) {
           categories[existingIndex] = category;
-          print('📝 Categoría actualizada en lista principal: ${category.name}');
         } else {
           categories.add(category);
-          print('➕ Categoría agregada a lista principal: ${category.name}');
         }
 
         // Guardar lista actualizada
         final categoriesJson = categories.map((c) => c.toJson()).toList();
         await storageService.write(_categoriesKey, json.encode(categoriesJson));
       } catch (e) {
-        print('⚠️ Error actualizando lista principal (solo cache individual guardado): $e');
       }
 
       await _updateCacheTimestamp();
     } catch (e) {
       // Fallar silenciosamente en lugar de lanzar excepción
       // Esto permite que la app funcione aunque el cache no esté disponible
-      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
@@ -237,10 +231,8 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
           // Guardar lista actualizada
           final updatedCategoriesJson = categories.map((c) => c.toJson()).toList();
           await storageService.write(_categoriesKey, json.encode(updatedCategoriesJson));
-          print('🗑️ Categoría eliminada de lista principal: $id');
         }
       } catch (e) {
-        print('⚠️ Error eliminando de lista principal (solo cache individual eliminado): $e');
       }
     } catch (e) {
       throw CacheException('Error al eliminar categoría del cache: $e');
@@ -295,7 +287,6 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
       await storageService.write(_cacheTimestampKey, now);
     } catch (e) {
       // No lanzar excepción si falla guardar timestamp
-      print('Error al actualizar timestamp del cache: $e');
     }
   }
 

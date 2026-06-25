@@ -481,7 +481,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       // Primero intentar encontrar el controlador existente
       if (Get.isRegistered<BankAccountsController>()) {
         _bankAccountsController = Get.find<BankAccountsController>();
-        print('✅ BankAccountsController encontrado');
 
         // Cargar cuentas si no están cargadas
         if (_bankAccountsController!.bankAccounts.isEmpty) {
@@ -489,11 +488,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         }
       } else {
         // Si no está registrado, intentar inicializar el binding
-        print('🔄 Inicializando BankAccountsBinding...');
         _initBankAccountsBinding();
       }
     } catch (e) {
-      print('⚠️ Error obteniendo BankAccountsController: $e');
       _initBankAccountsBinding();
     }
   }
@@ -507,14 +504,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       // Ahora intentar obtener el controlador
       if (Get.isRegistered<BankAccountsController>()) {
         _bankAccountsController = Get.find<BankAccountsController>();
-        print('✅ BankAccountsController inicializado correctamente');
 
         // Cargar las cuentas bancarias
         _bankAccountsController!.loadBankAccounts();
       }
     } catch (e) {
-      print('⚠️ No se pudo inicializar BankAccountsController: $e');
-      print('💡 Las cuentas bancarias no estarán disponibles');
     }
   }
 
@@ -522,7 +516,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   Future<void> _loadClientBalance() async {
     // Solo cargar si tiene customerId y no es cliente por defecto
     if (widget.customerId == null || widget.isDefaultCustomer) {
-      print('💰 Sin customerId o es cliente por defecto - no se verifica saldo a favor');
       return;
     }
 
@@ -536,7 +529,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         creditController = Get.find<CustomerCreditController>();
       } else {
         // Inicializar el binding si no está registrado
-        print('🔄 Inicializando CustomerCreditBinding...');
         CustomerCreditBinding().dependencies();
         if (Get.isRegistered<CustomerCreditController>()) {
           creditController = Get.find<CustomerCreditController>();
@@ -551,11 +543,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             // Por defecto, aplicar el máximo posible (min entre saldo y total)
             _balanceToApply = _availableBalance > widget.total ? widget.total : _availableBalance;
           });
-          print('💰 Saldo a favor disponible: ${AppFormatters.formatCurrency(_availableBalance)}');
         }
       }
     } catch (e) {
-      print('⚠️ Error al cargar saldo a favor: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoadingBalance = false);
@@ -578,7 +568,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         }
       }
     } catch (e) {
-      print('⚠️ Error leyendo OrganizationController: $e');
     }
 
     // 2. Fallback: leer de ISAR directo (offline-first)
@@ -599,7 +588,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         });
       }
     } catch (e) {
-      print('⚠️ Error leyendo config multi-moneda de ISAR: $e');
     }
   }
 

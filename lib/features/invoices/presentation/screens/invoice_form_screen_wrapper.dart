@@ -44,11 +44,9 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
 
   Future<void> _initializeWithRealDependencies() async {
     try {
-      print('🚀 [WRAPPER] Inicializando con dependencias reales...');
 
       // Verificar si ya existe el controlador
       if (Get.isRegistered<InvoiceFormController>()) {
-        print('ℹ️ [WRAPPER] InvoiceFormController ya existe');
         setState(() {
           _isInitialized = true;
           _isLoading = false;
@@ -70,9 +68,7 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
         _isLoading = false;
       });
 
-      print('✅ [WRAPPER] Inicialización completada exitosamente');
     } catch (e) {
-      print('❌ [WRAPPER] Error en inicialización: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -81,34 +77,28 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
   }
 
   Future<void> _initializeBindings() async {
-    print('🔧 [WRAPPER] Inicializando bindings...');
 
     // Inicializar CustomerBinding si no está inicializado
     if (!Get.isRegistered<GetCustomersUseCase>()) {
-      print('👥 [WRAPPER] Inicializando CustomerBinding...');
       CustomerBinding().dependencies();
       await Future.delayed(const Duration(milliseconds: 50));
     }
 
     // Inicializar ProductBinding si no está inicializado
     if (!Get.isRegistered<GetProductsUseCase>()) {
-      print('📦 [WRAPPER] Inicializando ProductBinding...');
       ProductBinding().dependencies();
       await Future.delayed(const Duration(milliseconds: 50));
     }
 
     // Inicializar InvoiceBinding si no está inicializado
     if (!Get.isRegistered<CreateInvoiceUseCase>()) {
-      print('📄 [WRAPPER] Inicializando InvoiceBinding...');
       InvoiceBinding().dependencies();
       await Future.delayed(const Duration(milliseconds: 50));
     }
 
-    print('✅ [WRAPPER] Bindings inicializados');
   }
 
   Future<void> _createControllerWithRealDependencies() async {
-    print('⚡ [WRAPPER] Creando controlador con dependencias reales...');
 
     // Obtener use cases de forma segura
     final getCustomersUseCase = _getUseCaseSafely<GetCustomersUseCase>();
@@ -121,24 +111,6 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
     final createInvoiceUseCase = Get.find<CreateInvoiceUseCase>();
     final updateInvoiceUseCase = Get.find<UpdateInvoiceUseCase>();
     final getInvoiceByIdUseCase = Get.find<GetInvoiceByIdUseCase>();
-
-    print('🔍 [WRAPPER] Estado de dependencias:');
-    print('   - CreateInvoiceUseCase: ✅');
-    print('   - UpdateInvoiceUseCase: ✅');
-    print('   - GetInvoiceByIdUseCase: ✅');
-    print(
-      '   - GetCustomersUseCase: ${getCustomersUseCase != null ? "✅" : "❌"}',
-    );
-    print(
-      '   - SearchCustomersUseCase: ${searchCustomersUseCase != null ? "✅" : "❌"}',
-    );
-    print(
-      '   - GetCustomerByIdUseCase: ${getCustomerByIdUseCase != null ? "✅" : "❌"}',
-    );
-    print('   - GetProductsUseCase: ${getProductsUseCase != null ? "✅" : "❌"}');
-    print(
-      '   - SearchProductsUseCase: ${searchProductsUseCase != null ? "✅" : "❌"}',
-    );
 
     // Crear controlador con todas las dependencias disponibles
     Get.put(
@@ -156,7 +128,6 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
       ),
     );
 
-    print('✅ [WRAPPER] InvoiceFormController creado con dependencias reales');
   }
 
   T? _getUseCaseSafely<T>() {
@@ -164,11 +135,9 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
       if (Get.isRegistered<T>()) {
         return Get.find<T>();
       } else {
-        print('⚠️ [WRAPPER] UseCase ${T.toString()} no está registrado');
         return null;
       }
     } catch (e) {
-      print('⚠️ [WRAPPER] Error al obtener ${T.toString()}: $e');
       return null;
     }
   }
@@ -269,7 +238,6 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
     // Limpiar el controlador cuando se destruya el wrapper
     if (Get.isRegistered<InvoiceFormController>()) {
       Get.delete<InvoiceFormController>();
-      print('🧹 [WRAPPER] InvoiceFormController limpiado');
     }
     super.dispose();
   }

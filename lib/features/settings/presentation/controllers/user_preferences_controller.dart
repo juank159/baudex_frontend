@@ -72,7 +72,6 @@ class UserPreferencesController extends GetxController
         (failure) {
           // No mostrar snackbar si es error de cache/conexión — los getters
           // ya tienen valores por defecto seguros (autoDeductInventory ?? true, etc.)
-          print('⚠️ UserPreferences: ${failure.message} — usando valores por defecto');
         },
         (preferences) {
           _userPreferences.value = preferences;

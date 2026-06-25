@@ -88,12 +88,9 @@ class InitialBinding implements Bindings {
   @override
   void dependencies() {
     if (_initialized) {
-      print('⚠️ InitialBinding: Ya inicializado, omitiendo...');
       return;
     }
     _initialized = true;
-
-    print('🚀 SimpleAppBinding: Iniciando dependencias básicas offline-first...');
 
     // ==================== CORE DEPENDENCIES ====================
     _registerCoreDependencies();
@@ -159,11 +156,9 @@ class InitialBinding implements Bindings {
     // lo lee. Tolerante a fallas: si Isar falla escribir, el sync sigue.
     Get.lazyPut<SyncEventLogService>(() => SyncEventLogService(), fenix: true);
 
-    print('✅ SimpleAppBinding: Dependencias básicas registradas exitosamente');
   }
 
   void _registerCoreDependencies() {
-    print('📦 Registrando dependencias core básicas...');
 
     // External dependencies
     Get.lazyPut<Dio>(() => Dio(), fenix: true);
@@ -190,20 +185,16 @@ class InitialBinding implements Bindings {
     // UI Controllers
     Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);
 
-    print('✅ Dependencias core básicas registradas');
   }
 
   void _registerOfflineInfrastructure() {
-    print('💾 Registrando infraestructura offline básica...');
 
     // ISAR Database (singleton)
     Get.put<IsarDatabase>(IsarDatabase.instance, permanent: true);
 
-    print('✅ Infraestructura offline básica registrada');
   }
 
   void _registerOfflineRepositories() {
-    print('📦 Registrando repositorios offline-first...');
 
     // Dashboard - Local DataSource
     Get.lazyPut<DashboardLocalDataSource>(
@@ -480,11 +471,9 @@ class InitialBinding implements Bindings {
       fenix: true,
     );
 
-    print('✅ Repositorios offline-first registrados');
   }
 
   void _registerAuthController() {
-    print('🔐 Registrando sistema de autenticación completo...');
 
     // Usar AuthBindingStub para registrar todo el sistema de auth
     AuthBindingStub().dependencies();
@@ -495,31 +484,24 @@ class InitialBinding implements Bindings {
       Get.put<SimpleAuthController>(authController, permanent: true);
     }
 
-    print('✅ Sistema de autenticación completo registrado');
   }
 
   void _registerSettingsController() {
-    print('⚙️ Registrando SettingsController globalmente...');
 
     // Importar SettingsBinding para registrar sus dependencias
     try {
       // Usar el método estático del SettingsBinding para registrar solo el controlador
       final settingsBinding = SettingsBinding();
       settingsBinding.dependencies();
-      print('✅ SettingsController registrado globalmente');
     } catch (e) {
-      print('⚠️ Error al registrar SettingsController: $e');
     }
   }
 
   void _registerSyncService() {
     // Guard: evitar doble inicialización si dependencies() se llama más de una vez
     if (Get.isRegistered<SyncService>()) {
-      print('🔄 SyncService ya registrado, omitiendo...');
       return;
     }
-
-    print('🔄 Registrando servicio de sincronización offline-first...');
 
     // SyncService requiere IsarDatabase como dependencia
     final syncService = SyncService(Get.find<IsarDatabase>());
@@ -531,18 +513,14 @@ class InitialBinding implements Bindings {
     // IMPORTANTE: GetxService no llama onInit() automáticamente, debemos llamarlo manualmente
     syncService.onInit();
 
-    print('✅ Servicio de sincronización offline-first registrado e inicializado');
-
     // FullSyncService - Descarga completa del servidor a ISAR (post-login)
     Get.lazyPut<FullSyncService>(
       () => FullSyncService(Get.find<IsarDatabase>()),
       fenix: true,
     );
-    print('✅ FullSyncService registrado');
   }
 
   void _registerConflictResolver() {
-    print('⚔️ Registrando servicio de resolución de conflictos...');
 
     // ConflictResolver como servicio permanente
     Get.put<ConflictResolver>(
@@ -550,11 +528,9 @@ class InitialBinding implements Bindings {
       permanent: true,
     );
 
-    print('✅ Servicio de resolución de conflictos registrado');
   }
 
   void _registerIdempotencyService() {
-    print('🔑 Registrando servicio de idempotencia...');
 
     // IdempotencyService como servicio permanente
     Get.put<IdempotencyService>(
@@ -562,11 +538,9 @@ class InitialBinding implements Bindings {
       permanent: true,
     );
 
-    print('✅ Servicio de idempotencia registrado');
   }
 
   void _registerConflictResolutionService() {
-    print('⚔️ Registrando servicio de resolución de conflictos...');
 
     // ConflictResolutionService como servicio permanente
     Get.put<ConflictResolutionService>(
@@ -574,11 +548,9 @@ class InitialBinding implements Bindings {
       permanent: true,
     );
 
-    print('✅ Servicio de resolución de conflictos registrado');
   }
 
   void _registerAtomicTransactionHelper() {
-    print('⚛️ Registrando helper de transacciones atómicas...');
 
     // AtomicTransactionHelper para operaciones compuestas
     Get.lazyPut<AtomicTransactionHelper>(
@@ -586,26 +558,20 @@ class InitialBinding implements Bindings {
       fenix: true, // Recrear si se elimina
     );
 
-    print('✅ Helper de transacciones atómicas registrado');
   }
 
   void _registerAudioService() {
-    print('🔊 Registrando servicio de notificaciones de audio...');
 
     // AudioNotificationService inicialización asíncrona
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AudioNotificationService.instance.initialize().then((_) {
-        print('✅ Servicio de audio TTS inicializado correctamente');
       }).catchError((e) {
-        print('⚠️ Error al inicializar servicio de audio: $e');
       });
     });
 
-    print('✅ Servicio de notificaciones de audio registrado');
   }
 
   void _registerSubscriptionServices() {
-    print('📋 Registrando servicios de suscripción...');
 
     try {
       // Subscription Offline Policy Service
@@ -617,9 +583,7 @@ class InitialBinding implements Bindings {
       // Usar el binding permanente para registrar todos los servicios de suscripción
       SubscriptionPermanentBinding.init();
 
-      print('✅ Servicios de suscripción registrados');
     } catch (e) {
-      print('⚠️ Error al registrar servicios de suscripción: $e');
     }
   }
 
@@ -663,9 +627,7 @@ class InitialBinding implements Bindings {
         permanent: true,
       );
 
-      print('✅ UserPreferencesController registrado permanentemente');
     } catch (e) {
-      print('⚠️ Error al registrar UserPreferences: $e');
     }
   }
 }

@@ -38,7 +38,6 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
   /// Asegura que las dependencias del feature estén registradas
   void _ensureDependencies() {
     if (!Get.isRegistered<GetCreditNotesByInvoice>()) {
-      print('🔧 Inicializando dependencias de CreditNotes...');
       CreditNoteBinding().dependencies();
     }
   }
@@ -48,7 +47,6 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
 
     try {
       if (!Get.isRegistered<GetCreditNotesByInvoice>()) {
-        print('⚠️  GetCreditNotesByInvoice no está registrado');
         _isLoading.value = false;
         return;
       }
@@ -58,11 +56,9 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar notas de crédito: ${failure.message}');
         },
         (creditNotes) {
           _creditNotes.value = creditNotes;
-          print('✅ ${creditNotes.length} notas de crédito cargadas');
         },
       );
     } finally {
@@ -71,7 +67,6 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
   }
 
   void _navigateToCreateCreditNote() {
-    print('📝 Navegando a crear nota de crédito para factura: ${widget.invoiceId}');
 
     // Navegar con el binding que inicializa todas las dependencias automáticamente
     Get.to(
@@ -80,7 +75,6 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
       arguments: {'invoiceId': widget.invoiceId},
     )?.then((_) {
       // Recargar las notas de crédito al regresar
-      print('🔄 Regresando de crear nota de crédito, recargando lista...');
       _loadCreditNotes();
     });
   }
@@ -88,12 +82,10 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
   /// Navega a la pantalla de "Cambio de producto" — devolución parcial
   /// + factura nueva en una sola operación.
   void _navigateToProductExchange() {
-    print('🔄 Navegando a cambio de producto para factura: ${widget.invoiceId}');
     Get.toNamed(
       AppRoutes.productExchange,
       arguments: {'invoiceId': widget.invoiceId},
     )?.then((_) {
-      print('🔄 Regresando de cambio de producto, recargando lista...');
       _loadCreditNotes();
     });
   }

@@ -388,7 +388,6 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
   void _log(String message) {
     if (_enableDebugLogs) {
       // ignore: avoid_print
-      print('🛡️ CustomTextFieldSafe ($_controllerDebugLabel): $message');
     }
   }
 }

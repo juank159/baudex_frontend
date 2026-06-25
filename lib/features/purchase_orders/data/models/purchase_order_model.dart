@@ -78,7 +78,6 @@ class PurchaseOrderModel {
     return value.toString();
   }
 
-
   final List<PurchaseOrderItemModel>? items;
   final String? notes;
   final String? internalNotes;
@@ -176,8 +175,6 @@ class PurchaseOrderModel {
 
       return _$PurchaseOrderModelFromJson(modifiedJson);
     } catch (e) {
-      print('❌ Error en PurchaseOrderModel.fromJson: $e');
-      print('📋 JSON recibido: $json');
       rethrow;
     }
   }
@@ -186,14 +183,11 @@ class PurchaseOrderModel {
 
   PurchaseOrder toEntity() {
     try {
-      print('🔍 Convirtiendo model a entity - ID: $id');
-      print('🔍 Fechas: orderDate=$orderDate, expectedDeliveryDate=$expectedDeliveryDate');
       
       final parsedOrderDate = orderDate != null && orderDate!.isNotEmpty ? DateTime.parse(orderDate!) : null;
       final parsedExpectedDeliveryDate = expectedDeliveryDate != null && expectedDeliveryDate!.isNotEmpty ? DateTime.parse(expectedDeliveryDate!) : null;
       final parsedDeliveredDate = deliveredDate != null && deliveredDate!.isNotEmpty ? DateTime.parse(deliveredDate!) : null;
       
-      print('🔍 Fechas parseadas correctamente');
       
       // Procesar items y extraer información de damaged/missing desde batches
       final entityItems = <PurchaseOrderItem>[];
@@ -209,7 +203,6 @@ class PurchaseOrderModel {
               final batchInfo = PurchaseOrderItemModel._extractDamagedMissingFromBatch(batches![i]);
               damagedQty = batchInfo['damaged'];
               missingQty = batchInfo['missing'];
-              print('🔍 Extraído de batch para item $i: damaged=$damagedQty, missing=$missingQty');
             }
           }
           
@@ -220,7 +213,6 @@ class PurchaseOrderModel {
         }
       }
       
-      print('🔍 Items convertidos: ${entityItems.length}');
       
       return PurchaseOrder(
         id: id,
@@ -255,9 +247,6 @@ class PurchaseOrderModel {
         exchangeRate: exchangeRate,
       );
     } catch (e) {
-      print('❌ Error en PurchaseOrderModel.toEntity(): $e');
-      print('📋 Datos del modelo: {id: $id, orderNumber: $orderNumber, status: $status}');
-      print('📋 Fechas: orderDate=$orderDate, expectedDeliveryDate=$expectedDeliveryDate');
       rethrow;
     }
   }
@@ -443,8 +432,6 @@ class PurchaseOrderItemModel {
         updatedAt: updatedAt != null && updatedAt!.isNotEmpty ? DateTime.parse(updatedAt!) : DateTime.now(),
       );
     } catch (e) {
-      print('❌ Error en PurchaseOrderItemModel.toEntity(): $e');
-      print('📋 Item data: {id: $id, productId: $productId, quantity: $quantity}');
       rethrow;
     }
   }
@@ -472,7 +459,6 @@ class PurchaseOrderItemModel {
         }
       }
     } catch (e) {
-      print('⚠️ Error extracting damaged/missing from batch metadata: $e');
     }
     
     return result;

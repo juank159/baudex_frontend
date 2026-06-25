@@ -16,8 +16,6 @@ class EnvConfig {
       // Determinar qué archivo .env cargar
       String envFile = _getEnvFileName();
 
-      print('🔧 Cargando configuración desde: $envFile');
-
       // Cargar el archivo de entorno
       await dotenv.load(fileName: envFile);
 
@@ -26,8 +24,6 @@ class EnvConfig {
       // Mostrar configuración cargada
       printCurrentConfig();
     } catch (e) {
-      print('❌ Error cargando configuración: $e');
-      print('📋 Usando configuración por defecto');
       _setDefaultValues();
       _isInitialized = true;
     }
@@ -48,7 +44,6 @@ class EnvConfig {
   /// Establecer valores por defecto si no se puede cargar .env
   static void _setDefaultValues() {
     // Solo para casos de emergencia
-    print('⚠️ Usando valores por defecto');
   }
 
   // ===========================================
@@ -61,7 +56,6 @@ class EnvConfig {
     final ip = dotenv.env['SERVER_IP'] ?? _getDefaultServerIP();
     if (_cachedServerIP != ip) {
       _cachedServerIP = ip;
-      print('🌐 Usando Server IP: $ip');
     }
     return ip;
   }
@@ -185,8 +179,6 @@ class EnvConfig {
   /// Actualizar IP del servidor en tiempo de ejecución
   static void updateServerIP(String newIP) {
     dotenv.env['SERVER_IP'] = newIP;
-    print('🔄 IP del servidor actualizada a: $newIP');
-    print('🌐 Nueva URL base: $baseUrl');
   }
 
   /// Verificar si la configuración está inicializada
@@ -196,29 +188,6 @@ class EnvConfig {
   static void printCurrentConfig() {
     if (!showLogs) return;
 
-    print('');
-    print('🚀 ============================================');
-    print('📱 CONFIGURACIÓN BAUDEX DESKTOP');
-    print('🚀 ============================================');
-    print('🌐 Servidor:');
-    print('   • IP: $serverIP');
-    print('   • Puerto: $serverPort');
-    print('   • URL Base: $baseUrl');
-    print('   • URL Servidor: $serverUrl');
-    print('');
-    print('⚙️  Aplicación:');
-    print('   • Nombre: $appName');
-    print('   • Versión: $appVersion');
-    print('   • Entorno: $environment');
-    print('   • Plataforma: ${Platform.operatingSystem}');
-    print('');
-    print('🔧 Configuración:');
-    print('   • Debug Mode: $debugMode');
-    print('   • Show Logs: $showLogs');
-    print('   • API Timeout: ${apiTimeout}ms');
-    print('   • Es Producción: $isProduction');
-    print('🚀 ============================================');
-    print('');
   }
 
   /// Validar que la configuración sea correcta
@@ -226,19 +195,15 @@ class EnvConfig {
     try {
       // Verificar que los valores esenciales estén presentes
       if (serverIP.isEmpty) {
-        print('❌ Error: SERVER_IP no está configurado');
         return false;
       }
 
       if (serverPort <= 0 || serverPort > 65535) {
-        print('❌ Error: SERVER_PORT inválido ($serverPort)');
         return false;
       }
 
-      print('✅ Configuración válida');
       return true;
     } catch (e) {
-      print('❌ Error validando configuración: $e');
       return false;
     }
   }

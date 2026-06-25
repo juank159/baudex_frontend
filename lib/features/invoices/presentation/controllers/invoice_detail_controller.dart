@@ -52,7 +52,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
        _cancelInvoiceUseCase = cancelInvoiceUseCase,
        _deleteInvoiceUseCase = deleteInvoiceUseCase,
        _exportAndShareInvoicePdfUseCase = exportAndShareInvoicePdfUseCase {
-    print('🎮 InvoiceDetailController: Instancia creada correctamente');
   }
 
   // ==================== OBSERVABLES ====================
@@ -124,15 +123,11 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   void onInit() {
     super.onInit();
     setupSyncListener();
-    print('🚀 InvoiceDetailController: Inicializando...');
-    print('🔍 ID de factura recibido: $invoiceId');
-    print('🔍 Ruta actual en onInit: ${Get.currentRoute}');
 
     if (invoiceId.isNotEmpty) {
       loadInvoice();
     } else {
       _showError('Error', 'ID de factura no válido');
-      print('❌ ID de factura no válido, EVITANDO Get.back() automático');
       // ✅ SOLUCIÓN: No hacer Get.back() automático para evitar [GETX] Redirect to null
       // Get.back();
     }
@@ -147,13 +142,10 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
   @override
   void onClose() {
-    print('🔚 InvoiceDetailController: Liberando recursos...');
     
     try {
       _disposeControllers();
-      print('✅ InvoiceDetailController: Controladores liberados exitosamente');
     } catch (e) {
-      print('⚠️ Error liberando controladores: $e');
     }
     
     super.onClose();
@@ -165,7 +157,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   Future<void> loadInvoice() async {
     try {
       _isLoading.value = true;
-      print('📋 Cargando factura: $invoiceId');
 
       final result = await _getInvoiceByIdUseCase(
         GetInvoiceByIdParams(id: invoiceId),
@@ -189,33 +180,20 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar factura: ${failure.message}');
           _showError('Error al cargar factura', failure.message);
           // ✅ SOLUCIÓN TEMPORAL: Comentar Get.back() para investigar redirect
           // Get.back();
-          print('⚠️ Get.back() comentado temporalmente para debug');
         },
         (loadedInvoice) {
-          print('🔍 DEBUG DETALLE: === FACTURA CARGADA ===');
-          print('🔍 DEBUG DETALLE: ID: ${loadedInvoice.id}');
-          print('🔍 DEBUG DETALLE: Número: ${loadedInvoice.number}');
-          print('🔍 DEBUG DETALLE: Cliente: ${loadedInvoice.customerName}');
-          print('🔍 DEBUG DETALLE: Items: ${loadedInvoice.items.length}');
-          print('🔍 DEBUG DETALLE: Total: ${loadedInvoice.total}');
-          print('🔍 DEBUG DETALLE: === FIN DEBUG ===');
 
           _invoice.value = loadedInvoice;
           update(); // ✅ AGREGAR ESTA LÍNEA PARA FORZAR ACTUALIZACIÓN DE UI
-          print('✅ Factura cargada: ${loadedInvoice.number}');
-          print('🔍 RUTA ACTUAL AL FINALIZAR CARGA: ${Get.currentRoute}');
 
           // ✅ VERIFICACIÓN: Agregar delay para detectar redirects inesperados
           Future.delayed(const Duration(milliseconds: 500), () {
-            print('🔍 RUTA DESPUÉS DE 500ms: ${Get.currentRoute}');
           });
 
           Future.delayed(const Duration(milliseconds: 1000), () {
-            print('🔍 RUTA DESPUÉS DE 1000ms: ${Get.currentRoute}');
           });
         },
       );
@@ -226,14 +204,12 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
   /// Refrescar factura
   Future<void> refreshInvoice() async {
-    print('🔄 Refrescando factura...');
     await loadInvoice();
   }
 
   // ✅ NUEVO: Método para cambiar tabs
   void switchTab(int index) {
     _selectedTab.value = index;
-    print('📱 Tab cambiado a: $index');
   }
 
   // ==================== INVOICE ACTIONS ====================
@@ -250,7 +226,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
     try {
       _isProcessing.value = true;
-      print('✅ Confirmando factura: $invoiceId');
 
       final result = await _confirmInvoiceUseCase(
         ConfirmInvoiceParams(id: invoiceId),
@@ -266,7 +241,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al confirmar factura: $e');
       _showError('Error inesperado', 'No se pudo confirmar la factura');
     } finally {
       _isProcessing.value = false;
@@ -297,8 +271,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       _isProcessing.value = true;
       update();
 
-      print('💰 Confirmando pago completo para: $invoiceId');
-
       final result = await _addPaymentUseCase(
         AddPaymentParams(
           invoiceId: invoiceId,
@@ -325,8 +297,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
           }
         },
         (updatedInvoice) async {
-          print('✅ Pago completo confirmado exitosamente');
-          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
           // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
           await _reloadInvoiceAfterPayment();
@@ -335,7 +305,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al confirmar pago completo: $e');
       _showError('Error inesperado', 'No se pudo confirmar el pago');
     } finally {
       _isProcessing.value = false;
@@ -414,8 +383,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       _isProcessing.value = true;
       update();
 
-      print('📄 Confirmando pago con cheque para: $invoiceId');
-
       final checkReference = result['reference'] ?? '';
       final bankNotes = result['notes'] ?? '';
 
@@ -450,8 +417,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
           }
         },
         (updatedInvoice) async {
-          print('✅ Cheque confirmado exitosamente');
-          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
           // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
           await _reloadInvoiceAfterPayment();
@@ -460,7 +425,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al confirmar cheque: $e');
       _showError('Error inesperado', 'No se pudo confirmar el cheque');
     } finally {
       _isProcessing.value = false;
@@ -476,8 +440,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       );
       return;
     }
-
-    print('🔷 Mostrando diálogo de pago a crédito');
 
     await Get.dialog(
       WillPopScope(
@@ -510,7 +472,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       update();
 
       final amount = double.tryParse(amountController.text) ?? 0;
-      print('💰 Procesando pago a crédito: $amount');
 
       final result = await _addPaymentUseCase(
         AddPaymentParams(
@@ -541,8 +502,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
           return false;
         },
         (updatedInvoice) async {
-          print('✅ Pago a crédito procesado exitosamente');
-          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
           // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
           await _reloadInvoiceAfterPayment();
@@ -552,7 +511,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al procesar pago a crédito: $e');
       _showError('Error inesperado', 'No se pudo procesar el pago');
       return false;
     } finally {
@@ -658,7 +616,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
     try {
       _isProcessing.value = true;
-      print('❌ Cancelando factura: $invoiceId');
 
       final result = await _cancelInvoiceUseCase(
         CancelInvoiceParams(id: invoiceId),
@@ -674,7 +631,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al cancelar factura: $e');
       _showError('Error inesperado', 'No se pudo cancelar la factura');
     } finally {
       _isProcessing.value = false;
@@ -699,7 +655,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
     try {
       _isProcessing.value = true;
-      print('🗑️ Eliminando factura: $invoiceId');
 
       final result = await _deleteInvoiceUseCase(
         DeleteInvoiceParams(id: invoiceId),
@@ -715,7 +670,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al eliminar factura: $e');
       _showError('Error inesperado', 'No se pudo eliminar la factura');
     } finally {
       _isProcessing.value = false;
@@ -736,7 +690,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
     _showPaymentForm.value = true;
     _clearPaymentForm();
-    print('📝 Mostrando formulario de pago');
   }
 
   /// Mostrar diálogo de pagos múltiples
@@ -755,9 +708,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       _showError('Error', 'No hay factura cargada');
       return;
     }
-
-    print('💳 Mostrando diálogo de pagos múltiples');
-    print('💰 Saldo pendiente: \$$remainingBalance');
 
     // Importar y mostrar el diálogo
     final MultiPaymentDialog = await _showMultiPaymentDialogWidget();
@@ -791,19 +741,16 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
     _showPaymentForm.value = false;
     _clearPaymentForm();
     update(); // Forzar actualización de GetBuilder
-    print('❌ Ocultando formulario de pago');
   }
 
   /// Cambiar método de pago
   void setPaymentMethod(PaymentMethod method) {
     _selectedPaymentMethod.value = method;
-    print('💳 Método de pago seleccionado: ${method.displayName}');
   }
 
   /// Establecer cuenta bancaria seleccionada
   void setBankAccountId(String? bankAccountId) {
     _selectedBankAccountId = bankAccountId;
-    print('🏦 Cuenta bancaria seleccionada: $bankAccountId');
   }
 
   Future<void> addPayment() async {
@@ -813,11 +760,8 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     if (!await SubscriptionValidationService.canAddPaymentAsync()) {
-      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO agregar pago');
       return; // Bloquear operación
     }
-
-    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con agregar pago');
 
     if (!canAddPayment) {
       _showError(
@@ -830,8 +774,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
     try {
       _isProcessing.value = true;
       update();
-
-      print('💰 Agregando pago a factura: $invoiceId');
 
       // Usar NumberInputFormatter para parsear el monto formateado (ej: "1.050,50" -> 1050.50)
       final amount = NumberInputFormatter.getNumericValue(paymentAmountController.text) ?? 0;
@@ -878,8 +820,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
           }
         },
         (updatedInvoice) async {
-          print('✅ Pago agregado exitosamente');
-          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
           // 1. Ocultar formulario primero
           _showPaymentForm.value = false;
@@ -887,14 +827,12 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
           // 🔄 WORKAROUND: El backend a veces devuelve datos desactualizados
           // Forzar recarga de la factura para obtener datos frescos
-          print('🔄 Recargando factura para obtener datos actualizados...');
           await _reloadInvoiceAfterPayment();
 
           _showSuccess('Pago agregado exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error al agregar pago: $e');
       _showError('Error inesperado', 'No se pudo agregar el pago');
     } finally {
       _isProcessing.value = false;
@@ -912,11 +850,8 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   }) async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     if (!await SubscriptionValidationService.canAddPaymentAsync()) {
-      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO pagos múltiples');
       return;
     }
-
-    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con pagos múltiples');
 
     if (!canAddPayment) {
       _showError(
@@ -948,9 +883,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
     try {
       _isProcessing.value = true;
       update();
-
-      print('💳 Agregando ${payments.length} pagos múltiples a factura: $invoiceId');
-      print('💰 Total a pagar: \$$totalPayment / Saldo: \$$remainingBalance');
 
       // Convertir PaymentItemModel a PaymentItemParams para el UseCase
       final paymentParams = payments.map((p) => PaymentItemParams(
@@ -986,11 +918,8 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
           }
         },
         (paymentResult) async {
-          print('✅ ${paymentResult.paymentsCreated} pagos procesados exitosamente');
-          print('📊 Backend devolvió: pagos=${paymentResult.invoice.payments.length}, paidAmount=${paymentResult.invoice.paidAmount}');
 
           if (paymentResult.creditCreated) {
-            print('📋 Crédito creado: ${paymentResult.creditId}');
           }
 
           // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
@@ -1011,7 +940,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error al procesar pagos múltiples: $e');
       _showError('Error inesperado', 'No se pudieron procesar los pagos');
     } finally {
       _isProcessing.value = false;
@@ -1062,7 +990,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
     try {
       _isExportingPdf.value = true;
-      print('📄 Exportando PDF de factura: ${invoice!.number}');
 
       final result = await _exportAndShareInvoicePdfUseCase.call(
         invoiceId: invoice!.id,
@@ -1072,25 +999,21 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al exportar PDF: ${failure.message}');
           _showError('Error al exportar PDF', failure.message);
         },
         (shareResult) {
           if (shareDirectly && shareResult != null) {
-            print('✅ PDF compartido: ${shareResult.status}');
             if (shareResult.status == ShareResultStatus.success) {
               _showSuccess('PDF compartido exitosamente');
             } else if (shareResult.status == ShareResultStatus.dismissed) {
               _showInfo('Compartir cancelado', 'No se compartió el PDF');
             }
           } else {
-            print('✅ PDF descargado sin compartir');
             _showSuccess('PDF descargado exitosamente');
           }
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al exportar PDF: $e');
       _showError('Error inesperado', 'No se pudo exportar el PDF');
     } finally {
       _isExportingPdf.value = false;
@@ -1226,10 +1149,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   /// ✅ MÉTODO HELPER: Actualizar factura de forma consistente
   /// Garantiza que tanto GetBuilder como Obx detecten los cambios
   void _updateInvoiceAndRefreshUI(Invoice updatedInvoice) {
-    print('🔄 _updateInvoiceAndRefreshUI: Actualizando UI...');
-    print('📊 Nuevo estado: ${updatedInvoice.status}');
-    print('💰 Pagado: ${updatedInvoice.paidAmount} | Saldo: ${updatedInvoice.balanceDue}');
-    print('📝 Pagos: ${updatedInvoice.payments.length}');
 
     // 1. Asignar el nuevo valor directamente (sin null intermedio para evitar parpadeo)
     _invoice.value = updatedInvoice;
@@ -1244,18 +1163,15 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_invoice.value != null) {
         update();
-        print('✅ _updateInvoiceAndRefreshUI: Segunda actualización ejecutada');
       }
     });
 
-    print('✅ _updateInvoiceAndRefreshUI: UI actualizada');
   }
 
   /// 🔄 WORKAROUND: Recargar factura después de un pago para obtener datos actualizados
   /// El backend a veces devuelve la factura con datos desactualizados después de agregar un pago
   Future<void> _reloadInvoiceAfterPayment() async {
     try {
-      print('🔄 _reloadInvoiceAfterPayment: Recargando factura $invoiceId...');
 
       final result = await _getInvoiceByIdUseCase(
         GetInvoiceByIdParams(id: invoiceId),
@@ -1263,12 +1179,9 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('⚠️ Error recargando factura: ${failure.message}');
           // No mostrar error al usuario, ya se mostró el mensaje de éxito
         },
         (freshInvoice) {
-          print('✅ Factura recargada exitosamente');
-          print('📊 Datos frescos: pagos=${freshInvoice.payments.length}, paidAmount=${freshInvoice.paidAmount}, balanceDue=${freshInvoice.balanceDue}');
 
           // Actualizar con datos frescos
           _updateInvoiceAndRefreshUI(freshInvoice);
@@ -1289,7 +1202,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
         },
       );
     } catch (e) {
-      print('💥 Error inesperado recargando factura: $e');
       // No propagar error, ya se mostró éxito al usuario
     }
   }
@@ -1298,23 +1210,17 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   void _disposeControllers() {
     try {
       paymentAmountController.dispose(); // SafeController maneja dispose de forma segura
-      print('✅ SafePaymentAmountController disposed');
     } catch (e) {
-      print('⚠️ Error disposing paymentAmountController: $e');
     }
     
     try {
       paymentReferenceController.dispose(); // SafeController maneja dispose de forma segura
-      print('✅ SafePaymentReferenceController disposed');
     } catch (e) {
-      print('⚠️ Error disposing paymentReferenceController: $e');
     }
     
     try {
       paymentNotesController.dispose();
-      print('✅ paymentNotesController disposed');
     } catch (e) {
-      print('⚠️ Error disposing paymentNotesController: $e');
     }
   }
 
@@ -1414,7 +1320,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       }
       return 0;
     } catch (e) {
-      print('❌ Error al verificar saldo a favor: $e');
       return 0;
     }
   }
@@ -1466,8 +1371,6 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
       _isProcessing.value = true;
       update();
 
-      print('💰 Aplicando saldo a favor: \$${amount.toStringAsFixed(0)} a factura ${invoice!.number}');
-
       final datasource = Get.find<InvoiceRemoteDataSource>();
       final result = await datasource.applyClientBalance(invoice!.id, amount: amount);
 
@@ -1476,12 +1379,7 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
 
       _showSuccess('Se aplicaron \$${result.balanceUsed.toStringAsFixed(0)} de saldo a favor');
 
-      print('✅ Saldo aplicado correctamente:');
-      print('   - Usado: \$${result.balanceUsed}');
-      print('   - Saldo restante cliente: \$${result.remainingBalance}');
-      print('   - Deuda restante factura: \$${result.remainingDebt}');
     } catch (e) {
-      print('❌ Error al aplicar saldo a favor: $e');
       _showError('Error', 'No se pudo aplicar el saldo a favor: $e');
     } finally {
       _isProcessing.value = false;
@@ -1714,7 +1612,6 @@ class _CreditPaymentDialogContentState
 
     try {
       final amount = double.parse(amountController.text);
-      print('💰 Procesando pago a crédito: $amount');
 
       final result = await widget.controller._addPaymentUseCase(
         AddPaymentParams(
@@ -1748,8 +1645,6 @@ class _CreditPaymentDialogContentState
           setState(() => isProcessing = false);
         },
         (updatedInvoice) async {
-          print('✅ Pago a crédito agregado exitosamente');
-          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
           // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
           await widget.controller._reloadInvoiceAfterPayment();
@@ -1765,7 +1660,6 @@ class _CreditPaymentDialogContentState
         },
       );
     } catch (e) {
-      print('💥 Error al procesar pago: $e');
       widget.controller._showError(
         'Error inesperado',
         'No se pudo procesar el pago',

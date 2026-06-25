@@ -246,7 +246,7 @@ class CashFlowSummaryWidget extends StatelessWidget {
               ),
             ),
             Text(
-              AppFormatters.formatCurrency(total.toInt()),
+              AppFormatters.formatCurrency(total.round()),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -371,7 +371,7 @@ class CashFlowSummaryWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                AppFormatters.formatCurrency(amount.toInt()),
+                AppFormatters.formatCurrency(amount.round()),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -454,7 +454,7 @@ class CashFlowSummaryWidget extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      AppFormatters.formatCurrency(r.total.toInt()),
+                      AppFormatters.formatCurrency(r.total.round()),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

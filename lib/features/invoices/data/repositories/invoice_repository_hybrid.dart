@@ -50,10 +50,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     String sortBy = 'createdAt',
     String sortOrder = 'DESC',
   }) async {
-    print('📱 Verificando conexión para cargar facturas...');
 
     if (await networkInfo.isConnected) {
-      print('🌐 Con conexión, intentando cargar desde servidor...');
       try {
         // Try remote first
         final remoteResult = await _getInvoicesFromRemote(
@@ -76,7 +74,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
         return remoteResult.fold(
           (failure) {
-            print('❌ Error del servidor, usando ISAR como fallback: $failure');
             // If remote fails, fallback to ISAR
             return offlineRepository.getInvoices(
               page: page,
@@ -97,14 +94,12 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
             );
           },
           (success) {
-            print('✅ Datos cargados del servidor, sincronizando con ISAR...');
             // Cache successful results in ISAR
             _cacheInvoicesInIsar(success.data);
             return Right(success);
           },
         );
       } catch (e) {
-        print('❌ Error inesperado del servidor: $e');
         // On any error, fallback to ISAR
         return offlineRepository.getInvoices(
           page: page,
@@ -125,7 +120,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         );
       }
     } else {
-      print('📱 Sin conexión, cargando desde ISAR...');
       // No connection, use ISAR directly
       return offlineRepository.getInvoices(
         page: page,
@@ -149,10 +143,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
   @override
   Future<Either<Failure, List<Invoice>>> getOverdueInvoices() async {
-    print('📱 Verificando conexión para facturas vencidas...');
 
     if (await networkInfo.isConnected) {
-      print('🌐 Con conexión, cargando facturas vencidas del servidor...');
       try {
         final remoteInvoices = await remoteDataSource.getOverdueInvoices();
         final invoices =
@@ -163,14 +155,11 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
         return Right(invoices);
       } on ServerException catch (e) {
-        print('❌ Error del servidor: $e, usando ISAR');
         return offlineRepository.getOverdueInvoices();
       } catch (e) {
-        print('❌ Error inesperado: $e, usando ISAR');
         return offlineRepository.getOverdueInvoices();
       }
     } else {
-      print('📱 Sin conexión, cargando desde ISAR...');
       return offlineRepository.getOverdueInvoices();
     }
   }
@@ -245,22 +234,17 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
   @override
   Future<Either<Failure, InvoiceStats>> getInvoiceStats() async {
-    print('📱 Verificando conexión para estadísticas...');
 
     if (await networkInfo.isConnected) {
-      print('🌐 Con conexión, cargando estadísticas del servidor...');
       try {
         final remoteStats = await remoteDataSource.getInvoiceStats();
         return Right(remoteStats.toEntity());
       } on ServerException catch (e) {
-        print('❌ Error del servidor: $e, usando ISAR');
         return offlineRepository.getInvoiceStats();
       } catch (e) {
-        print('❌ Error inesperado: $e, usando ISAR');
         return offlineRepository.getInvoiceStats();
       }
     } else {
-      print('📱 Sin conexión, cargando estadísticas desde ISAR...');
       return offlineRepository.getInvoiceStats();
     }
   }
@@ -331,7 +315,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
         return Right(invoice);
       } on ServerException catch (e) {
-        print('❌ Error al crear en servidor, guardando offline: $e');
         // Server error, create offline and mark for sync
         return offlineRepository.createInvoice(
           customerId: customerId,
@@ -351,7 +334,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         );
       }
     } else {
-      print('📱 Sin conexión, creando factura offline...');
       // No connection, create offline
       return offlineRepository.createInvoice(
         customerId: customerId,
@@ -434,7 +416,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
         return Right(invoice);
       } on ServerException catch (e) {
-        print('❌ Error al actualizar en servidor, guardando offline: $e');
         // Server error, update offline and mark for sync
         return offlineRepository.updateInvoice(
           id: id,
@@ -454,7 +435,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         );
       }
     } else {
-      print('📱 Sin conexión, actualizando factura offline...');
       // No connection, update offline
       return offlineRepository.updateInvoice(
         id: id,
@@ -491,14 +471,10 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         await offlineRepository.deleteInvoice(id);
         return const Right(null);
       } on ServerException catch (e) {
-        print(
-          '❌ Error al eliminar en servidor, marcando como eliminado offline: $e',
-        );
         // Server error, mark as deleted offline
         return offlineRepository.deleteInvoice(id);
       }
     } else {
-      print('📱 Sin conexión, marcando factura como eliminada offline...');
       // No connection, soft delete offline
       return offlineRepository.deleteInvoice(id);
     }
@@ -581,7 +557,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
 
         return Right(invoice);
       } on ServerException catch (e) {
-        print('❌ Error al agregar pago en servidor, guardando offline: $e');
         return offlineRepository.addPayment(
           invoiceId: invoiceId,
           amount: amount,
@@ -593,7 +568,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         );
       }
     } else {
-      print('📱 Sin conexión, agregando pago offline...');
       return offlineRepository.addPayment(
         invoiceId: invoiceId,
         amount: amount,
@@ -616,7 +590,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
   }) async {
     if (await networkInfo.isConnected) {
       try {
-        print('💳 InvoiceRepositoryHybrid: Agregando ${payments.length} pagos a factura: $invoiceId');
 
         // Convertir PaymentItemData a PaymentItemModel
         final paymentModels = payments.map((p) => PaymentItemModel(
@@ -646,7 +619,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           creditCreated: result.creditCreated,
         ));
       } on ServerException catch (e) {
-        print('❌ Error al agregar pagos múltiples en servidor, guardando offline: $e');
         return offlineRepository.addMultiplePayments(
           invoiceId: invoiceId,
           payments: payments,
@@ -656,7 +628,6 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         );
       }
     } else {
-      print('📱 Sin conexión, agregando pagos múltiples offline...');
       return offlineRepository.addMultiplePayments(
         invoiceId: invoiceId,
         payments: payments,
@@ -731,9 +702,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     if (invoices.isNotEmpty) {
       try {
         await offlineRepository.bulkInsertInvoices(invoices);
-        print('💾 ${invoices.length} facturas cacheadas en ISAR');
       } catch (e) {
-        print('⚠️ Error al cachear facturas en ISAR: $e');
       }
     }
   }
@@ -760,13 +729,11 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
             // For now, just mark as synced if successfully uploaded
             syncedIds.add(invoice.id);
           } catch (e) {
-            print('⚠️ Error sincronizando factura ${invoice.id}: $e');
           }
         }
 
         if (syncedIds.isNotEmpty) {
           await offlineRepository.markInvoicesAsSynced(syncedIds);
-          print('✅ ${syncedIds.length} facturas sincronizadas');
         }
 
         return const Right(null);

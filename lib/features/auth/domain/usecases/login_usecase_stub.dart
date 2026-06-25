@@ -30,10 +30,6 @@ class LoginUseCaseStub implements UseCase<AuthResult, LoginParams> {
         return Left(ValidationFailure(['Contraseña muy corta']));
       }
 
-      print(
-        '🔐 LoginUseCaseStub: Iniciando login real contra backend API para ${params.email}',
-      );
-
       // Usar el repositorio real que llama al backend API
       final result = await authRepository.login(
         email: params.email,
@@ -42,24 +38,13 @@ class LoginUseCaseStub implements UseCase<AuthResult, LoginParams> {
 
       return result.fold(
         (failure) {
-          print('❌ LoginUseCaseStub: Error de login - ${failure.message}');
           return Left(failure);
         },
         (authResult) {
-          print(
-            '✅ LoginUseCaseStub: Login exitoso contra backend API para ${params.email}',
-          );
-          print(
-            '🔑 Token real recibido: ${authResult.token.substring(0, 20)}...',
-          );
-          print(
-            '🏢 Organización: ${authResult.user.organizationName} (${authResult.user.organizationSlug})',
-          );
           return Right(authResult);
         },
       );
     } catch (e) {
-      print('❌ LoginUseCaseStub: Error inesperado - $e');
       return Left(ServerFailure('Error de conexión: $e'));
     }
   }

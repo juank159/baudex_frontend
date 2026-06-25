@@ -1038,7 +1038,6 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
     switch (action) {
       case 'movements':
         // Navegar a movimientos del almacén específico
-        print('🚀 Navegando a movimientos del almacén: ${warehouse.id} (${warehouse.name})');
         Get.toNamed('/inventory/movements', arguments: {
           'warehouseId': warehouse.id,
           'warehouseName': warehouse.name,
@@ -1046,7 +1045,6 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
         break;
       case 'inventory':
         // Navegar a inventario del almacén específico
-        print('🚀 Navegando a inventario del almacén: ${warehouse.id} (${warehouse.name})');
         Get.toNamed('/inventory/balances', arguments: {
           'warehouseId': warehouse.id,
           'warehouseName': warehouse.name,

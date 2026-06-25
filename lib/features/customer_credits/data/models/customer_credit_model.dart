@@ -119,11 +119,26 @@ class CustomerCreditModel extends CustomerCredit {
       'notes': notes,
       'customerId': customerId,
       'invoiceId': invoiceId,
+      'invoiceNumber': invoiceNumber,
       'organizationId': organizationId,
       'createdById': createdById,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'deletedAt': deletedAt?.toIso8601String(),
+      // Preserve invoice items so SecureStorage cache retains them
+      if (invoiceId != null && invoiceItems != null && invoiceItems!.isNotEmpty)
+        'invoice': {
+          'id': invoiceId,
+          'number': invoiceNumber,
+          'items': invoiceItems!.map((item) => {
+            'id': item.id,
+            'description': item.description,
+            'quantity': item.quantity,
+            'unitPrice': item.unitPrice,
+            'subtotal': item.subtotal,
+            if (item.productName != null) 'product': {'name': item.productName},
+          }).toList(),
+        },
     };
   }
 

@@ -216,14 +216,6 @@ class Product extends Equatable {
 
   // ✅ MÉTODO DE DEBUG PARA VERIFICAR CÁLCULOS
   void debugStock() {
-    print('📊 DEBUG Stock para $name:');
-    print('   - Stock actual: $stock');
-    print('   - Stock mínimo: $minStock');
-    print('   - Stock <= MinStock: ${stock <= minStock}');
-    print('   - isLowStock: $isLowStock');
-    print('   - Status: $status');
-    print('   - isActive: $isActive');
-    print('   - isInStock: $isInStock');
   }
 }
 

@@ -120,7 +120,6 @@ class PurchaseOrderRemoteDataSourceImpl
       );
 
       if (response.statusCode == 200) {
-        print('🔍 Raw response data: ${response.data}');
         
         try {
           final responseModel = PurchaseOrderResponseModel.fromJson(
@@ -128,8 +127,6 @@ class PurchaseOrderRemoteDataSourceImpl
           );
 
           if (responseModel.success && responseModel.data != null) {
-            print('✅ Response model created successfully');
-            print('🔍 Purchase order data: ${responseModel.data!.toJson()}');
             return responseModel.data!;
           } else {
             throw ServerException(
@@ -137,8 +134,6 @@ class PurchaseOrderRemoteDataSourceImpl
             );
           }
         } catch (e) {
-          print('❌ Error al deserializar JSON: $e');
-          print('📋 Data original: ${response.data}');
           throw ServerException('Error de deserialización: $e');
         }
       } else {
@@ -215,16 +210,10 @@ class PurchaseOrderRemoteDataSourceImpl
     CreatePurchaseOrderParams params,
   ) async {
     try {
-      print('🌐 PurchaseOrderRemoteDataSource: Iniciando creación de orden');
       final requestModel = CreatePurchaseOrderRequestModel.fromParams(params);
 
-      print('📤 Enviando POST a: ${ApiConstants.purchaseOrders}');
-      print('🔗 URL completa esperada: [Using DioClient]');
       final requestJson = requestModel.toJson();
-      print('📋 Request data: $requestJson');
-      print('📋 Items count: ${requestJson['items'].length}');
       if (requestJson['items'].isNotEmpty) {
-        print('📋 First item: ${requestJson['items'][0]}');
       }
 
       final response = await dioClient.post(
@@ -233,32 +222,23 @@ class PurchaseOrderRemoteDataSourceImpl
       );
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print('🔍 Raw response data from create: ${response.data}');
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );
 
         if (responseModel.success && responseModel.data != null) {
-          print('✅ Respuesta exitosa del servidor');
-          print('🔍 Created purchase order data: ${responseModel.data!.toJson()}');
           return responseModel.data!;
         } else {
-          print('❌ Error en respuesta del servidor: ${responseModel.error}');
           throw ServerException(
             responseModel.error ?? 'Error al crear la orden de compra',
           );
         }
       } else {
-        print('❌ Status code incorrecto: ${response.statusCode}');
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
     } on DioException catch (e) {
-      print('❌ DioException en createPurchaseOrder: ${e.message}');
-      print('❌ Status code: ${e.response?.statusCode}');
-      print('❌ Response data: ${e.response?.data}');
       throw ServerException(_handleDioError(e));
     } catch (e) {
-      print('❌ Error inesperado en createPurchaseOrder: $e');
       throw ServerException('Error inesperado: $e');
     }
   }
@@ -272,8 +252,6 @@ class PurchaseOrderRemoteDataSourceImpl
       final requestBody = requestModel.toJson();
 
       // Diagnóstico: loggear request body para debug de validación
-      print('📤 PO UPDATE request → PATCH ${ApiConstants.purchaseOrders}/${params.id}');
-      print('📤 PO UPDATE body: $requestBody');
 
       final response = await dioClient.patch(
         '${ApiConstants.purchaseOrders}/${params.id}',
@@ -298,7 +276,6 @@ class PurchaseOrderRemoteDataSourceImpl
     } on DioException catch (e) {
       // Loggear respuesta completa de error para diagnóstico
       if (e.response?.data != null) {
-        print('❌ PO UPDATE error response: ${e.response?.data}');
       }
       throw ServerException(_handleDioError(e));
     } catch (e) {

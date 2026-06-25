@@ -266,7 +266,6 @@ class DioClient {
             if (!str.contains('DioException') &&
                 !str.contains('Connection refused') &&
                 !str.contains('SocketException')) {
-              print('DIO: $obj');
             }
           },
         ),
@@ -423,7 +422,6 @@ class DioClient {
 
         // 🔒 CRITICAL FIX: Return ServerException with statusCode for subscription errors
         if (statusCode == 403) {
-          print('🔒 Subscription error detected - returning ServerException with statusCode 403');
           return ServerException(message, statusCode: 403);
         }
 

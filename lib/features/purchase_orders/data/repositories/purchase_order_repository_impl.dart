@@ -41,7 +41,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         try {
           await localDataSource.cachePurchaseOrders(remotePurchaseOrders.data);
         } catch (e) {
-          print('Error al guardar en cache: $e');
         }
 
         // Convertir datos del servidor a entities
@@ -77,10 +76,8 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           .findAll();
 
       if (unsyncedPOs.isEmpty) {
-        print('✅ Todas las POs están sincronizadas - usando datos del servidor');
         return serverOrders;
       }
-      print('🔍 ${unsyncedPOs.length} POs con cambios locales pendientes encontradas');
 
       // Cargar items para cada PO no sincronizada (query directa, NO IsarLinks)
       final unsyncedMap = <String, PurchaseOrder>{};
@@ -104,12 +101,10 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       }).toList();
 
       if (replaced > 0) {
-        print('🔄 $replaced POs reemplazadas con versiones locales (cambios pendientes)');
       }
 
       return merged;
     } catch (e) {
-      print('⚠️ Error merging local changes: $e');
       return serverOrders;
     }
   }
@@ -158,7 +153,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         try {
           await localDataSource.cachePurchaseOrder(remotePurchaseOrder);
         } catch (e) {
-          print('Error al guardar en cache: $e');
         }
         return Right(remotePurchaseOrder.toEntity());
       } catch (_) {
@@ -192,7 +186,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         final remotePurchaseOrders = await remoteDataSource.searchPurchaseOrders(params);
         return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
       } catch (e) {
-        print('⚠️ Error del servidor en searchPurchaseOrders: $e - intentando cache local...');
         return _searchPurchaseOrdersFromCache(params);
       }
     } else {
@@ -208,7 +201,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         params.searchTerm,
       );
       if (cachedPurchaseOrders.isNotEmpty) {
-        print('✅ ${cachedPurchaseOrders.length} órdenes de compra encontradas en cache local');
       }
       return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
     } catch (_) {
@@ -227,7 +219,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
         return Right(remoteStats.toEntity());
       } catch (e) {
-        print('⚠️ Error del servidor en getPurchaseOrderStats: $e - intentando cache local...');
         return _getPurchaseOrderStatsFromCache();
       }
     } else {
@@ -240,7 +231,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       final cachedStats = await localDataSource.getCachedStats();
 
       if (cachedStats != null) {
-        print('✅ Estadísticas de órdenes de compra obtenidas desde cache local');
         return Right(cachedStats.toEntity());
       }
     } catch (_) {}
@@ -309,7 +299,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         final sortedByValue = List<PurchaseOrder>.from(orders)
           ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
 
-        print('✅ Stats de POs calculadas desde ${orders.length} órdenes en ISAR');
         return Right(PurchaseOrderStats(
           totalPurchaseOrders: total,
           pendingOrders: pending,
@@ -333,7 +322,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         ));
       }
     } catch (e) {
-      print('⚠️ Error calculando stats desde ISAR: $e');
     }
 
     return const Right(PurchaseOrderStats(
@@ -524,9 +512,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           operationType: SyncOperationType.update,
           data: syncData,
         );
-        print('✅ Cambio de estado PO encolado: $action para $id');
       } catch (e) {
-        print('⚠️ Error encolando cambio de estado PO: $e');
       }
 
       return Right(updatedModel.toEntity());
@@ -630,7 +616,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           });
         }
       } catch (e) {
-        print('⚠️ Error actualizando PO items en ISAR: $e');
       }
 
       // Encolar operación para sincronización
@@ -650,9 +635,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           operationType: SyncOperationType.update,
           data: syncData,
         );
-        print('✅ Recepción de PO encolada offline: ${params.id}');
       } catch (e) {
-        print('⚠️ Error encolando recepción de PO: $e');
       }
 
       return Right(updatedModel.toEntity());
@@ -668,7 +651,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         final remotePurchaseOrders = await remoteDataSource.getPurchaseOrdersBySupplier(supplierId);
         return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
       } catch (e) {
-        print('⚠️ Error del servidor en getPurchaseOrdersBySupplier: $e - intentando cache local...');
         return _getPurchaseOrdersBySupplierFromCache(supplierId);
       }
     } else {
@@ -692,7 +674,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         final remotePurchaseOrders = await remoteDataSource.getOverduePurchaseOrders();
         return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
       } catch (e) {
-        print('⚠️ Error del servidor en getOverduePurchaseOrders: $e - intentando cache local...');
         return _getOverduePurchaseOrdersFromCache();
       }
     } else {
@@ -930,7 +911,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           priority: 1,
         );
       } catch (e) {
-        print('⚠️ Error adding PO to sync queue: $e');
       }
 
       return Right(tempPurchaseOrder);
@@ -943,7 +923,6 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   Future<Either<Failure, PurchaseOrder>> _updatePurchaseOrderOffline(
     UpdatePurchaseOrderParams params,
   ) async {
-    print('📱 PurchaseOrderRepository: Updating purchase order offline: ${params.id}');
     try {
       // Get cached purchase order
       final cachedPurchaseOrderModel = await localDataSource.getCachedPurchaseOrderById(params.id);
@@ -1070,10 +1049,8 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           await isar.writeTxn(() async {
             await isar.isarPurchaseOrders.put(isarPO);
           });
-          print('🔓 PO ${params.id} marcada como no sincronizada');
         }
       } catch (e) {
-        print('⚠️ Error marcando PO como no sincronizada: $e');
       }
 
       // Add to sync queue
@@ -1119,22 +1096,17 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           },
           priority: 1,
         );
-        print('📤 Update operation added to sync queue');
       } catch (e) {
-        print('⚠️ Error adding to sync queue: $e');
       }
 
-      print('✅ Purchase order updated offline successfully');
       return Right(updatedPurchaseOrder);
     } catch (e) {
-      print('❌ Error updating purchase order offline: $e');
       return Left(CacheFailure('Error al actualizar orden de compra offline: $e'));
     }
   }
 
   /// Delete purchase order offline (used as fallback when server fails or no connection)
   Future<Either<Failure, void>> _deletePurchaseOrderOffline(String id) async {
-    print('📱 PurchaseOrderRepository: Deleting purchase order offline: $id');
     try {
       // Remove from cache
       await localDataSource.removeCachedPurchaseOrder(id);
@@ -1149,15 +1121,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           data: {'id': id},
           priority: 1,
         );
-        print('📤 Delete operation added to sync queue');
       } catch (e) {
-        print('⚠️ Error adding to sync queue: $e');
       }
 
-      print('✅ Purchase order deleted offline successfully');
       return const Right(null);
     } catch (e) {
-      print('❌ Error deleting purchase order offline: $e');
       return Left(CacheFailure('Error al eliminar orden de compra offline: $e'));
     }
   }

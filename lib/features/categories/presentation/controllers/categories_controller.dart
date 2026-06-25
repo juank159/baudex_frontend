@@ -507,22 +507,17 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
 
   @override
   void onClose() {
-    print('🔧 CategoriesController: Iniciando dispose...');
 
     // Dispose seguro del searchController
     if (!searchController.isDisposed) {
       searchController.dispose();
-      print('✅ CategoriesController: searchController disposed');
     } else {
-      print('⚠️ CategoriesController: searchController ya estaba disposed');
     }
 
     // Dispose del scrollController
     scrollController.dispose();
-    print('✅ CategoriesController: scrollController disposed');
 
     super.onClose();
-    print('✅ CategoriesController: Dispose completado');
   }
 
   // ==================== INITIALIZATION ====================
@@ -530,12 +525,10 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   /// Inicializar datos de forma optimizada
   Future<void> _initializeData() async {
     if (_isInitialized) {
-      print('⚠️ CategoriesController ya inicializado, omitiendo...');
       return;
     }
 
     try {
-      print('🚀 Inicializando CategoriesController...');
 
       // Cargar estadísticas primero (son más rápidas y menos críticas)
       await loadStats();
@@ -544,9 +537,7 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
       await loadCategories();
 
       _isInitialized = true;
-      print('✅ CategoriesController inicializado correctamente');
     } catch (e) {
-      print('❌ Error al inicializar CategoriesController: $e');
     }
   }
 
@@ -600,23 +591,17 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   Future<void> loadCategories({bool showLoading = true}) async {
     // Evitar múltiples llamadas simultáneas
     if (_isLoading.value) {
-      print('⚠️ Ya hay una carga en progreso, ignorando...');
       return;
     }
 
     if (showLoading) _isLoading.value = true;
 
     try {
-      print('📦 Cargando categorías...');
 
       // ✅ CORRECCIÓN: Determinar si usar onlyParents
       final bool useOnlyParents = _selectedParentId.value == 'parents_only';
       final String? actualParentId =
           useOnlyParents ? null : _selectedParentId.value;
-
-      print(
-        '🔧 UseOnlyParents: $useOnlyParents, ActualParentId: $actualParentId',
-      );
 
       final result = await _getCategoriesUseCase(
         GetCategoriesParams(
@@ -640,11 +625,9 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
         (paginatedResult) {
           _categories.value = paginatedResult.data;
           _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Categorías cargadas: ${paginatedResult.data.length}');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al cargar categorías: $e');
       _showError('Error inesperado', 'Error al cargar categorías');
     } finally {
       _isLoading.value = false;
@@ -694,7 +677,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
     _isLoadingMore.value = true;
 
     try {
-      print('📄 Cargando más categorías (página ${_currentPage.value + 1})...');
 
       // ✅ CORRECCIÓN: Aplicar la misma lógica para onlyParents
       final bool useOnlyParents = _selectedParentId.value == 'parents_only';
@@ -722,7 +704,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
         (paginatedResult) {
           _categories.addAll(paginatedResult.data);
           _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Más categorías cargadas: ${paginatedResult.data.length}');
         },
       );
     } finally {
@@ -733,11 +714,9 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   /// Refrescar categorías
   Future<void> refreshCategories() async {
     if (_isRefreshing.value) {
-      print('⚠️ Ya hay un refresco en progreso, ignorando...');
       return;
     }
 
-    print('🔄 Refrescando categorías...');
     _isRefreshing.value = true;
     _currentPage.value = 1;
 
@@ -746,9 +725,7 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
       final futures = <Future>[loadCategories(showLoading: false), loadStats()];
 
       await Future.wait(futures);
-      print('✅ Refresco completado exitosamente');
     } catch (e) {
-      print('❌ Error durante el refresco: $e');
     } finally {
       _isRefreshing.value = false;
     }
@@ -764,7 +741,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
     _isSearching.value = true;
 
     try {
-      print('🔍 Buscando categorías: "$query"');
 
       final result = await _searchCategoriesUseCase(
         SearchCategoriesParams(searchTerm: query.trim(), limit: 50),
@@ -777,7 +753,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
         },
         (results) {
           _searchResults.value = results;
-          print('✅ Búsqueda completada: ${results.length} resultados');
         },
       );
     } finally {
@@ -790,7 +765,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
     _isDeleting.value = true;
 
     try {
-      print('🗑️ Eliminando categoría: $categoryId');
 
       final result = await _deleteCategoryUseCase(
         DeleteCategoryParams(id: categoryId),
@@ -806,7 +780,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
           _categories.removeWhere((category) => category.id == categoryId);
           // Recargar para actualizar contadores
           refreshCategories();
-          print('✅ Categoría eliminada exitosamente');
         },
       );
     } finally {
@@ -817,22 +790,18 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   /// Cargar estadísticas
   Future<void> loadStats() async {
     try {
-      print('📊 Cargando estadísticas...');
 
       final result = await _getCategoryStatsUseCase(const NoParams());
 
       result.fold(
         (failure) {
-          print('⚠️ Error al cargar estadísticas: ${failure.message}');
           // No mostrar error al usuario, las stats no son críticas
         },
         (stats) {
           _stats.value = stats;
-          print('✅ Estadísticas cargadas: ${stats.total} categorías');
         },
       );
     } catch (e) {
-      print('⚠️ Error inesperado al cargar estadísticas: $e');
     }
   }
 
@@ -867,10 +836,8 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
     if (parentId == 'parents_only') {
       // Activar filtro de solo categorías padre
       _selectedParentId.value = 'parents_only'; // Usar como flag interno
-      print('🔧 Activando filtro de solo categorías padre');
     } else {
       _selectedParentId.value = parentId;
-      print('🔧 Aplicando filtro por parentId: $parentId');
     }
 
     _currentPage.value = 1;
@@ -891,7 +858,6 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
 
   /// Limpiar filtros
   void clearFilters() {
-    print('🧹 Limpiando filtros...');
 
     _currentStatus.value = null;
     _selectedParentId.value = null;
@@ -900,33 +866,26 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
     // Clear seguro del searchController
     if (searchController.isSafeToUse) {
       searchController.clear();
-      print('✅ SearchController limpiado');
     } else {
-      print('⚠️ SearchController no es seguro para limpiar');
     }
 
     _searchResults.clear();
     _currentPage.value = 1;
     loadCategories();
 
-    print('✅ Filtros limpiados');
   }
 
   /// Actualizar búsqueda
   void updateSearch(String value) {
-    print('🔍 Actualizando búsqueda: "$value"');
 
     _searchTerm.value = value;
 
     if (value.trim().isEmpty) {
-      print('🔍 Búsqueda vacía, limpiando resultados');
       _searchResults.clear();
       loadCategories();
     } else if (value.trim().length >= 2) {
-      print('🔍 Iniciando búsqueda de categorías');
       searchCategories(value);
     } else {
-      print('🔍 Término de búsqueda muy corto (${value.length} caracteres)');
     }
   }
 
@@ -1050,9 +1009,7 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   /// Imprimir información de debugging
   void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 CategoriesController Debug Info:');
     info.forEach((key, value) {
-      print('   $key: $value');
     });
   }
 }

@@ -498,7 +498,6 @@ class ProductOfflineRepository implements ProductRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarProduct.toEntity());
@@ -602,7 +601,6 @@ class ProductOfflineRepository implements ProductRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarProduct.toEntity());
@@ -681,7 +679,6 @@ class ProductOfflineRepository implements ProductRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(unit);
@@ -911,23 +908,16 @@ class ProductOfflineRepository implements ProductRepository {
       final nameLower = name.trim().toLowerCase();
       final List<IsarProduct> allProducts = await _isar.isarProducts.where().findAll();
 
-      print('🔍 ProductOfflineRepository.existsByName: Verificando nombre "$name"');
-      print('   excludeId: $excludeId');
-      print('   Total productos en ISAR: ${allProducts.length}');
-
       for (final product in allProducts) {
         if (excludeId != null && product.serverId == excludeId) {
-          print('   ⏭️ Excluyendo producto actual: ${product.name} (${product.serverId})');
           continue;
         }
 
         if (product.name.trim().toLowerCase() == nameLower) {
-          print('   ❌ Nombre duplicado encontrado: ${product.name} (${product.serverId})');
           return const Right(true);
         }
       }
 
-      print('   ✅ Nombre único, no se encontraron duplicados');
       return const Right(false);
     } catch (e) {
       return Left(CacheFailure('Error checking name existence: ${e.toString()}'));
@@ -940,23 +930,16 @@ class ProductOfflineRepository implements ProductRepository {
       final skuLower = sku.trim().toLowerCase();
       final List<IsarProduct> allProducts = await _isar.isarProducts.where().findAll();
 
-      print('🔍 ProductOfflineRepository.existsBySku: Verificando SKU "$sku"');
-      print('   excludeId: $excludeId');
-      print('   Total productos en ISAR: ${allProducts.length}');
-
       for (final product in allProducts) {
         if (excludeId != null && product.serverId == excludeId) {
-          print('   ⏭️ Excluyendo producto actual: ${product.name} (${product.serverId})');
           continue;
         }
 
         if (product.sku.trim().toLowerCase() == skuLower) {
-          print('   ❌ SKU duplicado encontrado: ${product.name} (${product.serverId}) tiene SKU ${product.sku}');
           return const Right(true);
         }
       }
 
-      print('   ✅ SKU único, no se encontraron duplicados');
       return const Right(false);
     } catch (e) {
       return Left(CacheFailure('Error checking SKU existence: ${e.toString()}'));

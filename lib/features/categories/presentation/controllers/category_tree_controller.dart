@@ -71,18 +71,14 @@ class CategoryTreeController extends GetxController
 
   @override
   void onClose() {
-    print('🔧 CategoryTreeController: Iniciando dispose...');
     
     // SafeTextEditingController handles safe disposal automatically
     if (!searchController.isDisposed) {
       searchController.dispose();
-      print('✅ CategoryTreeController: searchController disposed');
     } else {
-      print('⚠️ CategoryTreeController: searchController ya estaba disposed');
     }
     
     super.onClose();
-    print('✅ CategoryTreeController: Dispose completado');
   }
 
   // ==================== PUBLIC METHODS ====================

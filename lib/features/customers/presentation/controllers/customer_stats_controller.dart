@@ -137,19 +137,15 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Inicializar datos de forma optimizada
   Future<void> _initializeData() async {
     if (_isInitialized) {
-      print('⚠️ CustomerStatsController ya inicializado, omitiendo...');
       return;
     }
 
     try {
-      print('🚀 Inicializando CustomerStatsController...');
 
       await loadAllStats();
 
       _isInitialized = true;
-      print('✅ CustomerStatsController inicializado correctamente');
     } catch (e) {
-      print('❌ Error al inicializar CustomerStatsController: $e');
     }
   }
 
@@ -158,7 +154,6 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Cargar todas las estadísticas
   Future<void> loadAllStats() async {
     if (_isLoadAllInProgress) {
-      print('⏭️ CustomerStats: loadAllStats ya en progreso, saltando...');
       return;
     }
     _isLoadAllInProgress = true;
@@ -183,7 +178,6 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
       _lastLoadTime = DateTime.now();
       update();
     } catch (e) {
-      print('❌ Error al cargar estadísticas: $e');
       _showError('Error', 'No se pudieron cargar las estadísticas');
     } finally {
       _isLoading.value = false;
@@ -194,7 +188,6 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Cachear todos los clientes para filtrado eficiente
   Future<void> _cacheAllCustomers() async {
     try {
-      print('📦 Cacheando clientes para filtrado por período...');
 
       _cachedCustomers = [];
       int page = 1;
@@ -208,9 +201,6 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
 
         final success = result.fold(
           (failure) {
-            print(
-              '⚠️ Error al cachear clientes página $page: ${failure.message}',
-            );
             return false;
           },
           (paginatedResult) {
@@ -224,33 +214,25 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
         if (!success) break;
       }
 
-      print('✅ ${_cachedCustomers.length} clientes cacheados para filtrado');
     } catch (e) {
-      print('❌ Error al cachear clientes: $e');
     }
   }
 
   /// Cargar estadísticas principales
   Future<void> loadMainStats() async {
     try {
-      print('📊 Cargando estadísticas principales...');
 
       final result = await _getCustomerStatsUseCase(const NoParams());
 
       result.fold(
         (failure) {
-          print(
-            '⚠️ Error al cargar estadísticas principales: ${failure.message}',
-          );
           _showError('Error', failure.message);
         },
         (stats) {
           _stats.value = stats;
-          print('✅ Estadísticas principales cargadas: ${stats.total} clientes');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al cargar estadísticas principales: $e');
     }
   }
 
@@ -289,7 +271,6 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
 
   Future<void> loadDocumentTypeStats() async {
     try {
-      print('📋 Calculando estadísticas por tipo de documento desde cache...');
 
       // ✅ Usar clientes ya cacheados en lugar de hacer otra petición
       final customers = _cachedCustomers;
@@ -303,25 +284,19 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
         }
 
         _documentTypeStats.value = documentStats;
-        print(
-          '✅ Estadísticas por documento: ${documentStats.length} tipos, ${customers.length} clientes',
-        );
       }
     } catch (e) {
-      print('❌ Error inesperado al cargar stats por documento: $e');
     }
   }
 
   /// Cargar top clientes
   Future<void> loadTopCustomers() async {
     try {
-      print('🌟 Cargando top clientes...');
 
       final result = await _customerRepository.getTopCustomers(limit: 10);
 
       result.fold(
         (failure) {
-          print('⚠️ Error al cargar top clientes: ${failure.message}');
         },
         (customers) {
           _topCustomers.value =
@@ -339,26 +314,20 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
                     },
                   )
                   .toList();
-          print('✅ Top clientes cargados: ${customers.length} clientes');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al cargar top clientes: $e');
     }
   }
 
   /// Calcular estadísticas del período actual usando datos cacheados
   Future<void> _calculatePeriodStats() async {
     try {
-      print(
-        '📅 Calculando estadísticas del período: ${_currentPeriod.value}...',
-      );
 
       final now = DateTime.now();
       final periodStart = _getPeriodStartDate(now, _currentPeriod.value);
 
       if (_cachedCustomers.isEmpty) {
-        print('⚠️ No hay clientes cacheados, usando valores por defecto');
         _newCustomersThisPeriod.value = 0;
         _activeCustomersThisPeriod.value = _stats.value?.active ?? 0;
         _totalPurchasesThisPeriod.value = 0.0;
@@ -413,15 +382,7 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
       _averageOrderValueThisPeriod.value =
           totalOrders > 0 ? totalPurchases / totalOrders : 0.0;
 
-      print(
-        '✅ Estadísticas del período calculadas:\n'
-        '   - Nuevos: $newCustomers\n'
-        '   - Activos: $activeCustomers\n'
-        '   - Compras: \$${totalPurchases.toStringAsFixed(2)}\n'
-        '   - Promedio: \$${_averageOrderValueThisPeriod.value.toStringAsFixed(2)}',
-      );
     } catch (e) {
-      print('❌ Error inesperado al calcular stats del período: $e');
       _newCustomersThisPeriod.value = 0;
       _activeCustomersThisPeriod.value = _stats.value?.active ?? 0;
       _totalPurchasesThisPeriod.value = 0.0;
@@ -437,11 +398,9 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Refrescar todas las estadísticas (llamado desde UI / acciones manuales)
   Future<void> refreshStats() async {
     if (_isRefreshing.value) {
-      print('⚠️ Ya hay un refresco en progreso, ignorando...');
       return;
     }
 
-    print('🔄 Refrescando estadísticas de clientes...');
     _isRefreshing.value = true;
 
     try {
@@ -449,9 +408,7 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
       _isLoadAllInProgress = false;
       await loadAllStats();
       _showSuccess('Estadísticas actualizadas');
-      print('✅ Refresco de estadísticas completado');
     } catch (e) {
-      print('❌ Error durante el refresco de estadísticas: $e');
       _showError('Error', 'No se pudieron actualizar las estadísticas');
     } finally {
       _isRefreshing.value = false;
@@ -462,8 +419,6 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> changePeriod(String newPeriod) async {
     if (_currentPeriod.value == newPeriod) return;
     if (_isPeriodLoading.value) return; // Evitar cambios mientras carga
-
-    print('📅 Cambiando período de $currentPeriod a $newPeriod...');
 
     _isPeriodLoading.value = true;
     update();
@@ -477,9 +432,7 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
       // Recalcular estadísticas del nuevo período
       await _calculatePeriodStats();
 
-      print('✅ Período cambiado exitosamente a: $newPeriod');
     } catch (e) {
-      print('❌ Error al cambiar período: $e');
       _showError('Error', 'No se pudo cambiar el período de análisis');
     } finally {
       _isPeriodLoading.value = false;
@@ -492,14 +445,12 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Exportar estadísticas a CSV
   Future<void> exportToCsv() async {
     try {
-      print('📄 Exportando estadísticas a CSV...');
 
       // TODO: Implementar exportación real
       await Future.delayed(const Duration(seconds: 1));
 
       _showSuccess('Estadísticas exportadas a CSV');
     } catch (e) {
-      print('❌ Error al exportar a CSV: $e');
       _showError('Error', 'No se pudo exportar a CSV');
     }
   }
@@ -507,14 +458,12 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Exportar estadísticas a PDF
   Future<void> exportToPdf() async {
     try {
-      print('📑 Exportando estadísticas a PDF...');
 
       // TODO: Implementar exportación real
       await Future.delayed(const Duration(seconds: 1));
 
       _showSuccess('Estadísticas exportadas a PDF');
     } catch (e) {
-      print('❌ Error al exportar a PDF: $e');
       _showError('Error', 'No se pudo exportar a PDF');
     }
   }
@@ -522,14 +471,12 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Compartir estadísticas
   Future<void> shareStats() async {
     try {
-      print('📤 Compartiendo estadísticas...');
 
       // TODO: Implementar función de compartir real
       await Future.delayed(const Duration(seconds: 1));
 
       _showSuccess('Estadísticas compartidas');
     } catch (e) {
-      print('❌ Error al compartir estadísticas: $e');
       _showError('Error', 'No se pudieron compartir las estadísticas');
     }
   }
@@ -537,14 +484,12 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   /// Imprimir estadísticas
   Future<void> printStats() async {
     try {
-      print('🖨️ Preparando estadísticas para imprimir...');
 
       // TODO: Implementar función de impresión real
       await Future.delayed(const Duration(seconds: 1));
 
       _showSuccess('Estadísticas enviadas a impresora');
     } catch (e) {
-      print('❌ Error al imprimir estadísticas: $e');
       _showError('Error', 'No se pudieron imprimir las estadísticas');
     }
   }
@@ -749,9 +694,7 @@ Actividad del Período:
   /// Imprimir información de debugging
   void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 CustomerStatsController Debug Info:');
     info.forEach((key, value) {
-      print('   $key: $value');
     });
   }
 }

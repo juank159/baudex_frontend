@@ -1119,7 +1119,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
         return Right(valuation);
       } catch (e) {
-        print('⚠️ Error obteniendo valoración: $e');
         return _getInventoryValuationFromCache(warehouseId: warehouseId);
       }
     } else {
@@ -1141,10 +1140,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
           valuation[key] = (valuation[key] ?? 0) + (batch.currentQuantity * batch.unitCost);
         }
       }
-      print('✅ Valuación calculada desde ${batches.length} batches en ISAR');
       return Right(valuation);
     } catch (e) {
-      print('⚠️ Error calculando valuación desde ISAR: $e');
       return const Right(<String, double>{});
     }
   }
@@ -1158,7 +1155,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final kardexReportModel = await remoteDataSource.getKardexReport(params);
         return Right(kardexReportModel.toEntity());
       } catch (e) {
-        print('⚠️ Error generando reporte kardex: $e');
         return _getKardexReportFromCache(params);
       }
     } else {
@@ -1242,7 +1238,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       final avgCost = runningBalance > 0 ? runningValue / runningBalance : 0.0;
 
-      print('✅ Kardex calculado desde ${movements.length} movimientos en ISAR');
       return Right(KardexReport(
         product: KardexProduct(id: params.productId, name: productName, sku: productSku),
         period: KardexPeriod(startDate: params.startDate, endDate: params.endDate),
@@ -1259,7 +1254,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         ),
       ));
     } catch (e) {
-      print('⚠️ Error calculando kardex desde ISAR: $e');
       return Right(_emptyKardexReport(params));
     }
   }
@@ -1300,7 +1294,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
         return Right(aging);
       } catch (e) {
-        print('⚠️ Error obteniendo antigüedad de inventario: $e');
         return _getInventoryAgingFromCache(warehouseId: warehouseId);
       }
     } else {
@@ -1375,10 +1368,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final result = productAging.values.toList()
         ..sort((a, b) => (b['averageAgeDays'] as double).compareTo(a['averageAgeDays'] as double));
 
-      print('✅ Aging calculado desde ${batches.length} batches en ISAR (${result.length} productos)');
       return Right(result);
     } catch (e) {
-      print('⚠️ Error calculando aging desde ISAR: $e');
       return const Right(<Map<String, dynamic>>[]);
     }
   }

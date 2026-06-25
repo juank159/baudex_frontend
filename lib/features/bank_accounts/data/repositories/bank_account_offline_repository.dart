@@ -251,7 +251,6 @@ class BankAccountOfflineRepository implements BankAccountRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarBankAccount.toEntity());
@@ -316,7 +315,6 @@ class BankAccountOfflineRepository implements BankAccountRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarBankAccount.toEntity());
@@ -353,7 +351,6 @@ class BankAccountOfflineRepository implements BankAccountRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(null);

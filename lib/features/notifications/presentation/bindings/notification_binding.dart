@@ -29,7 +29,6 @@ import '../controllers/notifications_controller.dart';
 class NotificationBinding implements Bindings {
   @override
   void dependencies() {
-    print('🔧 NotificationBinding: Iniciando registro de dependencias...');
 
     try {
       // ==================== STEP 1: VERIFICAR DEPENDENCIAS CORE ====================
@@ -44,22 +43,13 @@ class NotificationBinding implements Bindings {
       // ==================== STEP 4: REGISTRAR CONTROLLERS ====================
       _registerControllers();
 
-      print(
-        '✅ NotificationBinding: Todas las dependencias registradas exitosamente',
-      );
     } catch (e, stackTrace) {
-      print(
-        '💥 NotificationBinding: Error durante el registro de dependencias',
-      );
-      print('   Error: $e');
-      print('   StackTrace: $stackTrace');
       rethrow;
     }
   }
 
   /// Verificar dependencias core del sistema
   void _verifyCoreDependencies() {
-    print('🔍 NotificationBinding: Verificando dependencias core...');
 
     final requiredDependencies = <String, bool>{
       'DioClient': Get.isRegistered<DioClient>(),
@@ -86,18 +76,15 @@ SOLUCIÓN:
 2. Verifica que las dependencias core estén correctamente registradas en InitialBinding
 ''';
 
-      print(errorMsg);
       throw Exception(
         'NotificationBinding requiere InitialBinding. Dependencias faltantes: ${missingDependencies.join(', ')}',
       );
     }
 
-    print('✅ NotificationBinding: Dependencias core verificadas');
   }
 
   /// Registrar capa de datos
   void _registerDataLayer() {
-    print('💾 NotificationBinding: Registrando capa de datos...');
 
     // Remote DataSource
     if (!Get.isRegistered<NotificationRemoteDataSource>()) {
@@ -105,7 +92,6 @@ SOLUCIÓN:
         () => NotificationRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
         fenix: true,
       );
-      print('  ✅ NotificationRemoteDataSource registrado');
     }
 
     // Local DataSource - ISAR Implementation (offline-first)
@@ -114,7 +100,6 @@ SOLUCIÓN:
         () => NotificationLocalDataSourceIsar(Get.find<IsarDatabase>()),
         fenix: true,
       );
-      print('  ✅ NotificationLocalDataSource (ISAR) registrado');
     }
 
     // Repository
@@ -127,13 +112,11 @@ SOLUCIÓN:
         ),
         fenix: true,
       );
-      print('  ✅ NotificationRepository registrado');
     }
   }
 
   /// Registrar casos de uso
   void _registerUseCases() {
-    print('🎯 NotificationBinding: Registrando casos de uso...');
 
     final repository = Get.find<NotificationRepository>();
 
@@ -149,12 +132,10 @@ SOLUCIÓN:
     Get.lazyPut(() => MarkAllAsReadUseCase(repository), fenix: true);
     Get.lazyPut(() => DeleteNotificationUseCase(repository), fenix: true);
 
-    print('  ✅ Todos los casos de uso de notificaciones registrados');
   }
 
   /// Registrar controladores
   void _registerControllers() {
-    print('🎮 NotificationBinding: Registrando controladores...');
 
     // NotificationsController - PERMANENTE para evitar disposal al navegar
     if (!Get.isRegistered<NotificationsController>()) {
@@ -171,13 +152,11 @@ SOLUCIÓN:
         ),
         permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
       );
-      print('  ✅ NotificationsController registrado (permanente)');
     }
   }
 
   @override
   void onDispose() {
-    print('🧹 NotificationBinding: Iniciando limpieza de dependencias...');
 
     try {
       // Controllers
@@ -189,9 +168,7 @@ SOLUCIÓN:
       // Data Layer (opcional, ya que son fenix)
       _cleanupDataLayer();
 
-      print('✅ NotificationBinding: Limpieza completada exitosamente');
     } catch (e) {
-      print('⚠️ NotificationBinding: Error durante limpieza: $e');
     }
   }
 
@@ -199,10 +176,8 @@ SOLUCIÓN:
     try {
       if (Get.isRegistered<NotificationsController>()) {
         Get.delete<NotificationsController>(force: true);
-        print('  🗑️ NotificationsController eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando NotificationsController: $e');
     }
   }
 
@@ -232,9 +207,7 @@ SOLUCIÓN:
     for (int i = 0; i < useCases.length; i++) {
       try {
         useCases[i]();
-        print('  🗑️ ${names[i]} eliminado');
       } catch (e) {
-        print('  ⚠️ Error eliminando ${names[i]}: $e');
       }
     }
   }
@@ -243,28 +216,22 @@ SOLUCIÓN:
     try {
       if (Get.isRegistered<NotificationRepository>()) {
         Get.delete<NotificationRepository>(force: true);
-        print('  🗑️ NotificationRepository eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando NotificationRepository: $e');
     }
 
     try {
       if (Get.isRegistered<NotificationRemoteDataSource>()) {
         Get.delete<NotificationRemoteDataSource>(force: true);
-        print('  🗑️ NotificationRemoteDataSource eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando NotificationRemoteDataSource: $e');
     }
 
     try {
       if (Get.isRegistered<NotificationLocalDataSource>()) {
         Get.delete<NotificationLocalDataSource>(force: true);
-        print('  🗑️ NotificationLocalDataSource eliminado');
       }
     } catch (e) {
-      print('  ⚠️ Error eliminando NotificationLocalDataSource: $e');
     }
   }
 
@@ -280,7 +247,6 @@ SOLUCIÓN:
 
   /// Verificar dependencias específicas
   static void verifyDependencies() {
-    print('🔍 Verificando dependencias del módulo Notifications...');
 
     final dependencies = {
       // Core Dependencies
@@ -304,7 +270,6 @@ SOLUCIÓN:
 
     dependencies.forEach((name, isRegistered) {
       final status = isRegistered ? '✅' : '❌';
-      print('   $status $name');
     });
 
     final allCoreRegistered = [
@@ -318,8 +283,6 @@ SOLUCIÓN:
             ? '✅ DEPENDENCIAS CORE REGISTRADAS'
             : '❌ FALTAN DEPENDENCIAS CORE';
 
-    print('📋 Estado: $statusMsg');
-    print('🔍 Verificación completada');
   }
 
   /// Obtener información de estado para debugging
@@ -343,7 +306,5 @@ SOLUCIÓN:
   /// Imprimir información de debugging
   static void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 NotificationBinding Debug Info:');
-    print('   ${info.toString()}');
   }
 }

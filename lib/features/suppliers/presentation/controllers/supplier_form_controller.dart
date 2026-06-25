@@ -725,7 +725,6 @@ class SupplierFormController extends GetxController {
   // Real-time document uniqueness validation
   Future<bool> validateDocumentUniqueness() async {
     if (documentType.value == null || documentNumber.value.isEmpty) {
-      print('🚫 Validation skipped - campos vacíos');
       return true; // No validation needed if fields are empty
     }
 
@@ -736,26 +735,19 @@ class SupplierFormController extends GetxController {
         excludeId: isEditMode.value ? supplier.value?.id : null,
       );
 
-      print(
-        '📋 Validando con params: ${documentType.value?.name} - ${documentNumber.value} - excludeId: ${params.excludeId}',
-      );
-
       final result = await checkDocumentUniquenessUseCase(params);
 
       return result.fold(
         (failure) {
           // If there's an error, return true to avoid false positives
-          print('❌ Error en validación: $failure');
           return true; // Changed: assume unique if there's an error
         },
         (isUnique) {
-          print('✅ Respuesta de API: isUnique = $isUnique');
           return isUnique;
         },
       );
     } catch (e) {
       // If there's an exception, return true to avoid false positives
-      print('💥 Excepción en validación: $e');
       return true; // Changed: assume unique if there's an exception
     }
   }
@@ -774,13 +766,8 @@ class SupplierFormController extends GetxController {
     _debounceTimer = Timer(const Duration(milliseconds: 1000), () async {
       // Verificar nuevamente que los campos sigan completos después del debounce
       if (documentType.value != null && documentNumber.value.isNotEmpty) {
-        print(
-          '🔍 Iniciando validación de unicidad para: ${documentType.value?.name} - ${documentNumber.value}',
-        );
 
         final isUnique = await validateDocumentUniqueness();
-
-        print('📋 Resultado validación: isUnique = $isUnique');
 
         if (!isUnique) {
           // Documento duplicado - mostrar error
@@ -796,7 +783,6 @@ class SupplierFormController extends GetxController {
           );
         } else {
           // Documento único - limpiar errores de unicidad solo si ambos campos están presentes
-          print('✅ Documento único - limpiando errores');
           documentNumberError.value = false;
           documentTypeError.value = false;
         }

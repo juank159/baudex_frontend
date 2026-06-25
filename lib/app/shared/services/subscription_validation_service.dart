@@ -104,20 +104,19 @@ class SubscriptionValidationService {
   /// Validación ASYNC completa - consulta ISAR si es necesario
   static Future<bool> _validateSubscriptionAsync(String context) async {
     try {
-      print('🔒 SUBSCRIPTION VALIDATION [ASYNC]: Validando para: $context');
 
       // PASO 1: Intentar obtener datos del OrganizationController (memoria)
       SubscriptionData? subscriptionData = _getSubscriptionFromController();
 
       // PASO 2: Si no hay datos en memoria, consultar ISAR
       if (subscriptionData == null) {
-        print('📴 No hay datos en memoria, consultando ISAR...');
+
         subscriptionData = await _getSubscriptionFromIsar();
       }
 
       // PASO 3: Si no hay datos en ningún lado
       if (subscriptionData == null) {
-        print('❌ No hay datos de suscripción disponibles');
+
         _showNoSubscriptionDataDialog(context);
         return false;
       }
@@ -125,7 +124,7 @@ class SubscriptionValidationService {
       // PASO 4: Validar la suscripción
       return _validateSubscriptionData(subscriptionData, context);
     } catch (e) {
-      print('💥 Error en validación async: $e');
+
       // En caso de error, bloquear por seguridad
       _showValidationErrorDialog(context, e.toString());
       return false;
@@ -135,28 +134,27 @@ class SubscriptionValidationService {
   /// Validación SYNC - solo usa datos en memoria
   static bool _validateSubscriptionSync(String context) {
     try {
-      print('🔒 SUBSCRIPTION VALIDATION [SYNC]: Validando para: $context');
 
       // Solo usar datos del OrganizationController
       final subscriptionData = _getSubscriptionFromController();
 
       if (subscriptionData == null) {
-        print('⚠️ No hay datos en memoria');
+
         // Para sync, si no hay datos y parece estar offline, bloquear
         final isOnline = _isOnlineSync();
         if (!isOnline) {
-          print('🚫 OFFLINE sin datos - bloqueando');
+
           _showNoSubscriptionDataDialog(context);
           return false;
         }
         // Si está online pero no hay datos, permitir (backend validará)
-        print('🌐 ONLINE sin datos - permitiendo (backend validará)');
+
         return true;
       }
 
       return _validateSubscriptionData(subscriptionData, context);
     } catch (e) {
-      print('💥 Error en validación sync: $e');
+
       return false;
     }
   }
@@ -167,7 +165,7 @@ class SubscriptionValidationService {
   static SubscriptionData? _getSubscriptionFromController() {
     try {
       if (!Get.isRegistered<OrganizationController>()) {
-        print('⚠️ OrganizationController no registrado');
+
         return null;
       }
 
@@ -175,11 +173,10 @@ class SubscriptionValidationService {
       final organization = orgController.currentOrganization;
 
       if (organization == null) {
-        print('⚠️ No hay organización en el controlador');
+
         return null;
       }
 
-      print('✅ Datos obtenidos del OrganizationController');
       return SubscriptionData(
         status: organization.subscriptionStatus.name.toLowerCase(),
         endDate: organization.subscriptionEndDate,
@@ -190,7 +187,7 @@ class SubscriptionValidationService {
         source: 'controller',
       );
     } catch (e) {
-      print('⚠️ Error obteniendo datos del controlador: $e');
+
       return null;
     }
   }
@@ -203,18 +200,13 @@ class SubscriptionValidationService {
       try {
         isar = IsarDatabase.instance.database;
       } catch (e) {
-        print('⚠️ ISAR no disponible: $e');
+
         return null;
       }
 
       // PASO 1: Buscar en IsarSubscription (fuente más completa y precisa)
       final isarSub = await isar.isarSubscriptions.where().findFirst();
       if (isarSub != null) {
-        print('✅ Datos obtenidos de IsarSubscription (cache completo)');
-        print('   - Status: ${isarSub.status}');
-        print('   - End Date: ${isarSub.endDate}');
-        print('   - Plan: ${isarSub.plan}');
-        print('   - Last Sync: ${isarSub.lastSyncAt}');
 
         return SubscriptionData(
           status: isarSub.status.name.toLowerCase(),
@@ -235,13 +227,9 @@ class SubscriptionValidationService {
           .findFirst();
 
       if (isarOrg == null) {
-        print('⚠️ No hay datos de suscripción en ISAR');
+
         return null;
       }
-
-      print('✅ Datos obtenidos de IsarOrganization (fallback)');
-      print('   - Status: ${isarOrg.subscriptionStatus}');
-      print('   - End Date: ${isarOrg.subscriptionEndDate}');
 
       return SubscriptionData(
         status: isarOrg.subscriptionStatus.name.toLowerCase(),
@@ -254,7 +242,7 @@ class SubscriptionValidationService {
         lastSyncAt: isarOrg.lastSyncAt,
       );
     } catch (e) {
-      print('⚠️ Error obteniendo datos de ISAR: $e');
+
       return null;
     }
   }
@@ -263,22 +251,15 @@ class SubscriptionValidationService {
 
   /// Validar datos de suscripción
   static bool _validateSubscriptionData(SubscriptionData data, String context) {
-    print('📋 Validando suscripción:');
-    print('   - Fuente: ${data.source}');
-    print('   - Status: ${data.status}');
-    print('   - Plan: ${data.planName}');
-    print('   - End Date: ${data.endDate}');
-    print('   - Trial End: ${data.trialEndDate}');
-    print('   - Has Valid: ${data.hasValidSubscription}');
-    print('   - Trial Expired: ${data.isTrialExpired}');
+
     if (data.lastSyncAt != null) {
-      print('   - Last Sync: ${data.lastSyncAt}');
+
     }
 
     // VALIDACIÓN 1: Estado de suscripción inválido
     final invalidStatuses = ['expired', 'inactive', 'cancelled', 'suspended'];
     if (invalidStatuses.contains(data.status)) {
-      print('🚫 Status inválido: ${data.status}');
+
       _showExpiredDialog(context, data.status == 'expired' || data.isTrialExpired);
       return false;
     }
@@ -289,7 +270,7 @@ class SubscriptionValidationService {
     // Verificar fecha de suscripción
     if (data.endDate != null) {
       if (now.isAfter(data.endDate!)) {
-        print('🚫 Suscripción vencida por fecha: ${data.endDate}');
+
         _showExpiredDialog(context, false);
         return false;
       }
@@ -298,7 +279,7 @@ class SubscriptionValidationService {
     // Verificar fecha de trial
     if (data.trialEndDate != null && data.status == 'trial') {
       if (now.isAfter(data.trialEndDate!)) {
-        print('🚫 Trial vencido por fecha: ${data.trialEndDate}');
+
         _showExpiredDialog(context, true);
         return false;
       }
@@ -306,13 +287,13 @@ class SubscriptionValidationService {
 
     // VALIDACIÓN 3: Campos booleanos del servidor (respaldo)
     if (data.isTrialExpired && data.status == 'trial') {
-      print('🚫 Trial marcado como expirado');
+
       _showExpiredDialog(context, true);
       return false;
     }
 
     if (!data.hasValidSubscription && data.status != 'trial' && data.status != 'active') {
-      print('🚫 Suscripción marcada como inválida');
+
       _showExpiredDialog(context, false);
       return false;
     }
@@ -321,7 +302,7 @@ class SubscriptionValidationService {
     if (data.source == 'isar' && data.lastSyncAt != null) {
       final daysSinceSync = now.difference(data.lastSyncAt!).inDays;
       if (daysSinceSync > 30) {
-        print('⚠️ Cache muy antiguo: $daysSinceSync días');
+
         // No bloquear, pero advertir
         _showOldCacheWarning(daysSinceSync);
       }
@@ -330,7 +311,6 @@ class SubscriptionValidationService {
     // Mostrar advertencia si está por vencer
     _showExpirationWarningIfNeeded(data);
 
-    print('✅ SUBSCRIPTION VALIDATION: Suscripción válida - PERMITIENDO $context');
     return true;
   }
 
@@ -399,11 +379,6 @@ class SubscriptionValidationService {
   /// sesiones. Para `expired` es 1 vez por sesión.
   static Future<void> _showExpirationWarningIfNeeded(
       SubscriptionData data) async {
-    print('🔔 SUBSCRIPTION DIALOG: Evaluando estado de suscripción...');
-    print('   - Fuente: ${data.source}');
-    print('   - Status: ${data.status}');
-    print('   - End Date: ${data.endDate}');
-    print('   - Is Expired (calculated): ${data.isExpired}');
 
     // Calcular días restantes (si tenemos endDate) y nivel de alerta.
     int daysUntilExpiration = 0;
@@ -422,8 +397,6 @@ class SubscriptionValidationService {
 
     // Sin nivel relevante → silencio.
     if (level == null) {
-      print(
-          '🟢 SUBSCRIPTION: Válida por $daysUntilExpiration días - No se muestra diálogo');
       return;
     }
 
@@ -435,19 +408,15 @@ class SubscriptionValidationService {
         daysUntilExpiration: daysUntilExpiration,
       );
       if (!allowed) {
-        print(
-            '⏸️ Aviso $level bloqueado por SubscriptionAlertService (>1 día o cooldown 2h)');
         return;
       }
     }
 
     // Disparar el dialog correspondiente.
     if (level == SubscriptionAlertLevel.expired) {
-      print('🔴 SUBSCRIPTION: VENCIDA - Mostrando diálogo de expirado');
+
       _showExpiredStatusDialog();
     } else {
-      print(
-          '🟡 SUBSCRIPTION: POR VENCER en $daysUntilExpiration días - Mostrando diálogo');
       _showExpiringDialog(daysUntilExpiration);
     }
   }
@@ -808,12 +777,12 @@ class SubscriptionValidationService {
   /// Mostrar advertencia de expiración si la suscripción está por vencer (público)
   /// Usa datos en memoria del OrganizationController
   static void showExpirationWarningIfNeeded() {
-    print('🔔 showExpirationWarningIfNeeded (SYNC) llamado');
+
     final data = _getSubscriptionFromController();
     if (data != null) {
       _showExpirationWarningIfNeeded(data);
     } else {
-      print('⚠️ No hay datos de suscripción en memoria');
+
     }
   }
 
@@ -821,22 +790,21 @@ class SubscriptionValidationService {
   /// ✅ IMPORTANTE: Consulta ISAR si no hay datos en memoria
   /// Funciona tanto ONLINE como OFFLINE
   static Future<void> showExpirationWarningIfNeededAsync() async {
-    print('🔔 showExpirationWarningIfNeededAsync (ASYNC) llamado');
 
     // PASO 1: Intentar obtener datos del OrganizationController (memoria)
     var data = _getSubscriptionFromController();
 
     if (data != null) {
-      print('✅ Datos obtenidos de OrganizationController (memoria)');
+
     } else {
-      print('⚠️ No hay datos en memoria, consultando ISAR...');
+
       // PASO 2: Si no hay en memoria, consultar ISAR (cache local)
       data = await _getSubscriptionFromIsar();
 
       if (data != null) {
-        print('✅ Datos obtenidos de ISAR (cache local)');
+
       } else {
-        print('❌ No hay datos de suscripción disponibles (ni memoria ni ISAR)');
+
         return;
       }
     }

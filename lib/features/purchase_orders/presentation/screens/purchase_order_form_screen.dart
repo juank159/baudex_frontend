@@ -1519,9 +1519,7 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
-                        print('🔢 DEBUG: Cantidad changed para item $index: $value');
                         final quantity = AppFormatters.parseNumber(value)?.toInt() ?? 0;
-                        print('🔢 DEBUG: Parsed quantity: $quantity');
                         controller.updateItemQuantity(index, quantity);
                       },
                     ),
@@ -1540,9 +1538,7 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
-                        print('💰 DEBUG: Precio changed para item $index: $value');
                         final price = AppFormatters.parseNumber(value) ?? 0.0;
-                        print('💰 DEBUG: Parsed price: $price');
                         controller.updateItemPrice(index, price);
                       },
                     ),

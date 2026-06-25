@@ -188,8 +188,5 @@ class RepositoriesRegistry {
 
   /// Información de debug
   void printDebugInfo() {
-    print('📊 RepositoriesRegistry Debug Info:');
-    print('   Registrados: ${registeredRepositories.join(', ')}');
-    print('   Configurado: $isConfigured');
   }
 }

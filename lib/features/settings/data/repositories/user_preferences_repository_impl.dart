@@ -79,7 +79,6 @@ class UserPreferencesRepositoryImpl implements UserPreferencesRepository {
               data: preferences,
             );
           } catch (e) {
-            print('Warning: Could not add preferences to sync queue: $e');
           }
 
           return Right(updatedPrefs);

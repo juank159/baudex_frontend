@@ -34,7 +34,6 @@ class WarehouseNetworkService {
       final results = await _connectivity.checkConnectivity();
       _updateConnectionStatus(results);
     } catch (e) {
-      print('❌ Error verificando conectividad inicial: $e');
       _isOnline.value = false;
     }
   }
@@ -44,7 +43,6 @@ class WarehouseNetworkService {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       _updateConnectionStatus,
       onError: (error) {
-        print('❌ Error en monitoreo de conectividad: $error');
         _isOnline.value = false;
       },
     );
@@ -100,8 +98,6 @@ class WarehouseNetworkService {
         lastException = e is Exception ? e : Exception(e.toString());
         _retryAttempts.value++;
 
-        print('❌ Intento ${_retryAttempts.value} falló para $operationName: $e');
-
         // Si no es el último intento, esperar antes del siguiente
         if (_retryAttempts.value < maxRetryAttempts) {
           await Future.delayed(retryDelay * _retryAttempts.value);
@@ -136,7 +132,6 @@ class WarehouseNetworkService {
           .timeout(const Duration(seconds: 10));
       return result.isNotEmpty;
     } catch (e) {
-      print('❌ Error verificando acceso al servidor: $e');
       return false;
     }
   }

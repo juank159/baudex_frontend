@@ -24,8 +24,6 @@ class InvoiceResponseModel {
         ),
       );
     } catch (e) {
-      print('❌ Error parsing InvoiceResponseModel: $e');
-      print('📄 JSON data: $json');
 
       // Retornar respuesta vacía en caso de error
       return InvoiceResponseModel(data: [], meta: PaginationMeta.fromJson({}));

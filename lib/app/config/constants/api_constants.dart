@@ -19,22 +19,6 @@ class ApiConstants {
   static void printCurrentConfig() {
     if (!EnvConfig.showLogs) return;
 
-    print('');
-    print('🌐 ============================================');
-    print('📡 CONFIGURACIÓN API CONSTANTS');
-    print('🌐 ============================================');
-    print('🔗 URLs:');
-    print('   • Base URL: $baseUrl');
-    print('   • Server URL: $serverUrl');
-    print('   • Server IP: $serverIP');
-    print('   • Server Port: $serverPort');
-    print('');
-    print('⏱️  Timeouts:');
-    print('   • Connect: ${connectTimeout}ms');
-    print('   • Receive: ${receiveTimeout}ms');
-    print('   • Send: ${sendTimeout}ms');
-    print('🌐 ============================================');
-    print('');
   }
 
   /// Actualizar IP del servidor en tiempo de ejecución
@@ -481,31 +465,25 @@ class ApiConstants {
   /// Validar que todas las URLs estén correctamente configuradas
   static bool validateConfiguration() {
     try {
-      print('🔍 Validando configuración de API...');
 
       // Verificar URL base
       if (baseUrl.isEmpty) {
-        print('❌ Base URL vacía');
         return false;
       }
 
       // Verificar que sea una URL válida
       final uri = Uri.tryParse(baseUrl);
       if (uri == null || !uri.hasAbsolutePath) {
-        print('❌ Base URL inválida: $baseUrl');
         return false;
       }
 
       // Verificar timeouts
       if (connectTimeout <= 0 || receiveTimeout <= 0 || sendTimeout <= 0) {
-        print('❌ Timeouts inválidos');
         return false;
       }
 
-      print('✅ Configuración de API válida');
       return true;
     } catch (e) {
-      print('❌ Error validando configuración: $e');
       return false;
     }
   }

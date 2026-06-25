@@ -273,14 +273,11 @@ class ApiInterceptor extends Interceptor {
     } on DioException catch (e) {
       // 401/403 del endpoint de refresh = refresh token inválido/expirado
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        print('🔑 Refresh token expirado (${e.response?.statusCode})');
         return _RefreshResult(wasAuthError: true);
       }
       // Cualquier otro error (timeout, red, 500) = no sabemos si el token es válido
-      print('⚠️ Error de red al refrescar token (NO se borra auth): $e');
       return _RefreshResult(wasNetworkError: true);
     } catch (e) {
-      print('⚠️ Error inesperado al refrescar token: $e');
       return _RefreshResult(wasNetworkError: true);
     }
   }

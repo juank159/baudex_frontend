@@ -175,7 +175,6 @@ class ProductsController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    print('🔄 ProductsController: onReady - Controller listo');
     // ✅ Cargar datos cuando el controller esté completamente listo
     ensureDataLoaded();
   }
@@ -183,15 +182,11 @@ class ProductsController extends GetxController
   /// Método para limpiar búsqueda cuando regresas a la pantalla
   void clearSearchOnReturn() {
     if (searchController.text.isNotEmpty) {
-      print(
-        '🧹 Limpiando campo de búsqueda anterior: "${searchController.text}"',
-      );
       searchController.clear();
       _searchTerm.value = '';
       _searchResults.clear();
 
       // Si estábamos mostrando resultados de búsqueda, volver a cargar todos los productos
-      print('🔄 Recargando lista completa de productos...');
       loadProducts();
     }
   }
@@ -266,7 +261,6 @@ class ProductsController extends GetxController
   }
 
   Future<void> loadInitialData() async {
-    print('🚀 ProductsController: Iniciando carga inicial unificada...');
 
     _isLoading.value = true;
 
@@ -282,9 +276,7 @@ class ProductsController extends GetxController
         updateCache(_products.toList(), stats: _stats.value);
       }
 
-      print('✅ Carga inicial completada exitosamente');
     } catch (e) {
-      print('❌ Error en carga inicial: $e');
       _showError('Error de carga', 'No se pudo cargar la información inicial');
     } finally {
       _isLoading.value = false;
@@ -313,30 +305,25 @@ class ProductsController extends GetxController
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar productos: ${failure.message}');
           // No borrar productos existentes en error - datos stale son mejor que nada
         },
         (paginatedResult) {
           _products.value = paginatedResult.data;
           _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Productos cargados: ${paginatedResult.data.length}');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando productos: $e');
       // No borrar productos existentes en error - offline-first
     }
   }
 
   Future<void> _loadStatsInternal() async {
     try {
-      print('📊 Cargando estadísticas...');
 
       final result = await _getProductStatsUseCase(const NoParams());
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar estadísticas: ${failure.message}');
 
           // Solo mostrar error crítico si no hay estadísticas previas
           if (_stats.value == null) {
@@ -353,18 +340,15 @@ class ProductsController extends GetxController
           }
         },
         (stats) {
-          print('✅ Estadísticas cargadas: $stats');
 
           if (stats.total >= 0 && stats.active >= 0) {
             _stats.value = stats;
 
             // ✅ OPTIMIZACIÓN: Solo verificar consistencia si hay productos con stock bajo
             if (stats.lowStock > 0) {
-              print('🔍 Detectados ${stats.lowStock} productos con stock bajo');
               // NO hacer verificación adicional aquí para evitar consultas extra
             }
           } else {
-            print('⚠️ Estadísticas con valores inválidos');
             if (_stats.value == null) {
               _stats.value = const ProductStats(
                 total: 0,
@@ -381,7 +365,6 @@ class ProductsController extends GetxController
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando estadísticas: $e');
       if (_stats.value == null) {
         _stats.value = const ProductStats(
           total: 0,
@@ -447,13 +430,7 @@ class ProductsController extends GetxController
 
           if (newProducts.isNotEmpty) {
             _products.addAll(newProducts);
-            print(
-              '✅ ProductsController: Agregados ${newProducts.length} productos nuevos',
-            );
           } else {
-            print(
-              '⚠️ ProductsController: No hay productos nuevos para agregar',
-            );
           }
 
           _updatePaginationInfo(paginatedResult.meta);
@@ -534,7 +511,6 @@ class ProductsController extends GetxController
   }
 
   Future<void> refreshStats() async {
-    print('🔄 ProductsController: Refrescando solo estadísticas...');
     await _loadStatsInternal();
   }
 
@@ -542,7 +518,6 @@ class ProductsController extends GetxController
   bool get hasValidStats => _stats.value != null && _stats.value!.total >= 0;
 
   Future<void> loadLowStockProducts() async {
-    print('📋 ProductsController: Cargando productos con stock bajo...');
     _isLoading.value = true;
 
     try {
@@ -550,16 +525,12 @@ class ProductsController extends GetxController
 
       result.fold(
         (failure) {
-          print(
-            '❌ Error al cargar productos con stock bajo: ${failure.message}',
-          );
           _showError(
             'Error al cargar productos con stock bajo',
             failure.message,
           );
         },
         (products) {
-          print('✅ Productos con stock bajo cargados: ${products.length}');
 
           _products.value = products;
 
@@ -584,7 +555,6 @@ class ProductsController extends GetxController
       _isLoading.value = false;
     }
   }
-
 
   // ==================== FILTER & SORT METHODS ====================
 
@@ -657,7 +627,6 @@ class ProductsController extends GetxController
 
   /// Limpiar todos los filtros y refrescar lista completamente
   Future<void> clearFiltersAndRefresh() async {
-    print('🔄 ProductsController: Limpiando filtros y refrescando lista...');
 
     // Limpiar todos los filtros
     _currentStatus.value = null;
@@ -676,23 +645,19 @@ class ProductsController extends GetxController
     // Refrescar datos completamente
     await refreshProducts();
 
-    print('✅ ProductsController: Filtros limpiados y lista refrescada');
   }
 
   /// Búsqueda con debounce profesional
   void debouncedSearch(String query) {
-    print('🔍 debouncedSearch LLAMADO con: "$query"');
 
     // Cancelar timer anterior si existe
     _searchDebounceTimer?.cancel();
 
     // Actualizar el campo de búsqueda inmediatamente para UI responsiva
     _searchTerm.value = query;
-    print('   ✅ _searchTerm actualizado a: "$query"');
 
     // Si está vacío, limpiar inmediatamente
     if (query.trim().isEmpty) {
-      print('   🧹 Query vacío, limpiando resultados');
       _searchResults.clear();
       loadProducts();
       return;
@@ -700,15 +665,10 @@ class ProductsController extends GetxController
 
     // Para queries válidas, crear timer con delay
     if (query.trim().length >= 2) {
-      print('   ⏱️ Creando timer de 500ms para buscar: "$query"');
       _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-        print('   🚀 Timer expiró, ejecutando searchProducts("$query")');
         searchProducts(query);
       });
     } else {
-      print(
-        '   ⚠️ Query demasiado corto (${query.trim().length} chars), mínimo 2',
-      );
     }
   }
 
@@ -734,7 +694,6 @@ class ProductsController extends GetxController
       return;
     }
 
-    print('🔄 ProductsController: Navegando a página $pageNumber');
     _currentPage.value = pageNumber;
     await loadProducts();
   }

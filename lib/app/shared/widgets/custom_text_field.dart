@@ -58,7 +58,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
     try {
       _initializeController();
     } catch (e) {
-      print('❌ Error en initState de CustomTextField: $e');
       // Crear fallback controller si falla la inicialización
       _internalController = TextEditingController();
       _activeController = _internalController!;
@@ -73,7 +72,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
       try {
         _initializeController();
       } catch (e) {
-        print('❌ Error en didUpdateWidget de CustomTextField: $e');
         // Crear controlador interno de emergencia
         _internalController?.dispose();
         _internalController = TextEditingController();
@@ -110,9 +108,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
             _internalController!.text = externalText;
           }
         } catch (e) {
-          print(
-            '⚠️ CustomTextField: No se pudo copiar texto del controller externo disposed',
-          );
         }
       }
     }
@@ -141,17 +136,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
       // Verificación 4: Test específico para disposed flag (más directo)
       if (controller.toString().contains('DISPOSED')) {
-        print(
-          '⚠️ CustomTextField: Controller disposed detectado en toString()',
-        );
         return false;
       }
 
       return true;
     } catch (e) {
-      print(
-        '⚠️ CustomTextField: Controller externo disposed detectado (${widget.label}) - $e',
-      );
       return false;
     }
   }
@@ -168,7 +157,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
       return true;
     } catch (e) {
       // Controller probablemente disposed o en mal estado
-      print('⚠️ CustomTextField: _activeController no seguro - $e');
       return false;
     }
   }
@@ -183,11 +171,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       _internalController = TextEditingController();
       _activeController = _internalController!;
 
-      print(
-        '✅ CustomTextField: Controller interno seguro creado para ${widget.label}',
-      );
     } catch (e) {
-      print('❌ Error creando controller interno: $e');
     }
   }
 
@@ -233,7 +217,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
   Widget build(BuildContext context) {
     // ✅ VERIFICACIÓN CRÍTICA: Solo verificar si el widget está mounted
     if (!mounted) {
-      print('⚠️ CustomTextField: Widget no mounted, usando controller básico');
       return _buildBasicTextField();
     }
 
@@ -245,9 +228,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
         try {
           // Verificar si estamos en proceso de dispose
           if (!mounted) {
-            print(
-              '⚠️ CustomTextField: Widget no mounted durante build, usando fallback',
-            );
             return _buildBasicTextField();
           }
 
@@ -258,23 +238,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
           // ✅ VERIFICACIÓN FINAL: Asegurar que el _activeController esté seguro
           if (!_isActiveControllerSafe()) {
-            print(
-              '❌ CustomTextField: _activeController no seguro, recreando...',
-            );
             _createSafeInternalController();
           }
 
           // ✅ VERIFICACIÓN FINAL antes de usar el controller
           if (!_isActiveControllerSafe()) {
-            print(
-              '⚠️ CustomTextField: Fallback completo, usando widget básico',
-            );
             return _buildBasicTextField();
           }
         } catch (e) {
-          print(
-            '❌ CustomTextField: Error en verificaciones, usando fallback - $e',
-          );
           return _buildBasicTextField();
         }
 
@@ -305,7 +276,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       widget.controller!.text = value;
                     }
                   } catch (e) {
-                    print('⚠️ CustomTextField: Error en onChanged - $e');
                   }
                 },
                 inputFormatters: widget.inputFormatters,

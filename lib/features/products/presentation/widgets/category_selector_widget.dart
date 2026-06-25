@@ -203,7 +203,6 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
   }
 
   Future<void> _loadCategories() async {
-    print('🔍 CategorySelectorDialog: Obteniendo categorías...');
     setState(() {
       _isLoading = true;
     });
@@ -214,15 +213,11 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
       final categories = productFormController.availableCategories;
 
       if (categories.isNotEmpty) {
-        print(
-          '✅ CategorySelectorDialog: Usando ${categories.length} categorías desde cache',
-        );
         setState(() {
           _categories = categories;
           _filteredCategories = _categories;
         });
       } else {
-        print('🔄 CategorySelectorDialog: Cache vacío, cargando desde API...');
         // Si no hay categorías en cache, cargar usando el método del controller
         await productFormController.loadAvailableCategoriesIfNeeded();
         final updatedCategories = productFormController.availableCategories;
@@ -232,17 +227,12 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
           _filteredCategories = _categories;
         });
 
-        print(
-          '✅ CategorySelectorDialog: ${updatedCategories.length} categorías cargadas desde API',
-        );
       }
 
       // ✅ DEBUG: Imprimir categorías para verificar
       for (int i = 0; i < _categories.length; i++) {
-        print('  Categoría $i: ${_categories[i].name} (${_categories[i].id})');
       }
     } catch (e) {
-      print('💥 CategorySelectorDialog: Error inesperado: $e');
       _showError('Error inesperado: $e');
     } finally {
       setState(() {
@@ -253,7 +243,6 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
 
   // ✅ MÉTODO ACTUALIZADO: Solo filtro local
   void _searchCategoriesLocally(String query) {
-    print('🔍 CategorySelectorDialog: Buscando localmente: "$query"');
     setState(() {
       _isSearching = true;
     });
@@ -272,10 +261,6 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                       false);
             }).toList();
 
-        print(
-          '✅ CategorySelectorDialog: ${filtered.length} categorías encontradas para "$query"',
-        );
-
         setState(() {
           _filteredCategories = filtered;
           _isSearching = false;
@@ -285,9 +270,6 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
   }
 
   void _selectCategory(Category category) {
-    print(
-      '🎯 CategorySelectorDialog: Categoría seleccionada: ${category.name}',
-    );
     setState(() {
       _selectedCategoryId = category.id;
     });
@@ -302,13 +284,9 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                 _categories.firstWhere((cat) => cat.id == _selectedCategoryId),
       );
 
-      print(
-        '✅ CategorySelectorDialog: Confirmando selección: ${selectedCategory.name}',
-      );
       widget.onCategorySelected(selectedCategory.id, selectedCategory.name);
       Navigator.of(context).pop();
     } else {
-      print('⚠️ CategorySelectorDialog: No hay categoría seleccionada');
     }
   }
 

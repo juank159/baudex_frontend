@@ -104,7 +104,6 @@ class CustomersController extends GetxController
     _setupSearchListener();
     _setupScrollListener();
     setupSyncListener();
-    print('🎯 CustomersController onInit() llamado');
   }
 
   @override
@@ -116,7 +115,6 @@ class CustomersController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    print('🎯 CustomersController onReady() llamado - Cargando clientes...');
     _initializeData();
   }
 
@@ -135,22 +133,16 @@ class CustomersController extends GetxController
   /// Inicializar datos de forma optimizada
   Future<void> _initializeData() async {
     if (_isInitialized) {
-      print('⚠️ CustomersController ya inicializado, omitiendo...');
       return;
     }
 
     try {
-      print('🚀 Inicializando CustomersController...');
 
       // ✅ CARGAR CLIENTES AUTOMÁTICAMENTE al entrar a la pantalla
       await loadCustomers();
 
       _isInitialized = true;
-      print(
-        '✅ CustomersController inicializado correctamente con clientes cargados',
-      );
     } catch (e) {
-      print('❌ Error al inicializar CustomersController: $e');
     }
   }
 
@@ -179,7 +171,6 @@ class CustomersController extends GetxController
     try {
       await _fetchCustomers();
     } catch (e) {
-      print('❌ Error inesperado al cargar clientes: $e');
     } finally {
       _isLoading.value = false;
     }
@@ -233,7 +224,6 @@ class CustomersController extends GetxController
     _isLoadingMore.value = true;
 
     try {
-      print('📄 Cargando más clientes (página ${_currentPage.value + 1})...');
 
       final result = await _getCustomersUseCase(
         GetCustomersParams(
@@ -256,7 +246,6 @@ class CustomersController extends GetxController
         (paginatedResult) {
           _customers.addAll(paginatedResult.data);
           _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Más clientes cargados: ${paginatedResult.data.length}');
         },
       );
     } finally {
@@ -275,7 +264,6 @@ class CustomersController extends GetxController
     try {
       await loadCustomers(showLoading: false, forceRefresh: true);
     } catch (e) {
-      print('❌ Error durante el refresco: $e');
     } finally {
       _isRefreshing.value = false;
     }
@@ -291,7 +279,6 @@ class CustomersController extends GetxController
     _isSearching.value = true;
 
     try {
-      print('🔍 Buscando clientes: "$query"');
 
       final result = await _searchCustomersUseCase(
         SearchCustomersParams(searchTerm: query.trim(), limit: 50),
@@ -304,7 +291,6 @@ class CustomersController extends GetxController
         },
         (results) {
           _searchResults.value = results;
-          print('✅ Búsqueda completada: ${results.length} resultados');
         },
       );
     } finally {
@@ -317,7 +303,6 @@ class CustomersController extends GetxController
     _isDeleting.value = true;
 
     try {
-      print('🗑️ Eliminando cliente: $customerId');
 
       final result = await _deleteCustomerUseCase(
         DeleteCustomerParams(id: customerId),
@@ -485,7 +470,6 @@ class CustomersController extends GetxController
     _isDeleting.value = true;
 
     try {
-      print('🗑️ Eliminando ${customerIds.length} clientes...');
 
       int deletedCount = 0;
       int errorCount = 0;
@@ -498,9 +482,6 @@ class CustomersController extends GetxController
         result.fold(
           (failure) {
             errorCount++;
-            print(
-              '❌ Error al eliminar cliente $customerId: ${failure.message}',
-            );
           },
           (_) {
             deletedCount++;
@@ -524,9 +505,6 @@ class CustomersController extends GetxController
 
       // Recargar para actualizar contadores
       refreshCustomers();
-      print(
-        '✅ Operación batch completada: $deletedCount eliminados, $errorCount errores',
-      );
     } finally {
       _isDeleting.value = false;
     }
@@ -540,9 +518,6 @@ class CustomersController extends GetxController
     if (customerIds.isEmpty) return;
 
     try {
-      print(
-        '🔄 Actualizando estado de ${customerIds.length} clientes a ${newStatus.name}...',
-      );
 
       // TODO: Implementar usecase para actualización batch
       // Por ahora simulamos la operación
@@ -555,7 +530,6 @@ class CustomersController extends GetxController
       // Recargar lista
       refreshCustomers();
     } catch (e) {
-      print('❌ Error en actualización batch: $e');
       _showError('Error', 'No se pudieron actualizar los clientes');
     }
   }
@@ -565,14 +539,12 @@ class CustomersController extends GetxController
   /// Exportar clientes a CSV
   Future<void> exportCustomersToCSV() async {
     try {
-      print('📄 Exportando clientes a CSV...');
 
       // TODO: Implementar exportación real
       await Future.delayed(const Duration(seconds: 1));
 
       _showSuccess('Clientes exportados a CSV exitosamente');
     } catch (e) {
-      print('❌ Error al exportar a CSV: $e');
       _showError('Error', 'No se pudo exportar a CSV');
     }
   }
@@ -580,7 +552,6 @@ class CustomersController extends GetxController
   /// Importar clientes desde CSV
   Future<void> importCustomersFromCSV() async {
     try {
-      print('📥 Importando clientes desde CSV...');
 
       // TODO: Implementar importación real
       await Future.delayed(const Duration(seconds: 2));
@@ -588,7 +559,6 @@ class CustomersController extends GetxController
       _showSuccess('Clientes importados exitosamente');
       refreshCustomers();
     } catch (e) {
-      print('❌ Error al importar desde CSV: $e');
       _showError('Error', 'No se pudo importar el archivo');
     }
   }
@@ -686,9 +656,7 @@ class CustomersController extends GetxController
   /// Imprimir información de debugging
   void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 CustomersController Debug Info:');
     info.forEach((key, value) {
-      print('   $key: $value');
     });
   }
 }

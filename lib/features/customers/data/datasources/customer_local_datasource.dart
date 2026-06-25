@@ -52,7 +52,6 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       await _updateCacheTimestamp();
     } catch (e) {
       // Fallar silenciosamente para mayor robustez
-      print('⚠️ Cache de clientes no disponible: $e');
     }
   }
 
@@ -84,7 +83,6 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       await _updateCacheTimestamp();
     } catch (e) {
       // Fallar silenciosamente para mayor robustez
-      print('⚠️ Cache de estadísticas no disponible: $e');
     }
   }
 
@@ -126,9 +124,7 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
 
           await isar.isarCustomers.put(isarCustomer);
         });
-        print('✅ Customer guardado en ISAR: ${customer.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (fallback legacy)
@@ -138,7 +134,6 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
     } catch (e) {
       // Fallar silenciosamente en lugar de lanzar excepción
       // Esto permite que la app funcione aunque el cache no esté disponible
-      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
@@ -213,7 +208,6 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       final now = DateTime.now().toIso8601String();
       await storageService.write(_cacheTimestampKey, now);
     } catch (e) {
-      print('Error al actualizar timestamp del cache: $e');
     }
   }
 
@@ -264,7 +258,6 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
 
       return isarCustomer;
     } catch (e) {
-      print('⚠️ Error al obtener IsarCustomer: $e');
       return null;
     }
   }
@@ -288,7 +281,6 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       if (isarCustomer == null) return null;
       return CustomerModel.fromEntity(isarCustomer.toEntity());
     } catch (e) {
-      print('⚠️ Error al buscar cliente por documento en ISAR: $e');
       return null;
     }
   }

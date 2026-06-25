@@ -417,9 +417,6 @@ class WarehouseFormController extends GetxController {
         // Si el backend requiere UUID, asumir que el código es único para códigos alfanuméricos
         if (failure.message.contains('uuid is expected') ||
             failure.message.contains('Validation failed')) {
-          print(
-            '⚠️ Backend requiere UUID, saltando validación de unicidad para código alfanumérico',
-          );
           return null; // Asumir que es válido
         }
         return 'Error al verificar código: ${failure.message}';
@@ -429,9 +426,6 @@ class WarehouseFormController extends GetxController {
       final errorMessage = e.toString();
       if (errorMessage.contains('uuid') ||
           errorMessage.contains('Validation failed')) {
-        print(
-          '⚠️ Error de validación UUID, saltando verificación para código alfanumérico',
-        );
         return null; // Asumir que es válido
       }
       return 'Error al verificar código';
@@ -489,9 +483,7 @@ class WarehouseFormController extends GetxController {
       final warehousesController = Get.find<WarehousesController>();
       await warehousesController.refreshWarehouses();
       
-      print('✅ Lista de almacenes actualizada exitosamente');
     } catch (e) {
-      print('⚠️ No se pudo actualizar automáticamente la lista: $e');
       // El usuario puede refrescar manualmente
     }
   }
@@ -499,18 +491,6 @@ class WarehouseFormController extends GetxController {
   // ==================== DEBUGGING ====================
 
   void printDebugInfo() {
-    print('🏪 WarehouseFormController Debug Info:');
-    print('   Form mode: $formMode');
-    print('   Warehouse ID: $_warehouseId');
-    print('   Is loading: $isLoading');
-    print('   Is saving: $isSaving');
-    print('   Is dirty: $isDirty');
-    print('   Is active: $isActive');
-    print('   Name: "${nameController.text}"');
-    print('   Code: "${codeController.text}"');
-    print('   Description: "${descriptionController.text}"');
-    print('   Address: "${addressController.text}"');
-    print('   Error: "$error"');
   }
   */
 }

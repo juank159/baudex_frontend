@@ -16,13 +16,11 @@ class TenantStorageStub implements TenantStorage {
   @override
   Future<void> setTenantSlug(String tenantSlug) async {
     _tenantSlug = tenantSlug;
-    print('🏢 TenantStorageStub: Tenant establecido como: $tenantSlug');
   }
 
   @override
   Future<void> clearTenantSlug() async {
     _tenantSlug = null;
-    print('🏢 TenantStorageStub: Tenant limpiado');
   }
 
   @override
@@ -33,12 +31,10 @@ class TenantStorageStub implements TenantStorage {
   @override
   Future<void> setCurrentOrganization(Map<String, dynamic> organization) async {
     _currentOrganization = organization;
-    print('🏢 TenantStorageStub: Organización establecida: ${organization['name']}');
   }
 
   @override
   Future<void> clearCurrentOrganization() async {
     _currentOrganization = null;
-    print('🏢 TenantStorageStub: Organización limpiada');
   }
 }

@@ -302,14 +302,12 @@ class SuppliersController extends GetxController
 
       result.fold(
         (failure) {
-          print('Error cargando estadísticas: ${failure.message}');
         },
         (supplierStats) {
           stats.value = supplierStats;
         },
       );
     } catch (e) {
-      print('Error inesperado cargando estadísticas: $e');
     }
   }
 

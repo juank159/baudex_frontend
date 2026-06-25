@@ -102,8 +102,6 @@ class CategoryTree extends Equatable {
 
   // ✅ NUEVO: Factory constructor fromJson
   factory CategoryTree.fromJson(Map<String, dynamic> json) {
-    print('🏗️ Creating CategoryTree from JSON: ${json['name']}');
-    print('   Raw JSON: $json');
 
     // ✅ Procesar children de forma segura
     List<CategoryTree>? children;
@@ -112,7 +110,6 @@ class CategoryTree extends Equatable {
     if (childrenJson != null &&
         childrenJson is List &&
         childrenJson.isNotEmpty) {
-      print('   Processing ${childrenJson.length} children');
       children =
           childrenJson
               .map(
@@ -144,9 +141,6 @@ class CategoryTree extends Equatable {
       hasChildren: hasChildren,
     );
 
-    print(
-      '✅ CategoryTree created: ${categoryTree.name} (Level: $level, HasChildren: $hasChildren)',
-    );
     return categoryTree;
   }
 

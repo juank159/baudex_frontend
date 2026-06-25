@@ -80,7 +80,6 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         return results;
       }
     } catch (e) {
-      print('⚠️ Error leyendo POs de ISAR: $e');
     }
 
     // Fallback a SecureStorage (legacy)
@@ -97,7 +96,6 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         if (result.isNotEmpty) return result;
       }
     } catch (e) {
-      print('⚠️ Error leyendo POs de SecureStorage: $e');
     }
 
     return [];
@@ -188,9 +186,7 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
           }
         }
       });
-      print('✅ ${purchaseOrders.length} POs guardadas en ISAR');
     } catch (e) {
-      print('⚠️ Error guardando POs en ISAR: $e');
     }
 
     // Guardar en SecureStorage (fallback legacy)
@@ -206,7 +202,6 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         DateTime.now().toIso8601String(),
       );
     } catch (e) {
-      print('⚠️ Error guardando POs en SecureStorage: $e');
     }
   }
 
@@ -228,12 +223,10 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         if (directItems.isNotEmpty) {
           await _enrichItemProductNames(isar, directItems);
           final entity = isarPO.toEntityWithItems(directItems);
-          print('✅ PO $id leída de ISAR con ${entity.items.length} items');
           return PurchaseOrderModel.fromEntity(entity);
         }
       }
     } catch (e) {
-      print('⚠️ Error leyendo PO por ID de ISAR: $e');
     }
 
     // 2. Fallback a SecureStorage (JSON completo puede tener items)
@@ -253,7 +246,6 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         }
       }
     } catch (e) {
-      print('⚠️ Error buscando PO en SecureStorage: $e');
     }
 
     // 3. Último intento: ISAR sin items (mejor que nada)
@@ -264,11 +256,9 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
           .serverIdEqualTo(id)
           .findFirst();
       if (isarPO != null) {
-        print('⚠️ PO $id encontrada en ISAR pero sin items');
         return PurchaseOrderModel.fromEntity(isarPO.toEntity());
       }
     } catch (e) {
-      print('⚠️ Error en último intento ISAR: $e');
     }
 
     return null;
@@ -315,9 +305,7 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         await isar.writeTxn(() async {
           await isar.isarPurchaseOrderItems.putAll(items.where((item) => productNames.containsKey(item.productId)).toList());
         });
-        print('🔧 $updated items enriquecidos con nombres de productos desde IsarProduct');
       } catch (e) {
-        print('⚠️ Error persistiendo nombres enriquecidos: $e');
       }
     }
   }
@@ -400,9 +388,7 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
             await isarPO.items.save();
           }
         });
-        print('PurchaseOrder guardado en ISAR: ${purchaseOrder.id}');
       } catch (e) {
-        print('Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (legacy) — NO llamar cachePurchaseOrders() para evitar
@@ -437,7 +423,6 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
           DateTime.now().toIso8601String(),
         );
       } catch (e) {
-        print('⚠️ Error actualizando PO en SecureStorage: $e');
       }
     } catch (e) {
       throw CacheException('Error al guardar orden de compra en cache: $e');

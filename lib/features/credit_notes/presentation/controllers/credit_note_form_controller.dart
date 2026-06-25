@@ -128,10 +128,6 @@ class CreditNoteFormController extends GetxController {
   }
 
   Future<void> _initializeForm() async {
-    print('🔧 CreditNoteFormController._initializeForm: Iniciando...');
-    print('🔧 Get.parameters: ${Get.parameters}');
-    print('🔧 Get.arguments: ${Get.arguments}');
-    print('🔧 Get.arguments type: ${Get.arguments?.runtimeType}');
 
     String? id;
     String? invoiceId;
@@ -143,11 +139,9 @@ class CreditNoteFormController extends GetxController {
       if (args is Map<String, dynamic>) {
         id = args['id']?.toString();
         invoiceId = args['invoiceId']?.toString();
-        print('📋 CreditNoteFormController: Args como Map - id: $id, invoiceId: $invoiceId');
       } else if (args is Map) {
         id = args['id']?.toString();
         invoiceId = args['invoiceId']?.toString();
-        print('📋 CreditNoteFormController: Args como Map genérico - id: $id, invoiceId: $invoiceId');
       }
     }
 
@@ -155,24 +149,18 @@ class CreditNoteFormController extends GetxController {
     if (id == null && invoiceId == null) {
       id = Get.parameters['id'];
       invoiceId = Get.parameters['invoiceId'];
-      print('📋 CreditNoteFormController: Usando parameters - id: $id, invoiceId: $invoiceId');
     }
-
-    print('🔧 CreditNoteFormController: Valores finales - id: $id, invoiceId: $invoiceId');
 
     if (id != null && id.isNotEmpty) {
       // Modo edición
-      print('📝 CreditNoteFormController: Modo EDICIÓN - cargando nota de crédito $id');
       _isEditMode.value = true;
       await _loadCreditNote(id);
     } else if (invoiceId != null && invoiceId.isNotEmpty) {
       // Modo creación con factura preseleccionada
-      print('📝 CreditNoteFormController: Modo CREACIÓN - cargando factura $invoiceId');
       await _loadInvoice(invoiceId);
       // Cargar cantidades disponibles (incluye el monto acreditable)
       await loadAvailableQuantities(invoiceId);
     } else {
-      print('⚠️ CreditNoteFormController: No se recibió id ni invoiceId válidos');
     }
   }
 
@@ -239,12 +227,10 @@ class CreditNoteFormController extends GetxController {
     _isLoadingAvailableQuantities.value = true;
 
     try {
-      print('📊 CreditNoteFormController: Cargando cantidades disponibles para factura $invoiceId');
       final result = await _getAvailableQuantitiesUseCase(invoiceId);
 
       result.fold(
         (failure) {
-          print('❌ Error al obtener cantidades disponibles: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudieron cargar las cantidades disponibles: ${failure.message}',
@@ -256,12 +242,6 @@ class CreditNoteFormController extends GetxController {
         (response) {
           _availableQuantities.value = response;
           _remainingCreditableAmount.value = response.remainingCreditableAmount;
-
-          print('✅ Cantidades disponibles cargadas:');
-          print('   - Items disponibles: ${response.availableItems.length}');
-          print('   - Monto acreditable: ${response.remainingCreditableAmount}');
-          print('   - Puede crear completa: ${response.canCreateFullCreditNote}');
-          print('   - Puede crear parcial: ${response.canCreatePartialCreditNote}');
 
           // Mostrar mensaje informativo si hay notas en borrador
           if (response.hasDraftCreditNotes) {
@@ -289,7 +269,6 @@ class CreditNoteFormController extends GetxController {
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al obtener cantidades disponibles: $e');
     } finally {
       _isLoadingAvailableQuantities.value = false;
     }

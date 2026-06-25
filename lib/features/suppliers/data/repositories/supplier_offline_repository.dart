@@ -343,7 +343,6 @@ class SupplierOfflineRepository implements SupplierRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarSupplier.toEntity());
@@ -426,7 +425,6 @@ class SupplierOfflineRepository implements SupplierRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarSupplier.toEntity());
@@ -471,7 +469,6 @@ class SupplierOfflineRepository implements SupplierRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(unit);

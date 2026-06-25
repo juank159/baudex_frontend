@@ -214,7 +214,6 @@ class ExpenseOfflineRepository implements ExpenseRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarExpense.toEntity());
@@ -288,7 +287,6 @@ class ExpenseOfflineRepository implements ExpenseRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarExpense.toEntity());
@@ -325,7 +323,6 @@ class ExpenseOfflineRepository implements ExpenseRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(null);
@@ -689,7 +686,6 @@ class ExpenseOfflineRepository implements ExpenseRepository {
         }
       });
     } catch (e) {
-      print('Error marking expenses as synced: $e');
     }
   }
 
@@ -703,7 +699,6 @@ class ExpenseOfflineRepository implements ExpenseRepository {
         await _isar.isarExpenses.putAll(isarExpenses);
       });
     } catch (e) {
-      print('Error bulk inserting expenses: $e');
     }
   }
 

@@ -193,7 +193,7 @@ class CreateTransferController extends GetxController {
               );
               
               stockResult.fold(
-                (failure) => print('❌ Error getting stock for ${product.name}: ${failure.message}'),
+                (failure) => null,
                 (balance) {
                   final availableQty = balance.availableQuantity.toDouble();
                   if (availableQty > 0) {
@@ -204,7 +204,6 @@ class CreateTransferController extends GetxController {
                 },
               );
             } catch (e) {
-              print('❌ Error checking stock for ${product.name}: $e');
             }
           }
           
@@ -259,12 +258,10 @@ class CreateTransferController extends GetxController {
     productError.value = '';
     quantityError.value = '';
     
-    print('✅ Producto agregado a transferencia: ${product.name} x$quantity');
   }
 
   void removeProductFromTransfer(String productId) {
     transferItems.removeWhere((item) => item.productId == productId);
-    print('🗑️ Producto removido de transferencia: $productId');
   }
 
   void updateProductQuantity(String productId, int newQuantity) {
@@ -332,7 +329,6 @@ class CreateTransferController extends GetxController {
     productError.value = '';
     transferError.value = '';
     
-    print('✅ Almacén de origen seleccionado: ${getWarehouseName(warehouseId)}');
   }
 
   void selectToWarehouse(String warehouseId) {
@@ -362,7 +358,6 @@ class CreateTransferController extends GetxController {
     transferItems.clear();
     transferError.value = '';
     
-    print('✅ Almacén de destino seleccionado: ${getWarehouseName(warehouseId)}');
   }
 
   void _showWarehouseChangeConfirmation(String title, String message, VoidCallback onConfirm) {
@@ -414,7 +409,6 @@ class CreateTransferController extends GetxController {
     productError.value = '';
     quantityError.value = '';
     
-    print('🧹 Producto limpiado - listo para nueva búsqueda');
   }
 
   // ==================== STOCK VALIDATION ====================
@@ -435,16 +429,13 @@ class CreateTransferController extends GetxController {
       result.fold(
         (failure) {
           availableStock.value = 0.0;
-          print('❌ Error getting stock: ${failure.message}');
         },
         (balance) {
           availableStock.value = balance.availableQuantity.toDouble();
-          print('✅ Available stock: ${balance.availableQuantity}');
         },
       );
     } catch (e) {
       availableStock.value = 0.0;
-      print('❌ Error checking stock: $e');
     } finally {
       isValidatingStock.value = false;
     }
@@ -552,7 +543,6 @@ class CreateTransferController extends GetxController {
             final transfersController = Get.find<InventoryTransfersController>();
             transfersController.refreshData();
           } catch (e) {
-            print('⚠️ TransfersController not found, data will be refreshed on screen entry');
           }
         },
       );

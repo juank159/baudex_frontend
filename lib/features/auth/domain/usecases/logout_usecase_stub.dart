@@ -14,7 +14,6 @@ class LogoutUseCaseStub implements UseCase<Unit, NoParams> {
   Future<Either<Failure, Unit>> call(NoParams params) async {
     try {
       await localDataSource.clearAuthData();
-      print('✅ LogoutUseCaseStub: Datos de auth limpiados');
       return const Right(unit);
     } catch (e) {
       return Left(CacheFailure('Error cerrando sesión: $e'));

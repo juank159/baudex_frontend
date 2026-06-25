@@ -31,7 +31,6 @@ class CreditNoteItemModel extends CreditNoteItem {
 
   factory CreditNoteItemModel.fromJson(Map<String, dynamic> json) {
     // Debug: Imprimir el JSON recibido para diagnosticar problemas
-    print('🔍 CreditNoteItemModel.fromJson: ${json.keys.toList()}');
 
     // Manejar campos que podrían venir null del backend
     final id = json['id'];
@@ -39,7 +38,6 @@ class CreditNoteItemModel extends CreditNoteItem {
     final description = json['description'];
 
     if (id == null || creditNoteId == null || description == null) {
-      print('⚠️ Campos requeridos nulos - id: $id, creditNoteId: $creditNoteId, description: $description');
     }
 
     return CreditNoteItemModel(

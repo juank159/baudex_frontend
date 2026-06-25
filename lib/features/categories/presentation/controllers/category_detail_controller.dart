@@ -299,7 +299,6 @@ class CategoryDetailController extends GetxController
 
       result.fold(
         (failure) {
-          print('Error al cargar subcategorías: ${failure.message}');
           _subcategories.clear();
         },
         (paginatedResult) {
@@ -307,7 +306,6 @@ class CategoryDetailController extends GetxController
         },
       );
     } catch (e) {
-      print('Error inesperado al cargar subcategorías: $e');
       _subcategories.clear();
     }
   }

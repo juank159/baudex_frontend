@@ -135,8 +135,6 @@ class CategoryQueryModel {
       params['sortOrder'] = sortOrder;
     }
 
-    print('🔧 Query parameters being sent: $params'); // ✅ Log para debugging
-
     return params;
   }
 

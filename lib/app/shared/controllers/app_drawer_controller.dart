@@ -525,7 +525,6 @@ class AppDrawerController extends GetxController {
 
       await Future.wait(futures);
     } catch (e) {
-      print('❌ Error al refrescar estadísticas: $e');
     } finally {
       _isLoading.value = false;
     }
@@ -624,9 +623,7 @@ class AppDrawerController extends GetxController {
   /// Imprimir información de debugging
   void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 AppDrawerController Debug Info:');
     info.forEach((key, value) {
-      print('   $key: $value');
     });
   }
 }

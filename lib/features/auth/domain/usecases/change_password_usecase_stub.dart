@@ -31,11 +31,9 @@ class ChangePasswordUseCaseStub implements UseCase<Unit, ChangePasswordParams> {
       // Simular delay de red
       await Future.delayed(const Duration(milliseconds: 800));
 
-      print('✅ ChangePasswordUseCaseStub: Contraseña cambiada exitosamente');
       return const Right(unit);
 
     } catch (e) {
-      print('❌ ChangePasswordUseCaseStub: Error inesperado - $e');
       return Left(ServerFailure('Error de conexión: $e'));
     }
   }

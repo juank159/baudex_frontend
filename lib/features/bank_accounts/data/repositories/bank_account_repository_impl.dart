@@ -68,17 +68,13 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
               }
             }
           });
-          print('✅ BankAccounts actualizadas en ISAR (${accounts.length})');
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
         }
 
         return Right(accounts.map((m) => m.toEntity()).toList());
       } on ServerException catch (e) {
-        print('⚠️ [BANK_REPO] ServerException: ${e.message} - Fallback a ISAR...');
         return _getBankAccountsFromIsar(type, isActive, includeInactive);
       } catch (e) {
-        print('⚠️ [BANK_REPO] Exception: $e - Fallback a ISAR...');
         return _getBankAccountsFromIsar(type, isActive, includeInactive);
       }
     } else {
@@ -94,7 +90,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     bool includeInactive,
   ) async {
     try {
-      print('💾 BankAccounts: Leyendo desde ISAR (modo offline)');
       final isar = IsarDatabase.instance.database;
 
       var query = isar.isarBankAccounts.filter().deletedAtIsNull();
@@ -110,10 +105,8 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
       final isarAccounts = await query.sortBySortOrder().findAll();
       final accounts = isarAccounts.map((a) => a.toEntity()).toList();
 
-      print('✅ ${accounts.length} cuentas encontradas en ISAR');
       return Right(accounts);
     } catch (e) {
-      print('❌ Error leyendo desde ISAR: $e');
       return Left(CacheFailure('Error leyendo cuentas desde cache: $e'));
     }
   }
@@ -139,9 +132,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           await isar.writeTxn(() async {
             await isar.isarBankAccounts.put(isarAccount);
           });
-          print('✅ BankAccount actualizada en ISAR: $id');
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
         }
 
         return Right(account.toEntity());
@@ -162,7 +153,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     String id,
   ) async {
     try {
-      print('💾 BankAccount: Leyendo desde ISAR (modo offline): $id');
       final isar = IsarDatabase.instance.database;
 
       final isarAccount = await isar.isarBankAccounts
@@ -178,7 +168,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
 
       return Right(isarAccount.toEntity());
     } catch (e) {
-      print('❌ Error leyendo desde ISAR: $e');
       return Left(CacheFailure('Error leyendo cuenta desde cache: $e'));
     }
   }
@@ -198,7 +187,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
               await isar.isarBankAccounts.put(isarAccount);
             });
           } catch (e) {
-            print('⚠️ Error actualizando ISAR (no crítico): $e');
           }
         }
 
@@ -269,9 +257,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           await isar.writeTxn(() async {
             await isar.isarBankAccounts.put(isarAccount);
           });
-          print('✅ BankAccount guardada en ISAR: ${account.id}');
         } catch (e) {
-          print('⚠️ Error guardando en ISAR (no crítico): $e');
         }
 
         return Right(account.toEntity());
@@ -279,10 +265,8 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         // Errores de negocio (400, 409, 422) NO deben crear offline
         final code = e.statusCode ?? 0;
         if (code == 409 || code == 400 || code == 422) {
-          print('❌ Error de negocio (HTTP $code) al crear cuenta bancaria: ${e.message}');
           return Left(ServerFailure(e.message));
         }
-        print('⚠️ ServerException (HTTP $code) al crear cuenta bancaria: ${e.message} - Creando offline...');
         return _createBankAccountOffline(
           name: name,
           type: type,
@@ -296,7 +280,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           description: description,
         );
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al crear cuenta bancaria: ${e.message} - Creando offline...');
         return _createBankAccountOffline(
           name: name,
           type: type,
@@ -310,9 +293,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           description: description,
         );
       } catch (e, stackTrace) {
-        print('❌ Error inesperado al crear cuenta bancaria: $e');
-        print('📚 StackTrace: $stackTrace');
-        print('🔄 Intentando crear offline como fallback...');
         return _createBankAccountOffline(
           name: name,
           type: type,
@@ -397,14 +377,11 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         await isar.writeTxn(() async {
           await isar.isarBankAccounts.put(isarAccount);
         });
-        print('✅ BankAccount actualizada en ISAR (modo online): $id');
       } catch (e) {
-        print('⚠️ Error actualizando ISAR (no crítico): $e');
       }
 
       return Right(account.toEntity());
     } on ServerException catch (e) {
-      print('⚠️ [BANK_REPO] ServerException al actualizar: ${e.message} - Fallback offline...');
       return _updateBankAccountOffline(
         id: id,
         name: name,
@@ -419,7 +396,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         description: description,
       );
     } catch (e) {
-      print('⚠️ [BANK_REPO] Exception al actualizar: $e - Fallback offline...');
       return _updateBankAccountOffline(
         id: id,
         name: name,
@@ -449,7 +425,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     int? sortOrder,
     String? description,
   }) async {
-    print('💾 BankAccountRepository: Modo offline - actualizando en ISAR');
     try {
       final isar = IsarDatabase.instance.database;
 
@@ -480,7 +455,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
       await isar.writeTxn(() async {
         await isar.isarBankAccounts.put(isarAccount);
       });
-      print('✅ BankAccountRepository: Cuenta actualizada en ISAR');
 
       // ✅ PASO 2: Agregar a la cola de sincronización
       final syncService = Get.find<SyncService>();
@@ -501,11 +475,9 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           if (description != null) 'description': description,
         },
       );
-      print('✅ BankAccountRepository: Cuenta agregada a cola de sincronización');
 
       return Right(isarAccount.toEntity());
     } catch (e) {
-      print('❌ Error actualizando cuenta bancaria offline: $e');
       return Left(CacheFailure('Error actualizando cuenta offline: $e'));
     }
   }
@@ -529,18 +501,14 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
             await isar.writeTxn(() async {
               await isar.isarBankAccounts.put(isarAccount);
             });
-            print('✅ BankAccount marcada como eliminada en ISAR: $id');
           }
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
         }
 
         return const Right(null);
       } on ServerException catch (e) {
-        print('⚠️ [BANK_REPO] ServerException al eliminar: ${e.message} - Fallback offline...');
         return _deleteBankAccountOffline(id);
       } catch (e) {
-        print('⚠️ [BANK_REPO] Exception al eliminar: $e - Fallback offline...');
         return _deleteBankAccountOffline(id);
       }
     } else {
@@ -550,7 +518,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
   }
 
   Future<Either<Failure, void>> _deleteBankAccountOffline(String id) async {
-    print('📱 BankAccountRepository: Deleting bank account offline: $id');
     try {
       // Soft delete en ISAR
       final isar = IsarDatabase.instance.database;
@@ -564,7 +531,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         await isar.writeTxn(() async {
           await isar.isarBankAccounts.put(isarAccount);
         });
-        print('✅ BankAccount marcada como eliminada en ISAR (offline): $id');
       }
 
       // Agregar a la cola de sincronización
@@ -577,15 +543,11 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           data: {'id': id},
           priority: 1,
         );
-        print('📤 BankAccountRepository: Eliminación agregada a cola de sincronización');
       } catch (e) {
-        print('⚠️ BankAccountRepository: Error agregando eliminación a cola: $e');
       }
 
-      print('✅ BankAccountRepository: Bank account deleted offline successfully');
       return const Right(null);
     } catch (e) {
-      print('❌ BankAccountRepository: Error deleting bank account offline: $e');
       return Left(CacheFailure('Error al eliminar cuenta bancaria offline: $e'));
     }
   }
@@ -607,9 +569,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         await isar.writeTxn(() async {
           await isar.isarBankAccounts.put(isarAccount);
         });
-        print('✅ BankAccount por defecto actualizada en ISAR: $id');
       } catch (e) {
-        print('⚠️ Error actualizando ISAR (no crítico): $e');
       }
 
       return Right(account.toEntity());
@@ -639,9 +599,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         await isar.writeTxn(() async {
           await isar.isarBankAccounts.put(isarAccount);
         });
-        print('✅ BankAccount toggle actualizada en ISAR: $id');
       } catch (e) {
-        print('⚠️ Error actualizando ISAR (no crítico): $e');
       }
 
       return Right(account.toEntity());
@@ -728,7 +686,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
             }
           });
         } catch (e) {
-          print('⚠️ Error cacheando movements en ISAR (no crítico): $e');
         }
 
         return Right(BankAccountMovementsPage(
@@ -739,10 +696,8 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           limit: result.limit,
         ));
       } on ServerException catch (e) {
-        print('⚠️ [BANK_REPO] listMovements ServerException: ${e.message} - fallback ISAR');
         return _listMovementsFromIsar(accountId, startDate, endDate, page, limit);
       } catch (e) {
-        print('⚠️ [BANK_REPO] listMovements Exception: $e - fallback ISAR');
         return _listMovementsFromIsar(accountId, startDate, endDate, page, limit);
       }
     }
@@ -808,7 +763,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     int sortOrder = 0,
     String? description,
   }) async {
-    print('📱 BankAccountRepository: Creando cuenta bancaria offline: $name');
     try {
       // Generar un ID temporal único para la cuenta offline
       final now = DateTime.now();
@@ -824,7 +778,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           createdById = authController.currentUser.id;
         }
       } catch (e) {
-        print('⚠️ BankAccountRepository: No se pudo obtener usuario actual: $e');
       }
 
       // Calcular sortOrder si no se proporciona
@@ -838,7 +791,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
               .count();
           calculatedSortOrder = count + 1;
         } catch (e) {
-          print('⚠️ Error calculando sortOrder: $e');
           calculatedSortOrder = 1;
         }
       }
@@ -860,7 +812,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
             shouldBeDefault = true;
           }
         } catch (e) {
-          print('⚠️ Error verificando cuenta por defecto: $e');
         }
       }
 
@@ -893,7 +844,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
       await isar.writeTxn(() async {
         await isar.isarBankAccounts.put(isarAccount);
       });
-      print('✅ BankAccountRepository: Cuenta guardada en ISAR con ID temporal: $tempId');
 
       // Convertir a entidad domain
       final bankAccount = isarAccount.toEntity();
@@ -919,15 +869,11 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           },
           priority: 1, // Alta prioridad para creación
         );
-        print('📤 BankAccountRepository: Operación agregada a cola de sincronización');
       } catch (e) {
-        print('⚠️ BankAccountRepository: Error agregando a cola de sync: $e');
       }
 
-      print('✅ BankAccountRepository: Cuenta bancaria creada offline exitosamente');
       return Right(bankAccount);
     } catch (e) {
-      print('❌ BankAccountRepository: Error creando cuenta bancaria offline: $e');
       return Left(CacheFailure('Error al crear cuenta bancaria offline: $e'));
     }
   }
@@ -941,7 +887,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     }
 
     try {
-      print('🔄 BankAccountRepository: Starting offline bank accounts sync...');
 
       // Obtener cuentas bancarias no sincronizadas desde ISAR
       final isar = IsarDatabase.instance.database;
@@ -953,11 +898,9 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           .findAll();
 
       if (unsyncedAccounts.isEmpty) {
-        print('✅ BankAccountRepository: No bank accounts to sync');
         return const Right([]);
       }
 
-      print('📤 BankAccountRepository: Syncing ${unsyncedAccounts.length} offline bank accounts...');
       final syncedAccounts = <BankAccount>[];
 
       for (final isarAccount in unsyncedAccounts) {
@@ -967,7 +910,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
 
           if (isCreate) {
             // CREATE: Enviar al servidor y actualizar con ID real
-            print('📝 Creating bank account: ${isarAccount.name}');
 
             final request = CreateBankAccountRequest(
               name: isarAccount.name,
@@ -993,10 +935,8 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
             });
 
             syncedAccounts.add(created.toEntity());
-            print('✅ Bank account created and synced: ${isarAccount.name} -> ${created.id}');
           } else {
             // UPDATE: Enviar actualización al servidor
-            print('📝 Updating bank account: ${isarAccount.name}');
 
             final request = UpdateBankAccountRequest(
               name: isarAccount.name,
@@ -1023,18 +963,14 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
             });
 
             syncedAccounts.add(updated.toEntity());
-            print('✅ Bank account updated and synced: ${isarAccount.name}');
           }
         } catch (e) {
-          print('❌ Error sincronizando cuenta bancaria ${isarAccount.name}: $e');
           // Continuar con la siguiente
         }
       }
 
-      print('🎯 BankAccountRepository: Sync completed. Success: ${syncedAccounts.length}');
       return Right(syncedAccounts);
     } catch (e) {
-      print('💥 BankAccountRepository: Error during offline bank accounts sync: $e');
       return Left(ServerFailure('Error al sincronizar cuentas bancarias offline: $e'));
     }
   }
@@ -1145,7 +1081,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         return Right(result);
       } on ServerException catch (e) {
         // Fallback offline si el server falló.
-        print('⚠️ deposit/withdraw server failed: ${e.message} - fallback offline');
         return _createMovementOffline(
           bankAccountId: bankAccountId,
           type: type,
@@ -1154,7 +1089,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           movementDate: movementDate,
         );
       } catch (e) {
-        print('⚠️ deposit/withdraw exception: $e - fallback offline');
         return _createMovementOffline(
           bankAccountId: bankAccountId,
           type: type,
@@ -1249,7 +1183,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           },
         );
       } catch (e) {
-        print('⚠️ Could not queue movement sync: $e');
       }
 
       return Right(movement);
@@ -1275,7 +1208,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         await isar.isarBankAccountMovements.put(fresh);
       });
     } catch (e) {
-      print('⚠️ Error persistiendo movement en ISAR: $e');
     }
   }
 
@@ -1297,7 +1229,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         }
       });
     } catch (e) {
-      print('⚠️ No se pudo refrescar saldo de cuenta tras movement: $e');
     }
   }
 
@@ -1333,7 +1264,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
         await _refreshAccountBalance(toAccountId);
         return Right(List<BankAccountMovement>.from(result));
       } on ServerException catch (e) {
-        print('⚠️ transfer server failed: ${e.message} - fallback offline');
         return _createTransferOffline(
           fromAccountId: fromAccountId,
           toAccountId: toAccountId,
@@ -1460,7 +1390,6 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           },
         );
       } catch (e) {
-        print('⚠️ Could not queue transfer sync: $e');
       }
 
       return Right([outMovement, inMovement]);

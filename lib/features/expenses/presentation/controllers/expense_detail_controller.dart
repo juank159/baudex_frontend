@@ -69,7 +69,6 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
     _isLoading.value = true;
 
     try {
-      print('📄 Cargando gasto: $_expenseId');
 
       final result = await _getExpenseByIdUseCase(
         GetExpenseByIdParams(id: _expenseId!),
@@ -77,17 +76,14 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar gasto: ${failure.message}');
           _showError('Error al cargar gasto', failure.message);
           expense.value = null;
         },
         (loadedExpense) {
-          print('✅ Gasto cargado: ${loadedExpense.description}');
           expense.value = loadedExpense;
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al cargar gasto: $e');
       _showError('Error inesperado', 'No se pudo cargar el gasto');
     } finally {
       _isLoading.value = false;
@@ -101,7 +97,6 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
     _isProcessing.value = true;
 
     try {
-      print('🗑️ Eliminando gasto: $_expenseId');
 
       final result = await _deleteExpenseUseCase(
         DeleteExpenseParams(id: _expenseId!),
@@ -109,17 +104,14 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al eliminar gasto: ${failure.message}');
           _showError('Error al eliminar', failure.message);
         },
         (_) {
-          print('✅ Gasto eliminado exitosamente');
           _showSuccess('Gasto eliminado exitosamente');
           Get.back(result: 'deleted');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al eliminar gasto: $e');
       _showError('Error inesperado', 'No se pudo eliminar el gasto');
     } finally {
       _isProcessing.value = false;
@@ -143,7 +135,6 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
     _isProcessing.value = true;
 
     try {
-      print('✅ Aprobando gasto: $_expenseId');
 
       final approvalResult = await _approveExpenseUseCase(
         ApproveExpenseParams(
@@ -154,17 +145,14 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
 
       approvalResult.fold(
         (failure) {
-          print('❌ Error al aprobar gasto: ${failure.message}');
           _showError('Error al aprobar', failure.message);
         },
         (updatedExpense) {
-          print('✅ Gasto aprobado exitosamente');
           _showSuccess('Gasto aprobado exitosamente');
           expense.value = updatedExpense;
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al aprobar gasto: $e');
       _showError('Error inesperado', 'No se pudo aprobar el gasto');
     } finally {
       _isProcessing.value = false;
@@ -184,7 +172,6 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
     _isProcessing.value = true;
 
     try {
-      print('📤 Enviando gasto para aprobación: $_expenseId');
 
       final result = await _submitExpenseUseCase(
         SubmitExpenseParams(id: _expenseId!),
@@ -192,17 +179,14 @@ class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al enviar gasto: ${failure.message}');
           _showError('Error al enviar', failure.message);
         },
         (updatedExpense) {
-          print('✅ Gasto enviado para aprobación');
           _showSuccess('Gasto enviado para aprobación');
           expense.value = updatedExpense;
         },
       );
     } catch (e) {
-      print('❌ Error inesperado al enviar gasto: $e');
       _showError('Error inesperado', 'No se pudo enviar el gasto');
     } finally {
       _isProcessing.value = false;

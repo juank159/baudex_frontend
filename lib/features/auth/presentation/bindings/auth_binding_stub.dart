@@ -133,6 +133,5 @@ class AuthBindingStub implements Bindings {
       permanent: true,
     );
 
-    print('✅ AuthBindingReal: AuthController REAL registrado exitosamente (PostgreSQL + ISAR)');
   }
 }

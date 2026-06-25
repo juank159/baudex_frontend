@@ -17,9 +17,11 @@ import '../datasources/customer_credit_remote_datasource.dart';
 import '../models/customer_credit_model.dart';
 import '../../../invoices/data/models/isar/isar_invoice.dart';
 import '../../../invoices/domain/entities/invoice.dart';
+import '../../../invoices/domain/entities/invoice_item.dart';
 import '../../../invoices/domain/entities/invoice_payment.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/enums/isar_enums.dart' show IsarInvoiceStatus;
+import '../models/isar/isar_customer_credit.dart';
 
 /// Implementación del repositorio de créditos
 class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
@@ -113,12 +115,97 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
     try {
       final cachedCredit = await localDataSource.getCachedCredit(id);
       if (cachedCredit != null) {
-        AppLogger.i('Crédito cargado desde cache local', tag: 'CREDIT');
-        return Right(cachedCredit);
+        AppLogger.i('Crédito cargado desde SecureStorage', tag: 'CREDIT');
+        final enriched = await _enrichWithInvoiceItems(cachedCredit);
+        return Right(enriched);
       }
+
+      // Fallback: try ISAR (credits synced via FullSync are there)
+      final isarCredit = await _getCreditFromIsar(id);
+      if (isarCredit != null) {
+        AppLogger.i('Crédito cargado desde ISAR', tag: 'CREDIT');
+        final enriched = await _enrichWithInvoiceItems(isarCredit);
+        return Right(enriched);
+      }
+
       return Left(CacheFailure('Crédito no encontrado en cache local'));
     } catch (cacheError) {
       return Left(CacheFailure('Error al obtener crédito del cache: $cacheError'));
+    }
+  }
+
+  Future<CustomerCreditModel?> _getCreditFromIsar(String id) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarCredit = await isar.isarCustomerCredits
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarCredit == null) return null;
+
+      final statusMap = {
+        IsarCreditStatus.pending: CreditStatus.pending,
+        IsarCreditStatus.partiallyPaid: CreditStatus.partiallyPaid,
+        IsarCreditStatus.paid: CreditStatus.paid,
+        IsarCreditStatus.cancelled: CreditStatus.cancelled,
+        IsarCreditStatus.overdue: CreditStatus.overdue,
+      };
+
+      return CustomerCreditModel(
+        id: isarCredit.serverId,
+        originalAmount: isarCredit.originalAmount,
+        paidAmount: isarCredit.paidAmount,
+        balanceDue: isarCredit.balanceDue,
+        status: statusMap[isarCredit.status] ?? CreditStatus.pending,
+        dueDate: isarCredit.dueDate,
+        description: isarCredit.description,
+        notes: isarCredit.notes,
+        customerId: isarCredit.customerId,
+        customerName: isarCredit.customerName,
+        invoiceId: isarCredit.invoiceId,
+        invoiceNumber: isarCredit.invoiceNumber,
+        organizationId: isarCredit.organizationId,
+        createdById: isarCredit.createdById,
+        createdByName: isarCredit.createdByName,
+        createdAt: isarCredit.createdAt,
+        updatedAt: isarCredit.updatedAt,
+        deletedAt: isarCredit.deletedAt,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Enrich a cached credit with invoice items from ISAR (offline fallback)
+  Future<CustomerCredit> _enrichWithInvoiceItems(CustomerCreditModel credit) async {
+    if (credit.invoiceItems != null && credit.invoiceItems!.isNotEmpty) return credit;
+    final invoiceId = credit.invoiceId;
+    if (invoiceId == null || invoiceId.isEmpty) return credit;
+
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarInvoice = await isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(invoiceId)
+          .findFirst();
+
+      if (isarInvoice == null) return credit;
+
+      final invoiceItems = IsarInvoice.decodeItemsPublic(isarInvoice.itemsJson);
+      if (invoiceItems.isEmpty) return credit;
+
+      final summaries = invoiceItems.map((item) => InvoiceItemSummary(
+        id: item.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        productName: item.description,
+      )).toList();
+
+      return credit.copyWith(invoiceItems: summaries);
+    } catch (_) {
+      return credit;
     }
   }
 

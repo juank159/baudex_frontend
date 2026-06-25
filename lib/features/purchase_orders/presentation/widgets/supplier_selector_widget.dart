@@ -45,7 +45,6 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
     try {
       return Get.find<PurchaseOrderFormController>();
     } catch (e) {
-      print('⚠️ PurchaseOrderFormController no encontrado: $e');
       return null;
     }
   }
@@ -64,7 +63,6 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
       _searchController.dispose();
       _focusNode.dispose();
     } catch (e) {
-      print('⚠️ Error en dispose de SupplierSelectorWidget: $e');
     }
     super.dispose();
   }
@@ -624,9 +622,6 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
 
   void _onSearchChanged() {
     if (!mounted) {
-      print(
-        '⚠️ SupplierSelectorWidget: Widget no montado, cancelando búsqueda',
-      );
       return;
     }
 
@@ -691,7 +686,6 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
         });
       }
     } catch (e) {
-      print('❌ Error en búsqueda de proveedores: $e');
       if (mounted) {
         setState(() {
           _searchResults.clear();
@@ -704,8 +698,6 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
   void _selectSupplier(Supplier supplier) {
     widget.onSupplierSelected(supplier);
     _closeSearch();
-
-    print('🏢 Proveedor seleccionado: ${supplier.name}');
 
     Get.snackbar(
       'Proveedor seleccionado',

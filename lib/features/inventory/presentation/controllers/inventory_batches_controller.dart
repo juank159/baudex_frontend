@@ -77,23 +77,15 @@ class InventoryBatchesController extends GetxController {
     final args = Get.arguments as Map<String, dynamic>?;
     final paramId = Get.parameters['productId'];
 
-    print('🔍 [BATCHES] Inicializando datos...');
-    print('🔍 [BATCHES] Get.arguments: $args');
-    print('🔍 [BATCHES] Get.parameters: ${Get.parameters}');
-    print('🔍 [BATCHES] paramId from parameters: $paramId');
-
     if (args != null && args.containsKey('productId')) {
       productId.value = args['productId'] as String;
       productName.value = args['productName'] as String? ?? '';
       productSku.value = args['productSku'] as String? ?? '';
-      print('✅ [BATCHES] ProductId obtenido de arguments: ${productId.value}');
     } else if (paramId != null && paramId.isNotEmpty) {
       productId.value = paramId;
-      print('✅ [BATCHES] ProductId obtenido de parameters: ${productId.value}');
     }
 
     if (productId.value.isNotEmpty) {
-      print('✅ [BATCHES] Cargando lotes para producto: ${productId.value}');
       loadInventoryBatches();
     }
     // Si no hay productId, este controller fue cargado como dependencia indirecta
@@ -104,7 +96,6 @@ class InventoryBatchesController extends GetxController {
 
   Future<void> _loadBatchCounts() async {
     try {
-      print('🔍 InventoryBatchesController: Cargando contadores de lotes');
 
       // Cargar todos los lotes sin filtros para contar cada categoría
       final params = InventoryBatchQueryParams(
@@ -119,11 +110,9 @@ class InventoryBatchesController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error cargando contadores: ${failure.message}');
         },
         (paginatedResult) {
           final allBatches = paginatedResult.data;
-          print('📊 Calculando contadores de ${allBatches.length} lotes');
 
           // Calcular contadores
           activeBatchesCount.value = allBatches.where((b) => b.isActive).length;
@@ -135,15 +124,9 @@ class InventoryBatchesController extends GetxController {
           // Actualizar el total FIJO (nunca cambia después de esto)
           totalFixedItems.value = allBatches.length;
 
-          print('📊 CONTADORES CALCULADOS:');
-          print('   • Total: ${totalFixedItems.value}');
-          print('   • Activos: ${activeBatchesCount.value}');
-          print('   • Vencidos: ${expiredBatchesCount.value}');
-          print('   • Agotados: ${consumedBatchesCount.value}');
         },
       );
     } catch (e) {
-      print('❌ Exception cargando contadores: $e');
     }
   }
 
@@ -157,10 +140,6 @@ class InventoryBatchesController extends GetxController {
       isLoading.value = refresh || inventoryBatches.isEmpty;
       isLoadingMore.value = !refresh && inventoryBatches.isNotEmpty;
       error.value = '';
-
-      print(
-        '🔍 InventoryBatchesController: Cargando lotes para producto ${productId.value}',
-      );
 
       final params = InventoryBatchQueryParams(
         productId: productId.value,
@@ -177,15 +156,10 @@ class InventoryBatchesController extends GetxController {
         sortOrder: sortOrder.value,
       );
 
-      print(
-        '🔍 SORT DEBUG: sortBy=${sortBy.value}, sortOrder=${sortOrder.value}',
-      );
-
       final result = await getInventoryBatchesUseCase(params);
 
       result.fold(
         (failure) {
-          print('❌ InventoryBatchesController: Error - ${failure.message}');
           error.value = failure.message;
           Get.snackbar(
             'Error al cargar lotes',
@@ -196,9 +170,6 @@ class InventoryBatchesController extends GetxController {
           );
         },
         (paginatedResult) {
-          print(
-            '✅ InventoryBatchesController: Lotes cargados - ${paginatedResult.data.length} items',
-          );
 
           if (refresh) {
             inventoryBatches.value = paginatedResult.data;
@@ -218,7 +189,6 @@ class InventoryBatchesController extends GetxController {
             activeBatchesCount.value = inventoryBatches.where((b) => b.isActive).length;
             expiredBatchesCount.value = inventoryBatches.where((b) => b.isExpiredByDate).length;
             consumedBatchesCount.value = inventoryBatches.where((b) => b.isConsumed).length;
-            print('📊 Contadores FIJOS calculados: Todos=${totalFixedItems.value}, Activos=${activeBatchesCount.value}, Agotados=${consumedBatchesCount.value}');
           }
 
           // Update product info from first batch if available
@@ -228,13 +198,9 @@ class InventoryBatchesController extends GetxController {
             productSku.value = firstBatch.productSku;
           }
 
-          print(
-            '📊 Pagination: ${currentPage.value}/${totalPages.value} - ${totalItems.value} total',
-          );
         },
       );
     } catch (e) {
-      print('❌ InventoryBatchesController: Exception - $e');
       error.value = 'Error inesperado: $e';
       Get.snackbar(
         'Error al cargar lotes',
@@ -290,7 +256,6 @@ class InventoryBatchesController extends GetxController {
     } else {
       // Si hay texto, esperar 800ms para evitar demasiadas peticiones
       _searchTimer = Timer(const Duration(milliseconds: 800), () {
-        print('🔍 SEARCH DEBUG: Buscando con query: "${searchQuery.value}"');
         loadInventoryBatches(refresh: true);
       });
     }

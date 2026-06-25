@@ -164,7 +164,7 @@ class FullSyncService extends GetxService {
   /// [skipCleanup] = true para pulls periódicos (upsert by serverId es seguro sin limpiar)
   Future<FullSyncResult> performFullSync({bool skipCleanup = false}) async {
     if (isSyncing.value) {
-      print('⚠️ [FULL_SYNC] Ya hay un sync en progreso, ignorando...');
+
       return FullSyncResult(
         syncedCounts: {},
         errors: {'general': 'Sincronización ya en progreso'},
@@ -187,13 +187,11 @@ class FullSyncService extends GetxService {
       progress.add(SyncEntityProgress(entityName: entity));
     }
 
-    print('🔄 [FULL_SYNC] Iniciando sincronización paralela por tiers...');
-
     try {
       // Verificar conectividad
       final networkInfo = Get.find<NetworkInfo>();
       if (!await networkInfo.isConnected) {
-        print('📴 [FULL_SYNC] Sin conexión, abortando...');
+
         return FullSyncResult(
           syncedCounts: {},
           errors: {'general': 'Sin conexión a internet'},
@@ -212,8 +210,6 @@ class FullSyncService extends GetxService {
           timeout: const Duration(seconds: 5),
         );
         if (!reachable) {
-          print('🛑 [FULL_SYNC] Backend NO alcanzable — NO se borrará el cache. '
-              'Datos locales preservados.');
           return FullSyncResult(
             syncedCounts: {},
             errors: {'general': 'Servidor no alcanzable (cache preservado)'},
@@ -228,7 +224,7 @@ class FullSyncService extends GetxService {
       // skipCleanup=true para pulls periódicos: upsert by serverId es seguro sin limpiar
       if (!skipCleanup) {
         try {
-          print('🧹 [FULL_SYNC] Limpiando datos del tenant anterior (selectivo)...');
+
           await _isar.writeTxn(() async {
             // Limpiar colecciones de entidades descargables del servidor
             await _isar.isarCategorys.clear();
@@ -262,16 +258,16 @@ class FullSyncService extends GetxService {
               for (final p in unsyncedPrinters) {
                 await _isar.printerSettingsModels.put(p);
               }
-              print('🔒 [FULL_SYNC] ${unsyncedPrinters.length} impresora(s) no sincronizada(s) preservada(s)');
+
             }
             // NUNCA tocar: syncOperations ni isarIdempotencyRecords
           });
-          print('✅ [FULL_SYNC] Datos anteriores limpiados (sync queue preservada)');
+
         } catch (e) {
-          print('⚠️ [FULL_SYNC] Error limpiando ISAR (continuando sync): $e');
+
         }
       } else {
-        print('⏭️ [FULL_SYNC] skipCleanup=true (pull periódico) — upsert directo sin borrar');
+
       }
 
       final syncFunctions = <String, Future<int> Function()>{
@@ -302,7 +298,7 @@ class FullSyncService extends GetxService {
       // Procesar tier por tier, dentro de cada tier en PARALELO
       for (int tierIdx = 0; tierIdx < _syncTiers.length; tierIdx++) {
         if (_abortRequested) {
-          print('🛑 [FULL_SYNC] Sync abortado por el usuario');
+
           stopwatch.stop();
           return FullSyncResult(
             syncedCounts: syncedCounts,
@@ -314,7 +310,6 @@ class FullSyncService extends GetxService {
 
         final tier = _syncTiers[tierIdx];
         currentEntity.value = tier.join(', ');
-        print('⚡ [FULL_SYNC] Tier ${tierIdx + 1}: sincronizando ${tier.join(", ")} en paralelo...');
 
         // Lanzar TODAS las entidades del tier en paralelo con timeout individual.
         // 12s es suficiente para una respuesta normal del servidor (p99 < 3s).
@@ -328,7 +323,7 @@ class FullSyncService extends GetxService {
                 .timeout(
               const Duration(seconds: 12),
               onTimeout: () {
-                print('⏱️ [FULL_SYNC] Timeout sincronizando $entityName (12s) — servidor no responde');
+
                 return MapEntry(entityName, null);
               },
             )
@@ -342,7 +337,7 @@ class FullSyncService extends GetxService {
                   count: result.value!,
                   isComplete: true,
                 );
-                print('✅ [FULL_SYNC] ${result.key}: ${result.value} registros');
+
               } else {
                 errors[result.key] = 'Error en sincronización';
                 progress[globalIdx] = SyncEntityProgress(
@@ -384,7 +379,7 @@ class FullSyncService extends GetxService {
         // No tiene sentido continuar con los demás tiers (evita ~18 requests innecesarias)
         final tierErrors = tier.where((e) => errors.containsKey(e)).length;
         if (tierErrors == tier.length && tier.length > 1) {
-          print('🛑 [FULL_SYNC] Todas las entidades del Tier ${tierIdx + 1} fallaron — servidor no disponible, abortando sync');
+
           // Marcar entidades restantes como no sincronizadas (sin intentar)
           for (int remainingTier = tierIdx + 1; remainingTier < _syncTiers.length; remainingTier++) {
             for (final entityName in _syncTiers[remainingTier]) {
@@ -416,11 +411,11 @@ class FullSyncService extends GetxService {
         await _cleanupOrphanedRecords().timeout(
           const Duration(seconds: 30),
           onTimeout: () {
-            print('⏱️ [FULL_SYNC] Cleanup timeout (30s), continuando...');
+
           },
         );
       } catch (e) {
-        print('⚠️ [FULL_SYNC] Error en cleanup (no crítico): $e');
+
       }
 
       stopwatch.stop();
@@ -430,11 +425,10 @@ class FullSyncService extends GetxService {
         duration: stopwatch.elapsed,
       );
 
-      print('🏁 [FULL_SYNC] Sincronización completada en ${stopwatch.elapsed.inSeconds}s: $result');
       return result;
     } catch (e) {
       stopwatch.stop();
-      print('💥 [FULL_SYNC] Error fatal: $e');
+
       return FullSyncResult(
         syncedCounts: syncedCounts,
         errors: {...errors, 'fatal': e.toString()},
@@ -455,7 +449,7 @@ class FullSyncService extends GetxService {
       final count = await syncFn();
       return MapEntry(entityName, count);
     } catch (e) {
-      print('❌ [FULL_SYNC] Error sincronizando $entityName: $e');
+
       return MapEntry(entityName, null);
     }
   }
@@ -513,7 +507,7 @@ class FullSyncService extends GetxService {
 
       return 1;
     } catch (e) {
-      print('⚠️ [FULL_SYNC] Error sincronizando preferencias de usuario: $e');
+
       return 0;
     }
   }
@@ -588,11 +582,11 @@ class FullSyncService extends GetxService {
 
         if (offlineCategories.isNotEmpty) {
           allCategories.addAll(offlineCategories);
-          print('🧹 [FULL_SYNC] Preservadas ${offlineCategories.length} categorías de gastos offline con sync pendiente');
+
         }
       }
     } catch (e) {
-      print('⚠️ [FULL_SYNC] Error preservando categorías offline: $e');
+
     }
 
     // Cachear todas las categorías (servidor + offline pendientes)
@@ -729,11 +723,9 @@ class FullSyncService extends GetxService {
         }
       });
 
-      print('🔧 [FULL_SYNC] Sanados ${stuck.length} productos bloqueados (isSynced=false sin ops pendientes): '
-          '${stuck.take(5).map((p) => p.name).join(", ")}${stuck.length > 5 ? "..." : ""}');
       return stuck.length;
     } catch (e) {
-      print('⚠️ [FULL_SYNC] Error en sanador de productos: $e');
+
       return 0;
     }
   }
@@ -806,9 +798,6 @@ class FullSyncService extends GetxService {
             });
             return models.length;
           } catch (e) {
-            print(
-              '[FULL_SYNC] Error sincronizando presentaciones del producto ${product.serverId}: $e',
-            );
             return 0;
           }
         }),
@@ -1183,7 +1172,7 @@ class FullSyncService extends GetxService {
     }
 
     if (skippedUnsync > 0) {
-      print('⚠️ [FULL_SYNC] Batches: $skippedUnsync omitidos (cambios locales sin sincronizar)');
+
     }
 
     return totalSynced;
@@ -1275,7 +1264,7 @@ class FullSyncService extends GetxService {
       };
       await prefs.setString('inventory_warehouses_cache', jsonEncode(cacheData));
     } catch (e) {
-      print('⚠️ FullSync: SharedPreferences falló para warehouses (memory cache OK): $e');
+
     }
 
     return warehouseModels.length;
@@ -1288,7 +1277,7 @@ class FullSyncService extends GetxService {
   /// el serverId con el ID real del servidor después de crear exitosamente.
   Future<void> _cleanupOrphanedRecords() async {
     try {
-      print('🧹 [FULL_SYNC] Limpiando registros huérfanos...');
+
       final isarDb = IsarDatabase.instance;
 
       // CRÍTICO: incluir tanto operaciones PENDING como FAILED. Sin esto,
@@ -1432,12 +1421,12 @@ class FullSyncService extends GetxService {
       totalCleaned += await _cleanupOrphanedPOItems();
 
       if (totalCleaned > 0) {
-        print('🧹 [FULL_SYNC] Total registros huérfanos limpiados: $totalCleaned');
+
       } else {
-        print('✅ [FULL_SYNC] No hay registros huérfanos para limpiar');
+
       }
     } catch (e) {
-      print('⚠️ [FULL_SYNC] Error en limpieza de huérfanos: $e');
+
     }
   }
 
@@ -1470,11 +1459,9 @@ class FullSyncService extends GetxService {
             .deleteAll(toDelete.map((b) => b.id).toList());
       });
 
-      print(
-          '  🧹 IsarInventoryBatch: ${toDelete.length} batch_offline_ huérfanos eliminados');
       return toDelete.length;
     } catch (e) {
-      print('  ⚠️ Error limpiando IsarInventoryBatch batch_offline_: $e');
+
       return 0;
     }
   }
@@ -1504,10 +1491,9 @@ class FullSyncService extends GetxService {
             .deleteAll(orphaned.map((i) => i.id).toList());
       });
 
-      print('  🧹 IsarPurchaseOrderItem: ${orphaned.length} items huérfanos eliminados');
       return orphaned.length;
     } catch (e) {
-      print('  ⚠️ Error limpiando PO items huérfanos: $e');
+
       return 0;
     }
   }
@@ -1533,10 +1519,9 @@ class FullSyncService extends GetxService {
         await collection.deleteAll(orphaned.map(getId).toList());
       });
 
-      print('  🧹 ${T.toString()}: ${orphaned.length} huérfanos eliminados');
       return orphaned.length;
     } catch (e) {
-      print('  ⚠️ Error limpiando ${T.toString()}: $e');
+
       return 0;
     }
   }

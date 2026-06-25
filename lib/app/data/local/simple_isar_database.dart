@@ -22,12 +22,9 @@ class SimpleIsarDatabase {
   
   Future<void> initialize() async {
     // Stub implementation - no real initialization
-    print('💾 Using ISAR stub implementation - no real database initialization');
-    print('✅ Stub database "initialized" successfully');
   }
   
   Future<void> close() async {
     // Stub implementation - no real cleanup needed
-    print('💾 Stub database "closed" successfully');
   }
 }

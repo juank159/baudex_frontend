@@ -138,7 +138,6 @@ class WarehousesController extends GetxController {
                   statsResult.fold(
                     (failure) {
                       // Si falla, agregar el almacén sin estadísticas
-                      print('⚠️ No se pudieron cargar estadísticas para ${warehouse.name}: ${failure.message}');
                       warehousesWithStats.add(WarehouseWithStats(warehouse: warehouse));
                     },
                     (stats) {
@@ -256,9 +255,7 @@ class WarehousesController extends GetxController {
     
     // Si se actualizó un almacén, refrescar la lista y mostrar confirmación
     if (result != null && result is Map && result['action'] == 'updated') {
-      print('🔄 Refrescando lista de almacenes después de actualización...');
       await refreshWarehouses();
-      print('✅ Lista de almacenes refrescada. Total: ${_warehouses.length}, Filtrados: ${_filteredWarehouses.length}');
       Get.snackbar(
         'Éxito',
         'Almacén actualizado correctamente',
@@ -666,10 +663,8 @@ class WarehousesController extends GetxController {
 
       _filteredWarehouses.value = filtered;
       _filteredWarehouses.refresh(); // Forzar notificación a observers
-      print('🔍 Filtros aplicados: ${filtered.length} almacenes mostrados de ${_warehouses.length} totales');
       
     } catch (e) {
-      print('❌ Error aplicando filtros: $e');
       _applyFiltersFallback();
     }
   }
@@ -756,13 +751,5 @@ class WarehousesController extends GetxController {
 
   /// Información de debug
   void printDebugInfo() {
-    print('🏪 WarehousesController Debug Info:');
-    print('   Total warehouses: ${_warehouses.length}');
-    print('   Filtered warehouses: ${_filteredWarehouses.length}');
-    print('   Search query: "$_searchQuery"');
-    print('   Status filter: $_selectedStatus');
-    print('   Sort: $_sortBy $_sortOrder');
-    print('   Loading: $_isLoading');
-    print('   Error: "$_error"');
   }
 }

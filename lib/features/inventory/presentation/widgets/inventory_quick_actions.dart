@@ -971,7 +971,6 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
 
       searchResults.value = results;
     } catch (e) {
-      print('Error searching products: $e');
       searchResults.clear();
     } finally {
       isLoading.value = false;
@@ -990,11 +989,9 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
       final result = await searchUseCase(params);
 
       return result.fold((failure) {
-        print('Error searching products: ${failure.message}');
         return <Product>[];
       }, (products) => products);
     } catch (e) {
-      print('Error finding SearchProductsUseCase: $e');
       return <Product>[];
     }
   }

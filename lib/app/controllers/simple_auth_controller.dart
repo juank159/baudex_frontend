@@ -32,7 +32,6 @@ class SimpleAuthController extends GetxController {
       _isAuthenticated.value = false; // Always false for now
       return _isAuthenticated.value;
     } catch (e) {
-      print('Error checking auth status: $e');
       _isAuthenticated.value = false;
       return false;
     } finally {
@@ -52,7 +51,6 @@ class SimpleAuthController extends GetxController {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
       
-      print('Login attempt: $email with password length: ${password.length}');
       
       // For demo purposes, accept any email/password
       _isAuthenticated.value = true;
@@ -66,7 +64,6 @@ class SimpleAuthController extends GetxController {
       // Navigate to dashboard or home
       Get.offAllNamed('/dashboard');
     } catch (e) {
-      print('Login error: $e');
       Get.snackbar(
         'Error de Login',
         'No se pudo iniciar sesión: $e',
@@ -99,7 +96,6 @@ class SimpleAuthController extends GetxController {
         duration: const Duration(seconds: 2),
       );
     } catch (e) {
-      print('Logout error: $e');
     } finally {
       _isLoading.value = false;
     }

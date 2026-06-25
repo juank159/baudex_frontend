@@ -45,7 +45,6 @@ import '../../../inventory/domain/usecases/process_outbound_movement_fifo_usecas
 class InvoiceBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔧 InvoiceBinding: Configurando dependencias...');
 
     // ==================== VERIFICACIÓN DE DEPENDENCIAS CORE ====================
     _verifyCoreDependencies();
@@ -68,13 +67,11 @@ class InvoiceBinding extends Bindings {
     // ==================== INVENTORY SERVICE ====================
     _registerInventoryService();
 
-    print('✅ InvoiceBinding: Dependencias configuradas exitosamente');
   }
 
   /// Registrar dependencias SIN cargar InvoiceStatsController automáticamente
   /// Útil para pantallas que no necesitan estadísticas (como creación de facturas)
   void dependenciesWithoutStats() {
-    print('🔧 InvoiceBinding: Configurando dependencias SIN estadísticas...');
 
     // ==================== VERIFICACIÓN DE DEPENDENCIAS CORE ====================
     _verifyCoreDependencies();
@@ -89,15 +86,10 @@ class InvoiceBinding extends Bindings {
     _registerUseCases();
 
     // ==================== NOTA: NO REGISTRAR STATS CONTROLLER ====================
-    print('⚠️ InvoiceStatsController NO cargado intencionalmente');
-    print('💡 Se cargará solo cuando sea necesario');
 
     // ==================== THERMAL PRINTER CONTROLLER ====================
     _registerThermalPrinterController();
 
-    print(
-      '✅ InvoiceBinding: Dependencias básicas configuradas (sin estadísticas)',
-    );
   }
 
   /// Verificar que las dependencias core estén disponibles
@@ -117,7 +109,6 @@ class InvoiceBinding extends Bindings {
         'SecureStorageService no está registrado. Asegúrate de inicializar CoreBinding primero.',
       );
     }
-    print('✅ Dependencias core verificadas');
   }
 
   /// Registrar data sources
@@ -135,7 +126,6 @@ class InvoiceBinding extends Bindings {
       ),
       fenix: true,
     );
-    print('✅ Data sources registradas');
   }
 
   /// Registrar repository
@@ -156,7 +146,6 @@ class InvoiceBinding extends Bindings {
       ),
       fenix: true,
     );
-    print('✅ Repository registrado');
   }
 
   /// Registrar use cases
@@ -229,7 +218,6 @@ class InvoiceBinding extends Bindings {
       fenix: true,
     );
 
-    print('✅ Use cases registrados');
   }
 
   /// Registrar controlador de estadísticas (singleton global)
@@ -242,7 +230,6 @@ class InvoiceBinding extends Bindings {
         ),
         permanent: true,
       );
-      print('✅ InvoiceStatsController registrado como singleton');
     }
   }
 
@@ -253,9 +240,7 @@ class InvoiceBinding extends Bindings {
         ThermalPrinterController(),
         permanent: true, // Mantener disponible globalmente
       );
-      print('✅ ThermalPrinterController registrado como singleton');
     } else {
-      print('ℹ️ ThermalPrinterController ya está registrado');
     }
   }
 
@@ -268,15 +253,6 @@ class InvoiceBinding extends Bindings {
     if (!Get.isRegistered<InvoiceInventoryService>()) {
       // Verificar que el use case de inventario esté disponible
       if (!Get.isRegistered<ProcessOutboundMovementFifoUseCase>()) {
-        print(
-          'ℹ️ InvoiceInventoryService no registrado (ProcessOutboundMovementFifoUseCase no disponible)',
-        );
-        print(
-          '   → El descuento automático de inventario estará deshabilitado',
-        );
-        print(
-          '   → Para habilitarlo, asegúrate de que InventoryBinding se ejecute antes de InvoiceBinding',
-        );
         return;
       }
 
@@ -288,13 +264,9 @@ class InvoiceBinding extends Bindings {
           ),
           permanent: true, // Mantener disponible globalmente
         );
-        print('✅ InvoiceInventoryService registrado como singleton');
       } catch (e) {
-        print('⚠️ Error registrando InvoiceInventoryService: $e');
-        print('   → El descuento automático de inventario estará deshabilitado');
       }
     } else {
-      print('ℹ️ InvoiceInventoryService ya está registrado');
     }
   }
 
@@ -305,7 +277,6 @@ class InvoiceBinding extends Bindings {
   static void registerListController() {
     if (!Get.isRegistered<InvoiceListController>()) {
       try {
-        print('🔧 Iniciando registro de InvoiceListController (permanente)...');
 
         // Validar dependencias antes de crear el controlador
         final requiredDeps = {
@@ -336,14 +307,10 @@ class InvoiceBinding extends Bindings {
           permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
         );
 
-        print('✅ InvoiceListController registrado como permanente');
       } catch (e, stackTrace) {
-        print('❌ Error registrando InvoiceListController: $e');
-        print('📍 Stack trace: $stackTrace');
         throw Exception('No se pudo registrar InvoiceListController: $e');
       }
     } else {
-      print('ℹ️ InvoiceListController ya está registrado (permanente)');
     }
   }
 
@@ -403,12 +370,6 @@ class InvoiceBinding extends Bindings {
   // El InvoiceFormController ahora se crea directamente en el wrapper
   // para evitar problemas de dependencias circulares
   static void registerFormController() {
-    print(
-      '⚠️ registerFormController() está obsoleto - usa InvoiceFormScreenWrapper',
-    );
-    print(
-      '💡 El controlador se crea automáticamente en el wrapper con lazy loading',
-    );
   }
 
   // static void _verifyExternalDependencies() {
@@ -473,13 +434,10 @@ class InvoiceBinding extends Bindings {
           // ✅ REMOVER TAG PARA QUE SEA ACCESIBLE SIN TAG
           // tag: 'invoice_detail', ← COMENTADO
         );
-        print('✅ InvoiceDetailController registrado (sin tag)');
       } catch (e) {
-        print('❌ Error registrando InvoiceDetailController: $e');
         throw Exception('No se pudo registrar InvoiceDetailController: $e');
       }
     } else {
-      print('ℹ️ InvoiceDetailController ya está registrado');
     }
   }
 
@@ -489,11 +447,9 @@ class InvoiceBinding extends Bindings {
       if (Get.isRegistered<T>()) {
         return Get.find<T>();
       } else {
-        print('⚠️ UseCase ${T.toString()} no está registrado');
         return null;
       }
     } catch (e) {
-      print('⚠️ Error al obtener ${T.toString()}: $e');
       return null;
     }
   }
@@ -507,9 +463,7 @@ class InvoiceBinding extends Bindings {
         final controller = Get.find<InvoiceListController>();
         // Permitir que el controlador complete su disposal
         Get.delete<InvoiceListController>(force: false);
-        print('🧹 InvoiceListController limpiado de forma segura');
       } catch (e) {
-        print('⚠️ Error al limpiar InvoiceListController: $e');
         // Fallback: limpieza forzada
         Get.delete<InvoiceListController>(force: true);
       }
@@ -518,9 +472,6 @@ class InvoiceBinding extends Bindings {
 
   /// Limpiar controlador de formulario (OBSOLETO - se maneja en el wrapper)
   static void clearFormController() {
-    print(
-      '⚠️ clearFormController() está obsoleto - el wrapper maneja la limpieza automáticamente',
-    );
   }
 
   /// ✅ SOLUCIÓN: Limpiar controlador de detalle SIN TAG de forma segura
@@ -533,23 +484,16 @@ class InvoiceBinding extends Bindings {
         Future.delayed(const Duration(milliseconds: 100), () {
           try {
             Get.delete<InvoiceDetailController>(force: false);
-            print(
-              '🧹 InvoiceDetailController limpiado de forma segura (delayed)',
-            );
           } catch (e) {
-            print('⚠️ Error en limpieza delayed: $e');
             Get.delete<InvoiceDetailController>(force: true);
           }
         });
 
-        print('🧹 InvoiceDetailController marcado para limpieza');
       } catch (e) {
-        print('⚠️ Error al limpiar InvoiceDetailController: $e');
         // Fallback: limpieza forzada
         try {
           Get.delete<InvoiceDetailController>(force: true);
         } catch (e2) {
-          print('❌ Error en fallback de limpieza: $e2');
         }
       }
     }
@@ -560,7 +504,6 @@ class InvoiceBinding extends Bindings {
     clearListController();
     clearFormController();
     clearDetailController();
-    print('🧹 Todos los controladores de pantalla limpiados');
   }
 
   // ==================== MÉTODOS DE UTILIDAD ====================
@@ -620,7 +563,6 @@ class InvoiceBinding extends Bindings {
 
   /// Reinicializar todas las dependencias (útil para desarrollo/testing)
   static void reinitialize() {
-    print('🔄 Reinicializando InvoiceBinding...');
     clearAllScreenControllers();
 
     // Forzar recreación de dependencias base si es necesario
@@ -630,7 +572,6 @@ class InvoiceBinding extends Bindings {
 
     // Re-registrar binding
     InvoiceBinding().dependencies();
-    print('✅ InvoiceBinding reinicializado');
   }
 
   /// Método para verificar e inicializar dependencias externas
@@ -643,58 +584,15 @@ class InvoiceBinding extends Bindings {
             .toList();
 
     if (missingDeps.isNotEmpty) {
-      print(
-        '⚠️ ADVERTENCIA: Dependencias externas faltantes para InvoiceFormController:',
-      );
       for (final dep in missingDeps) {
-        print('   - $dep');
       }
-      print('');
-      print('💡 SOLUCIÓN:');
-      print(
-        '   1. Asegúrate de que CustomerBinding esté inicializado antes de InvoiceBinding',
-      );
-      print(
-        '   2. Asegúrate de que ProductBinding esté inicializado antes de InvoiceBinding',
-      );
-      print(
-        '   3. Orden recomendado: CoreBinding → CustomerBinding → ProductBinding → InvoiceBinding',
-      );
-      print('');
-      print(
-        'ℹ️ El InvoiceFormController funcionará con datos mock si faltan estas dependencias.',
-      );
     } else {
-      print('✅ Todas las dependencias externas están disponibles');
     }
   }
 
   /// ✅ NUEVO: Método de utilidad para debug
   static void debugControllerRegistration() {
-    print('🔍 DEBUG: Estado de controladores de Invoice:');
-    print(
-      '   - InvoiceListController: ${Get.isRegistered<InvoiceListController>() ? "✅ Registrado" : "❌ No registrado"}',
-    );
-    print(
-      '   - InvoiceFormController: ${Get.isRegistered<InvoiceFormController>() ? "✅ Registrado" : "❌ No registrado"}',
-    );
-    print(
-      '   - InvoiceDetailController: ${Get.isRegistered<InvoiceDetailController>() ? "✅ Registrado" : "❌ No registrado"}',
-    );
-    print(
-      '   - InvoiceStatsController: ${Get.isRegistered<InvoiceStatsController>() ? "✅ Registrado" : "❌ No registrado"}',
-    );
 
     // Verificar use cases principales
-    print('🔍 DEBUG: Estado de Use Cases principales:');
-    print(
-      '   - GetInvoicesUseCase: ${Get.isRegistered<GetInvoicesUseCase>() ? "✅" : "❌"}',
-    );
-    print(
-      '   - CreateInvoiceUseCase: ${Get.isRegistered<CreateInvoiceUseCase>() ? "✅" : "❌"}',
-    );
-    print(
-      '   - SearchInvoicesUseCase: ${Get.isRegistered<SearchInvoicesUseCase>() ? "✅" : "❌"}',
-    );
   }
 }

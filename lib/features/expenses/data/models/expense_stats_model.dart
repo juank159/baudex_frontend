@@ -154,14 +154,10 @@ class ExpenseStatsModel extends ExpenseStats {
       try {
         return double.parse(value);
       } catch (e) {
-        print('⚠️ Error parsing double from string: "$value" - $e');
         return null;
       }
     }
 
-    print(
-      '⚠️ Unexpected type for numeric value: ${value.runtimeType} - $value',
-    );
     return null;
   }
 }

@@ -616,7 +616,6 @@ class CategoryFormController extends GetxController {
   void onInit() {
     super.onInit();
     SyncService.notifyFormOpened();
-    print('🚀 CategoryFormController onInit started');
 
     _setupSlugGeneration();
 
@@ -625,10 +624,8 @@ class CategoryFormController extends GetxController {
 
     // Obtener categoryId desde los parámetros de ruta
     final categoryId = Get.parameters['id'];
-    print('📝 Category ID from params: $categoryId');
 
     if (categoryId != null && categoryId.isNotEmpty) {
-      print('🔧 Entering edit mode for: $categoryId');
       _initEditMode(categoryId);
     }
 
@@ -636,20 +633,16 @@ class CategoryFormController extends GetxController {
     final arguments = Get.arguments;
     if (arguments != null && arguments is Map<String, dynamic>) {
       final parentId = arguments['parentId'] as String?;
-      print('👨‍👩‍👧‍👦 Parent ID from arguments: $parentId');
 
       if (parentId != null) {
         // ✅ CORRECCIÓN: Esperar a que se carguen las categorías padre
         ever(_parentCategories, (List<CategoryTree> categories) {
           if (categories.isNotEmpty && _selectedParent.value == null) {
-            print('🔍 Attempting to select parent from arguments: $parentId');
             _selectParentFromId(parentId);
           }
         });
       }
     }
-
-    print('✅ CategoryFormController onInit completed');
 
     // ✅ AGREGAR AL FINAL:
     // Debugging después de un pequeño delay
@@ -671,14 +664,12 @@ class CategoryFormController extends GetxController {
     metaDescriptionController.dispose();
     metaKeywordsController.dispose();
     super.onClose();
-    print('🗑️ CategoryFormController disposed safely');
   }
 
   // ==================== PUBLIC METHODS ====================
 
   /// Guardar categoría (crear o actualizar)
   Future<void> saveCategory() async {
-    print('🚀 CategoryFormController: Iniciando saveCategory()');
 
     // Log tenant information for debugging
     await _logTenantInfo();
@@ -686,17 +677,13 @@ class CategoryFormController extends GetxController {
     // Validar campos manualmente si FormKey no está disponible
     final isValid = await _validateFieldsManually();
     if (!isValid) {
-      print('❌ Validación manual falló');
       return;
     }
-
-    print('✅ Validación exitosa, procediendo con la creación');
 
     // Generar slug automáticamente si está vacío
     if (slugController.text.trim().isEmpty) {
       final generatedSlug = _generateSlugFromName(nameController.text.trim());
       slugController.text = generatedSlug;
-      print('🔧 Slug generado automáticamente: $generatedSlug');
     }
 
     _isLoading.value = true;
@@ -714,7 +701,6 @@ class CategoryFormController extends GetxController {
 
   /// Cargar categorías padre
   Future<void> loadParentCategories() async {
-    print('📂 Loading parent categories...');
     _isLoadingParents.value = true;
 
     try {
@@ -724,20 +710,15 @@ class CategoryFormController extends GetxController {
         (failure) {
           // NO mostrar error si es fallo de cache (es normal cuando no hay cache)
           if (failure is! CacheFailure) {
-            print('❌ Error loading parent categories: ${failure.message}');
             _showError('Error al cargar categorías padre', failure.message);
           }
           _parentCategories.clear();
         },
         (categories) {
-          print('✅ Parent categories loaded: ${categories.length}');
           _parentCategories.value = categories;
 
           // Si estamos en modo edición y hay una categoría padre, seleccionarla
           if (_isEditMode.value && _currentCategory.value?.parentId != null) {
-            print(
-              '🔗 Selecting parent for edit mode: ${_currentCategory.value!.parentId}',
-            );
             _selectParentFromId(_currentCategory.value!.parentId!);
           }
         },
@@ -750,21 +731,16 @@ class CategoryFormController extends GetxController {
   /// Cambiar estado seleccionado
   void changeStatus(CategoryStatus status) {
     _selectedStatus.value = status;
-    print('🔄 Status changed to: ${status.name}');
   }
 
   /// ✅ CORRECCIÓN: Cambiar categoría padre con logs
   void changeParent(CategoryTree? parent) {
     _selectedParent.value = parent;
-    print(
-      '🔄 Parent changed to: ${parent?.name ?? "null"} (ID: ${parent?.id ?? "null"})',
-    );
   }
 
   /// Cambiar orden
   void changeSortOrder(int order) {
     _sortOrder.value = order;
-    print('🔄 Sort order changed to: $order');
   }
 
   /// Generar slug automáticamente
@@ -882,7 +858,6 @@ class CategoryFormController extends GetxController {
 
   /// Cargar categoría para edición
   Future<void> _loadCategoryForEdit(String categoryId) async {
-    print('📖 Loading category for edit: $categoryId');
     _isLoadingCategory.value = true;
 
     try {
@@ -892,13 +867,11 @@ class CategoryFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error loading category: ${failure.message}');
           _showError('Error al cargar categoría', failure.message);
           // Si falla cargar la categoría, volver al listado
           Get.back();
         },
         (category) {
-          print('✅ Category loaded: ${category.name}');
           _populateFormWithCategory(category);
         },
       );
@@ -909,7 +882,6 @@ class CategoryFormController extends GetxController {
 
   /// ✅ CORRECCIÓN: Poblar formulario con datos de categoría
   void _populateFormWithCategory(Category category) {
-    print('🏗️ Populating form with category: ${category.name}');
     _currentCategory.value = category;
 
     // Llenar campos del formulario
@@ -922,39 +894,30 @@ class CategoryFormController extends GetxController {
 
     // ✅ CORRECCIÓN: Manejar parent de forma más robusta
     if (category.parentId != null) {
-      print('🔗 Category has parent ID: ${category.parentId}');
       _selectParentFromId(category.parentId!);
     } else {
-      print('🚫 Category has no parent');
       _selectedParent.value = null;
     }
 
     _isSlugManuallyEdited.value = true;
-    print('✅ Form populated successfully');
   }
 
   /// ✅ CORRECCIÓN: Seleccionar padre por ID con mejor manejo
   void _selectParentFromId(String parentId) {
-    print('🔍 Searching for parent with ID: $parentId');
 
     // Buscar en las categorías padre ya cargadas
     final parent = _findParentById(parentId);
     if (parent != null) {
-      print('✅ Parent found immediately: ${parent.name}');
       _selectedParent.value = parent;
     } else {
-      print('⏳ Parent not found, waiting for categories to load...');
 
       // Si no están cargadas aún, intentar cuando se carguen
       ever(_parentCategories, (List<CategoryTree> categories) {
         if (categories.isNotEmpty && _selectedParent.value == null) {
-          print('🔄 Retrying parent search after categories loaded...');
           final foundParent = _findParentById(parentId);
           if (foundParent != null) {
-            print('✅ Parent found after reload: ${foundParent.name}');
             _selectedParent.value = foundParent;
           } else {
-            print('❌ Parent still not found: $parentId');
           }
         }
       });
@@ -990,7 +953,6 @@ class CategoryFormController extends GetxController {
 
   /// Crear nueva categoría
   Future<void> _createCategory() async {
-    print('🆕 CategoryFormController: Creating new category...');
     
     final params = CreateCategoryParams(
       name: nameController.text.trim(),
@@ -1008,30 +970,14 @@ class CategoryFormController extends GetxController {
       parentId: _selectedParent.value?.id,
     );
     
-    print('📋 CategoryFormController: Request parameters:');
-    print('   🏷️  Name: ${params.name}');
-    print('   📝 Description: ${params.description}');
-    print('   🔗 Slug: ${params.slug}');
-    print('   🖼️  Image: ${params.image}');
-    print('   📊 Status: ${params.status?.name}');
-    print('   🔢 Sort Order: ${params.sortOrder}');
-    print('   👨‍👩‍👧‍👦 Parent ID: ${params.parentId}');
     
     final result = await _createCategoryUseCase(params);
 
     result.fold(
       (failure) {
-        print('❌ CategoryFormController: Error creating category');
-        print('   📄 Failure type: ${failure.runtimeType}');
-        print('   📄 Failure message: ${failure.message}');
         _showError('Error al crear categoría', failure.message);
       },
       (category) {
-        print('✅ CategoryFormController: Category created successfully');
-        print('   🆔 Category ID: ${category.id}');
-        print('   🏷️  Category Name: ${category.name}');
-        print('   🔗 Category Slug: ${category.slug}');
-        print('   📊 Category Status: ${category.status.name}');
 
         // Refrescar la lista antes de navegar
         _refreshCategoriesList();
@@ -1050,7 +996,6 @@ class CategoryFormController extends GetxController {
       return;
     }
 
-    print('🔄 Updating category: ${_currentCategory.value!.name}');
     final result = await _updateCategoryUseCase(
       UpdateCategoryParams(
         id: _currentCategory.value!.id,
@@ -1072,11 +1017,9 @@ class CategoryFormController extends GetxController {
 
     result.fold(
       (failure) {
-        print('❌ Error updating category: ${failure.message}');
         _showError('Error al actualizar categoría', failure.message);
       },
       (category) {
-        print('✅ Category updated successfully: ${category.name}');
 
         // Refrescar la lista antes de navegar
         _refreshCategoriesList();
@@ -1095,10 +1038,8 @@ class CategoryFormController extends GetxController {
       if (Get.isRegistered<CategoriesController>()) {
         final categoriesController = Get.find<CategoriesController>();
         categoriesController.refreshCategories();
-        print('✅ Lista de categorías refrescada exitosamente');
       }
     } catch (e) {
-      print('⚠️ No se pudo refrescar la lista de categorías: $e');
     }
   }
 
@@ -1165,8 +1106,6 @@ class CategoryFormController extends GetxController {
       final excludeId = _isEditMode.value ? _currentCategory.value?.id : null;
       final originalName = _currentCategory.value?.name;
 
-      print('🔍 Validando nombre único: "$categoryName" (excludeId: $excludeId, original: "$originalName")');
-
       // ✅ IMPORTANTE: Solo validar si el nombre cambió respecto al original
       if (!_isEditMode.value || categoryName != originalName) {
         final nameExistsResult = await _categoryRepository.existsByName(
@@ -1180,14 +1119,11 @@ class CategoryFormController extends GetxController {
         );
 
         if (nameExists) {
-          print('❌ CategoryFormController: Nombre de categoría duplicado - "$categoryName"');
           _showError('Categoría duplicada', 'Ya existe una categoría con el nombre "$categoryName"');
           return false;
         } else {
-          print('✅ Nombre de categoría único - "$categoryName"');
         }
       } else {
-        print('✅ Nombre no cambió, omitiendo validación');
       }
     }
 
@@ -1228,25 +1164,15 @@ class CategoryFormController extends GetxController {
   /// Imprimir información de debugging
   void printDebugInfo() {
     final info = getDebugInfo();
-    print('🐛 CategoryFormController Debug Info:');
     info.forEach((key, value) {
-      print('   $key: $value');
     });
   }
 
   /// Verificar estado del dropdown
   void debugDropdownState() {
-    print('📋 DROPDOWN DEBUG STATE:');
-    print('   isLoadingParents: ${_isLoadingParents.value}');
-    print('   parentCategories.length: ${_parentCategories.length}');
-    print('   selectedParent: ${_selectedParent.value?.name ?? "null"}');
-    print('   selectedParentId: ${_selectedParent.value?.id ?? "null"}');
-    print('   currentCategory: ${_currentCategory.value?.name ?? "null"}');
 
     if (_parentCategories.isNotEmpty) {
-      print('   Available parents:');
       for (final cat in _parentCategories) {
-        print('     - ${cat.name} (${cat.id})');
       }
     }
   }
@@ -1258,16 +1184,9 @@ class CategoryFormController extends GetxController {
       final tenantSlug = await secureStorage.getTenantSlug();
       final userData = await secureStorage.getUserData();
       
-      print('🏢 ==================== TENANT DEBUG INFO ====================');
-      print('🔍 Current tenant slug: $tenantSlug');
-      print('👤 User data available: ${userData != null}');
       if (userData != null) {
-        print('   📧 User email: ${userData['email']}');
-        print('   🆔 User ID: ${userData['id']}');
       }
-      print('🏢 ==================== END TENANT DEBUG INFO ====================');
     } catch (e) {
-      print('❌ Error getting tenant info: $e');
     }
   }
 }

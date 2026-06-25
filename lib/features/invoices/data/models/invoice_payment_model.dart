@@ -75,7 +75,6 @@ class InvoicePaymentModel {
       final parsedInt = int.tryParse(cleanedValue);
       if (parsedInt != null) return parsedInt.toDouble();
     }
-    print('⚠️ No se pudo convertir a double: $value (${value.runtimeType})');
     return 0.0;
   }
 
@@ -85,7 +84,6 @@ class InvoicePaymentModel {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('⚠️ Error parsing date: $value - $e');
         return DateTime.now();
       }
     }
@@ -128,8 +126,6 @@ class InvoicePaymentModel {
             : null,
       );
     } catch (e) {
-      print('❌ Error en InvoicePaymentModel.fromJson: $e');
-      print('📋 JSON data: $json');
       rethrow;
     }
   }

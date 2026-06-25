@@ -76,7 +76,6 @@ class CustomerCreditController extends GetxController
   /// Refresca todos los datos (para usar cuando la página vuelve a ser visible)
   Future<void> refreshAllData() async {
     if (_isLoadInProgress) {
-      print('⏭️ [CREDIT] refreshAllData ya en progreso, saltando...');
       return;
     }
     await Future.wait([
@@ -96,7 +95,6 @@ class CustomerCreditController extends GetxController
   /// Patrón cache-first: si ya hay datos, actualiza en segundo plano sin spinner.
   Future<void> loadCredits() async {
     if (_isLoadInProgress) {
-      print('⏭️ [CREDIT] loadCredits ya en progreso, saltando...');
       return;
     }
     _isLoadInProgress = true;

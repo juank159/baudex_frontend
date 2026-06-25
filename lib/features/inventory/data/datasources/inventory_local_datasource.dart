@@ -201,9 +201,7 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
 
           await isar.isarInventoryMovements.put(isarMovement);
         });
-        print('✅ InventoryMovement guardado en ISAR: ${movement.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // GUARDAR EN SECURESTORAGE (código existente)

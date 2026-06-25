@@ -138,14 +138,10 @@ class AuthBinding implements Bindings {
     // Si necesitas registrar controladores específicos para pantallas
     // particulares (no AuthController), hazlo aquí
 
-    print(
-      '🔧 AuthBinding: Todas las dependencias ya están registradas en InitialBinding',
-    );
   }
 
   @override
   void onDispose() {
     // No eliminar dependencias globales aquí
-    print('🔧 AuthBinding: onDispose - manteniendo dependencias globales');
   }
 }

@@ -110,7 +110,6 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
 
       result.fold(
         (failure) {
-          print('⚠️ Error al cargar métodos de pago: ${failure.message}');
           setState(() => _isLoadingPaymentMethods = false);
         },
         (accounts) {
@@ -157,7 +156,6 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
         },
       );
     } catch (e) {
-      print('⚠️ Error al cargar métodos de pago: $e');
       setState(() => _isLoadingPaymentMethods = false);
     }
   }

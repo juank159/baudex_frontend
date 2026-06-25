@@ -49,7 +49,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
         _deletePrinterSettingsUseCase = deletePrinterSettingsUseCase,
         _setDefaultPrinterUseCase = setDefaultPrinterUseCase,
         _testPrinterConnectionUseCase = testPrinterConnectionUseCase {
-    print('⚙️ SettingsController: Instancia creada correctamente');
   }
 
   // ==================== OBSERVABLES ====================
@@ -94,7 +93,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   void onInit() {
     super.onInit();
     setupSyncListener();
-    print('🚀 SettingsController: Inicializando...');
     loadAllSettings();
   }
 
@@ -118,22 +116,18 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> loadAppSettings() async {
     try {
       _isLoadingAppSettings.value = true;
-      print('📱 SettingsController: Cargando configuración de app...');
 
       final result = await _getAppSettingsUseCase(NoParams());
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar configuración de app: ${failure.message}');
           _showError('Error', 'No se pudo cargar la configuración de la aplicación');
         },
         (settings) {
           _appSettings.value = settings;
-          print('✅ Configuración de app cargada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar configuración de app: $e');
     } finally {
       _isLoadingAppSettings.value = false;
     }
@@ -142,7 +136,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> saveAppSettings(AppSettings settings) async {
     try {
       _isSaving.value = true;
-      print('💾 SettingsController: Guardando configuración de app...');
 
       final result = await _saveAppSettingsUseCase(
         SaveAppSettingsParams(settings: settings),
@@ -150,17 +143,14 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al guardar configuración de app: ${failure.message}');
           _showError('Error', 'No se pudo guardar la configuración de la aplicación');
         },
         (savedSettings) {
           _appSettings.value = savedSettings;
           _showSuccess('Configuración de aplicación guardada exitosamente');
-          print('✅ Configuración de app guardada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al guardar configuración de app: $e');
     } finally {
       _isSaving.value = false;
     }
@@ -171,22 +161,18 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> loadInvoiceSettings() async {
     try {
       _isLoadingInvoiceSettings.value = true;
-      print('🧾 SettingsController: Cargando configuración de facturas...');
 
       final result = await _getInvoiceSettingsUseCase(NoParams());
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar configuración de facturas: ${failure.message}');
           _showError('Error', 'No se pudo cargar la configuración de facturas');
         },
         (settings) {
           _invoiceSettings.value = settings;
-          print('✅ Configuración de facturas cargada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar configuración de facturas: $e');
     } finally {
       _isLoadingInvoiceSettings.value = false;
     }
@@ -195,7 +181,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> saveInvoiceSettings(InvoiceSettings settings) async {
     try {
       _isSaving.value = true;
-      print('💾 SettingsController: Guardando configuración de facturas...');
 
       final result = await _saveInvoiceSettingsUseCase(
         SaveInvoiceSettingsParams(settings: settings),
@@ -203,17 +188,14 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al guardar configuración de facturas: ${failure.message}');
           _showError('Error', 'No se pudo guardar la configuración de facturas');
         },
         (savedSettings) {
           _invoiceSettings.value = savedSettings;
           _showSuccess('Configuración de facturas guardada exitosamente');
-          print('✅ Configuración de facturas guardada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al guardar configuración de facturas: $e');
     } finally {
       _isSaving.value = false;
     }
@@ -224,35 +206,29 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> loadPrinterSettings() async {
     try {
       _isLoadingPrinterSettings.value = true;
-      print('🖨️ SettingsController: Cargando configuración de impresoras...');
 
       final allPrintersResult = await _getAllPrinterSettingsUseCase(NoParams());
       final defaultPrinterResult = await _getDefaultPrinterSettingsUseCase(NoParams());
 
       allPrintersResult.fold(
         (failure) {
-          print('❌ Error al cargar impresoras: ${failure.message}');
           _showError('Error', 'No se pudo cargar la configuración de impresoras');
         },
         (printers) {
           _printerSettings.value = printers;
-          print('✅ ${printers.length} impresoras cargadas exitosamente');
         },
       );
 
       defaultPrinterResult.fold(
         (failure) {
-          print('❌ Error al cargar impresora por defecto: ${failure.message}');
         },
         (defaultPrinter) {
           _defaultPrinter.value = defaultPrinter;
           if (defaultPrinter != null) {
-            print('✅ Impresora por defecto: ${defaultPrinter.name}');
           }
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar configuración de impresoras: $e');
     } finally {
       _isLoadingPrinterSettings.value = false;
     }
@@ -261,7 +237,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> savePrinterSettings(PrinterSettings settings) async {
     try {
       _isSaving.value = true;
-      print('💾 SettingsController: Guardando configuración de impresora: ${settings.name}');
 
       final result = await _savePrinterSettingsUseCase(
         SavePrinterSettingsParams(settings: settings),
@@ -269,7 +244,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al guardar impresora: ${failure.message}');
           _showError('Error', 'No se pudo guardar la configuración de la impresora');
         },
         (savedSettings) {
@@ -287,11 +261,9 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
           }
 
           _showSuccess('Configuración de impresora guardada exitosamente');
-          print('✅ Configuración de impresora guardada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al guardar configuración de impresora: $e');
     } finally {
       _isSaving.value = false;
     }
@@ -300,7 +272,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> deletePrinterSettings(String settingsId) async {
     try {
       _isSaving.value = true;
-      print('🗑️ SettingsController: Eliminando impresora: $settingsId');
 
       final result = await _deletePrinterSettingsUseCase(
         DeletePrinterSettingsParams(settingsId: settingsId),
@@ -308,7 +279,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al eliminar impresora: ${failure.message}');
           _showError('Error', 'No se pudo eliminar la configuración de la impresora');
         },
         (_) {
@@ -321,11 +291,9 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
           }
 
           _showSuccess('Configuración de impresora eliminada exitosamente');
-          print('✅ Configuración de impresora eliminada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al eliminar configuración de impresora: $e');
     } finally {
       _isSaving.value = false;
     }
@@ -334,7 +302,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> setDefaultPrinter(String settingsId) async {
     try {
       _isSaving.value = true;
-      print('⭐ SettingsController: Estableciendo impresora por defecto: $settingsId');
 
       final result = await _setDefaultPrinterUseCase(
         SetDefaultPrinterParams(settingsId: settingsId),
@@ -342,7 +309,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          print('❌ Error al establecer impresora por defecto: ${failure.message}');
           _showError('Error', 'No se pudo establecer la impresora por defecto');
         },
         (defaultPrinter) {
@@ -355,11 +321,9 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
           _defaultPrinter.value = defaultPrinter;
           _showSuccess('Impresora por defecto establecida exitosamente');
-          print('✅ Impresora por defecto establecida exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al establecer impresora por defecto: $e');
     } finally {
       _isSaving.value = false;
     }
@@ -368,7 +332,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<bool> testPrinterConnection(PrinterSettings settings) async {
     try {
       _isTestingConnection.value = true;
-      print('🔍 SettingsController: Probando conexión con impresora: ${settings.name}');
 
       // DIAGNÓSTICO: Verificar configuración básica
       if (settings.isNetworkPrinter) {
@@ -380,7 +343,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
           _showError('Error de Configuración', 'El puerto no está configurado');
           return false;
         }
-        print('📡 Probando conexión TCP/IP: ${settings.ipAddress}:${settings.port}');
       }
 
       final result = await _testPrinterConnectionUseCase(
@@ -389,40 +351,29 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       return result.fold(
         (failure) {
-          print('❌ Error al probar conexión: ${failure.message}');
           _showError('Error de Conexión', failure.message);
           return false;
         },
         (isConnected) {
           if (isConnected) {
             _showSuccess('Conexión exitosa con la impresora');
-            print('✅ Conexión exitosa con la impresora');
           } else {
             _showError('Error de Conexión', 'No se pudo conectar con la impresora');
-            print('❌ No se pudo conectar con la impresora');
           }
           return isConnected;
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al probar conexión: $e');
       return false;
     } finally {
       _isTestingConnection.value = false;
     }
   }
 
-
   // ✅ NUEVA FUNCIÓN: Imprimir página de prueba
   Future<bool> printTestPage(PrinterSettings settings) async {
     try {
       _isTestingConnection.value = true;
-      print('🖨️ SettingsController: Imprimiendo página de prueba con impresora: ${settings.name}');
-      print('   - Tipo: ${settings.connectionType}');
-      print('   - IP: ${settings.ipAddress}');
-      print('   - Puerto: ${settings.port}');
-      print('   - USB: ${settings.usbPath}');
-      print('   - Papel: ${settings.paperSize}mm');
 
       // DIAGNÓSTICO: Verificar que la configuración sea correcta
       if (settings.isNetworkPrinter) {
@@ -434,7 +385,6 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
           _showError('Error de Configuración', 'El puerto no está configurado');
           return false;
         }
-        print('📡 Configuración de red validada - IP: ${settings.ipAddress}:${settings.port}');
       }
 
       // Obtener el ThermalPrinterController
@@ -454,15 +404,12 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       
       if (success) {
         _showSuccess('Página de prueba enviada a la impresora');
-        print('✅ Página de prueba impresa exitosamente');
       } else {
         _showError('Error de Impresión', 'No se pudo imprimir la página de prueba');
-        print('❌ Error al imprimir página de prueba');
       }
       
       return success;
     } catch (e) {
-      print('💥 Error inesperado al imprimir página de prueba: $e');
       _showError('Error de Impresión', 'Error inesperado: $e');
       return false;
     } finally {
@@ -518,16 +465,13 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       }
 
       discoveredPrinters.addAll(printers);
-      print('🔍 Impresoras del sistema detectadas: ${printers.length}');
       for (final p in printers) {
-        print('   - $p');
       }
 
       if (printers.isEmpty) {
         _showError('Sin impresoras', 'No se detectaron impresoras en el sistema');
       }
     } catch (e) {
-      print('❌ Error detectando impresoras del sistema: $e');
       _showError('Error', 'No se pudieron detectar impresoras: $e');
     } finally {
       isDiscovering.value = false;

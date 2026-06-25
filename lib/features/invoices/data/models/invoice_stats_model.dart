@@ -30,8 +30,6 @@ class InvoiceStatsModel extends InvoiceStats {
         overdueAmount: _parseDouble(json['overdueAmount']) ?? 0.0,
       );
     } catch (e) {
-      print('❌ Error parsing InvoiceStatsModel: $e');
-      print('📄 JSON data: $json');
 
       // Retornar estadísticas vacías en caso de error
       return const InvoiceStatsModel(

@@ -399,7 +399,6 @@ class CustomerOfflineRepository implements CustomerRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarCustomer.toEntity());
@@ -478,7 +477,6 @@ class CustomerOfflineRepository implements CustomerRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarCustomer.toEntity());
@@ -555,7 +553,6 @@ class CustomerOfflineRepository implements CustomerRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(unit);

@@ -19,21 +19,14 @@ class SubscriptionErrorHandler {
     VoidCallback? onUpgradePressed,
     String? context, // e.g., "crear producto", "editar cliente", etc.
   }) {
-    print('🔍 SubscriptionErrorHandler: Analizando failure...');
-    print('   Type: ${failure.runtimeType}');
-    print('   Message: ${failure.message}');
-    print('   Code: ${failure.code}');
-    print('   Context: $context');
 
     // 🔒 DETECTAR ERROR DE SUSCRIPCIÓN (por tipo o código 403)
     final isSubscriptionError = failure is SubscriptionFailure || failure.code == 403;
 
     if (isSubscriptionError) {
-      print('✅ SUBSCRIPTION ERROR DETECTED - Showing professional dialog');
 
       // Obtener información dinámica de suscripción
       final subscriptionInfo = SubscriptionInfoService.getCurrentSubscriptionInfo();
-      print('📋 Subscription info: $subscriptionInfo');
 
       // Usar el mensaje del failure si es SubscriptionFailure, sino usar el contextual
       String message;
@@ -56,7 +49,6 @@ class SubscriptionErrorHandler {
       return true; // Error manejado
     }
 
-    print('⚠️ NON-SUBSCRIPTION ERROR - Not handled by SubscriptionErrorHandler');
     return false; // No es error de suscripción, usar manejo normal
   }
 
@@ -75,7 +67,6 @@ class SubscriptionErrorHandler {
           daysUntilExpiration: 0,
         );
         if (!allowed) {
-          print('⏸️ Dialog de suscripción expirada suprimido por cooldown');
           return;
         }
       }

@@ -115,7 +115,6 @@ class EnhancedExpensesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🧮 EnhancedExpensesController: Inicializando...');
 
     // ✅ Configurar scroll infinito
     _setupScrollListener();
@@ -150,12 +149,10 @@ class EnhancedExpensesController extends GetxController {
   }
 
   Future<void> _loadInitialData() async {
-    print('🧮 Cargando datos iniciales...');
 
     // ✅ IMPORTANTE: _loadExpenses ahora llama a _loadStats() internamente después de asignar datos
     await _loadExpenses(reset: true);
 
-    print('✅ Datos iniciales cargados correctamente');
   }
 
   // ==================== CARGA DE DATOS ====================
@@ -170,7 +167,6 @@ class EnhancedExpensesController extends GetxController {
     }
 
     try {
-      print('🔍 Cargando gastos - Página: ${_currentPage.value}');
 
       // ✅ Calcular fechas según el período seleccionado
       final dateRange = _getDateRangeForPeriod(_currentPeriod.value);
@@ -192,7 +188,6 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error cargando gastos: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudieron cargar los gastos: ${failure.message}',
@@ -202,7 +197,6 @@ class EnhancedExpensesController extends GetxController {
           );
         },
         (response) {
-          print('✅ Gastos cargados: ${response.data.length} items');
 
           if (reset) {
             _expenses.assignAll(response.data);
@@ -218,7 +212,6 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error inesperado cargando gastos: $e');
       Get.snackbar(
         'Error',
         'Error inesperado al cargar gastos',
@@ -235,29 +228,19 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> _loadStats() async {
     try {
-      print('📊 Calculando estadísticas desde gastos filtrados...');
 
       // ✅ NUEVO: Calcular estadísticas LOCALMENTE desde los gastos ya filtrados
       // Esto garantiza 100% consistencia con lo que se muestra en pantalla
       _stats.value = _calculateStatsFromFilteredExpenses();
 
-      print('✅ Estadísticas calculadas localmente:');
-      print('   Total: ${_stats.value?.totalAmount}');
-      print('   Cantidad: ${_stats.value?.totalExpenses}');
-      print('   Aprobados: ${_stats.value?.approvedExpenses}');
-      print('   Pendientes: ${_stats.value?.pendingExpenses}');
-      print('   Pagados: ${_stats.value?.paidExpenses}');
     } catch (e) {
-      print('💥 Error calculando estadísticas: $e');
     }
   }
 
   // ✅ NUEVO: Calcular estadísticas desde los gastos filtrados localmente
   ExpenseStats _calculateStatsFromFilteredExpenses() {
-    print('🔍 Calculando estadísticas desde ${_expenses.length} gastos en memoria');
 
     if (_expenses.isEmpty) {
-      print('⚠️ No hay gastos filtrados, retornando estadísticas vacías');
       return ExpenseStats(
         totalExpenses: 0,
         totalAmount: 0.0,
@@ -286,10 +269,8 @@ class EnhancedExpensesController extends GetxController {
     final totalAmount = _expenses.fold<double>(0.0, (sum, expense) => sum + expense.amount);
     final averageAmount = totalExpenses > 0 ? totalAmount / totalExpenses : 0.0;
 
-    print('💰 Total calculado: \$${totalAmount.toStringAsFixed(2)} desde $totalExpenses gastos');
     if (totalExpenses > 0 && totalExpenses <= 5) {
       for (var i = 0; i < _expenses.length; i++) {
-        print('   Gasto ${i + 1}: \$${_expenses[i].amount} - ${_expenses[i].description}');
       }
     }
 
@@ -365,7 +346,6 @@ class EnhancedExpensesController extends GetxController {
   // ==================== FILTROS Y BÚSQUEDA ====================
 
   void updateSearch(String term) {
-    print('🔍 Actualizando búsqueda: "$term"');
     _searchTerm.value = term;
     _debounceSearch();
   }
@@ -390,7 +370,6 @@ class EnhancedExpensesController extends GetxController {
   }
 
   void setPeriodFilter(String period) {
-    print('📅 Cambiando período a: $period');
     _currentPeriod.value = period;
     _loadExpenses(reset: true);
     _loadStats(); // ✅ Recargar estadísticas con nuevo período
@@ -401,18 +380,15 @@ class EnhancedExpensesController extends GetxController {
   }
 
   void setDateRange({DateTime? start, DateTime? end}) {
-    print('📅 Estableciendo rango de fechas: ${start?.toString()} - ${end?.toString()}');
 
     // ✅ Si hay fecha de inicio, asegurarse de que sea a las 00:00:00
     if (start != null) {
       _startDate.value = DateTime(start.year, start.month, start.day, 0, 0, 0);
-      print('   ✅ Fecha inicio ajustada: ${_startDate.value}');
     }
 
     // ✅ Si hay fecha de fin, asegurarse de que incluya TODO el día (23:59:59.999)
     if (end != null) {
       _endDate.value = DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
-      print('   ✅ Fecha fin ajustada: ${_endDate.value}');
     }
 
     // Si se establece un rango personalizado, cambiar período a 'custom'
@@ -425,7 +401,6 @@ class EnhancedExpensesController extends GetxController {
   }
 
   void clearDateFilters() {
-    print('🗑️ Limpiando filtros de fecha');
     _startDate.value = null;
     _endDate.value = null;
     _currentPeriod.value = 'today';
@@ -434,25 +409,21 @@ class EnhancedExpensesController extends GetxController {
   }
 
   void applyStatusFilter(ExpenseStatus? status) {
-    print('📋 Aplicando filtro de estado: ${status?.displayName ?? "Todos"}');
     _currentStatus.value = status;
     _loadExpenses(reset: true);
   }
 
   void applyTypeFilter(ExpenseType? type) {
-    print('🏷️ Aplicando filtro de tipo: ${type?.displayName ?? "Todos"}');
     _currentType.value = type;
     _loadExpenses(reset: true);
   }
 
   void applyCategoryFilter(String? categoryId) {
-    print('📂 Aplicando filtro de categoría: $categoryId');
     _selectedCategoryId.value = categoryId;
     _loadExpenses(reset: true);
   }
 
   void applyDateFilter(DateTime? start, DateTime? end) {
-    print('📅 Aplicando filtro de fecha: $start - $end');
     _startDate.value = start;
     _endDate.value = end;
     _currentPeriod.value = 'custom'; // ✅ Cambiar a período personalizado
@@ -460,14 +431,12 @@ class EnhancedExpensesController extends GetxController {
   }
 
   void changeSorting(String sortBy, String sortOrder) {
-    print('🔄 Cambiando ordenamiento: $sortBy $sortOrder');
     _sortBy.value = sortBy;
     _sortOrder.value = sortOrder;
     _loadExpenses(reset: true);
   }
 
   void clearFilters() {
-    print('🧹 Limpiando todos los filtros...');
 
     _currentStatus.value = null;
     _currentType.value = null;
@@ -490,28 +459,23 @@ class EnhancedExpensesController extends GetxController {
     // Esto previene el error "setState() called during build" cuando se llama
     // desde bindings, routes, o cualquier contexto dentro del build del widget tree
     await Future.delayed(Duration.zero);
-    print('🔄 Refrescando gastos...');
     _isRefreshing.value = true;
     await _loadInitialData();
   }
 
   void showExpenseDetails(String expenseId) {
-    print('👀 Mostrando detalles del gasto: $expenseId');
     Get.toNamed('/expenses/detail/$expenseId');
   }
 
   void goToCreateExpense() {
-    print('➕ Navegando a crear gasto...');
     Get.toNamed('/expenses/create');
   }
 
   void goToEditExpense(String expenseId) {
-    print('✏️ Navegando a editar gasto: $expenseId');
     Get.toNamed('/expenses/edit/$expenseId');
   }
 
   void goToExpenseAnalytics() {
-    print('📊 Navegando a análisis de gastos...');
     Get.toNamed('/expenses/analytics');
   }
 
@@ -545,7 +509,6 @@ class EnhancedExpensesController extends GetxController {
     _isDeleting.value = true;
 
     try {
-      print('🗑️ Eliminando gasto: $expenseId');
 
       final result = await _deleteExpenseUseCase.call(
         DeleteExpenseParams(id: expenseId),
@@ -553,7 +516,6 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error eliminando gasto: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudo eliminar el gasto: ${failure.message}',
@@ -563,7 +525,6 @@ class EnhancedExpensesController extends GetxController {
           );
         },
         (_) {
-          print('✅ Gasto eliminado correctamente');
 
           // ✅ Remover de la lista local
           _expenses.removeWhere((expense) => expense.id == expenseId);
@@ -582,7 +543,6 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error inesperado eliminando gasto: $e');
       Get.snackbar(
         'Error',
         'Error inesperado al eliminar el gasto',
@@ -625,7 +585,6 @@ class EnhancedExpensesController extends GetxController {
     _isApproving.value = true;
 
     try {
-      print('✅ Aprobando gasto: $expenseId');
 
       final result = await _approveExpenseUseCase.call(
         ApproveExpenseParams(id: expenseId),
@@ -633,7 +592,6 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error aprobando gasto: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudo aprobar el gasto: ${failure.message}',
@@ -643,7 +601,6 @@ class EnhancedExpensesController extends GetxController {
           );
         },
         (updatedExpense) {
-          print('✅ Gasto aprobado correctamente');
 
           // ✅ Actualizar en la lista local
           final index = _expenses.indexWhere(
@@ -666,7 +623,6 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error inesperado aprobando gasto: $e');
       Get.snackbar(
         'Error',
         'Error inesperado al aprobar el gasto',
@@ -683,7 +639,6 @@ class EnhancedExpensesController extends GetxController {
     _isSubmitting.value = true;
 
     try {
-      print('📤 Enviando gasto para aprobación: $expenseId');
 
       final result = await _submitExpenseUseCase.call(
         SubmitExpenseParams(id: expenseId),
@@ -691,7 +646,6 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error enviando gasto: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudo enviar el gasto: ${failure.message}',
@@ -701,7 +655,6 @@ class EnhancedExpensesController extends GetxController {
           );
         },
         (updatedExpense) {
-          print('✅ Gasto enviado correctamente');
 
           // ✅ Actualizar en la lista local
           final index = _expenses.indexWhere(
@@ -724,7 +677,6 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error inesperado enviando gasto: $e');
       Get.snackbar(
         'Error',
         'Error inesperado al enviar el gasto',
@@ -740,7 +692,6 @@ class EnhancedExpensesController extends GetxController {
   // ==================== EXPORTACIÓN ====================
 
   Future<void> exportToPdf() async {
-    print('📄 Exportando a PDF...');
     // ✅ Implementar exportación a PDF
     Get.snackbar(
       'Próximamente',
@@ -750,7 +701,6 @@ class EnhancedExpensesController extends GetxController {
   }
 
   Future<void> exportToExcel() async {
-    print('📊 Exportando a Excel...');
     // ✅ Implementar exportación a Excel
     Get.snackbar(
       'Próximamente',
@@ -760,7 +710,6 @@ class EnhancedExpensesController extends GetxController {
   }
 
   Future<void> shareExpensesSummary() async {
-    print('📤 Compartiendo resumen...');
     // ✅ Implementar compartir resumen
     Get.snackbar(
       'Próximamente',
@@ -776,9 +725,6 @@ class EnhancedExpensesController extends GetxController {
     _totalItems.value = meta.total;
     _hasNextPage.value = meta.hasNext;
 
-    print(
-      '📄 Paginación actualizada: ${meta.page}/${meta.totalPages} (${meta.total} total)',
-    );
   }
 
   Map<String, DateTime?> _getDateRangeForPeriod(String period) {
@@ -791,7 +737,6 @@ class EnhancedExpensesController extends GetxController {
 
     // ✅ PRIMERO: Si hay fechas personalizadas (_startDate o _endDate), usarlas
     if (_startDate.value != null || _endDate.value != null) {
-      print('🔍 Usando rango personalizado: ${_startDate.value} - ${_endDate.value}');
       return {'start': _startDate.value, 'end': _endDate.value};
     }
 
@@ -800,24 +745,20 @@ class EnhancedExpensesController extends GetxController {
       case 'today':
         final today = DateTime(now.year, now.month, now.day);
         final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
-        print('🔍 Filtrando por HOY: $today - $endOfDay');
         return {'start': today, 'end': endOfDay};
 
       case 'week':
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
         final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
         final endOfWeek = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
-        print('🔍 Filtrando por ESTA SEMANA: $start - $endOfWeek');
         return {'start': start, 'end': endOfWeek};
 
       case 'month':
         final startOfMonth = DateTime(now.year, now.month, 1);
         final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
-        print('🔍 Filtrando por ESTE MES: $startOfMonth - $endOfMonth');
         return {'start': startOfMonth, 'end': endOfMonth};
 
       default: // 'all'
-        print('🔍 Mostrando TODOS los gastos (sin filtro de fecha)');
         return {'start': null, 'end': null};
     }
   }

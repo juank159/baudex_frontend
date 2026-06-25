@@ -72,7 +72,6 @@ class _OpenCashRegisterDialogState extends State<_OpenCashRegisterDialog> {
     final amount = AppFormatters.parseNumber(_amountCtrl.text) ?? 0;
     final notes = _notesCtrl.text.trim();
     // ignore: avoid_print
-    print('[OPEN_DIALOG] submit → amount=$amount notes="$notes"');
     setState(() => _submitting = true);
     final ctrl = Get.find<CashRegisterController>();
     // Try/catch + finally garantizan que el spinner SIEMPRE se quita,
@@ -85,10 +84,8 @@ class _OpenCashRegisterDialogState extends State<_OpenCashRegisterDialog> {
         openingNotes: notes.isEmpty ? null : notes,
       );
       // ignore: avoid_print
-      print('[OPEN_DIALOG] ctrl.open returned: $ok');
     } catch (e, st) {
       // ignore: avoid_print
-      print('[OPEN_DIALOG] EXCEPTION: $e\n$st');
       Get.snackbar(
         'Error',
         'No se pudo abrir la caja: $e',

@@ -340,7 +340,6 @@ class InitialInventoryController extends GetxController {
       hasDraft.value = true;
       draftRowCount.value = pendingRows.length;
     } catch (e) {
-      print('Error saving draft: $e');
     }
   }
 
@@ -393,7 +392,6 @@ class InitialInventoryController extends GetxController {
       draftRowCount.value = rowList.length;
       return true;
     } catch (e) {
-      print('Error loading draft: $e');
       return false;
     }
   }
@@ -404,7 +402,6 @@ class InitialInventoryController extends GetxController {
       hasDraft.value = false;
       draftRowCount.value = 0;
     } catch (e) {
-      print('Error clearing draft: $e');
     }
   }
 
@@ -597,7 +594,6 @@ class InitialInventoryController extends GetxController {
         },
       );
     } catch (e) {
-      print('Error loading categories: $e');
     } finally {
       isLoadingCategories.value = false;
     }

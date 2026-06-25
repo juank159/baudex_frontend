@@ -383,16 +383,13 @@ class IdempotencyService extends GetxService {
   // Logging helpers
   void _logInfo(String message) {
     // ignore: avoid_print
-    print('[IdempotencyService] ℹ️  $message');
   }
 
   void _logWarning(String message) {
     // ignore: avoid_print
-    print('[IdempotencyService] ⚠️  $message');
   }
 
   void _logError(String message) {
     // ignore: avoid_print
-    print('[IdempotencyService] ❌ $message');
   }
 }

@@ -128,16 +128,10 @@ class InventoryMovementsController extends GetxController {
     final args = Get.arguments as Map<String, dynamic>?;
     if (args != null && args.containsKey('productId')) {
       productIdFilter.value = args['productId'] as String;
-      print(
-        '🔍 InventoryMovementsController: Filtro por producto: ${productIdFilter.value}',
-      );
     }
 
     if (args != null && args.containsKey('warehouseId')) {
       warehouseIdFilter.value = args['warehouseId'] as String;
-      print(
-        '🔍 InventoryMovementsController: Filtro por almacén: ${warehouseIdFilter.value}',
-      );
     }
 
     loadMovements();
@@ -210,7 +204,6 @@ class InventoryMovementsController extends GetxController {
         },
       );
     } catch (e) {
-      print('Error cargando nombres de productos: $e');
       // Poner nombres por defecto en caso de error
       for (final movement in movements) {
         if (!productNamesCache.containsKey(movement.productId)) {
@@ -520,19 +513,14 @@ class InventoryMovementsController extends GetxController {
       final result = await searchProductsUseCase(params);
 
       return result.fold((failure) {
-        print('❌ Error buscando productos: ${failure.message}');
         return <Product>[];
       }, (products) => products);
     } catch (e) {
-      print('❌ Error inesperado buscando productos: $e');
       return <Product>[];
     }
   }
 
   void selectProduct(Product product) {
-    print(
-      '🎯 InventoryMovementsController: Selecting product - ${product.name} (${product.id})',
-    );
 
     selectedProductId.value = product.id;
     selectedProductName.value = product.name;
@@ -540,15 +528,10 @@ class InventoryMovementsController extends GetxController {
     // Set default unit cost if available
     if (product.costPrice != null && product.costPrice! > 0) {
       unitCost.value = product.costPrice!;
-      print('💰 Setting unit cost from costPrice: ${product.costPrice!}');
     } else if (product.sellingPrice != null && product.sellingPrice! > 0) {
       unitCost.value = product.sellingPrice!;
-      print('💰 Setting unit cost from sellingPrice: ${product.sellingPrice!}');
     }
 
-    print(
-      '✅ Product selected: ID=${selectedProductId.value}, Name=${selectedProductName.value}',
-    );
   }
 
   // ==================== FILTERING & SEARCH ====================

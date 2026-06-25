@@ -167,13 +167,11 @@ class CustomerStatsModel extends CustomerStats {
       try {
         return int.parse(value);
       } catch (e) {
-        print('⚠️ Error parsing int from string: "$value" - $e');
         return null;
       }
     }
     if (value is num) return value.toInt();
 
-    print('⚠️ Unexpected type for int value: ${value.runtimeType} - $value');
     return null;
   }
 
@@ -187,13 +185,11 @@ class CustomerStatsModel extends CustomerStats {
       try {
         return double.parse(value);
       } catch (e) {
-        print('⚠️ Error parsing double from string: "$value" - $e');
         return null;
       }
     }
     if (value is num) return value.toDouble();
 
-    print('⚠️ Unexpected type for double value: ${value.runtimeType} - $value');
     return null;
   }
 
@@ -206,16 +202,10 @@ class CustomerStatsModel extends CustomerStats {
 
       // Validar los datos
       if (!model.isValid) {
-        print('⚠️ CustomerStatsModel: Datos inválidos detectados');
-        print('   Errores: ${model.validationErrors.join(', ')}');
-        print('   JSON original: $json');
       }
 
       return model;
     } catch (e, stackTrace) {
-      print('❌ Error al crear CustomerStatsModel desde JSON: $e');
-      print('   JSON: $json');
-      print('   StackTrace: $stackTrace');
 
       // Retornar modelo con valores por defecto
       return const CustomerStatsModel(

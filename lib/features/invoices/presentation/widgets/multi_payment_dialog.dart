@@ -83,7 +83,6 @@ class _MultiPaymentDialogState extends State<MultiPaymentDialog> {
       _bankAccountsController = Get.find<BankAccountsController>();
     } catch (e) {
       // El controlador no está registrado, lo ignoramos
-      print('⚠️ BankAccountsController no disponible: $e');
     }
   }
 

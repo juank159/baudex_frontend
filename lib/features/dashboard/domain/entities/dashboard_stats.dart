@@ -37,16 +37,18 @@ class DashboardStats extends Equatable {
   /// Es el dinero que efectivamente se quedó la empresa en el período.
   final double netRevenue;
 
-  /// Net revenue robusto: si el server NO envía `netRevenue` (campo viejo
-  /// o cálculo offline), aplicamos el fallback aquí. Centralizar el
-  /// cálculo en este getter evita inconsistencias entre widgets que
-  /// leían unos `controller.netRevenue` y otros `stats.netRevenue`.
+  /// Net revenue robusto: usa el valor del servidor si está disponible.
+  /// El fallback solo aplica cuando el servidor no envió `netRevenue`
+  /// (es decir, cuando tanto netRevenue como totalCollected son 0).
   ///
   /// Es la **única** fuente de verdad para "ingreso neto" en el frontend.
   double get effectiveNetRevenue {
-    if (netRevenue > 0) return netRevenue;
-    final fallback = totalCollected - creditNotesTotal;
-    return fallback > 0 ? fallback : totalCollected;
+    // Si el servidor envió un valor distinto de cero (positivo O negativo), usarlo.
+    if (netRevenue != 0) return netRevenue;
+    // Si totalCollected también es cero, el período no tiene datos.
+    if (totalCollected == 0) return 0;
+    // Fallback: el servidor envió netRevenue=0 pero hay cobros — recalcular.
+    return totalCollected - creditNotesTotal;
   }
 
   /// Margen bruto real con COGS descontado (sobre netRevenue).

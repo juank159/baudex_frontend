@@ -887,15 +887,5 @@ class CategoryStatsWidget extends StatelessWidget {
 
   // ✅ NUEVO: Método para debugging de estadísticas
   void debugStats() {
-    print('📊 CATEGORY STATS DEBUG:');
-    print('   Total: ${stats.total}');
-    print('   Active: ${stats.active}');
-    print('   Inactive: ${stats.inactive}');
-    print('   Parents: ${stats.parents} (solo categorías padre reales)');
-    print('   Children: ${stats.children} (subcategorías)');
-    print('   Deleted: ${stats.deleted}');
-    print(
-      '   ✅ Parents + Children = ${stats.parents + stats.children} (should equal total)',
-    );
   }
 }

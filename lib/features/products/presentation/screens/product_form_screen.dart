@@ -31,9 +31,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
           false, // ✅ Evita que los botones se oculten con el teclado
       body: GetBuilder<ProductFormController>(
         builder: (controller) {
-          print(
-            '🔄 ProductFormScreen: Reconstruyendo body - isLoading: ${controller.isLoading}',
-          );
 
           if (controller.isLoading) {
             return LoadingWidget(
@@ -328,7 +325,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
 );
 }
 
-
   Widget _buildDesktopLayout(BuildContext context) {
     return Row(
       children: [
@@ -602,7 +598,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                       try {
                         controller.generateSku();
                       } catch (e) {
-                        print('❌ Error al generar SKU: $e');
                       }
                     },
                   ),
@@ -640,7 +635,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                     try {
                       controller.generateSku();
                     } catch (e) {
-                      print('❌ Error al generar SKU: $e');
                     }
                   },
                 ),
@@ -935,7 +929,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
               try {
                 controller.showPriceCalculator();
               } catch (e) {
-                print('Error en calculadora: $e');
               }
             },
             width: double.infinity,
@@ -970,7 +963,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   try {
                     controller.showPriceCalculator();
                   } catch (e) {
-                    print('Error en calculadora: $e');
                   }
                 },
               ),
@@ -1126,7 +1118,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                 try {
                   controller.setProductType(value);
                 } catch (e) {
-                  print('❌ Error al cambiar tipo: $e');
                 }
               }
             },
@@ -1158,9 +1149,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
     return GetBuilder<ProductFormController>(
       id: 'status_selector', // ✅ ID específico para actualizaciones
       builder: (controller) {
-        print(
-          '🔄 StatusSelector: Rebuilding with status: ${controller.productStatus}',
-        );
         return ModernSelectorWidget<ProductStatus>(
           key: ValueKey('status_${controller.productStatus}'), // ✅ Key único
           label: 'Estado',
@@ -1179,7 +1167,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
               try {
                 controller.setProductStatus(value);
               } catch (e) {
-                print('❌ Error al cambiar estado: $e');
               }
             }
           },
@@ -1212,18 +1199,14 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   Widget _buildCategorySelector(BuildContext context) {
-    print('🔧 ProductFormScreen: Construyendo selector de categorías');
 
     return GetBuilder<ProductFormController>(
       builder: (controller) {
-        print('   selectedCategoryId: ${controller.selectedCategoryId}');
-        print('   selectedCategoryName: ${controller.selectedCategoryName}');
 
         return CategorySelectorWidget(
           selectedCategoryId: controller.selectedCategoryId,
           selectedCategoryName: controller.selectedCategoryName,
           onCategorySelected: (categoryId, categoryName) {
-            print('🎯 Categoría seleccionada: $categoryName ($categoryId)');
             controller.setCategorySelection(categoryId, categoryName);
             // Force UI update to show selection immediately
             controller.update();
@@ -1266,7 +1249,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
               try {
                 controller.generateSku();
               } catch (e) {
-                print('❌ Error al generar SKU: $e');
               }
             },
             width: double.infinity,
@@ -1283,7 +1265,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                 try {
                   controller.showPriceCalculator();
                 } catch (e) {
-                  print('❌ Error en calculadora: $e');
                 }
               },
               width: double.infinity,
@@ -1301,7 +1282,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
               try {
                 controller.previewProduct();
               } catch (e) {
-                print('❌ Error en previsualizar: $e');
               }
             },
             width: double.infinity,
@@ -1378,7 +1358,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                           try {
                             controller.saveProduct();
                           } catch (e) {
-                            print('❌ Error al guardar: $e');
                           }
                         },
                 isLoading: controller.isSaving,
@@ -1451,7 +1430,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                                 try {
                                   controller.saveProduct();
                                 } catch (e) {
-                                  print('❌ Error al guardar: $e');
                                 }
                               },
                       isLoading: controller.isSaving,
@@ -1486,7 +1464,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
           break;
       }
     } catch (e) {
-      print('❌ Error en acción del menú: $e');
     }
   }
 
@@ -1499,7 +1476,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
         controller.barcodeController.text = scannedCode;
       }
     } catch (e) {
-      print('❌ Error al escanear código: $e');
     }
   }
 
@@ -1522,7 +1498,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
               try {
                 controller.clearForm();
               } catch (e) {
-                print('❌ Error al limpiar formulario: $e');
               }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.orange),

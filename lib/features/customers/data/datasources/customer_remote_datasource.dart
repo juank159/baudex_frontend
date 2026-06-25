@@ -54,8 +54,6 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
   @override
   Future<CustomerResponseModel> getCustomers(CustomerQueryModel query) async {
     try {
-      print('🌐 CustomerRemoteDataSource: Llamando a ${ApiConstants.customers}');
-      print('🔍 Query params: ${query.toQueryParameters()}');
 
       final response = await dioClient.get(
         ApiConstants.customers,
@@ -64,17 +62,13 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
 
       if (response.statusCode == 200) {
         final result = CustomerResponseModel.fromJson(response.data);
-        print('✅ CustomerRemoteDataSource: Parsed ${result.data.length} customers');
         return result;
       } else {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      print('❌ CustomerRemoteDataSource: DioException - ${e.message}');
-      print('❌ CustomerRemoteDataSource: Response: ${e.response?.data}');
       throw _handleDioException(e);
     } catch (e) {
-      print('❌ CustomerRemoteDataSource: Exception - $e');
       throw ServerException('Error inesperado al obtener clientes: $e');
     }
   }
@@ -358,8 +352,6 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         queryParams['excludeId'] = excludeId;
       }
 
-      print('🔍 [DATASOURCE] Checking email availability: "$email"');
-
       final response = await dioClient.get(
         ApiConstants.checkCustomerEmail,
         queryParameters: queryParams,
@@ -378,9 +370,6 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
           available = responseData['available'] as bool;
         }
 
-        print(
-          '✅ [DATASOURCE] Email "$email" is ${available ? "AVAILABLE" : "TAKEN"}',
-        );
         return available;
       } else {
         throw _handleErrorResponse(response);
@@ -407,10 +396,6 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         queryParams['excludeId'] = excludeId;
       }
 
-      print(
-        '🔍 [DATASOURCE] Checking document availability: "$documentType:$documentNumber"',
-      );
-
       final response = await dioClient.get(
         ApiConstants.checkCustomerDocument,
         queryParameters: queryParams,
@@ -429,9 +414,6 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
           available = responseData['available'] as bool;
         }
 
-        print(
-          '✅ [DATASOURCE] Document "$documentType:$documentNumber" is ${available ? "AVAILABLE" : "TAKEN"}',
-        );
         return available;
       } else {
         throw _handleErrorResponse(response);

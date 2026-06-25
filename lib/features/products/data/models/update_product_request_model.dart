@@ -26,17 +26,12 @@ class UpdateProductPriceRequestModel {
   });
 
   Map<String, dynamic> toJson() {
-    print(
-      '🔄 UpdateProductPriceRequestModel.toJson(): Procesando precio $type',
-    );
 
     final json = <String, dynamic>{'type': type, 'amount': amount};
 
     if (id != null) {
       json['id'] = id;
-      print('   ✅ Incluido ID existente: $id');
     } else {
-      print('   🆕 Precio nuevo (sin ID)');
     }
 
     if (name != null) json['name'] = name;
@@ -48,7 +43,6 @@ class UpdateProductPriceRequestModel {
     if (minQuantity != null) json['minQuantity'] = minQuantity;
     if (notes != null) json['notes'] = notes;
 
-    print('   📤 JSON final del precio: $json');
     return json;
   }
 
@@ -140,15 +134,10 @@ class UpdateProductRequestModel {
     double? retentionRate,
     bool? hasRetention,
   }) {
-    print('🏗️ UpdateProductRequestModel.fromParams(): Construyendo modelo');
-    print('   📊 Precios recibidos: ${prices?.length ?? 0}');
 
     if (prices != null && prices.isNotEmpty) {
       for (int i = 0; i < prices.length; i++) {
         final price = prices[i];
-        print(
-          '   Precio $i: ${price.type} - \$${price.amount} (ID: ${price.id ?? "NUEVO"})',
-        );
       }
     }
 
@@ -182,9 +171,6 @@ class UpdateProductRequestModel {
   }
 
   Map<String, dynamic> toJson() {
-    print(
-      '📤 UpdateProductRequestModel.toJson(): Serializando modelo completo',
-    );
 
     final json = <String, dynamic>{};
 
@@ -216,49 +202,28 @@ class UpdateProductRequestModel {
 
     // ✅ MEJORADO: Incluir precios con debug detallado
     if (prices != null && prices!.isNotEmpty) {
-      print(
-        '🏷️ UpdateProductRequestModel: Serializando ${prices!.length} precios',
-      );
 
       final serializedPrices = <Map<String, dynamic>>[];
 
       for (int i = 0; i < prices!.length; i++) {
         final price = prices![i];
-        print('   📋 Serializando precio $i: ${price.type}');
 
         final priceJson = price.toJson();
         serializedPrices.add(priceJson);
 
-        print(
-          '   ✅ Precio $i serializado: ${priceJson['type']} - \$${priceJson['amount']} - ID: ${priceJson['id'] ?? "NUEVO"}',
-        );
       }
 
       json['prices'] = serializedPrices;
-      print(
-        '✅ UpdateProductRequestModel: ${serializedPrices.length} precios incluidos en JSON',
-      );
     } else {
-      print('⚠️ UpdateProductRequestModel: No hay precios para serializar');
       if (prices == null) {
-        print('   - prices es null');
       } else if (prices!.isEmpty) {
-        print('   - prices está vacío');
       }
     }
-
-    print(
-      '📋 UpdateProductRequestModel: JSON final contiene campos: ${json.keys.toList()}',
-    );
 
     // ✅ VERIFICACIÓN FINAL
     if (json.containsKey('prices')) {
       final pricesInJson = json['prices'] as List;
-      print(
-        '🔍 Verificación final: JSON contiene ${pricesInJson.length} precios',
-      );
     } else {
-      print('🔍 Verificación final: JSON NO contiene campo "prices"');
     }
 
     return json;
@@ -292,9 +257,7 @@ class UpdateProductRequestModel {
         retentionRate != null ||
         hasRetention != null;
 
-    print('🔍 UpdateProductRequestModel.hasUpdates: $updates');
     if (prices != null && prices!.isNotEmpty) {
-      print('   ✅ Incluye ${prices!.length} precios para actualizar');
     }
 
     return updates;
@@ -302,20 +265,10 @@ class UpdateProductRequestModel {
 
   /// ✅ MÉTODO ADICIONAL: Para debug y validación
   void printDebugInfo() {
-    print('🔍 UpdateProductRequestModel Debug Info:');
-    print('   - name: $name');
-    print('   - sku: $sku');
-    print('   - categoryId: $categoryId');
-    print('   - prices count: ${prices?.length ?? 0}');
-    print('   - hasUpdates: $hasUpdates');
 
     if (prices != null && prices!.isNotEmpty) {
-      print('   📊 Detalles de precios:');
       for (int i = 0; i < prices!.length; i++) {
         final price = prices![i];
-        print(
-          '     [$i] ${price.type}: \$${price.amount} (ID: ${price.id ?? "NUEVO"})',
-        );
       }
     }
   }

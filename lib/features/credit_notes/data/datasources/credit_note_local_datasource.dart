@@ -89,9 +89,7 @@ class CreditNoteLocalDataSourceImpl implements CreditNoteLocalDataSource {
           // Guardar nota de crédito con items embebidos
           await isar.isarCreditNotes.put(isarCreditNote);
         });
-        print('✅ CreditNote guardada en ISAR con ${creditNote.items.length} items: ${creditNote.id}');
       } catch (e) {
-        print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
       // Guardar en SecureStorage (fallback legacy)
@@ -114,24 +112,20 @@ class CreditNoteLocalDataSourceImpl implements CreditNoteLocalDataSource {
         final existingIndex = creditNotes.indexWhere((cn) => cn.id == creditNote.id);
         if (existingIndex >= 0) {
           creditNotes[existingIndex] = creditNote;
-          print('📝 Nota de crédito actualizada en lista principal: ${creditNote.id}');
         } else {
           creditNotes.add(creditNote);
-          print('➕ Nota de crédito agregada a lista principal: ${creditNote.id}');
         }
 
         // Guardar lista actualizada
         final creditNotesJson = creditNotes.map((cn) => cn.toJson()).toList();
         await storageService.write(_creditNotesKey, json.encode(creditNotesJson));
       } catch (e) {
-        print('⚠️ Error actualizando lista principal (solo cache individual guardado): $e');
       }
 
       await _updateCacheTimestamp();
     } catch (e) {
       // Fallar silenciosamente en lugar de lanzar excepción
       // Esto permite que la app funcione aunque el cache no esté disponible
-      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
@@ -174,10 +168,8 @@ class CreditNoteLocalDataSourceImpl implements CreditNoteLocalDataSource {
           // Guardar lista actualizada
           final updatedCreditNotesJson = creditNotes.map((cn) => cn.toJson()).toList();
           await storageService.write(_creditNotesKey, json.encode(updatedCreditNotesJson));
-          print('🗑️ Nota de crédito eliminada de lista principal: $id');
         }
       } catch (e) {
-        print('⚠️ Error eliminando de lista principal (solo cache individual eliminado): $e');
       }
     } catch (e) {
       throw CacheException('Error al eliminar nota de crédito del cache: $e');
@@ -227,7 +219,6 @@ class CreditNoteLocalDataSourceImpl implements CreditNoteLocalDataSource {
       final now = DateTime.now().toIso8601String();
       await storageService.write(_cacheTimestampKey, now);
     } catch (e) {
-      print('Error al actualizar timestamp del cache: $e');
     }
   }
 
@@ -243,7 +234,6 @@ class CreditNoteLocalDataSourceImpl implements CreditNoteLocalDataSource {
 
       return isarCreditNote;
     } catch (e) {
-      print('⚠️ Error al obtener IsarCreditNote: $e');
       return null;
     }
   }

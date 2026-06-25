@@ -4267,7 +4267,6 @@ class InvoiceDetailScreen extends StatelessWidget {
 
     // Log para debug (quitar después de verificar que funciona)
     // ignore: avoid_print
-    print('🔄 _buildTabContent rebuild - Tab: $currentTab, Invoice: ${currentInvoice?.id}, ShowForm: $showPaymentForm, Pagos: ${currentInvoice?.payments.length}, PaidAmount: ${currentInvoice?.paidAmount}');
 
     // ✅ RESPONSIVE: Spacing progresivo Desktop < Tablet < Mobile
     final spacing =
@@ -4607,8 +4606,6 @@ class InvoiceDetailScreen extends StatelessWidget {
     // ✅ CRITICAL FIX: Generar una key única basada en datos que cambian
     // Esto FUERZA a Flutter a reconstruir el widget cuando cambia el invoice
     final paymentKey = ValueKey('payments_${invoice.id}_${invoice.payments.length}_${invoice.paidAmount.toStringAsFixed(2)}');
-
-    print('🔑 PaymentHistoryWidget Key: $paymentKey');
 
     return Column(
       children: [

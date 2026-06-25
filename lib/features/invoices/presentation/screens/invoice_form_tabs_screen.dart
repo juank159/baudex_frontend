@@ -25,12 +25,10 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     super.initState();
 
     // Inicializar el controlador de pestañas
-    print('🔖 INIT: Inicializando InvoiceTabsController...');
     tabsController = Get.put(InvoiceTabsController());
 
     // Agregar un callback después del primer frame para debug
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('🔖 POST-FRAME: Tabs disponibles: ${tabsController.tabs.length}');
       tabsController.printTabsInfo();
     });
 
@@ -47,7 +45,6 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     try {
       ServicesBinding.instance.keyboard.removeHandler(_handleGlobalKeyEvent);
     } catch (e) {
-      print('Error removing keyboard handler: $e');
     }
     super.dispose();
   }
@@ -58,20 +55,17 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
       final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
       if (focusedWidget != null &&
           focusedWidget.toString().contains('TextField')) {
-        print('🚫 TABS Shortcuts deshabilitados - Focus en campo de búsqueda');
         return false;
       }
 
       // ✅ CRÍTICO: No procesar Enter para evitar conflictos con el form
       if (event.logicalKey == LogicalKeyboardKey.enter) {
-        print('🚫 TABS Enter ignorado - Dejando que el form lo maneje');
         return false;
       }
 
       // Ctrl+T - Nueva pestaña
       if ((event.logicalKey == LogicalKeyboardKey.keyT) &&
           (HardwareKeyboard.instance.isControlPressed)) {
-        print('🔖 TABS Ctrl+T - Nueva pestaña');
         tabsController.addNewTab();
         return true;
       }
@@ -79,7 +73,6 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
       // Ctrl+W - Cerrar pestaña actual
       if ((event.logicalKey == LogicalKeyboardKey.keyW) &&
           (HardwareKeyboard.instance.isControlPressed)) {
-        print('🔖 TABS Ctrl+W - Cerrar pestaña');
         if (tabsController.currentTab != null) {
           tabsController.closeTab(tabsController.currentTab!.id);
         }
@@ -89,7 +82,6 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
       // Ctrl+Tab - Siguiente pestaña
       if ((event.logicalKey == LogicalKeyboardKey.tab) &&
           (HardwareKeyboard.instance.isControlPressed)) {
-        print('🔖 TABS Ctrl+Tab - Siguiente pestaña');
         final nextIndex =
             (tabsController.currentTabIndex + 1) % tabsController.tabs.length;
         tabsController.switchToTab(nextIndex);

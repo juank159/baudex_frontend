@@ -13,7 +13,6 @@ class PasswordValidationService {
   /// Validar contraseña del usuario actual
   Future<bool> validatePassword(String password) async {
     try {
-      print('🔐 Validando contraseña del usuario...');
 
       final response = await _dioClient.post(
         '/auth/validate-password',
@@ -29,11 +28,8 @@ class PasswordValidationService {
       final success = responseData['valid'] as bool? ?? false;
       final message = responseData['message'] as String? ?? '';
 
-      print('✅ Respuesta de validación: $message');
-
       return success;
     } on DioException catch (e) {
-      print('❌ Error en validación de contraseña: ${e.response?.data}');
 
       // Para error 401 (contraseña incorrecta), retornar false en lugar de excepción
       if (e.response?.statusCode == 401) {
@@ -44,7 +40,6 @@ class PasswordValidationService {
         throw Exception('Error al validar contraseña');
       }
     } catch (e) {
-      print('❌ Error inesperado en validación: $e');
       throw Exception('Error inesperado al validar contraseña');
     }
   }

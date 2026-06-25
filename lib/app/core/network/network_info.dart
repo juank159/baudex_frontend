@@ -163,7 +163,6 @@ class NetworkInfoImpl implements NetworkInfo {
   void markServerUnreachable() {
     _serverReachable = false;
     _lastServerCheck = DateTime.now();
-    print('🌐 NetworkInfo: Servidor marcado como no alcanzable');
   }
 
   // Timestamp del último reset — evita spam en el log cuando múltiples
@@ -192,7 +191,6 @@ class NetworkInfoImpl implements NetworkInfo {
 
     if (shouldLog) {
       if (wasUnreachable) {
-        print('🌐 NetworkInfo: Servidor recuperado — alcanzabilidad reseteada');
       }
       // Si no estaba marcado como inalcanzable, no hay nada que anunciar
     }
@@ -239,7 +237,6 @@ class NetworkInfoImpl implements NetworkInfo {
         if (hasConnection && !_serverReachable) {
           // Conexión física restaurada pero servidor marcado como inalcanzable
           // Verificar proactivamente si el servidor ya responde
-          print('🌐 NetworkInfo: Conectividad física restaurada, verificando servidor...');
           _scheduleServerRecoveryCheck();
         }
 
@@ -248,7 +245,6 @@ class NetworkInfoImpl implements NetworkInfo {
           _cancelRecoveryTimer();
           _serverReachable = false;
           _lastServerCheck = DateTime.now();
-          print('🌐 NetworkInfo: Conexión física perdida');
         }
       },
     );
@@ -263,10 +259,8 @@ class NetworkInfoImpl implements NetworkInfo {
     _cancelRecoveryTimer();
     // Esperar 2 segundos para que la conexión se estabilice, luego verificar
     _recoveryTimer = Timer(const Duration(seconds: 2), () async {
-      print('🌐 NetworkInfo: Intentando reconexión con servidor...');
       final reachable = await canReachServer(timeout: const Duration(seconds: 2));
       if (reachable) {
-        print('🌐 NetworkInfo: ¡Servidor recuperado!');
         resetServerReachability();
       } else {
         _startRecoveryTimerIfNeeded();
@@ -290,7 +284,6 @@ class NetworkInfoImpl implements NetworkInfo {
 
       final reachable = await canReachServer(timeout: const Duration(seconds: 2));
       if (reachable) {
-        print('🌐 NetworkInfo: ¡Servidor recuperado automáticamente!');
         resetServerReachability();
         timer.cancel();
       }

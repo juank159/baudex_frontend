@@ -111,7 +111,7 @@ class SubscriptionController extends GetxController {
 
         if (connected && wasOffline) {
           // Recargar suscripcion del servidor al reconectar
-          print('🔄 SubscriptionController: Reconectado - refrescando suscripción');
+
           loadSubscription();
         }
 
@@ -284,10 +284,6 @@ class SubscriptionController extends GetxController {
     final realDaysRemaining = subscription!.endDate.difference(now).inDays;
     final isReallyExpired = subscription!.isExpired || realDaysRemaining <= 0;
 
-    print('🔍 _checkSubscriptionStatus: isExpired=${subscription!.isExpired}, '
-        'endDate=${subscription!.endDate}, realDaysRemaining=$realDaysRemaining, '
-        'isReallyExpired=$isReallyExpired, isTrial=${subscription!.isTrial}');
-
     // ✅ IMPORTANTE: NO mostrar diálogo aquí, solo guardar el tipo pendiente
     // El diálogo se mostrará cuando el Dashboard esté listo
 
@@ -295,7 +291,7 @@ class SubscriptionController extends GetxController {
     if (isReallyExpired) {
       _pendingSubscriptionDialog.value = _SubscriptionDialogType.expired;
       _pendingDialogDays.value = 0;
-      print('📌 Diálogo pendiente: EXPIRED');
+
       return;
     }
 
@@ -303,7 +299,7 @@ class SubscriptionController extends GetxController {
     if (subscription!.isTrial && realDaysRemaining <= 7) {
       _pendingSubscriptionDialog.value = _SubscriptionDialogType.trial;
       _pendingDialogDays.value = realDaysRemaining;
-      print('📌 Diálogo pendiente: TRIAL ($realDaysRemaining días)');
+
       return;
     }
 
@@ -311,20 +307,19 @@ class SubscriptionController extends GetxController {
     if (realDaysRemaining <= 3) {
       _pendingSubscriptionDialog.value = _SubscriptionDialogType.critical;
       _pendingDialogDays.value = realDaysRemaining;
-      print('📌 Diálogo pendiente: CRITICAL ($realDaysRemaining días)');
+
       return;
     }
 
     if (realDaysRemaining <= 7) {
       _pendingSubscriptionDialog.value = _SubscriptionDialogType.warning;
       _pendingDialogDays.value = realDaysRemaining;
-      print('📌 Diálogo pendiente: WARNING ($realDaysRemaining días)');
+
       return;
     }
 
     // Más de 7 días - no hay diálogo pendiente
     _pendingSubscriptionDialog.value = null;
-    print('✅ Suscripción OK - No hay diálogo pendiente');
 
     // Si había bloqueo por suscripción expirada, reanudar el sync.
     // Esto ocurre cuando el usuario renueva y la nueva suscripción es válida.
@@ -347,13 +342,13 @@ class SubscriptionController extends GetxController {
   Future<void> showPendingSubscriptionDialogIfNeeded() async {
     // Evitar mostrar múltiples veces en la misma sesión.
     if (_dialogShown) {
-      print('⏭️ Diálogo de suscripción ya fue mostrado, ignorando');
+
       return;
     }
 
     final dialogType = _pendingSubscriptionDialog.value;
     if (dialogType == null) {
-      print('✅ No hay diálogo de suscripción pendiente');
+
       return;
     }
 
@@ -373,15 +368,12 @@ class SubscriptionController extends GetxController {
         daysUntilExpiration: days,
       );
       if (!allowed) {
-        print('⏸️ SubscriptionAlertService bloqueó el aviso $alertLevel '
-            '(cooldown o > 1 día restante)');
         return;
       }
     }
 
     // Marcar como mostrado en esta sesión.
     _dialogShown = true;
-    print('🔔 Mostrando diálogo de suscripción: $dialogType ($days días)');
 
     // Pequeño delay para asegurar que el Dashboard está completamente renderizado
     Future.delayed(const Duration(milliseconds: 500), () {

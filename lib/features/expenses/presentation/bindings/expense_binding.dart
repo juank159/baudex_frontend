@@ -30,7 +30,6 @@ import '../controllers/expense_categories_controller.dart';
 class ExpenseBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔄 Inicializando Expense Binding...');
 
     // ==================== SERVICES ====================
     
@@ -193,6 +192,5 @@ class ExpenseBinding extends Bindings {
       fenix: true,
     );
 
-    print('✅ Expense Binding inicializado correctamente');
   }
 }

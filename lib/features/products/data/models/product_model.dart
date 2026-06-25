@@ -141,9 +141,6 @@ class ProductModel {
         hasRetention: json['hasRetention'] as bool? ?? false,
       );
     } catch (e, stackTrace) {
-      print('❌ Error en ProductModel.fromJson: $e');
-      print('📋 JSON problemático: $json');
-      print('🔍 StackTrace: $stackTrace');
       rethrow;
     }
   }

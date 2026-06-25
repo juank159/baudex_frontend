@@ -135,11 +135,6 @@ class SyncLock {
         ? DateTime.now().difference(_lockAcquiredAt!).inSeconds
         : 0;
 
-    print(
-      '⚠️ SyncLock: Forzando liberación de lock expirado '
-      '(holder: $expiredHolder, duración: ${expiredDuration}s)',
-    );
-
     _releaseLock();
   }
 }

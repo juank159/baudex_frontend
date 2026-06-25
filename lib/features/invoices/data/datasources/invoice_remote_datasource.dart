@@ -84,7 +84,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceResponseModel> getInvoices(InvoiceQueryParams params) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Obteniendo facturas...');
 
       final queryParams = InvoiceQueryParamsModel.fromDomainParams(
         page: params.page,
@@ -104,14 +103,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         sortOrder: params.sortOrder,
       );
 
-      print('📋 Parámetros: ${queryParams.toQueryParameters()}');
-
       final response = await dioClient.get(
         '/invoices',
         queryParameters: queryParams.toQueryParameters(),
       );
-
-      print('✅ Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
@@ -129,7 +124,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
-      print('❌ Error inesperado en getInvoices: $e');
       throw ServerException('Error inesperado al obtener facturas: $e');
     }
   }
@@ -137,7 +131,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> getInvoiceById(String id) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Obteniendo factura por ID: $id');
 
       final response = await dioClient.get('/invoices/$id');
 
@@ -161,9 +154,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> getInvoiceByNumber(String number) async {
     try {
-      print(
-        '🌐 InvoiceRemoteDataSource: Obteniendo factura por número: $number',
-      );
 
       final response = await dioClient.get('/invoices/number/$number');
 
@@ -189,7 +179,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<List<InvoiceModel>> getOverdueInvoices() async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Obteniendo facturas vencidas...');
 
       final response = await dioClient.get('/invoices/overdue');
 
@@ -219,13 +208,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceStatsModel> getInvoiceStats() async {
     try {
-      print(
-        '🌐 InvoiceRemoteDataSource: Obteniendo estadísticas de facturas...',
-      );
 
       final response = await dioClient.get('/invoices/stats');
-
-      print('✅ Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
@@ -238,13 +222,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
                 statsData.containsKey('success') &&
                 statsData.containsKey('data') &&
                 statsData['data'] is Map<String, dynamic>) {
-              print(
-                '🔧 Detectado doble wrapping, extrayendo datos anidados...',
-              );
               statsData = statsData['data'] as Map<String, dynamic>;
             }
-
-            print('📊 Stats data final: $statsData');
 
             final model = InvoiceStatsModel.fromJson(statsData);
 
@@ -263,7 +242,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
-      print('❌ Error inesperado en getInvoiceStats: $e');
       throw ServerException('Error inesperado al obtener estadísticas: $e');
     }
   }
@@ -271,9 +249,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<List<InvoiceModel>> getInvoicesByCustomer(String customerId) async {
     try {
-      print(
-        '🌐 InvoiceRemoteDataSource: Obteniendo facturas del cliente: $customerId',
-      );
 
       final response = await dioClient.get(
         '/invoices',
@@ -309,7 +284,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<List<InvoiceModel>> searchInvoices(String searchTerm) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Buscando facturas: $searchTerm');
 
       final searchParams = InvoiceSearchParamsModel(searchTerm: searchTerm);
 
@@ -344,8 +318,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> createInvoice(CreateInvoiceRequestModel request) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Creando factura...');
-      print('📋 Request data: ${request.toJson()}');
 
       // Validar request antes de enviar
       if (!request.isValid) {
@@ -356,8 +328,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         '/invoices',
         data: request.toJson(),
       );
-
-      print('✅ Response status: ${response.statusCode}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = response.data;
@@ -390,7 +360,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     UpdateInvoiceRequestModel request,
   ) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Actualizando factura: $id');
 
       // Validar que hay algo que actualizar
       if (!request.hasUpdates) {
@@ -430,7 +399,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> confirmInvoice(String id) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Confirmando factura: $id');
 
       final response = await dioClient.post('/invoices/$id/confirm');
 
@@ -454,7 +422,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> cancelInvoice(String id) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Cancelando factura: $id');
 
       final response = await dioClient.post('/invoices/$id/cancel');
 
@@ -481,7 +448,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     AddPaymentRequestModel request,
   ) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Agregando pago a factura: $id');
 
       // Validar request de pago
       if (!request.isValid) {
@@ -520,7 +486,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     AddMultiplePaymentsRequestModel request,
   ) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Agregando ${request.paymentCount} pagos a factura: $id');
 
       if (!request.isValid) {
         throw ServerException('Datos de pagos inválidos');
@@ -548,7 +513,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<List<InvoicePaymentModel>> getInvoicePayments(String id) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Obteniendo pagos de factura: $id');
 
       final response = await dioClient.get('/invoices/$id/payments');
 
@@ -573,7 +537,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> removePayment(String invoiceId, String paymentId) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Eliminando pago $paymentId de factura: $invoiceId');
 
       final response = await dioClient.delete(
         '/invoices/$invoiceId/payments/$paymentId',
@@ -599,7 +562,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<void> deleteInvoice(String id) async {
     try {
-      print('🌐 InvoiceRemoteDataSource: Eliminando factura: $id');
 
       final response = await dioClient.delete('/invoices/$id');
 
@@ -702,7 +664,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<List<int>> downloadInvoicePdf(String id) async {
     try {
-      print('📄 InvoiceRemoteDataSource: Descargando PDF de factura $id');
 
       final response = await dioClient.get(
         '/invoices/$id/pdf',
@@ -713,7 +674,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        print('✅ PDF descargado correctamente: ${response.data.length} bytes');
         return response.data as List<int>;
       } else {
         throw ServerException(
@@ -724,7 +684,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
-      print('❌ Error inesperado al descargar PDF: $e');
       throw ServerException('Error inesperado al descargar PDF: $e');
     }
   }
@@ -733,7 +692,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<ApplyBalanceResultModel> applyClientBalance(String invoiceId, {double? amount}) async {
     try {
-      print('💰 InvoiceRemoteDataSource: Aplicando saldo a favor a factura $invoiceId');
 
       final body = <String, dynamic>{};
       if (amount != null) {
@@ -746,7 +704,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        print('✅ Saldo aplicado correctamente');
         return ApplyBalanceResultModel.fromJson(response.data as Map<String, dynamic>);
       } else {
         throw ServerException(
@@ -757,7 +714,6 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
-      print('❌ Error inesperado al aplicar saldo: $e');
       throw ServerException('Error inesperado al aplicar saldo: $e');
     }
   }

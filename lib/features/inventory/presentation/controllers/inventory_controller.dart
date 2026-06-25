@@ -277,37 +277,24 @@ class InventoryController extends GetxController
 
   Future<void> loadStats() async {
     try {
-      print('🔍 DEBUG: loadStats() called');
       final params = InventoryStatsParams(
         warehouseId:
             warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
         categoryId:
             categoryIdFilter.value.isNotEmpty ? categoryIdFilter.value : null,
       );
-      print(
-        '🔍 DEBUG: params created: warehouseId=${params.warehouseId}, categoryId=${params.categoryId}',
-      );
 
-      print('🔍 DEBUG: Calling getInventoryStatsUseCase...');
       final result = await getInventoryStatsUseCase(params);
-      print('🔍 DEBUG: getInventoryStatsUseCase completed');
 
       result.fold(
         (failure) {
-          print('❌ DEBUG: failure received: ${failure.runtimeType}');
-          print('❌ DEBUG: failure message: ${failure.message}');
-          print('Error cargando estadísticas: ${failure.message}');
         },
         (inventoryStats) {
-          print('✅ DEBUG: success received: $inventoryStats');
           stats.value = inventoryStats;
           this.inventoryStats.value = inventoryStats;
         },
       );
     } catch (e) {
-      print('❌ DEBUG: Exception caught: ${e.runtimeType}');
-      print('❌ DEBUG: Exception details: $e');
-      print('Error inesperado cargando estadísticas: $e');
     }
   }
 
@@ -417,12 +404,10 @@ class InventoryController extends GetxController
 
       final result = await getInventoryMovementsUseCase(params);
       result.fold(
-        (failure) =>
-            print('❌ Error loading recent movements: ${failure.message}'),
+        (failure) => null,
         (paginatedResult) => recentMovements.value = paginatedResult.data,
       );
     } catch (e) {
-      print('❌ Exception loading recent movements: $e');
     }
   }
 
@@ -452,7 +437,6 @@ class InventoryController extends GetxController
 
       return result.fold(
         (failure) {
-          print('❌ Error loading weekly transfers: ${failure.message}');
           return 0;
         },
         (paginatedResult) {
@@ -470,17 +454,11 @@ class InventoryController extends GetxController
           }
 
           final weeklyTransfersCount = groupedTransfers.length;
-          print('🏠 DASHBOARD - Transferencias de la semana:');
-          print('   • Desde: ${startOfWeekDay.toIso8601String()}');
-          print('   • Hasta: ${now.toIso8601String()}');
-          print('   • Movimientos transferOut: ${transferOutMovements.length}');
-          print('   • Grupos únicos: $weeklyTransfersCount');
 
           return weeklyTransfersCount;
         },
       );
     } catch (e) {
-      print('❌ Exception loading weekly transfers: $e');
       return 0;
     }
   }
@@ -550,12 +528,12 @@ class InventoryController extends GetxController
       List<InventoryMovement> allTransfers = [];
 
       transferInResult.fold(
-        (failure) => print('Transfer_in query failed: ${failure.message}'),
+        (failure) => null,
         (paginatedResult) => allTransfers.addAll(paginatedResult.data),
       );
 
       transferOutResult.fold(
-        (failure) => print('Transfer_out query failed: ${failure.message}'),
+        (failure) => null,
         (paginatedResult) => allTransfers.addAll(paginatedResult.data),
       );
 
@@ -584,14 +562,7 @@ class InventoryController extends GetxController
       // 5. Cargar PRODUCTOS NUEVOS de la semana
       await _loadWeeklyNewProducts(startOfWeekDay, now);
 
-      print(
-        '🏠 DASHBOARD - Estadísticas semana (${startOfWeekDay.day}/${startOfWeekDay.month} - ${now.day}/${now.month}):',
-      );
-      print('   • Transferencias: $transfersCount');
-      print('   • Ajustes: ${weeklyAdjustmentsCount.value}');
-      print('   • Productos nuevos: ${weeklyNewProductsCount.value}');
     } catch (e) {
-      print('❌ Error cargando estadísticas semanales: $e');
       weeklyTransfersCount.value = 0;
       weeklyAdjustmentsCount.value = 0;
       weeklyNewProductsCount.value = 0;
@@ -619,11 +590,6 @@ class InventoryController extends GetxController
       groupedTransfers[groupKey]!.add(transfer);
     }
 
-    print('🏠 DASHBOARD DEBUG:');
-    print('   • Total transfers: ${transfers.length}');
-    print('   • TransferOut: ${outTransfers.length}');
-    print('   • Grupos únicos: ${groupedTransfers.length}');
-
     return groupedTransfers.length;
   }
 
@@ -646,18 +612,13 @@ class InventoryController extends GetxController
 
       result.fold(
         (failure) {
-          print('❌ Error loading weekly adjustments: ${failure.message}');
           weeklyAdjustmentsCount.value = 0;
         },
         (paginatedResult) {
           weeklyAdjustmentsCount.value = paginatedResult.data.length;
-          print(
-            '📊 AJUSTES - Encontrados ${paginatedResult.data.length} ajustes esta semana',
-          );
         },
       );
     } catch (e) {
-      print('❌ Exception loading weekly adjustments: $e');
       weeklyAdjustmentsCount.value = 0;
     }
   }
@@ -681,7 +642,6 @@ class InventoryController extends GetxController
 
       result.fold(
         (failure) {
-          print('❌ Error loading weekly new products: ${failure.message}');
           weeklyNewProductsCount.value = 0;
         },
         (paginatedResult) {
@@ -693,13 +653,9 @@ class InventoryController extends GetxController
                   .length;
 
           weeklyNewProductsCount.value = uniqueProducts;
-          print(
-            '📦 PRODUCTOS NUEVOS - ${paginatedResult.data.length} entradas, $uniqueProducts productos únicos esta semana',
-          );
         },
       );
     } catch (e) {
-      print('❌ Exception loading weekly new products: $e');
       weeklyNewProductsCount.value = 0;
     }
   }
@@ -714,7 +670,6 @@ class InventoryController extends GetxController
         _loadNearExpiryProducts(),
       ]);
     } catch (e) {
-      print('❌ Exception loading alert products: $e');
     }
   }
 
@@ -724,12 +679,10 @@ class InventoryController extends GetxController
         const GetLowStockProductsParams(),
       );
       result.fold(
-        (failure) =>
-            print('❌ Error loading low stock products: ${failure.message}'),
+        (failure) => null,
         (products) => lowStockProducts.value = products,
       );
     } catch (e) {
-      print('❌ Exception loading low stock products: $e');
     }
   }
 
@@ -737,12 +690,10 @@ class InventoryController extends GetxController
     try {
       final result = await getOutOfStockProductsUseCase();
       result.fold(
-        (failure) =>
-            print('❌ Error loading out of stock products: ${failure.message}'),
+        (failure) => null,
         (products) => outOfStockProducts.value = products,
       );
     } catch (e) {
-      print('❌ Exception loading out of stock products: $e');
     }
   }
 
@@ -750,12 +701,10 @@ class InventoryController extends GetxController
     try {
       final result = await getExpiredProductsUseCase();
       result.fold(
-        (failure) =>
-            print('❌ Error loading expired products: ${failure.message}'),
+        (failure) => null,
         (products) => expiredProducts.value = products,
       );
     } catch (e) {
-      print('❌ Exception loading expired products: $e');
     }
   }
 
@@ -763,12 +712,10 @@ class InventoryController extends GetxController
     try {
       final result = await getNearExpiryProductsUseCase();
       result.fold(
-        (failure) =>
-            print('❌ Error loading near expiry products: ${failure.message}'),
+        (failure) => null,
         (products) => nearExpiryProducts.value = products,
       );
     } catch (e) {
-      print('❌ Exception loading near expiry products: $e');
     }
   }
 

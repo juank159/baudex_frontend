@@ -378,7 +378,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
     );
   }
 
-
   Widget _buildBasicFields(BuildContext context, double screenWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,7 +442,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
     );
   }
 
-
   Widget _buildConfigurationFields(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,9 +492,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
         ),
         const SizedBox(height: 8),
         Obx(() {
-          print(
-            '🎭 Building parent dropdown. Loading: ${controller.isLoadingParents}, Categories: ${controller.parentCategories.length}',
-          );
 
           if (controller.isLoadingParents) {
             return const SizedBox(
@@ -529,7 +524,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
 
           // ✅ CORRECCIÓN CRÍTICA: Manejo seguro del dropdown
           final selectedValue = controller.selectedParentId; // String? o null
-          print('🔍 Selected value: $selectedValue');
 
           return DropdownButtonFormField<String?>(
             key: ValueKey(
@@ -564,7 +558,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
                   ),
             ],
             onChanged: (String? value) {
-              print('🔄 Dropdown changed to: $value');
 
               // ✅ Búsqueda segura
               CategoryTree? parent;
@@ -573,13 +566,10 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
                   parent = controller.parentCategories.firstWhere(
                     (cat) => cat.id == value,
                   );
-                  print('✅ Parent found: ${parent.name}');
                 } catch (e) {
-                  print('⚠️ Parent not found for ID: $value');
                   parent = null;
                 }
               } else {
-                print('🚫 No parent selected (null)');
               }
 
               controller.changeParent(parent);
@@ -610,7 +600,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
       ],
     );
   }
-
 
   Widget _buildSeoFields(BuildContext context) {
     return Column(
@@ -681,7 +670,6 @@ class CategoryFormScreen extends GetView<CategoryFormController> {
       ),
     );
   }
-
 
   // ==================== FUTURISTIC METHODS ====================
 

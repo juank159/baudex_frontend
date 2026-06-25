@@ -53,9 +53,6 @@ class InvoiceItemModel extends InvoiceItem {
     }
 
     // Si todo falla, retornar 0
-    print(
-      '⚠️ No se pudo convertir a double en InvoiceItem: $value (${value.runtimeType})',
-    );
     return 0.0;
   }
 
@@ -67,7 +64,6 @@ class InvoiceItemModel extends InvoiceItem {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('⚠️ Error parsing date in InvoiceItem: $value - $e');
         return DateTime.now();
       }
     }
@@ -109,8 +105,6 @@ class InvoiceItemModel extends InvoiceItem {
         updatedAt: _parseDateTime(json['updatedAt']),
       );
     } catch (e) {
-      print('❌ Error en InvoiceItemModel.fromJson: $e');
-      print('📋 JSON data: $json');
       rethrow;
     }
   }
@@ -206,12 +200,10 @@ class CreateInvoiceItemRequestModel {
       json['isTemporary'] = true;
       if (category != null) json['category'] = category;
       // ❌ NO enviar productId para productos temporales
-      print('📦 Enviando producto temporal: $description');
     } else if (productId != null) {
       // Para productos registrados
       json['productId'] = productId;
       // ❌ NO enviar isTemporary para productos registrados
-      print('📦 Enviando producto registrado: $description (ID: $productId)');
     }
 
     // Presentación (Fase 3) — solo aplica a productos registrados
@@ -219,7 +211,6 @@ class CreateInvoiceItemRequestModel {
       json['presentationId'] = presentationId;
     }
 
-    print('📋 JSON generado para item: $json');
     return json;
   }
 
@@ -264,8 +255,6 @@ class CreateInvoiceItemRequestModel {
   factory CreateInvoiceItemRequestModel.fromEntity(
     CreateInvoiceItemParams params,
   ) {
-    print('🔄 CreateInvoiceItemRequestModel.fromEntity: ${params.description}');
-    print('   - productId: ${params.productId}');
 
     // ✅ DETECCIÓN MEJORADA DE PRODUCTOS TEMPORALES
     bool isTemporary = false;
@@ -279,7 +268,6 @@ class CreateInvoiceItemRequestModel {
           params.productId!.contains('temporal')) {
         isTemporary = true;
         category = 'Sin categoría';
-        print('✅ Detectado producto temporal por ID: ${params.productId}');
       }
     }
 
@@ -289,9 +277,6 @@ class CreateInvoiceItemRequestModel {
         params.description.toLowerCase().contains('temp')) {
       isTemporary = true;
       category = 'Sin categoría';
-      print(
-        '✅ Detectado producto temporal por descripción: ${params.description}',
-      );
     }
 
     return CreateInvoiceItemRequestModel(

@@ -50,7 +50,6 @@ class CreditNoteModel extends CreditNote {
 
   factory CreditNoteModel.fromJson(Map<String, dynamic> json) {
     // Debug: Imprimir el JSON recibido para diagnosticar problemas
-    print('🔍 CreditNoteModel.fromJson: ${json.keys.toList()}');
 
     // Verificar campos requeridos
     final id = json['id'];
@@ -60,10 +59,8 @@ class CreditNoteModel extends CreditNote {
     final createdById = json['createdById'];
 
     if (id == null || number == null) {
-      print('⚠️ Campos básicos nulos - id: $id, number: $number');
     }
     if (invoiceId == null || customerId == null || createdById == null) {
-      print('⚠️ Campos de relación nulos - invoiceId: $invoiceId, customerId: $customerId, createdById: $createdById');
     }
 
     return CreditNoteModel(

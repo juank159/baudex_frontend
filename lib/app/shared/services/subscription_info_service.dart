@@ -40,9 +40,6 @@ class SubscriptionInfoService {
         'isExpired': true,
       };
     } catch (e) {
-      print(
-        '⚠️ SubscriptionInfoService: Error obteniendo info de suscripción: $e',
-      );
       return {
         'plan': 'trial',
         'status': 'expired',

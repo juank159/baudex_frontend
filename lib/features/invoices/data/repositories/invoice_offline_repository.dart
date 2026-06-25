@@ -405,7 +405,6 @@ class InvoiceOfflineRepository implements InvoiceRepository {
           },
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarInvoice.toEntity());
@@ -501,7 +500,6 @@ class InvoiceOfflineRepository implements InvoiceRepository {
           data: {'updated': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return Right(isarInvoice.toEntity());
@@ -544,7 +542,6 @@ class InvoiceOfflineRepository implements InvoiceRepository {
           data: {'deleted': true},
         );
       } catch (e) {
-        print('Warning: Could not add to sync queue: $e');
       }
 
       return const Right(null);

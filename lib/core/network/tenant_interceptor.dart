@@ -74,7 +74,6 @@ class TenantInterceptor extends Interceptor {
           errorMessage.contains('Organization not found')) {
         // Invalidar cache para forzar re-lectura en próximo request
         _cacheInitialized = false;
-        print('❌ Tenant Error: $errorMessage');
       }
     }
 

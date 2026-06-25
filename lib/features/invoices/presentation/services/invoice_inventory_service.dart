@@ -24,7 +24,6 @@ class InvoiceInventoryService extends GetxService {
 
       // Verificar si el descuento automático está habilitado
       if (!userPrefsController.autoDeductInventory) {
-        print('ℹ️ Descuento automático de inventario deshabilitado');
         return false;
       }
 
@@ -37,17 +36,11 @@ class InvoiceInventoryService extends GetxService {
           final success = await _processItemInventory(item, invoice);
           if (!success) {
             allItemsProcessed = false;
-            print(
-              '❌ Error procesando inventario para producto ${item.productId}',
-            );
           }
         }
       }
 
       if (allItemsProcessed) {
-        print(
-          '✅ Inventario procesado exitosamente para factura ${invoice.number}',
-        );
 
         // Mostrar notificación de éxito
         Get.snackbar(
@@ -56,7 +49,6 @@ class InvoiceInventoryService extends GetxService {
           snackPosition: SnackPosition.TOP,
         );
       } else {
-        print('⚠️ Algunos items no pudieron ser procesados en inventario');
 
         // Mostrar notificación de advertencia
         Get.snackbar(
@@ -68,7 +60,6 @@ class InvoiceInventoryService extends GetxService {
 
       return allItemsProcessed;
     } catch (e) {
-      print('❌ Error procesando inventario para factura: $e');
 
       // Mostrar error al usuario
       Get.snackbar(
@@ -97,20 +88,13 @@ class InvoiceInventoryService extends GetxService {
 
       return result.fold(
         (failure) {
-          print(
-            '❌ Error procesando FIFO para producto ${item.productId}: ${failure.message}',
-          );
           return false;
         },
         (movement) {
-          print(
-            '✅ Movimiento FIFO creado para producto ${item.productId}: ${movement.id}',
-          );
           return true;
         },
       );
     } catch (e) {
-      print('❌ Error inesperado procesando item ${item.productId}: $e');
       return false;
     }
   }
@@ -121,7 +105,6 @@ class InvoiceInventoryService extends GetxService {
       final userPrefsController = Get.find<UserPreferencesController>();
       return userPrefsController.autoDeductInventory;
     } catch (e) {
-      print('❌ Error obteniendo preferencias de usuario: $e');
       return true; // Por defecto habilitado si no se puede obtener
     }
   }

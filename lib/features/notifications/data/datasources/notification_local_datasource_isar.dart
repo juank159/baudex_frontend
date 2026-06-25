@@ -78,9 +78,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         }
       });
 
-      print('🔔 ISAR: ${notifications.length} notificaciones cacheadas');
     } catch (e) {
-      print('❌ Error al cachear notificaciones en ISAR: $e');
       throw CacheException('Error al cachear notificaciones: $e');
     }
   }
@@ -137,9 +135,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         await _isar.isarNotifications.put(isarNotification);
       });
 
-      print('🔔 ISAR: Notificación ${notification.title} cacheada');
     } catch (e) {
-      print('❌ Error al cachear notificación en ISAR: $e');
       throw CacheException('Error al cachear notificación: $e');
     }
   }
@@ -168,9 +164,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         await _isar.isarNotifications.put(isarNotification);
       });
 
-      print('✅ ISAR: Notificación guardada para sync: ${notification.title}');
     } catch (e) {
-      print('❌ Error al guardar notificación para sync: $e');
       throw CacheException('Error al guardar notificación para sync: $e');
     }
   }
@@ -187,7 +181,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .findAll();
 
       if (isarNotifications.isEmpty) {
-        print('🔔 ISAR: No hay notificaciones en cache');
         return []; // Retornar lista vacía en lugar de lanzar excepción
       }
 
@@ -195,10 +188,8 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .map((isar) => _convertToNotificationModel(isar))
           .toList();
 
-      print('🔔 ISAR: ${notifications.length} notificaciones obtenidas');
       return notifications;
     } catch (e) {
-      print('❌ Error al obtener notificaciones de ISAR: $e');
       return []; // Retornar lista vacía en caso de error
     }
   }
@@ -214,13 +205,11 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .findFirst();
 
       if (isarNotification == null) {
-        print('🔔 ISAR: Notificación con ID $id no encontrada');
         return null;
       }
 
       return _convertToNotificationModel(isarNotification);
     } catch (e) {
-      print('❌ Error al obtener notificación de ISAR: $e');
       throw CacheException('Error al obtener notificación: $e');
     }
   }
@@ -245,10 +234,8 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .map((isar) => _convertToNotificationModel(isar))
           .toList();
 
-      print('🔔 ISAR: ${notifications.length} notificaciones encontradas');
       return notifications;
     } catch (e) {
-      print('❌ Error al buscar notificaciones: $e');
       return [];
     }
   }
@@ -268,10 +255,8 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .map((isar) => _convertToNotificationModel(isar))
           .toList();
 
-      print('🔔 ISAR: ${notifications.length} notificaciones no leídas');
       return notifications;
     } catch (e) {
-      print('❌ Error al obtener notificaciones no leídas: $e');
       return [];
     }
   }
@@ -288,7 +273,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
 
       return count;
     } catch (e) {
-      print('❌ Error al obtener contador de no leídas: $e');
       return 0;
     }
   }
@@ -313,7 +297,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
 
       return notifications;
     } catch (e) {
-      print('❌ Error al obtener notificaciones por tipo: $e');
       return [];
     }
   }
@@ -338,7 +321,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
 
       return notifications;
     } catch (e) {
-      print('❌ Error al obtener notificaciones por prioridad: $e');
       return [];
     }
   }
@@ -380,9 +362,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         await _isar.isarNotifications.put(statsNotification);
       });
 
-      print('📊 ISAR: Estadísticas de notificaciones cacheadas');
     } catch (e) {
-      print('❌ Error al cachear estadísticas: $e');
       throw CacheException('Error al cachear estadísticas: $e');
     }
   }
@@ -396,7 +376,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .findFirst();
 
       if (statsCache == null || statsCache.actionDataJson == null) {
-        print('📊 ISAR: No hay estadísticas en cache');
         return null;
       }
 
@@ -405,11 +384,9 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         final jsonMap = json.decode(statsJson) as Map<String, dynamic>;
         return _parseStatistics(jsonMap);
       } catch (parseError) {
-        print('❌ Error al parsear estadísticas: $parseError');
         return null;
       }
     } catch (e) {
-      print('❌ Error al obtener estadísticas: $e');
       return null;
     }
   }
@@ -434,9 +411,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         await _isar.isarNotifications.put(notification);
       });
 
-      print('🗑️ ISAR: Notificación $id eliminada (soft delete)');
     } catch (e) {
-      print('❌ Error al eliminar notificación: $e');
       throw CacheException('Error al eliminar notificación: $e');
     }
   }
@@ -448,9 +423,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         await _isar.isarNotifications.clear();
       });
 
-      print('🧹 ISAR: Cache de notificaciones limpiado');
     } catch (e) {
-      print('❌ Error al limpiar cache: $e');
       throw CacheException('Error al limpiar cache: $e');
     }
   }
@@ -470,10 +443,8 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
       final notifications =
           isarNotifications.map((isar) => isar.toEntity()).toList();
 
-      print('🔄 ISAR: ${notifications.length} notificaciones sin sincronizar');
       return notifications;
     } catch (e) {
-      print('❌ Error al obtener notificaciones sin sincronizar: $e');
       throw CacheException('Error al obtener sin sincronizar: $e');
     }
   }
@@ -496,9 +467,7 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
         }
       });
 
-      print('✅ ISAR: Notificación marcada como sincronizada: $tempId → $serverId');
     } catch (e) {
-      print('❌ Error al marcar como sincronizada: $e');
       throw CacheException('Error al marcar como sincronizada: $e');
     }
   }
@@ -517,7 +486,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
 
       return notification != null;
     } catch (e) {
-      print('❌ Error al verificar existencia: $e');
       return false;
     }
   }
@@ -532,7 +500,6 @@ class NotificationLocalDataSourceIsar implements NotificationLocalDataSource {
           .serverIdEqualTo(id)
           .findFirst();
     } catch (e) {
-      print('⚠️ Error al obtener IsarNotification: $e');
       return null;
     }
   }

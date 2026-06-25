@@ -1103,11 +1103,6 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     // Actualizar los campos del formulario con formato
     // NOTA: El descuento por defecto es 0 en la nota de crédito
     // porque normalmente se devuelve el precio completo del producto
-    print('🔍 DEBUG _selectInvoiceItem:');
-    print('   - description: ${invoiceItem.description}');
-    print('   - quantity: ${invoiceItem.quantity}');
-    print('   - unitPrice: ${invoiceItem.unitPrice}');
-    print('   - subtotal: ${invoiceItem.subtotal}');
 
     setState(() {
       _descriptionController.text = invoiceItem.description ?? '';
@@ -1126,7 +1121,6 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     _calculateSubtotal();
 
     // DEBUG: Verificar subtotal calculado
-    print('   - _subtotal calculado: $_subtotal');
 
     // Mostrar feedback visual
     Get.snackbar(

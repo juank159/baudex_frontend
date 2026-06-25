@@ -446,18 +446,7 @@ class WarehouseDetailController extends GetxController {
   // ==================== DEBUGGING ====================
 
   void printDebugInfo() {
-    print('🏪 WarehouseDetailController Debug Info:');
-    print('   Warehouse ID: $_warehouseId');
-    print('   Is loading: $isLoading');
-    print('   Has warehouse: $hasWarehouse');
-    print('   Has error: $hasError');
-    print('   Error: "$error"');
     if (hasWarehouse) {
-      print(
-        '   Warehouse: ${_warehouse.value!.name} (${_warehouse.value!.code})',
-      );
-      print('   Is active: ${_warehouse.value!.isActive}');
     }
-    print('   Stats - Products: $totalProducts, Movements: $totalMovements');
   }
 }

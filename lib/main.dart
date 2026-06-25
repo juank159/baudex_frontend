@@ -55,8 +55,6 @@ void main() async {
     return false;
   };
 
-  print('Iniciando Baudex Desktop con arquitectura offline-first...');
-
   try {
     // PASO 1: Inicializar datos de localización y timezone
     await initializeDateFormatting('es_CO', null);
@@ -66,7 +64,6 @@ void main() async {
     await EnvConfig.initialize();
 
     // PASO 3: Inicializar base de datos ISAR
-    print('💾 Inicializando base de datos ISAR...');
     await IsarDatabase.instance.initialize();
 
     // PASO 4: Mostrar configuración
@@ -75,11 +72,7 @@ void main() async {
     // PASO 5: Inicializar dependencias offline-first
     InitialBinding().dependencies();
 
-    print('✅ Inicialización offline-first completada');
   } catch (e, stackTrace) {
-    print('❌ Error durante inicialización: $e');
-    print('📍 Stack trace: $stackTrace');
-    print('⚠️ Continuando con configuración por defecto...');
   }
 
   runApp(const MyApp());
@@ -140,10 +133,8 @@ class _MyAppState extends State<MyApp> {
       final db = IsarDatabase.instance;
       if (db.isInitialized) {
         await db.close();
-        print('💾 ISAR cerrado limpiamente al salir');
       }
     } catch (e) {
-      print('⚠️ Error cerrando ISAR al salir: $e');
     }
   }
 

@@ -46,7 +46,6 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     try {
       return Get.find<InvoiceFormController>();
     } catch (e) {
-      print('⚠️ InvoiceFormController no encontrado: $e');
       return null;
     }
   }
@@ -71,7 +70,6 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
       _searchController.dispose();
       _focusNode.dispose();
     } catch (e) {
-      print('⚠️ Error en dispose de CustomerSelectorWidget: $e');
     }
     super.dispose();
   }
@@ -608,9 +606,6 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   void _onSearchChanged() async {
     // Verificar que el widget esté montado
     if (!mounted) {
-      print(
-        '⚠️ CustomerSelectorWidget: Widget no montado, cancelando búsqueda',
-      );
       return;
     }
 
@@ -664,7 +659,6 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
           });
         }
       } catch (e) {
-        print('❌ Error en búsqueda de clientes: $e');
         if (mounted) {
           setState(() {
             _searchResults.clear();
@@ -673,7 +667,6 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         }
       }
     } catch (e) {
-      print('⚠️ Error en _onSearchChanged (CustomerSelectorWidget): $e');
     }
   }
 
@@ -708,8 +701,6 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
     // Cerrar búsqueda
     _closeSearch();
-
-    print('👤 Cliente seleccionado: ${customer.displayName}');
 
     // Feedback visual
     Get.snackbar(

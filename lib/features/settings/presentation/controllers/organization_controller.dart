@@ -502,7 +502,6 @@ class OrganizationController extends GetxController
         Get.find<TenantDateTimeService>().updateTimezone(organization.timezone);
       }
     } catch (e) {
-      print('⚠️ Error sincronizando timezone: $e');
     }
   }
 

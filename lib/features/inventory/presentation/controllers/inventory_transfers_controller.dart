@@ -134,12 +134,12 @@ class InventoryTransfersController extends GetxController {
       List<InventoryMovement> allTransfers = [];
 
       transferInResult.fold(
-        (failure) => print('Transfer_in query failed: ${failure.message}'),
+        (failure) => null,
         (paginatedResult) => allTransfers.addAll(paginatedResult.data),
       );
 
       transferOutResult.fold(
-        (failure) => print('Transfer_out query failed: ${failure.message}'),
+        (failure) => null,
         (paginatedResult) => allTransfers.addAll(paginatedResult.data),
       );
 
@@ -158,15 +158,7 @@ class InventoryTransfersController extends GetxController {
               .length;
       final grouped = _groupRelatedTransfers(allTransfers);
 
-      print('✅ TRANSFERENCIAS CARGADAS:');
-      print('   • Total raw: ${allTransfers.length}');
-      print('   • TransferOut: $transferOutCount');
-      print('   • TransferIn: $transferInCount');
-      print('   • Grupos únicos: ${grouped.length}');
-      print('   • Total agrupado: $totalTransfers');
-      print('   • Hoy agrupado: $todayTransfers');
     } catch (e) {
-      print('❌ Error cargando transferencias: $e');
       error.value = 'Error inesperado: $e';
       Get.snackbar(
         'Error al cargar transferencias',
@@ -190,15 +182,12 @@ class InventoryTransfersController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error cargando almacenes: ${failure.message}');
         },
         (warehousesList) {
           warehouses.value = warehousesList;
-          print('✅ Almacenes cargados: ${warehousesList.length}');
         },
       );
     } catch (e) {
-      print('❌ Error inesperado cargando almacenes: $e');
     } finally {
       isLoadingWarehouses.value = false;
     }
@@ -212,14 +201,8 @@ class InventoryTransfersController extends GetxController {
     try {
       isCreating.value = true;
 
-      print(
-        '🔍 DEBUG: Creando transferencia con ${transferItems.length} productos:',
-      );
       for (int i = 0; i < transferItems.length; i++) {
         final item = transferItems[i];
-        print(
-          '   ${i + 1}. Producto ID: ${item.productId}, Cantidad: ${item.quantity}',
-        );
       }
 
       final request = CreateInventoryTransferParams(
@@ -573,7 +556,6 @@ class InventoryTransfersController extends GetxController {
       final grouped = _groupRelatedTransfers(transfers);
       return grouped.length;
     } catch (e) {
-      print('❌ Error en totalTransfers: $e');
       return transfers.length; // Fallback al conteo original
     }
   }
@@ -606,7 +588,6 @@ class InventoryTransfersController extends GetxController {
       final grouped = _groupRelatedTransfers(todayTransfersList);
       return grouped.length;
     } catch (e) {
-      print('❌ Error en todayTransfers: $e');
       return transfers.where((t) => _isToday(t.createdAt)).length; // Fallback
     }
   }
@@ -625,16 +606,8 @@ class InventoryTransfersController extends GetxController {
           transfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).toList();
       final grouped = _groupRelatedTransfers(weekTransfersList);
 
-      print('📋 TRANSFERENCIAS SCREEN - Esta semana:');
-      print('   • Desde: ${startOfWeekDay.toIso8601String()}');
-      print('   • Hasta: ${now.toIso8601String()}');
-      print('   • Transfers raw: ${transfers.length}');
-      print('   • Week transfers raw: ${weekTransfersList.length}');
-      print('   • Grupos únicos: ${grouped.length}');
-
       return grouped.length;
     } catch (e) {
-      print('❌ Error en weekTransfers: $e');
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
       final startOfWeekDay = DateTime(
@@ -658,7 +631,6 @@ class InventoryTransfersController extends GetxController {
       final grouped = _groupRelatedTransfers(monthTransfersList);
       return grouped.length;
     } catch (e) {
-      print('❌ Error en monthTransfers: $e');
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
       return transfers
@@ -777,12 +749,7 @@ class InventoryTransfersController extends GetxController {
       final productDetails = unifiedProducts.values.toList();
 
       // Debug log para verificar unificación
-      print('🔍 AGRUPAMIENTO DEBUG:');
-      print('   • Transfer_out agrupados: ${groupTransfers.length}');
-      print('   • Productos únicos: ${unifiedProducts.length}');
-      print('   • Cantidad total: $totalQuantity');
       for (final product in productDetails) {
-        print('   • ${product['name']}: ${product['quantity']} unidades');
       }
 
       return {
@@ -874,7 +841,6 @@ class InventoryTransfersController extends GetxController {
       // Fallback
       return isOrigin ? 'Almacén de origen' : 'Almacén de destino';
     } catch (e) {
-      print('❌ Error obteniendo nombre de almacén: $e');
       return isOrigin ? 'Almacén de origen' : 'Almacén de destino';
     }
   }
@@ -1176,16 +1142,13 @@ class InventoryTransfersController extends GetxController {
 
       return result.fold(
         (failure) {
-          print('❌ Error searching products: ${failure.message}');
           return <Product>[];
         },
         (products) {
-          print('✅ Found ${products.length} products for query: $query');
           return products;
         },
       );
     } catch (e) {
-      print('❌ Error searching products: $e');
       return <Product>[];
     }
   }
@@ -1201,18 +1164,13 @@ class InventoryTransfersController extends GetxController {
 
       return result.fold(
         (failure) {
-          print('❌ Error getting product stock: ${failure.message}');
           return 0;
         },
         (balance) {
-          print(
-            '✅ Stock for product $productId in warehouse $warehouseId: ${balance.availableQuantity}',
-          );
           return balance.availableQuantity;
         },
       );
     } catch (e) {
-      print('❌ Error getting product stock: $e');
       return 0;
     }
   }

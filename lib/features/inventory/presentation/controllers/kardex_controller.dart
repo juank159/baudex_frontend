@@ -66,9 +66,6 @@ class KardexController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
-      print(
-        '🔍 KardexController: Cargando kardex para producto ${productId.value}',
-      );
 
       final params = KardexReportParams(
         productId: productId.value,
@@ -81,7 +78,6 @@ class KardexController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ KardexController: Error - ${failure.message}');
           error.value = failure.message;
           Get.snackbar(
             'Error al cargar kardex',
@@ -92,14 +88,10 @@ class KardexController extends GetxController {
           );
         },
         (report) {
-          print(
-            '✅ KardexController: Kardex cargado - ${report.totalMovements} movimientos',
-          );
           kardexReport.value = report;
         },
       );
     } catch (e) {
-      print('❌ KardexController: Exception - $e');
       error.value = 'Error inesperado: $e';
       Get.snackbar(
         'Error al cargar kardex',

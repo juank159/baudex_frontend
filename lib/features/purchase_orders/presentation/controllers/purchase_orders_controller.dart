@@ -120,9 +120,6 @@ class PurchaseOrdersController extends GetxController
     // Solo refrescar si hay una nueva orden, _initializeData() ya carga datos en onInit
     final parameters = Get.parameters;
     if (parameters.containsKey('newOrderId')) {
-      print(
-        '🎆 Nueva orden detectada: ${parameters['newOrderId']}, forzando refresh',
-      );
       Future.delayed(const Duration(milliseconds: 200), () {
         refreshPurchaseOrders();
       });
@@ -337,7 +334,6 @@ class PurchaseOrdersController extends GetxController
 
       result.fold(
         (failure) {
-          print('Error cargando estadísticas: ${failure.message}');
           // No bloquear la aplicación por errores de estadísticas
         },
         (purchaseOrderStats) {
@@ -367,7 +363,6 @@ class PurchaseOrdersController extends GetxController
         },
       );
     } catch (e) {
-      print('Error inesperado cargando estadísticas: $e');
       // No bloquear la aplicación por errores de estadísticas
     }
   }
@@ -410,7 +405,6 @@ class PurchaseOrdersController extends GetxController
 
   Future<void> refreshPurchaseOrders() async {
     try {
-      print('🔄 PurchaseOrdersController: Starting refresh...');
       isRefreshing.value = true;
       currentPage.value = 1;
 
@@ -423,9 +417,7 @@ class PurchaseOrdersController extends GetxController
       await loadPurchaseOrders(showLoading: false, forceRefresh: true);
       await loadStats();
 
-      print('✅ PurchaseOrdersController: Refresh completed successfully');
     } catch (e) {
-      print('❌ PurchaseOrdersController: Error during refresh: $e');
       error.value = 'Error al actualizar las órdenes de compra';
     } finally {
       isRefreshing.value = false;
@@ -438,9 +430,6 @@ class PurchaseOrdersController extends GetxController
     bool isUpdate = false,
   }) async {
     try {
-      print(
-        '🎆 Actualizando lista después de ${isUpdate ? 'actualizar' : 'crear'} orden: $newOrderId',
-      );
 
       invalidateCache();
       await refreshPurchaseOrders();
@@ -450,11 +439,7 @@ class PurchaseOrdersController extends GetxController
         _prioritizeNewOrder(newOrderId);
       }
 
-      print(
-        '✅ Lista actualizada exitosamente después de ${isUpdate ? 'actualización' : 'creación'}',
-      );
     } catch (e) {
-      print('❌ Error al actualizar lista después de cambios: $e');
     }
   }
 
@@ -471,14 +456,10 @@ class PurchaseOrdersController extends GetxController
         // Actualizar la lista filtrada también
         applyFilters();
 
-        print('🔝 Orden $orderId movida al inicio de la lista');
       } else if (orderIndex == 0) {
-        print('🎆 Orden $orderId ya está al inicio de la lista');
       } else {
-        print('⚠️ Orden $orderId no encontrada en la lista actual');
       }
     } catch (e) {
-      print('❌ Error al priorizar nueva orden: $e');
     }
   }
 
@@ -499,7 +480,6 @@ class PurchaseOrdersController extends GetxController
     }
     // Actualizar lista filtrada
     filteredPurchaseOrders.value = List.from(purchaseOrders);
-    print('✅ Orden ${updatedOrder.id.substring(0, 8)} actualizada en lista (total: ${updatedOrder.totalAmount})');
   }
 
   // ==================== FILTERING ====================
@@ -680,32 +660,21 @@ class PurchaseOrdersController extends GetxController
   }
 
   void goToPurchaseOrderEdit(String purchaseOrderId) async {
-    print(
-      '🔄 PurchaseOrdersController: Navigating to edit form: $purchaseOrderId',
-    );
     final result = await Get.toNamed('/purchase-orders/edit/$purchaseOrderId');
 
     // Refresh data when returning from edit form
-    print(
-      '🔄 PurchaseOrdersController: Returned from edit form, refreshing data',
-    );
     await refreshPurchaseOrders();
 
     if (result != null) {
-      print('✅ PurchaseOrdersController: Edit form returned result: $result');
     }
   }
 
   void goToCreatePurchaseOrder() {
-    print('🔄 PurchaseOrdersController: Navigating to create form');
     Get.toNamed('/purchase-orders/create');
     // No need to wait for result since form uses Get.offAllNamed
   }
 
   void goToCreateFromSupplier(String supplierId) {
-    print(
-      '🔄 PurchaseOrdersController: Navigating to create form with supplier: $supplierId',
-    );
     Get.toNamed(
       '/purchase-orders/create',
       arguments: {'supplierId': supplierId},

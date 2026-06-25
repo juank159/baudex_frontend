@@ -245,7 +245,6 @@ class NotificationRemoteDataSourceImpl
 
       return [];
     } catch (e) {
-      print('Error extrayendo notificaciones: $e');
       return [];
     }
   }
@@ -308,7 +307,6 @@ class NotificationRemoteDataSourceImpl
 
       return 0;
     } catch (e) {
-      print('Error extrayendo unreadCount: $e');
       return 0;
     }
   }
