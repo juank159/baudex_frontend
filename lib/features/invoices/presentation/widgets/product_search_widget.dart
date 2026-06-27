@@ -248,13 +248,8 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
             _buildSearchResults(context),
           ],
 
-          // Opción de producto sin registrar o mensaje de no resultados.
-          // Se muestra cuando no hay resultados O cuando la búsqueda es numérica
-          // (el usuario escribe un precio como "7000" y quiere agregar sin registrar
-          // aunque haya productos del catálogo que coincidan con ese número).
-          if (_showResults && !_isSearching &&
-              (_searchResults.isEmpty ||
-               _isUnregisteredProductQuery(_searchController.text.trim()))) ...[
+          // Opción de producto sin registrar o mensaje de no resultados
+          if (_showResults && _searchResults.isEmpty && !_isSearching) ...[
             const SizedBox(height: 6),
             _buildUnregisteredProductOption(context),
           ],
@@ -868,15 +863,15 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
         } else {
           // Solo mensaje de log, SIN audio para códigos de barras no encontrados
         }
+      } else if (isUnregisteredProduct) {
+        // Número ≤7 dígitos = entrada de precio / producto sin registrar.
+        // SOLO buscamos por SKU exacto. NO lanzamos búsqueda de texto porque
+        // eso retorna productos cuyo nombre contiene el número ("Bolsa 7000")
+        // y llena _searchResults, ocultando la opción "Producto sin registrar".
+        final skuMatch = await _searchBySku(query);
+        if (skuMatch != null) results.add(skuMatch);
       } else {
-        // Búsqueda normal: texto, SKU, y también números ≤7 dígitos (posibles códigos de producto)
-        // IMPORTANTE: para números ≤7 dígitos primero buscamos en ISAR por SKU/barcode exacto.
-        // Si hay coincidencia, se muestra el producto. Si no hay, la UI mostrará
-        // automáticamente la opción "Producto sin registrar" (porque _searchResults.isEmpty).
-        if (isUnregisteredProduct) {
-          final skuMatch = await _searchBySku(query);
-          if (skuMatch != null) results.add(skuMatch);
-        }
+        // Búsqueda de texto normal (nombre, SKU parcial, etc.)
         final searchResults = await widget.controller.searchProducts(query);
         results.addAll(searchResults);
       }
