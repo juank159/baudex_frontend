@@ -248,8 +248,13 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
             _buildSearchResults(context),
           ],
 
-          // Opción de producto sin registrar o mensaje de no resultados
-          if (_showResults && _searchResults.isEmpty && !_isSearching) ...[
+          // Opción de producto sin registrar o mensaje de no resultados.
+          // Se muestra cuando no hay resultados O cuando la búsqueda es numérica
+          // (el usuario escribe un precio como "7000" y quiere agregar sin registrar
+          // aunque haya productos del catálogo que coincidan con ese número).
+          if (_showResults && !_isSearching &&
+              (_searchResults.isEmpty ||
+               _isUnregisteredProductQuery(_searchController.text.trim()))) ...[
             const SizedBox(height: 6),
             _buildUnregisteredProductOption(context),
           ],
