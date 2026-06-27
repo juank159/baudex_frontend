@@ -1,4 +1,5 @@
 // lib/features/dashboard/presentation/controllers/dashboard_controller.dart
+import '../../../../app/core/utils/app_logger.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_dashboard_stats_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_notifications_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_recent_activity_usecase.dart';
@@ -587,6 +588,10 @@ class DashboardController extends GetxController
       if (!_isAlive) return;
       if (result.isRight()) {
         final stats = result.getOrElse(() => throw Exception());
+        AppLogger.d('[PROFIT] revenue=${stats.totalRevenue.toStringAsFixed(2)} '
+            'COGS=${stats.totalCOGS.toStringAsFixed(2)} '
+            'grossProfit=${stats.grossProfit.toStringAsFixed(2)} '
+            'netProfit=${stats.netProfit.toStringAsFixed(2)}');
         _profitabilityStats.value = stats;
         _cacheProfitabilityStats(stats, startDate, endDate);
         update();
