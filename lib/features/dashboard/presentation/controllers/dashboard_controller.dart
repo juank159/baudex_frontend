@@ -361,7 +361,9 @@ class DashboardController extends GetxController
         // ═══════════════════════════════════════════════════════════════
         bool hasExactCache = false;
         final exactProfitability = await _getExactCachedProfitabilityStats(startDate, endDate);
-        if (exactProfitability != null) {
+        // No usar caché con grossProfit < 0: podría ser un valor incorrecto guardado
+        // antes de fixes del cálculo de COGS. El servidor actualizará en 1-2s.
+        if (exactProfitability != null && exactProfitability.grossProfit >= 0) {
           _profitabilityStats.value = exactProfitability;
           hasExactCache = true;
         } else {
@@ -1153,6 +1155,10 @@ class DashboardController extends GetxController
   Future<void> _cacheProfitabilityStats(
     ProfitabilityStats stats, DateTime? startDate, DateTime? endDate,
   ) async {
+    // No cachear grossProfit negativo: evita que un dato incorrecto o de un bug
+    // anterior quede guardado y se muestre como "Pérdida" en la próxima sesión.
+    // El servidor siempre recalcula correctamente cuando hay conexión.
+    if (stats.grossProfit < 0) return;
     try {
       final model = ProfitabilityStatsModel.fromEntity(stats);
       final jsonStr = json.encode(model.toJson());
