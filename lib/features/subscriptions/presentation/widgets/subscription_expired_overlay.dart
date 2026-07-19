@@ -469,29 +469,32 @@ class SubscriptionExpiredWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<SubscriptionController>(
-      init: Get.isRegistered<SubscriptionController>()
-          ? Get.find<SubscriptionController>()
-          : null,
-      builder: (controller) {
-        if (!blockOnExpired || !controller.hasSubscription) {
-          return child;
-        }
-
-        final subscription = controller.subscription!;
-
-        // Si está expirado, mostrar overlay
-        if (subscription.isExpired) {
-          return Stack(
-            children: [
-              child,
-              const SubscriptionExpiredOverlay(),
-            ],
-          );
-        }
-
+    // Obx reacciona automáticamente cuando _subscription.value cambia,
+    // sin necesitar llamadas explícitas a update().
+    return Obx(() {
+      if (!Get.isRegistered<SubscriptionController>()) {
         return child;
-      },
-    );
+      }
+
+      final controller = Get.find<SubscriptionController>();
+
+      if (!blockOnExpired || !controller.hasSubscription) {
+        return child;
+      }
+
+      final subscription = controller.subscription!;
+
+      // Si está expirado, mostrar overlay
+      if (subscription.isExpired) {
+        return Stack(
+          children: [
+            child,
+            const SubscriptionExpiredOverlay(),
+          ],
+        );
+      }
+
+      return child;
+    });
   }
 }

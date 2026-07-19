@@ -1,6 +1,7 @@
 // lib/app/data/local/full_sync_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -449,7 +450,7 @@ class FullSyncService extends GetxService {
       final count = await syncFn();
       return MapEntry(entityName, count);
     } catch (e) {
-
+      debugPrint('[FULL_SYNC] ERROR en $entityName: $e');
       return MapEntry(entityName, null);
     }
   }

@@ -97,6 +97,15 @@ class SubscriptionController extends GetxController {
 
   Future<void> _initializeSubscription() async {
     await loadSubscription();
+    if (isExpired) {
+      // NetworkInfo cachea "sin servidor" por 30s. Reintentar en 5s, 15s, 35s y 65s
+      // cubre el caso donde el primer intento cae dentro del cooldown de 30s.
+      for (final delay in [5, 15, 35, 65]) {
+        Future.delayed(Duration(seconds: delay), () {
+          if (isExpired) loadSubscription();
+        });
+      }
+    }
   }
 
   void _listenToNetworkChanges() {
@@ -141,15 +150,16 @@ class SubscriptionController extends GetxController {
 
     result.fold(
       (failure) {
+        debugPrint('[SUBSCRIPTION] ❌ Error del servidor: ${failure.message}');
         _error.value = failure.message;
-        // Intentar cargar del cache
         _loadFromCache();
       },
       (subscription) {
+        debugPrint('[SUBSCRIPTION] ✅ Plan=${subscription.plan.name} isExpired=${subscription.isExpired} days=${subscription.daysUntilExpiration}');
         _subscription.value = subscription;
         _limits.value = subscription.limits;
         _checkSubscriptionStatus();
-        update(); // Notifica GetBuilder (ej. SubscriptionExpiredWrapper)
+        update();
       },
     );
 
