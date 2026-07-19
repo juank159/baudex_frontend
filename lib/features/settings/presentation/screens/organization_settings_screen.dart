@@ -64,10 +64,16 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
 
     Future.microtask(() {
       _loadDeviceSessions();
-      // Si la organización no está cargada, forzar recarga
+      // Siempre disparar refresh del servidor al abrir settings para
+      // mostrar datos de suscripción actualizados (plan, días restantes).
+      // loadCurrentOrganization() muestra ISAR al instante y actualiza
+      // desde server en background sin bloquear la UI.
       final orgController = Get.find<OrganizationController>();
-      if (orgController.currentOrganization == null) {
-        orgController.loadCurrentOrganization();
+      orgController.loadCurrentOrganization();
+      // También refrescar SubscriptionController para actualizar
+      // el nombre del plan en la sección de dispositivos.
+      if (Get.isRegistered<SubscriptionController>()) {
+        Get.find<SubscriptionController>().loadSubscription();
       }
     });
   }
