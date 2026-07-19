@@ -149,6 +149,7 @@ class SubscriptionController extends GetxController {
         _subscription.value = subscription;
         _limits.value = subscription.limits;
         _checkSubscriptionStatus();
+        update(); // Notifica GetBuilder (ej. SubscriptionExpiredWrapper)
       },
     );
 
@@ -171,6 +172,7 @@ class SubscriptionController extends GetxController {
 
     // ✅ También verificar estado cuando se carga del cache (offline)
     _checkSubscriptionStatus();
+    update(); // Notifica GetBuilder (ej. SubscriptionExpiredWrapper)
   }
 
   Future<void> loadUsage({
