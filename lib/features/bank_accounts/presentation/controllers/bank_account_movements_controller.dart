@@ -1,4 +1,5 @@
 // lib/features/bank_accounts/presentation/controllers/bank_account_movements_controller.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
@@ -313,7 +314,7 @@ class BankAccountMovementsController extends GetxController
 
   /// Establecer filtros predefinidos
   Future<void> setPresetFilter(String preset) async {
-    final now = DateTime.now();
+    final now = tenantNow();
 
     switch (preset) {
       case 'today':

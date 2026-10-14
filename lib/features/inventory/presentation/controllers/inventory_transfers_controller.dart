@@ -1,4 +1,5 @@
 // lib/features/inventory/presentation/controllers/inventory_transfers_controller.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:baudex_desktop/features/inventory/domain/usecases/get_inventory_balance_by_product_usecase.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
@@ -624,14 +625,14 @@ class InventoryTransfersController extends GetxController {
   int get monthTransfers {
     if (transfers.isEmpty) return 0;
     try {
-      final now = DateTime.now();
+      final now = tenantNow();
       final startOfMonth = DateTime(now.year, now.month, 1);
       final monthTransfersList =
           transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
       final grouped = _groupRelatedTransfers(monthTransfersList);
       return grouped.length;
     } catch (e) {
-      final now = DateTime.now();
+      final now = tenantNow();
       final startOfMonth = DateTime(now.year, now.month, 1);
       return transfers
           .where((t) => t.createdAt.isAfter(startOfMonth))
@@ -645,7 +646,7 @@ class InventoryTransfersController extends GetxController {
     // Aplicar filtro por rango de fechas
     switch (currentFilter.value) {
       case 'today':
-        final today = DateTime.now();
+        final today = tenantNow();
         final startOfDay = DateTime(today.year, today.month, today.day);
         final endOfDay = DateTime(
           today.year,
@@ -678,7 +679,7 @@ class InventoryTransfersController extends GetxController {
                 .toList();
         break;
       case 'month':
-        final now = DateTime.now();
+        final now = tenantNow();
         final startOfMonth = DateTime(now.year, now.month, 1);
         filtered =
             transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
@@ -992,7 +993,7 @@ class InventoryTransfersController extends GetxController {
     // Aplicar filtro por rango de fechas
     switch (currentFilter.value) {
       case 'today':
-        final today = DateTime.now();
+        final today = tenantNow();
         final startOfDay = DateTime(today.year, today.month, today.day);
         final endOfDay = DateTime(
           today.year,
@@ -1025,7 +1026,7 @@ class InventoryTransfersController extends GetxController {
                 .toList();
         break;
       case 'month':
-        final now = DateTime.now();
+        final now = tenantNow();
         final startOfMonth = DateTime(now.year, now.month, 1);
         filtered =
             transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();

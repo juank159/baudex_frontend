@@ -1,4 +1,5 @@
 // lib/features/dashboard/presentation/widgets/dashboard_header.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
@@ -215,7 +216,7 @@ class DashboardHeader extends GetView<DashboardController> {
   }
 
   void _showDateRangePicker() async {
-    final now = DateTime.now();
+    final now = tenantNow();
     final firstDate = DateTime(now.year - 2);
     final lastDate = now;
 

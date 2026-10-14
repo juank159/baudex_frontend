@@ -1,4 +1,5 @@
 // lib/features/expenses/data/repositories/expense_repository_impl.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:get/get.dart';
@@ -919,7 +920,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         return true;
       }).toList();
 
-      final now = DateTime.now();
+      final now = tenantNow();
       final startOfMonth = DateTime(now.year, now.month, 1);
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
       final startOfDay = DateTime(now.year, now.month, now.day);

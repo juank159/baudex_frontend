@@ -1,5 +1,9 @@
 // lib/features/customer_credits/data/models/customer_credit_model.dart
 
+import 'dart:math';
+
+import '../../../../app/core/utils/wire_date.dart';
+
 import '../../domain/entities/customer_credit.dart';
 
 /// Modelo de CustomerCredit para capa de datos
@@ -355,20 +359,44 @@ class AddCreditPaymentDto {
   final String? notes;
   final String? bankAccountId;
 
-  const AddCreditPaymentDto({
+  /// Clave única de este abono. Se genera UNA sola vez, cuando el usuario
+  /// confirma el pago, y acompaña al abono en todos sus intentos de envío
+  /// (en línea, fallback offline, reintentos de la cola). El servidor la usa
+  /// para no registrar dos veces el mismo abono.
+  final String idempotencyKey;
+
+  AddCreditPaymentDto({
     required this.amount,
     required this.paymentMethod,
     this.paymentDate,
     this.reference,
     this.notes,
     this.bankAccountId,
-  });
+    String? idempotencyKey,
+  }) : idempotencyKey = (idempotencyKey != null && idempotencyKey.isNotEmpty)
+            ? idempotencyKey
+            : generateIdempotencyKey();
 
+  /// UUID v4 generado con el generador aleatorio seguro del dispositivo.
+  static String generateIdempotencyKey() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // versión 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variante RFC 4122
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
+
+  /// Body del request. La clave de idempotencia NO va aquí: viaja en el
+  /// header `Idempotency-Key` (ver CustomerCreditRemoteDataSource.addPayment).
   Map<String, dynamic> toJson() {
     return {
       'amount': amount,
       'paymentMethod': paymentMethod,
-      if (paymentDate != null) 'paymentDate': paymentDate,
+      // Instante exacto en UTC: así el abono queda en su hora real y entra
+      // en el turno de caja correcto (ver toWireDateTime).
+      if (paymentDate != null) 'paymentDate': toWireDateTime(paymentDate),
       if (reference != null) 'reference': reference,
       if (notes != null) 'notes': notes,
       if (bankAccountId != null) 'bankAccountId': bankAccountId,
@@ -832,10 +860,17 @@ class AddAmountToCreditDto {
   final double amount;
   final String description;
 
-  const AddAmountToCreditDto({
+  /// Clave única de este aumento de deuda (misma en todos sus reintentos).
+  /// Viaja en el header `Idempotency-Key`; el servidor no lo aplica dos veces.
+  final String idempotencyKey;
+
+  AddAmountToCreditDto({
     required this.amount,
     required this.description,
-  });
+    String? idempotencyKey,
+  }) : idempotencyKey = (idempotencyKey != null && idempotencyKey.isNotEmpty)
+            ? idempotencyKey
+            : AddCreditPaymentDto.generateIdempotencyKey();
 
   Map<String, dynamic> toJson() {
     return {
@@ -849,9 +884,15 @@ class AddAmountToCreditDto {
 class ApplyBalanceToCreditDto {
   final double? amount;
 
-  const ApplyBalanceToCreditDto({
+  /// Clave única de esta aplicación de saldo (misma en todos sus reintentos).
+  final String idempotencyKey;
+
+  ApplyBalanceToCreditDto({
     this.amount,
-  });
+    String? idempotencyKey,
+  }) : idempotencyKey = (idempotencyKey != null && idempotencyKey.isNotEmpty)
+            ? idempotencyKey
+            : AddCreditPaymentDto.generateIdempotencyKey();
 
   Map<String, dynamic> toJson() {
     return {

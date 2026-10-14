@@ -17,10 +17,33 @@ enum CashRegisterStatus {
   }
 }
 
+/// Cobros del turno por un medio distinto al efectivo (Nequi, transferencia,
+/// tarjeta...). Ese dinero NO está en la caja: está en la cuenta.
+class OtherMethodTotal extends Equatable {
+  /// Código del método (`bank_transfer`, `credit_card`...).
+  final String method;
+
+  /// Nombre para mostrar: la cuenta donde entró ("Nequi") o el método.
+  final String label;
+  final double total;
+  final int count;
+
+  const OtherMethodTotal({
+    required this.method,
+    required this.label,
+    required this.total,
+    required this.count,
+  });
+
+  @override
+  List<Object?> get props => [method, label, total, count];
+}
+
 /// Resumen del turno de caja — snapshot inmutable que el backend
 /// genera al cierre y devuelve también para la caja abierta como
 /// "estado en vivo".
 class CashRegisterSummary extends Equatable {
+  /// Todo el efectivo que entró en el turno (ventas + abonos a créditos).
   final double cashSales;
   final int cashSalesCount;
   final double cashExpenses;
@@ -30,6 +53,30 @@ class CashRegisterSummary extends Equatable {
   final int invoicesCount;
   final int creditNotesCount;
   final double creditNotesTotal;
+
+  // ── Desglose del turno ────────────────────────────────────────────────
+  // Vienen en `null` si el servidor aún no envía el desglose o si es un
+  // cierre guardado antes de que existiera.
+
+  /// Efectivo recibido por ventas.
+  final double? cashFromSales;
+  final int? cashFromSalesCount;
+
+  /// Efectivo recibido por abonos a créditos (fiados que se pagaron).
+  final double? cashFromCreditPayments;
+  final int? cashFromCreditPaymentsCount;
+
+  /// Cobros por otros medios; no entran a la caja.
+  final List<OtherMethodTotal>? otherMethods;
+  final double? otherMethodsTotal;
+  final int? otherMethodsCount;
+
+  /// Todo lo cobrado en el turno, por cualquier medio.
+  final double? totalCollected;
+
+  /// Ventas fiadas en el turno (todavía no es dinero recibido).
+  final double? creditSalesTotal;
+  final int? creditSalesCount;
 
   const CashRegisterSummary({
     this.cashSales = 0,
@@ -41,9 +88,28 @@ class CashRegisterSummary extends Equatable {
     this.invoicesCount = 0,
     this.creditNotesCount = 0,
     this.creditNotesTotal = 0,
+    this.cashFromSales,
+    this.cashFromSalesCount,
+    this.cashFromCreditPayments,
+    this.cashFromCreditPaymentsCount,
+    this.otherMethods,
+    this.otherMethodsTotal,
+    this.otherMethodsCount,
+    this.totalCollected,
+    this.creditSalesTotal,
+    this.creditSalesCount,
   });
 
   static const empty = CashRegisterSummary();
+
+  /// `true` si el servidor envió el desglose completo del turno.
+  bool get hasBreakdown => cashFromSales != null && otherMethods != null;
+
+  /// Dinero que debe haber físicamente en la caja: base inicial + efectivo
+  /// recibido + depósitos − gastos pagados de caja − retiros. Los cobros por
+  /// otros medios y las ventas fiadas NO entran aquí.
+  double expectedCash(double openingAmount) =>
+      openingAmount + cashSales + cashDeposits - cashExpenses - cashWithdrawals;
 
   @override
   List<Object?> get props => [
@@ -56,6 +122,16 @@ class CashRegisterSummary extends Equatable {
         invoicesCount,
         creditNotesCount,
         creditNotesTotal,
+        cashFromSales,
+        cashFromSalesCount,
+        cashFromCreditPayments,
+        cashFromCreditPaymentsCount,
+        otherMethods,
+        otherMethodsTotal,
+        otherMethodsCount,
+        totalCollected,
+        creditSalesTotal,
+        creditSalesCount,
       ];
 }
 

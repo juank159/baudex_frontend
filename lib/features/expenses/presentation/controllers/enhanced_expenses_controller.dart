@@ -802,7 +802,7 @@ class EnhancedExpensesController extends GetxController {
   }
 
   int _calculateDailyCount() {
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
 
     return _expenses.where((expense) {
@@ -838,7 +838,7 @@ class EnhancedExpensesController extends GetxController {
   }
 
   int _calculateMonthlyCount() {
-    final now = DateTime.now();
+    final now = tenantNow();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 1);
 
@@ -855,7 +855,7 @@ class EnhancedExpensesController extends GetxController {
   }
 
   double _calculateDailyAmount() {
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
 
     return _expenses
@@ -895,7 +895,7 @@ class EnhancedExpensesController extends GetxController {
   }
 
   double _calculateMonthlyAmount() {
-    final now = DateTime.now();
+    final now = tenantNow();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 1);
 
@@ -914,7 +914,7 @@ class EnhancedExpensesController extends GetxController {
   }
 
   double _calculatePreviousMonthAmount() {
-    final now = DateTime.now();
+    final now = tenantNow();
     final startOfPreviousMonth = DateTime(now.year, now.month - 1, 1);
     final endOfPreviousMonth = DateTime(now.year, now.month, 1);
 

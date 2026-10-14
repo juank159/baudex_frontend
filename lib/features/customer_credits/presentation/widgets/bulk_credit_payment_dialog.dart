@@ -123,6 +123,8 @@ class _BulkCreditPaymentDialogState extends State<BulkCreditPaymentDialog> {
   }
 
   Future<void> _submit() async {
+    // Anti doble toque: si ya hay un envío en curso, ignorar este.
+    if (_submitting) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final amount = AppFormatters.parseNumber(_amountCtrl.text) ?? 0;
     if (amount <= 0) {

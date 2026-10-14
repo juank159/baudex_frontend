@@ -531,7 +531,9 @@ class FullSyncService extends GetxService {
         final isarModels = response.data.map((model) {
           return IsarCategory.fromModel(model);
         }).toList();
-        await _isar.isarCategorys.putAllByServerId(isarModels);
+        await _isar.isarCategorys.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
       });
 
       totalSynced += response.data.length;
@@ -830,7 +832,9 @@ class FullSyncService extends GetxService {
         final isarModels = response.data.map((model) {
           return IsarCustomer.fromModel(model);
         }).toList();
-        await _isar.isarCustomers.putAllByServerId(isarModels);
+        await _isar.isarCustomers.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
       });
 
       totalSynced += response.data.length;
@@ -861,7 +865,9 @@ class FullSyncService extends GetxService {
         final isarModels = response.data.map((model) {
           return IsarSupplier.fromModel(model);
         }).toList();
-        await _isar.isarSuppliers.putAllByServerId(isarModels);
+        await _isar.isarSuppliers.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
       });
 
       totalSynced += response.data.length;
@@ -892,7 +898,9 @@ class FullSyncService extends GetxService {
         final isarModels = response.data.map((model) {
           return IsarInvoice.fromModel(model);
         }).toList();
-        await _isar.isarInvoices.putAllByServerId(isarModels);
+        await _isar.isarInvoices.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
       });
 
       totalSynced += response.data.length;
@@ -923,7 +931,9 @@ class FullSyncService extends GetxService {
         final isarModels = response.data.map((model) {
           return IsarExpense.fromEntity(model.toEntity());
         }).toList();
-        await _isar.isarExpenses.putAllByServerId(isarModels);
+        await _isar.isarExpenses.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
       });
 
       totalSynced += response.data.length;
@@ -947,7 +957,9 @@ class FullSyncService extends GetxService {
       final isarModels = accounts.map((model) {
         return IsarBankAccount.fromEntity(model.toEntity());
       }).toList();
-      await _isar.isarBankAccounts.putAllByServerId(isarModels);
+      await _isar.isarBankAccounts.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
     });
 
     return accounts.length;
@@ -1038,7 +1050,9 @@ class FullSyncService extends GetxService {
         final isarModels = response.data.map((model) {
           return IsarCreditNote.fromModel(model);
         }).toList();
-        await _isar.isarCreditNotes.putAllByServerId(isarModels);
+        await _isar.isarCreditNotes.putAllByServerId(
+          await _withoutQueuedLocalChanges(isarModels, (m) => m.serverId),
+        );
       });
 
       totalSynced += response.data.length;
@@ -1054,6 +1068,38 @@ class FullSyncService extends GetxService {
   }
 
   /// Sincronizar créditos de clientes del server a ISAR (no paginado)
+  /// Quita de [models] los registros que tienen operaciones en la cola de
+  /// sincronización (cambios hechos en este dispositivo que el servidor
+  /// todavía no conoce).
+  ///
+  /// La descarga del servidor NUNCA debe pisar un cambio local sin subir:
+  /// haría que lo que el usuario acaba de registrar "desaparezca" de la
+  /// pantalla hasta que suba. Esos registros se actualizan en el siguiente
+  /// pull, cuando su cola ya esté vacía.
+  Future<List<T>> _withoutQueuedLocalChanges<T>(
+    List<T> models,
+    String Function(T model) serverIdOf,
+  ) async {
+    if (models.isEmpty) return models;
+    try {
+      final queuedOps = await IsarDatabase.instance.getPendingSyncOperations();
+      if (queuedOps.isEmpty) return models;
+      final queuedIds = <String>{for (final op in queuedOps) op.entityId};
+      final safe = models
+          .where((model) => !queuedIds.contains(serverIdOf(model)))
+          .toList();
+      if (safe.length != models.length) {
+        debugPrint(
+          '[FULL_SYNC] ${models.length - safe.length} registro(s) con cambios locales pendientes — no se sobrescriben',
+        );
+      }
+      return safe;
+    } catch (e) {
+      debugPrint('[FULL_SYNC] No se pudo consultar la cola para proteger cambios locales: $e');
+      return models;
+    }
+  }
+
   Future<int> _syncCustomerCredits() async {
     final remoteDS = _getOrCreateDS<CustomerCreditRemoteDataSource>(
       () => CustomerCreditRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
@@ -1063,8 +1109,25 @@ class FullSyncService extends GetxService {
 
     if (credits.isEmpty) return 0;
 
+    // PROTEGER CAMBIOS LOCALES SIN SUBIR: si un crédito tiene operaciones en
+    // la cola (abono, aumento de deuda... hechos sin conexión o aún no
+    // confirmados), el servidor todavía no conoce ese cambio. Sobrescribirlo aquí haría "desaparecer" el abono
+    // de la pantalla hasta que se suba. Se actualiza en el siguiente pull,
+    // cuando su cola ya esté vacía.
+    final queuedOps = await IsarDatabase.instance.getPendingSyncOperations();
+    final protectedCreditIds = <String>{
+      for (final op in queuedOps)
+        if (op.entityType == 'CustomerCredit' ||
+            op.entityType == 'customer_credit')
+          op.entityId,
+    };
+    final creditsToWrite = credits
+        .where((credit) => !protectedCreditIds.contains(credit.id))
+        .toList();
+    if (creditsToWrite.isEmpty) return credits.length;
+
     await _isar.writeTxn(() async {
-      final isarModels = credits.map((credit) {
+      final isarModels = creditsToWrite.map((credit) {
         return IsarCustomerCredit(
           serverId: credit.id,
           originalAmount: credit.originalAmount,

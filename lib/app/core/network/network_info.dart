@@ -56,14 +56,26 @@ class NetworkInfoImpl implements NetworkInfo {
   @override
   bool get isServerReachable => _serverReachable;
 
+  /// Cualquier interfaz que pueda dar salida a internet cuenta como "hay
+  /// red": WiFi, datos, cable, y también VPN u "otra" (antes un equipo
+  /// conectado por VPN se consideraba sin conexión y nunca sincronizaba).
+  /// Que el servidor responda de verdad lo confirma el health-check.
+  static bool _hasUsableInterface(List<ConnectivityResult> results) {
+    return results.any(
+      (r) =>
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.ethernet ||
+          r == ConnectivityResult.vpn ||
+          r == ConnectivityResult.other,
+    );
+  }
+
   @override
   Future<bool> get hasPhysicalConnection async {
     try {
       final connectivityResult = await _connectivity.checkConnectivity();
-      final isWifi = connectivityResult.contains(ConnectivityResult.wifi);
-      final isMobile = connectivityResult.contains(ConnectivityResult.mobile);
-      final isEthernet = connectivityResult.contains(ConnectivityResult.ethernet);
-      return isWifi || isMobile || isEthernet;
+      return _hasUsableInterface(connectivityResult);
     } catch (e) {
       return false;
     }
@@ -85,11 +97,7 @@ class NetworkInfoImpl implements NetworkInfo {
       // Verificar conexión física (llamada de plataforma - solo cuando es necesario)
       final connectivityResult = await _connectivity.checkConnectivity();
 
-      final isWifi = connectivityResult.contains(ConnectivityResult.wifi);
-      final isMobile = connectivityResult.contains(ConnectivityResult.mobile);
-      final isEthernet = connectivityResult.contains(ConnectivityResult.ethernet);
-
-      final hasConnection = isWifi || isMobile || isEthernet;
+      final hasConnection = _hasUsableInterface(connectivityResult);
 
       if (!hasConnection) {
         return false;
@@ -227,12 +235,7 @@ class NetworkInfoImpl implements NetworkInfo {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) {
-        final hasConnection = results.any(
-          (r) =>
-              r == ConnectivityResult.wifi ||
-              r == ConnectivityResult.mobile ||
-              r == ConnectivityResult.ethernet,
-        );
+        final hasConnection = _hasUsableInterface(results);
 
         if (hasConnection && !_serverReachable) {
           // Conexión física restaurada pero servidor marcado como inalcanzable

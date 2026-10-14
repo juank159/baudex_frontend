@@ -210,6 +210,9 @@ class CustomerCreditRemoteDataSourceImpl implements CustomerCreditRemoteDataSour
       final response = await dioClient.post(
         '$_baseEndpoint/$creditId/payments',
         data: dto.toJson(),
+        // Misma clave en cada intento de este abono: el servidor devuelve el
+        // abono ya registrado en vez de duplicarlo.
+        options: Options(extra: {'idempotency_key': dto.idempotencyKey}),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -365,6 +368,7 @@ class CustomerCreditRemoteDataSourceImpl implements CustomerCreditRemoteDataSour
       final response = await dioClient.post(
         '$_baseEndpoint/$creditId/add-amount',
         data: dto.toJson(),
+        options: Options(extra: {'idempotency_key': dto.idempotencyKey}),
       );
 
       if (response.statusCode == 200) {
@@ -390,6 +394,7 @@ class CustomerCreditRemoteDataSourceImpl implements CustomerCreditRemoteDataSour
       final response = await dioClient.post(
         '$_baseEndpoint/$creditId/apply-balance',
         data: dto.toJson(),
+        options: Options(extra: {'idempotency_key': dto.idempotencyKey}),
       );
 
       if (response.statusCode == 200) {

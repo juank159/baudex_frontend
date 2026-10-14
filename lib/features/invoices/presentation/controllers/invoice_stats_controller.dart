@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/controllers/invoice_stats_controller.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -396,7 +397,7 @@ enum StatsPeriod {
 
   /// Obtiene el rango de fechas para este período
   DateTimeRange getDateRange() {
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
 
     switch (this) {

@@ -1,4 +1,5 @@
 // lib/features/inventory/presentation/widgets/kardex_filters_panel.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/themes/app_colors.dart';
@@ -137,8 +138,8 @@ class KardexFiltersPanel extends GetView<KardexController> {
               _buildQuickFilterChip(
                 'Este mes',
                 () => controller.updateDateRange(
-                  DateTime(DateTime.now().year, DateTime.now().month, 1),
-                  DateTime.now(),
+                  DateTime(tenantNow().year, tenantNow().month, 1),
+                  tenantNow(),
                 ),
               ),
               _buildQuickFilterChip(
@@ -151,8 +152,8 @@ class KardexFiltersPanel extends GetView<KardexController> {
               _buildQuickFilterChip(
                 'Este año',
                 () => controller.updateDateRange(
-                  DateTime(DateTime.now().year, 1, 1),
-                  DateTime.now(),
+                  DateTime(tenantNow().year, 1, 1),
+                  tenantNow(),
                 ),
               ),
               _buildQuickFilterChip(

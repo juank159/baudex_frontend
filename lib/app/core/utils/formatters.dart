@@ -166,6 +166,11 @@ class AppFormatters {
     return double.tryParse(cleaned);
   }
 
+  /// Hora del negocio de un instante (zona horaria configurada del tenant).
+  /// Úsalo SIEMPRE antes de formatear a mano una fecha con hora que vino del
+  /// servidor; sin esto se muestra en UTC (varias horas adelantada).
+  static DateTime toTenantTime(DateTime date) => _toTenantTime(date);
+
   /// Convierte un DateTime a la timezone del tenant antes de formatear
   static DateTime _toTenantTime(DateTime date) {
     try {

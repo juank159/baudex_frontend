@@ -1,4 +1,5 @@
 // lib/features/inventory/data/datasources/inventory_local_datasource_isar.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1017,7 +1018,7 @@ class InventoryLocalDataSourceIsar implements InventoryLocalDataSource {
       }
 
       // Movimientos de hoy
-      final today = DateTime.now();
+      final today = tenantNow();
       final startOfDay = DateTime(today.year, today.month, today.day);
       final todayMovements = movements.where((m) => m.movementDate.isAfter(startOfDay)).length;
 

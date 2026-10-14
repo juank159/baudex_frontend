@@ -1881,7 +1881,7 @@ class _CreditDetailPageState extends State<CreditDetailPage>
             _buildInfoRow(
               icon: Icons.calendar_today,
               label: 'Fecha de creación',
-              value: DateFormat('dd/MM/yyyy HH:mm').format(credit.createdAt),
+              value: DateFormat('dd/MM/yyyy HH:mm').format(AppFormatters.toTenantTime(credit.createdAt)),
               color: ElegantLightTheme.primaryBlue,
             ),
             if (credit.dueDate != null)
@@ -2290,7 +2290,7 @@ class _CreditDetailPageState extends State<CreditDetailPage>
                         ),
                       ),
                       Text(
-                        DateFormat('dd/MM/yy').format(transaction.createdAt),
+                        DateFormat('dd/MM/yy').format(AppFormatters.toTenantTime(transaction.createdAt)),
                         style: TextStyle(
                           color: ElegantLightTheme.textTertiary,
                           fontSize: 10,
@@ -2428,7 +2428,7 @@ class _CreditDetailPageState extends State<CreditDetailPage>
                     children: [
                       _buildTransactionMeta(
                         icon: Icons.access_time,
-                        value: DateFormat('HH:mm').format(transaction.createdAt),
+                        value: DateFormat('HH:mm').format(AppFormatters.toTenantTime(transaction.createdAt)),
                       ),
                       const SizedBox(width: 12),
                       _buildTransactionMeta(

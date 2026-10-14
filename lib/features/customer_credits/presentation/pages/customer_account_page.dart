@@ -634,7 +634,7 @@ class _CustomerAccountPageState extends State<CustomerAccountPage>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          DateFormat('dd/MM/yyyy').format(credit.createdAt),
+                          DateFormat('dd/MM/yyyy').format(AppFormatters.toTenantTime(credit.createdAt)),
                           style: const TextStyle(
                             color: ElegantLightTheme.textSecondary,
                             fontSize: 12,
@@ -828,7 +828,7 @@ class _CustomerAccountPageState extends State<CustomerAccountPage>
                 if (account.clientBalance.lastTransaction != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Última transacción: ${DateFormat('dd/MM/yyyy').format(account.clientBalance.lastTransaction!)}',
+                    'Última transacción: ${DateFormat('dd/MM/yyyy').format(AppFormatters.toTenantTime(account.clientBalance.lastTransaction!))}',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 11,

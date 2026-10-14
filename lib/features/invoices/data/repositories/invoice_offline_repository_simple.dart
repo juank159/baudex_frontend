@@ -922,6 +922,14 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       final existingPayments = IsarInvoice.decodePayments(isarInvoice.paymentsJson);
       existingPayments.add(newPayment);
 
+      // Estado previo, para deshacer si el pago no se puede encolar.
+      final previousPaidAmount = isarInvoice.paidAmount;
+      final previousBalanceDue = isarInvoice.balanceDue;
+      final previousStatus = isarInvoice.status;
+      final previousPaymentsJson = isarInvoice.paymentsJson;
+      final previousUpdatedAt = isarInvoice.updatedAt;
+      final previousIsSynced = isarInvoice.isSynced;
+
       // 6. Actualizar ISAR invoice
       isarInvoice.paidAmount = newPaidAmount;
       isarInvoice.balanceDue = newBalanceDue;
@@ -962,7 +970,26 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         );
         AppLogger.d('InvoiceOfflineRepository: Operación addPayment encolada para sync (idempotencyKey=$paymentTempId)');
       } catch (e) {
-        AppLogger.w('InvoiceOfflineRepository: Error encolando addPayment: $e');
+        // Un pago local SIN su operación en la cola nunca llegaría al
+        // servidor. Se deshace el cambio local y se informa el error, en vez
+        // de dejar al usuario creyendo que el pago quedó guardado.
+        AppLogger.e('InvoiceOfflineRepository: Error encolando addPayment: $e — se deshace el pago local');
+        try {
+          isarInvoice.paidAmount = previousPaidAmount;
+          isarInvoice.balanceDue = previousBalanceDue;
+          isarInvoice.status = previousStatus;
+          isarInvoice.paymentsJson = previousPaymentsJson;
+          isarInvoice.updatedAt = previousUpdatedAt;
+          isarInvoice.isSynced = previousIsSynced;
+          await _isar.writeTxn(() async {
+            await _isar.isarInvoices.put(isarInvoice);
+          });
+        } catch (revertError) {
+          AppLogger.e('InvoiceOfflineRepository: No se pudo deshacer el pago local: $revertError');
+        }
+        return Left(CacheFailure(
+          'No se pudo guardar el pago para sincronizar. No se registró: $e',
+        ));
       }
 
       // 8. Cross-update: actualizar CustomerCredit asociado en ISAR

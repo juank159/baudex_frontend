@@ -393,7 +393,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
               ),
               const SizedBox(height: 18),
               Text(
-                'EFECTIVO ESPERADO EN CAJA',
+                'DINERO ESPERADO EN CAJA',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 11,
@@ -528,99 +528,317 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                 ],
               ),
               const SizedBox(height: 16),
+
+              // ───────── 1. DINERO EN CAJA (solo efectivo) ─────────
+              _buildSectionLabel(
+                'Dinero en caja',
+                'Solo efectivo: lo que debe haber en el cajón',
+              ),
+              const SizedBox(height: 8),
               _buildRow(
                 icon: Icons.savings_rounded,
-                label: 'Saldo inicial',
+                label: 'Base inicial',
+                sub: 'Con lo que se abrió el turno',
                 amount: reg.openingAmount,
                 gradient: ElegantLightTheme.infoGradient,
               ),
               const SizedBox(height: 8),
-              _buildRow(
-                icon: Icons.point_of_sale_rounded,
-                label: 'Ventas en efectivo',
-                sub:
-                    '${s.cashSalesCount} pago${s.cashSalesCount != 1 ? "s" : ""}',
-                amount: s.cashSales,
-                gradient: ElegantLightTheme.successGradient,
-              ),
+              if (s.hasBreakdown) ...[
+                _buildRow(
+                  icon: Icons.point_of_sale_rounded,
+                  label: 'Ventas en efectivo',
+                  sub: _countLabel(s.cashFromSalesCount ?? 0, 'pago', 'pagos'),
+                  amount: s.cashFromSales ?? 0,
+                  gradient: ElegantLightTheme.successGradient,
+                ),
+                if ((s.cashFromCreditPayments ?? 0) > 0) ...[
+                  const SizedBox(height: 8),
+                  _buildRow(
+                    icon: Icons.handshake_outlined,
+                    label: 'Abonos de crédito en efectivo',
+                    sub: _countLabel(
+                        s.cashFromCreditPaymentsCount ?? 0, 'abono', 'abonos'),
+                    amount: s.cashFromCreditPayments ?? 0,
+                    gradient: ElegantLightTheme.successGradient,
+                  ),
+                ],
+              ] else
+                _buildRow(
+                  icon: Icons.point_of_sale_rounded,
+                  label: 'Efectivo recibido',
+                  sub: _countLabel(s.cashSalesCount, 'pago', 'pagos'),
+                  amount: s.cashSales,
+                  gradient: ElegantLightTheme.successGradient,
+                ),
+              if (s.cashDeposits > 0) ...[
+                const SizedBox(height: 8),
+                _buildRow(
+                  icon: Icons.add_circle_outline_rounded,
+                  label: 'Ingresos a caja',
+                  amount: s.cashDeposits,
+                  gradient: ElegantLightTheme.successGradient,
+                ),
+              ],
               if (s.cashExpenses > 0) ...[
                 const SizedBox(height: 8),
                 _buildRow(
                   icon: Icons.receipt_long_rounded,
-                  label: 'Gastos pagados',
-                  sub:
-                      '${s.cashExpensesCount} gasto${s.cashExpensesCount != 1 ? "s" : ""}',
+                  label: 'Gastos pagados de caja',
+                  sub: _countLabel(s.cashExpensesCount, 'gasto', 'gastos'),
                   amount: -s.cashExpenses,
                   gradient: ElegantLightTheme.warningGradient,
                 ),
+              ],
+              if (s.cashWithdrawals > 0) ...[
+                const SizedBox(height: 8),
+                _buildRow(
+                  icon: Icons.remove_circle_outline_rounded,
+                  label: 'Retiros de caja',
+                  amount: -s.cashWithdrawals,
+                  gradient: ElegantLightTheme.warningGradient,
+                ),
+              ],
+              const SizedBox(height: 12),
+              _buildTotalBar(
+                icon: Icons.account_balance_wallet_rounded,
+                label: 'DINERO ESPERADO EN CAJA',
+                amount: expected,
+                gradient: ElegantLightTheme.primaryGradient,
+              ),
+
+              // ───────── 2. OTROS MEDIOS DE PAGO (no están en la caja) ─────────
+              if (s.hasBreakdown) ...[
+                const SizedBox(height: 20),
+                _buildSectionLabel(
+                  'Otros medios de pago',
+                  'No entran a la caja: ese dinero está en las cuentas',
+                ),
+                const SizedBox(height: 8),
+                if ((s.otherMethods ?? const []).isEmpty)
+                  _buildEmptyNote('Sin cobros por otros medios en este turno')
+                else ...[
+                  for (final m in s.otherMethods!) ...[
+                    _buildRow(
+                      icon: _otherMethodIcon(m.method),
+                      label: _otherMethodLabel(m),
+                      sub: _countLabel(m.count, 'pago', 'pagos'),
+                      amount: m.total,
+                      gradient: ElegantLightTheme.infoGradient,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildSubtotalRow(
+                    'Total otros medios',
+                    s.otherMethodsTotal ?? 0,
+                  ),
+                ],
+
+                // ───────── 3. TOTAL DEL TURNO ─────────
+                const SizedBox(height: 20),
+                _buildSectionLabel(
+                  'Total del turno',
+                  'Todo lo cobrado, por cualquier medio',
+                ),
+                const SizedBox(height: 8),
+                _buildSubtotalRow(
+                  'Efectivo recibido',
+                  s.cashSales,
+                ),
+                const SizedBox(height: 6),
+                _buildSubtotalRow(
+                  'Otros medios',
+                  s.otherMethodsTotal ?? 0,
+                ),
+                const SizedBox(height: 10),
+                _buildTotalBar(
+                  icon: Icons.payments_rounded,
+                  label: 'TOTAL COBRADO EN EL TURNO',
+                  amount: s.totalCollected ?? s.cashSales,
+                  gradient: ElegantLightTheme.successGradient,
+                ),
+                if ((s.creditSalesTotal ?? 0) > 0) ...[
+                  const SizedBox(height: 10),
+                  _buildRow(
+                    icon: Icons.schedule_rounded,
+                    label: 'Ventas a crédito (fiado)',
+                    sub:
+                        '${_countLabel(s.creditSalesCount ?? 0, 'venta', 'ventas')} · por cobrar, aún no es dinero',
+                    amount: s.creditSalesTotal ?? 0,
+                    gradient: ElegantLightTheme.warningGradient,
+                  ),
+                ],
               ],
               if (s.creditNotesTotal > 0) ...[
                 const SizedBox(height: 8),
                 _buildRow(
                   icon: Icons.assignment_return_outlined,
-                  label: 'Notas de crédito',
+                  label: 'Notas de crédito aplicadas',
                   sub:
-                      '${s.creditNotesCount} NC aplicada${s.creditNotesCount != 1 ? "s" : ""}',
-                  amount: -s.creditNotesTotal,
+                      '${_countLabel(s.creditNotesCount, 'nota', 'notas')} · informativo, no cambia el efectivo',
+                  amount: s.creditNotesTotal,
                   gradient: ElegantLightTheme.errorGradient,
                 ),
               ],
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: ElegantLightTheme.primaryBlue
-                          .withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color:
-                            Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          color: Colors.white,
-                          size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'EFECTIVO ESPERADO',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      AppFormatters.formatCurrency(expected),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  String _countLabel(int count, String singular, String plural) =>
+      '$count ${count == 1 ? singular : plural}';
+
+  /// Nombre a mostrar de un cobro por otro medio: la cuenta si existe
+  /// ("Nequi"), o el nombre del método en español.
+  String _otherMethodLabel(OtherMethodTotal m) {
+    const names = <String, String>{
+      'bank_transfer': 'Transferencia',
+      'credit_card': 'Tarjeta de crédito',
+      'debit_card': 'Tarjeta débito',
+      'check': 'Cheque',
+      'other': 'Otro medio',
+    };
+    final methodName = names[m.method] ?? m.method;
+    if (m.label.isEmpty || m.label == m.method) return methodName;
+    return '${m.label} · $methodName';
+  }
+
+  IconData _otherMethodIcon(String method) {
+    switch (method) {
+      case 'credit_card':
+      case 'debit_card':
+        return Icons.credit_card_rounded;
+      case 'check':
+        return Icons.request_page_outlined;
+      case 'bank_transfer':
+        return Icons.account_balance_rounded;
+      default:
+        return Icons.payments_outlined;
+    }
+  }
+
+  Widget _buildSectionLabel(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: ElegantLightTheme.primaryBlue,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 11,
+            color: ElegantLightTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyNote(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.textSecondary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: ElegantLightTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubtotalRow(String label, double amount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: ElegantLightTheme.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            AppFormatters.formatCurrency(amount),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalBar({
+    required IconData icon,
+    required String label,
+    required double amount,
+    required LinearGradient gradient,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.colors.first.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+          Text(
+            AppFormatters.formatCurrency(amount),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1154,7 +1372,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'EFECTIVO ESPERADO',
+                                  'DINERO ESPERADO EN CAJA',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,

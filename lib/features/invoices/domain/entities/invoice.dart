@@ -1,4 +1,5 @@
 // lib/features/invoices/domain/entities/invoice.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -180,7 +181,7 @@ class Invoice extends Equatable {
     }
 
     // Comparar solo fechas (sin horas) para evitar falsos positivos
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
     final dueDateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
     final invoiceDateOnly = DateTime(date.year, date.month, date.day);
@@ -214,7 +215,7 @@ class Invoice extends Equatable {
   int get daysOverdue {
     if (!isOverdue) return 0;
 
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
     final dueDateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
     final invoiceDateOnly = DateTime(date.year, date.month, date.day);
@@ -236,7 +237,7 @@ class Invoice extends Equatable {
   int get daysUntilDue {
     if (isOverdue || isPaid) return 0;
 
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
     final dueDateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
     final invoiceDateOnly = DateTime(date.year, date.month, date.day);

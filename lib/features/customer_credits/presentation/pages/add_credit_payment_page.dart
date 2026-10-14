@@ -822,6 +822,8 @@ class _AddCreditPaymentPageState extends State<AddCreditPaymentPage> {
   }
 
   Future<void> _submitPayment() async {
+    // Anti doble toque: si ya hay un envío en curso, ignorar este.
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     final amount = double.tryParse(_amountController.text) ?? 0;
@@ -833,6 +835,7 @@ class _AddCreditPaymentPageState extends State<AddCreditPaymentPage> {
       if (!confirmed) return;
     }
 
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
     });

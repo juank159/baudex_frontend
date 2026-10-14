@@ -358,7 +358,39 @@ class CustomerCreditController extends GetxController
   /// Agrega un pago a un crédito
   /// NOTA: El backend YA sincroniza automáticamente con la factura asociada
   /// NO debemos duplicar el pago desde el frontend
+  /// Créditos con un abono en curso. Evita que un doble toque (o dos
+  /// pantallas a la vez) dispare dos abonos del mismo crédito en paralelo.
+  final Set<String> _paymentsInFlight = <String>{};
+  bool _bulkPaymentInFlight = false;
+
   Future<bool> addPayment({
+    required String creditId,
+    required double amount,
+    required String paymentMethod,
+    String? paymentDate,
+    String? reference,
+    String? notes,
+    String? bankAccountId,
+  }) async {
+    if (_bulkPaymentInFlight || !_paymentsInFlight.add(creditId)) {
+      return false;
+    }
+    try {
+      return await _addPaymentUnguarded(
+        creditId: creditId,
+        amount: amount,
+        paymentMethod: paymentMethod,
+        paymentDate: paymentDate,
+        reference: reference,
+        notes: notes,
+        bankAccountId: bankAccountId,
+      );
+    } finally {
+      _paymentsInFlight.remove(creditId);
+    }
+  }
+
+  Future<bool> _addPaymentUnguarded({
     required String creditId,
     required double amount,
     required String paymentMethod,
@@ -438,6 +470,37 @@ class CustomerCreditController extends GetxController
   /// errores por crédito si los hubo (útil para mostrar al cajero
   /// qué falló sin abortar el resto).
   Future<({int applied, double total, List<String> errors})> payAllInSection({
+    required List<CustomerCreditModel> credits,
+    required double totalAmountToApply,
+    required String paymentMethod,
+    String? bankAccountId,
+    String? notes,
+    String? reference,
+  }) async {
+    if (_bulkPaymentInFlight || _paymentsInFlight.isNotEmpty) {
+      return (
+        applied: 0,
+        total: 0.0,
+        errors: <String>['Ya hay un pago en curso. Espera a que termine.'],
+      );
+    }
+    _bulkPaymentInFlight = true;
+    try {
+      return await _payAllInSectionUnguarded(
+        credits: credits,
+        totalAmountToApply: totalAmountToApply,
+        paymentMethod: paymentMethod,
+        bankAccountId: bankAccountId,
+        notes: notes,
+        reference: reference,
+      );
+    } finally {
+      _bulkPaymentInFlight = false;
+      isProcessing.value = false;
+    }
+  }
+
+  Future<({int applied, double total, List<String> errors})> _payAllInSectionUnguarded({
     required List<CustomerCreditModel> credits,
     required double totalAmountToApply,
     required String paymentMethod,

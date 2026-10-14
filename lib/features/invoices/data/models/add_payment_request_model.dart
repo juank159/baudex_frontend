@@ -1,4 +1,5 @@
 // lib/features/invoices/data/models/add_payment_request_model.dart
+import '../../../../app/core/utils/wire_date.dart';
 import '../../domain/entities/invoice.dart';
 
 /// Modelo de request para agregar un pago a una factura
@@ -39,7 +40,9 @@ class AddPaymentRequestModel {
 
     // Solo incluir campos opcionales si no son null
     if (bankAccountId != null) json['bankAccountId'] = bankAccountId;
-    if (paymentDate != null) json['paymentDate'] = paymentDate;
+    // Instante exacto en UTC (ver toWireDateTime): el pago queda en su hora
+    // real y entra en el turno de caja correcto.
+    if (paymentDate != null) json['paymentDate'] = toWireDateTime(paymentDate);
     if (reference != null) json['reference'] = reference;
     if (notes != null) json['notes'] = notes;
     if (paymentCurrency != null) json['paymentCurrency'] = paymentCurrency;
@@ -204,7 +207,9 @@ class AddMultiplePaymentsRequestModel {
       'payments': payments.map((payment) => payment.toJson()).toList(),
     };
 
-    if (paymentDate != null) json['paymentDate'] = paymentDate;
+    // Instante exacto en UTC (ver toWireDateTime): el pago queda en su hora
+    // real y entra en el turno de caja correcto.
+    if (paymentDate != null) json['paymentDate'] = toWireDateTime(paymentDate);
     if (createCreditForRemaining) json['createCreditForRemaining'] = true;
     if (generalNotes != null) json['generalNotes'] = generalNotes;
 

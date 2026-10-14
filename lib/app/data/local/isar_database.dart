@@ -284,17 +284,28 @@ class IsarDatabase implements IIsarDatabase {
     }
   }
 
-  /// Agregar una operación a la cola de sincronización
+  /// Agregar una operación a la cola de sincronización.
+  ///
+  /// La cola es lo único que garantiza que un cambio hecho en el dispositivo
+  /// llegue al servidor. Por eso este método NO falla en silencio: si la
+  /// operación no quedó escrita en disco, lanza para que el llamador lo sepa.
   Future<void> addSyncOperation(SyncOperation operation) async {
-    if (_isar == null) return;
+    if (_isar == null) {
+      throw StateError(
+        'La base de datos local no está disponible: no se pudo guardar la operación pendiente',
+      );
+    }
 
-    try {
-      await _isar!.writeTxn(() async {
-        await _isar!.syncOperations.put(operation);
-      });
-    } catch (e) {
-      // Registrar error pero no propagar (puede ser schema mismatch temporal)
-      AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');
+    await _isar!.writeTxn(() async {
+      await _isar!.syncOperations.put(operation);
+    });
+
+    // Verificar que de verdad quedó persistida.
+    final persisted = await _isar!.syncOperations.get(operation.id);
+    if (persisted == null) {
+      throw StateError(
+        'La operación pendiente no quedó guardada en la base de datos local',
+      );
     }
   }
 
@@ -342,6 +353,68 @@ class IsarDatabase implements IIsarDatabase {
       }
     } catch (e) {
       // Registrar error pero no propagar (puede ser schema mismatch temporal)
+      AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');
+    }
+  }
+
+  /// Falla TRANSITORIA (sin red, timeout, servidor caído, dependencia aún
+  /// no sincronizada): la operación sigue viva y se reintenta sola, siempre.
+  ///
+  /// El contador de intentos solo sirve para espaciar los reintentos; se
+  /// topa en `maxRetries - 1` para que una operación NUNCA quede bloqueada
+  /// por culpa de la conexión.
+  Future<void> markSyncOperationRetryLater(
+    int operationId,
+    String error, {
+    int maxRetries = 10,
+  }) async {
+    if (_isar == null) return;
+
+    try {
+      await _isar!.writeTxn(() async {
+        final operation = await _isar!.syncOperations.get(operationId);
+        if (operation != null) {
+          operation.status = SyncStatus.pending;
+          operation.error = error;
+          operation.updatedAt = DateTime.now();
+          if (operation.retryCount < maxRetries - 1) {
+            operation.retryCount++;
+          } else {
+            operation.retryCount = maxRetries - 1;
+          }
+          await _isar!.syncOperations.put(operation);
+        }
+      });
+    } catch (e) {
+      AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');
+    }
+  }
+
+  /// El servidor RECHAZÓ la operación (regla de negocio o validación).
+  ///
+  /// La operación NO se borra ni se marca como completada: queda en la cola
+  /// como "requiere atención" (retryCount = maxRetries) con el motivo exacto,
+  /// visible en Diagnóstico, y se reintenta sola cada cierto tiempo por si la
+  /// causa ya se resolvió (caja abierta, cupo ampliado, suscripción renovada).
+  Future<void> markSyncOperationRejected(
+    int operationId,
+    String reason, {
+    int maxRetries = 10,
+  }) async {
+    if (_isar == null) return;
+
+    try {
+      await _isar!.writeTxn(() async {
+        final operation = await _isar!.syncOperations.get(operationId);
+        if (operation != null) {
+          operation.status = SyncStatus.failed;
+          operation.error = reason;
+          operation.updatedAt = DateTime.now();
+          operation.retryCount = maxRetries;
+          await _isar!.syncOperations.put(operation);
+        }
+      });
+    } catch (e) {
       AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');
     }
   }

@@ -5,6 +5,34 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import '../../config/constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
+import '../utils/wire_date.dart';
+
+/// Escritura en línea cuyo resultado quedó incierto (sin respuesta o 5xx).
+class UncertainWrite {
+  final String method;
+  final String path;
+  final String key;
+  final DateTime at;
+  bool used = false;
+
+  UncertainWrite({
+    required this.method,
+    required this.path,
+    required this.key,
+    required this.at,
+  });
+
+  Map<String, dynamic> toJson() => {'method': method, 'path': path, 'key': key};
+
+  static UncertainWrite? fromJson(dynamic json) {
+    if (json is! Map) return null;
+    final method = json['method'];
+    final path = json['path'];
+    final key = json['key'];
+    if (method is! String || path is! String || key is! String) return null;
+    return UncertainWrite(method: method, path: path, key: key, at: DateTime.now());
+  }
+}
 
 class ApiInterceptor extends Interceptor {
   final SecureStorageService _storageService;
@@ -93,6 +121,25 @@ class ApiInterceptor extends Interceptor {
       options.headers['X-Requested-With'] = 'XMLHttpRequest';
     }
 
+    // ZONA HORARIA: ninguna fecha-hora sale del dispositivo sin su desfase.
+    // Aplica a TODOS los módulos y a las operaciones de la cola offline:
+    // el servidor recibe el instante exacto en vez de tener que adivinar la
+    // zona (antes los abonos quedaban guardados varias horas corridos).
+    try {
+      final data = options.data;
+      if (data is Map || data is List) {
+        options.data = withExplicitOffsets(data);
+      }
+      if (options.queryParameters.isNotEmpty) {
+        options.queryParameters = Map<String, dynamic>.from(
+          withExplicitOffsets(options.queryParameters) as Map,
+        );
+      }
+    } catch (_) {
+      // Si algo falla aquí, la petición sale como estaba: el servidor
+      // interpreta las horas sin zona con la zona del negocio.
+    }
+
     // Agregar Idempotency-Key para operaciones que modifican datos
     if (_requiresIdempotency(options.method)) {
       // Verificar si ya tiene un idempotency key en extras
@@ -101,9 +148,17 @@ class ApiInterceptor extends Interceptor {
       if (customKey != null && customKey.isNotEmpty) {
         options.headers[idempotencyKeyHeader] = customKey;
       } else if (options.headers[idempotencyKeyHeader] == null) {
-        // Generar idempotency key automáticamente basado en el request
-        final generatedKey = _generateIdempotencyKey(options);
-        options.headers[idempotencyKeyHeader] = generatedKey;
+        // Petición hecha mientras se procesa una operación de la cola de
+        // sincronización: clave ESTABLE, igual en cada reintento de esa
+        // operación, para que el servidor nunca la ejecute dos veces.
+        final syncKey = _syncOperationIdempotencyKey(options);
+        if (syncKey != null) {
+          options.headers[idempotencyKeyHeader] = syncKey;
+        } else {
+          // Generar idempotency key automáticamente basado en el request
+          final generatedKey = _generateIdempotencyKey(options);
+          options.headers[idempotencyKeyHeader] = generatedKey;
+        }
       }
     }
 
@@ -114,6 +169,140 @@ class ApiInterceptor extends Interceptor {
   bool _requiresIdempotency(String method) {
     final methodUpper = method.toUpperCase();
     return methodUpper == 'POST' || methodUpper == 'PUT' || methodUpper == 'PATCH';
+  }
+
+  /// Clave de zona con el identificador de la operación de la cola que se
+  /// está sincronizando (la fija `SyncService` al procesar cada operación).
+  static const Symbol syncOperationZoneKey = #baudexSyncOperationKey;
+
+  /// Clave de zona con el contador de peticiones ya hechas por esa operación.
+  static const Symbol syncOperationSeqZoneKey = #baudexSyncOperationSeq;
+
+  /// Clave de zona con las claves heredadas del intento en línea que
+  /// originó la operación (ver [claimUncertainWrites]).
+  static const Symbol syncOperationInheritedKeysZoneKey =
+      #baudexSyncOperationInheritedKeys;
+
+  // ── Escrituras "inciertas" ─────────────────────────────────────────────────
+  // Una escritura hecha en línea que terminó SIN respuesta (timeout, red
+  // caída) o con error del servidor (5xx) pudo haberse aplicado igual. Los
+  // repositorios, al fallar, guardan el cambio offline y lo encolan; al subir
+  // la cola se enviaría OTRA vez → duplicado.
+  //
+  // Para evitarlo en todos los módulos, se recuerda la clave de idempotencia
+  // de esa escritura incierta y la operación encolada justo después la
+  // HEREDA: su envío usa la misma clave, y el servidor devuelve lo que ya
+  // había procesado en vez de crearlo de nuevo.
+  static final List<UncertainWrite> _uncertainWrites = <UncertainWrite>[];
+  static const Duration _uncertainWriteMaxAge = Duration(seconds: 10);
+
+  void _recordUncertainWrite(DioException err) {
+    try {
+      final options = err.requestOptions;
+      final method = options.method.toUpperCase();
+      if (!_requiresIdempotency(method)) return;
+      // Las peticiones de la propia cola ya tienen su clave estable.
+      if (Zone.current[syncOperationZoneKey] != null) return;
+
+      final status = err.response?.statusCode;
+      final uncertain = status == null || status >= 500 || status == 408;
+      if (!uncertain) return;
+
+      final key = options.headers[idempotencyKeyHeader];
+      if (key is! String || key.isEmpty) return;
+
+      final now = DateTime.now();
+      _uncertainWrites.removeWhere(
+        (w) => now.difference(w.at) > _uncertainWriteMaxAge,
+      );
+      _uncertainWrites.add(
+        UncertainWrite(method: method, path: options.path, key: key, at: now),
+      );
+    } catch (_) {}
+  }
+
+  /// Entrega (y retira) las escrituras inciertas recientes que corresponden
+  /// al tipo de entidad que se está encolando, para que esa operación herede
+  /// sus claves. La llama `SyncService.addOperation`, que corre
+  /// inmediatamente después del intento en línea fallido, dentro de la misma
+  /// acción del usuario.
+  ///
+  /// Cada escritura incierta la hereda UNA sola operación (se retira al
+  /// entregarla) y solo si su ruta corresponde a la entidad: así una venta
+  /// posterior nunca recibe la clave de una venta anterior, y las operaciones
+  /// auxiliares que se encolan junto a la principal (inventario, etc.) no se
+  /// la quitan.
+  static List<UncertainWrite> claimUncertainWrites({String? entityType}) {
+    final now = DateTime.now();
+    _uncertainWrites.removeWhere(
+      (w) => now.difference(w.at) > _uncertainWriteMaxAge,
+    );
+    if (entityType == null) {
+      final all = List<UncertainWrite>.from(_uncertainWrites);
+      _uncertainWrites.clear();
+      return all;
+    }
+
+    String normalize(String value) =>
+        value.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '');
+    final entityToken = normalize(entityType);
+    if (entityToken.isEmpty) return <UncertainWrite>[];
+
+    final claimed = _uncertainWrites
+        .where((w) => normalize(w.path).contains(entityToken))
+        .toList();
+    _uncertainWrites.removeWhere(claimed.contains);
+    return claimed;
+  }
+
+  /// Clave de idempotencia estable para una petición hecha dentro del
+  /// procesamiento de una operación de la cola. Devuelve `null` si la
+  /// petición no pertenece a ninguna operación de la cola.
+  ///
+  /// Se compone de: dispositivo + operación + método + ruta + contenido +
+  /// número de repetición dentro de la operación. Así:
+  ///  - el reintento de la misma operación produce exactamente las mismas
+  ///    claves, y el servidor devuelve lo ya procesado sin duplicar;
+  ///  - dos peticiones distintas de la misma operación nunca comparten clave.
+  String? _syncOperationIdempotencyKey(RequestOptions options) {
+    final operationKey = Zone.current[syncOperationZoneKey];
+    final sequence = Zone.current[syncOperationSeqZoneKey];
+    if (operationKey is! String || sequence is! Map<String, int>) return null;
+
+    // ¿La operación heredó la clave de un intento en línea que quedó
+    // incierto? Entonces esta petición (mismo método y ruta) es el reenvío
+    // de aquel intento: usar SU clave, una sola vez por intento de sync.
+    final inherited = Zone.current[syncOperationInheritedKeysZoneKey];
+    if (inherited is List<UncertainWrite>) {
+      final method = options.method.toUpperCase();
+      final index = inherited.indexWhere(
+        (w) => !w.used && w.method == method && w.path == options.path,
+      );
+      if (index >= 0) {
+        inherited[index].used = true;
+        return inherited[index].key;
+      }
+    }
+
+    String bodyHash = '';
+    final data = options.data;
+    if (data != null) {
+      if (data is FormData) return null; // subidas de archivos: no aplica
+      try {
+        final bodyString = data is String ? data : jsonEncode(data);
+        bodyHash = md5.convert(utf8.encode(bodyString)).toString();
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final slot = '${options.method.toUpperCase()}|${options.path}|$bodyHash';
+    final repetition = (sequence[slot] ?? 0) + 1;
+    sequence[slot] = repetition;
+
+    final material = '${_cachedDeviceId ?? ''}|$operationKey|$slot|$repetition';
+    final hash = sha256.convert(utf8.encode(material)).toString();
+    return 'op_${hash.substring(0, 48)}';
   }
 
   /// Genera una clave de idempotencia basada en el request
@@ -154,6 +343,8 @@ class ApiInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
+    _recordUncertainWrite(err);
+
     final skipAuthInterceptor =
         err.requestOptions.extra['skip_auth_interceptor'] == true;
 

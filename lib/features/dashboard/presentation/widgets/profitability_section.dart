@@ -17,6 +17,11 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      // Solo el administrador del tenant ve la rentabilidad.
+      if (!controller.canSeeProfit) {
+        return const SizedBox.shrink();
+      }
+
       final profitability = controller.profitabilityStats;
 
       if (profitability == null) {

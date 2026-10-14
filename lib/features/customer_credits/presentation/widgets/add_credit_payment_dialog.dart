@@ -1213,6 +1213,8 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
   }
 
   Future<void> _submitPayment() async {
+    // Anti doble toque: si ya hay un envío en curso, ignorar este.
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {

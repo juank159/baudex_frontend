@@ -1632,15 +1632,18 @@ class CustomerRepositoryImpl implements CustomerRepository {
         return const Left(CacheFailure('Customer not found in local database'));
       }
 
-      // Calculate available credit
-      final availableCredit = isarCustomer.creditLimit - isarCustomer.currentBalance;
-      final canPurchase = availableCredit >= amount;
+      // El cupo disponible se calcula contra la deuda PENDIENTE real
+      // (créditos activos), no contra acumulados históricos.
+      final pendingDebt = await _calculatePendingAmountFromIsar(customerId);
+      final availableCredit =
+          (isarCustomer.creditLimit - pendingDebt).clamp(0.0, double.infinity);
+      final canPurchase = pendingDebt + amount <= isarCustomer.creditLimit;
 
       return Right({
         'canPurchase': canPurchase,
         'availableCredit': availableCredit,
         'creditLimit': isarCustomer.creditLimit,
-        'currentBalance': isarCustomer.currentBalance,
+        'currentBalance': pendingDebt,
       });
     } catch (e) {
       return Left(CacheFailure('Failed to check purchase capacity offline: $e'));

@@ -1,5 +1,6 @@
 // lib/features/customer_credits/presentation/widgets/credit_detail_dialog.dart
 
+import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -348,7 +349,7 @@ class _CreditDetailDialogState extends State<CreditDetailDialog> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildInfoRow('Fecha de creación', DateFormat('dd/MM/yyyy HH:mm').format(credit.createdAt)),
+        _buildInfoRow('Fecha de creación', DateFormat('dd/MM/yyyy HH:mm').format(AppFormatters.toTenantTime(credit.createdAt))),
         if (credit.dueDate != null)
           _buildInfoRow(
             'Fecha de vencimiento',
@@ -745,7 +746,7 @@ class _CreditDetailDialogState extends State<CreditDetailDialog> {
                   ),
                 const SizedBox(height: 4),
                 Text(
-                  DateFormat('dd/MM/yyyy HH:mm').format(transaction.createdAt),
+                  DateFormat('dd/MM/yyyy HH:mm').format(AppFormatters.toTenantTime(transaction.createdAt)),
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 11,

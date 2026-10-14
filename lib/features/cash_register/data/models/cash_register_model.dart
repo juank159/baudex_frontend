@@ -12,9 +12,38 @@ class CashRegisterSummaryModel extends CashRegisterSummary {
     required super.invoicesCount,
     required super.creditNotesCount,
     required super.creditNotesTotal,
+    super.cashFromSales,
+    super.cashFromSalesCount,
+    super.cashFromCreditPayments,
+    super.cashFromCreditPaymentsCount,
+    super.otherMethods,
+    super.otherMethodsTotal,
+    super.otherMethodsCount,
+    super.totalCollected,
+    super.creditSalesTotal,
+    super.creditSalesCount,
   });
 
   factory CashRegisterSummaryModel.fromJson(Map<String, dynamic> json) {
+    // El desglose es opcional: servidores o cierres anteriores no lo traen.
+    double? optDouble(String key) =>
+        json.containsKey(key) && json[key] != null ? _toDouble(json[key]) : null;
+    int? optInt(String key) => (json[key] as num?)?.toInt();
+
+    List<OtherMethodTotal>? otherMethods;
+    final rawOther = json['otherMethods'];
+    if (rawOther is List) {
+      otherMethods = rawOther
+          .whereType<Map>()
+          .map((m) => OtherMethodTotal(
+                method: (m['method'] ?? '').toString(),
+                label: (m['label'] ?? m['method'] ?? '').toString(),
+                total: _toDouble(m['total']),
+                count: (m['count'] as num?)?.toInt() ?? 0,
+              ))
+          .toList();
+    }
+
     return CashRegisterSummaryModel(
       cashSales: _toDouble(json['cashSales']),
       cashSalesCount: (json['cashSalesCount'] as num?)?.toInt() ?? 0,
@@ -25,6 +54,16 @@ class CashRegisterSummaryModel extends CashRegisterSummary {
       invoicesCount: (json['invoicesCount'] as num?)?.toInt() ?? 0,
       creditNotesCount: (json['creditNotesCount'] as num?)?.toInt() ?? 0,
       creditNotesTotal: _toDouble(json['creditNotesTotal']),
+      cashFromSales: optDouble('cashFromSales'),
+      cashFromSalesCount: optInt('cashFromSalesCount'),
+      cashFromCreditPayments: optDouble('cashFromCreditPayments'),
+      cashFromCreditPaymentsCount: optInt('cashFromCreditPaymentsCount'),
+      otherMethods: otherMethods,
+      otherMethodsTotal: optDouble('otherMethodsTotal'),
+      otherMethodsCount: optInt('otherMethodsCount'),
+      totalCollected: optDouble('totalCollected'),
+      creditSalesTotal: optDouble('creditSalesTotal'),
+      creditSalesCount: optInt('creditSalesCount'),
     );
   }
 
@@ -38,6 +77,26 @@ class CashRegisterSummaryModel extends CashRegisterSummary {
         'invoicesCount': invoicesCount,
         'creditNotesCount': creditNotesCount,
         'creditNotesTotal': creditNotesTotal,
+        if (cashFromSales != null) 'cashFromSales': cashFromSales,
+        if (cashFromSalesCount != null) 'cashFromSalesCount': cashFromSalesCount,
+        if (cashFromCreditPayments != null)
+          'cashFromCreditPayments': cashFromCreditPayments,
+        if (cashFromCreditPaymentsCount != null)
+          'cashFromCreditPaymentsCount': cashFromCreditPaymentsCount,
+        if (otherMethods != null)
+          'otherMethods': otherMethods!
+              .map((m) => {
+                    'method': m.method,
+                    'label': m.label,
+                    'total': m.total,
+                    'count': m.count,
+                  })
+              .toList(),
+        if (otherMethodsTotal != null) 'otherMethodsTotal': otherMethodsTotal,
+        if (otherMethodsCount != null) 'otherMethodsCount': otherMethodsCount,
+        if (totalCollected != null) 'totalCollected': totalCollected,
+        if (creditSalesTotal != null) 'creditSalesTotal': creditSalesTotal,
+        if (creditSalesCount != null) 'creditSalesCount': creditSalesCount,
       };
 }
 

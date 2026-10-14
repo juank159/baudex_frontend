@@ -1,4 +1,5 @@
 // lib/features/dashboard/presentation/controllers/dashboard_controller.dart
+import 'package:baudex_desktop/features/auth/presentation/controllers/auth_controller.dart';
 import '../../../../app/core/utils/app_logger.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_dashboard_stats_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_notifications_usecase.dart';
@@ -95,7 +96,24 @@ class DashboardController extends GetxController
       isLoadingStats || isLoadingActivity || isLoadingNotifications || isLoadingExpenseChart || isLoadingProfitability;
 
   DashboardStats? get dashboardStats => _dashboardStats.value;
-  ProfitabilityStats? get profitabilityStats => _profitabilityStats.value;
+  /// La ganancia, el costo de lo vendido y los márgenes del negocio solo los
+  /// ve el ADMINISTRADOR del tenant. Empleados (rol `user`) y encargados (rol
+  /// `manager`) no los ven. Es reactivo: si cambia el usuario en sesión, las
+  /// pantallas que lo observan se actualizan.
+  ///
+  /// El servidor aplica la misma regla (devuelve esos datos en cero a quien
+  /// no es administrador); esto además oculta lo calculado localmente sin
+  /// conexión.
+  bool get canSeeProfit {
+    try {
+      return Get.find<AuthController>().currentUser?.isAdmin ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  ProfitabilityStats? get profitabilityStats =>
+      canSeeProfit ? _profitabilityStats.value : null;
   List<RecentActivity> get recentActivities => _recentActivities;
   List<RecentActivityAdvanced> get recentActivitiesAdvanced => _recentActivitiesAdvanced;
   List<dashboard.Notification> get notifications => _notifications;
@@ -160,6 +178,7 @@ class DashboardController extends GetxController
   /// Margen bruto real (con COGS). Usa el campo del backend si está disponible,
   /// si no lo calcula localmente.
   double get grossMarginPercentage {
+    if (!canSeeProfit) return 0.0;
     final server = dashboardStats?.grossMarginPercentage ?? 0.0;
     if (server != 0) return server;
     return totalCollected > 0
@@ -574,6 +593,16 @@ class DashboardController extends GetxController
     String? categoryId,
   }) async {
     if (!_isAlive) return;
+
+    // Solo el administrador consulta la rentabilidad: el dispositivo de un
+    // empleado ni la pide ni la guarda.
+    if (!canSeeProfit) {
+      _profitabilityStats.value = null;
+      _profitabilityError.value = null;
+      _isLoadingProfitability.value = false;
+      return;
+    }
+
     _isLoadingProfitability.value = true;
     _profitabilityError.value = null;
 

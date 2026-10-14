@@ -71,3 +71,24 @@ class TenantDateTimeService extends GetxService {
     return tz.TZDateTime(_location, year, month, day, hour, minute, second);
   }
 }
+
+/// "Ahora" del negocio: la hora actual en la zona horaria configurada del
+/// tenant. Es el reemplazo de `DateTime.now()` cuando se va a calcular qué
+/// DÍA es hoy, el inicio/fin del día, la semana o el mes.
+///
+/// Con `DateTime.now()` esos cálculos salen con el reloj del dispositivo; si
+/// el teléfono o el computador está en otra zona que el negocio, "hoy"
+/// empezaría y terminaría a una hora distinta y las ventas del borde del día
+/// caerían en el día equivocado.
+///
+/// Si el servicio aún no está disponible (arranque), usa el reloj del
+/// dispositivo.
+DateTime tenantNow() {
+  try {
+    if (Get.isRegistered<TenantDateTimeService>()) {
+      return Get.find<TenantDateTimeService>().now();
+    }
+  } catch (_) {}
+  return DateTime.now();
+}
+

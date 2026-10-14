@@ -1,4 +1,5 @@
 // lib/features/bank_accounts/presentation/widgets/movement_card.dart
+import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -149,7 +150,7 @@ class _MovementCardState extends State<MovementCard>
                               // Fecha
                               Text(
                                 DateFormat('dd/MM/yyyy')
-                                    .format(widget.transaction.date),
+                                    .format(AppFormatters.toTenantTime(widget.transaction.date)),
                                 style: const TextStyle(
                                   color: ElegantLightTheme.textSecondary,
                                   fontSize: 11,
@@ -358,7 +359,7 @@ class _MovementCardState extends State<MovementCard>
                   decimalDigits: 2,
                 ).format(widget.transaction.amount)),
             _buildDetailRow('Fecha',
-                DateFormat('dd/MM/yyyy HH:mm').format(widget.transaction.date)),
+                DateFormat('dd/MM/yyyy HH:mm').format(AppFormatters.toTenantTime(widget.transaction.date))),
             _buildDetailRow('Método de pago', widget.transaction.paymentMethod),
 
             if (widget.transaction.customer != null) ...[

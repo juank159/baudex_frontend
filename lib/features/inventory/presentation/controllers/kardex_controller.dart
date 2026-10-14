@@ -1,4 +1,5 @@
 // lib/features/inventory/presentation/controllers/kardex_controller.dart
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -470,7 +471,7 @@ class KardexController extends GetxController {
     final end = endDate.value;
 
     // Check for common ranges
-    final now = DateTime.now();
+    final now = tenantNow();
     final today = DateTime(now.year, now.month, now.day);
     final startOfMonth = DateTime(now.year, now.month, 1);
     final startOfYear = DateTime(now.year, 1, 1);

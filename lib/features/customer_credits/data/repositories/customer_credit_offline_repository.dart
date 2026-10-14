@@ -245,9 +245,10 @@ class CustomerCreditOfflineRepository implements CustomerCreditRepository {
       isarCredit.isSynced = false;
       isarCredit.incrementVersion();
 
-      // Guardar el pago en metadatos. El paymentTempId también servirá como idempotencyKey
-      // para evitar duplicados en reintentos de sync.
-      final paymentTempId = 'payment_${DateTime.now().millisecondsSinceEpoch}';
+      // Guardar el pago en metadatos. El id temporal es la clave de idempotencia
+      // del abono (única por abono, generada al confirmarlo): evita duplicados
+      // en reintentos de sync.
+      final paymentTempId = dto.idempotencyKey;
       final payments = _parsePayments(isarCredit.metadataJson);
       payments.add({
         'id': paymentTempId,

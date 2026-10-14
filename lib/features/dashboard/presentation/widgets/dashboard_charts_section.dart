@@ -354,17 +354,20 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                     Icons.trending_down,
                   ),
                 ),
-                const SizedBox(
-                  width: 10,
-                ), // Reducido de 12 a 10 para más espacio
-                Expanded(
-                  child: _buildCompactMetricCard(
-                    netProfit >= 0 ? 'Ganancia' : 'Pérdida',
-                    AppFormatters.formatCurrency(netProfit.abs().toInt()),
-                    netProfit >= 0 ? AppColors.success : AppColors.error,
-                    netProfit >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                // La ganancia solo la ve el administrador del tenant.
+                if (controller.canSeeProfit) ...[
+                  const SizedBox(
+                    width: 10,
+                  ), // Reducido de 12 a 10 para más espacio
+                  Expanded(
+                    child: _buildCompactMetricCard(
+                      netProfit >= 0 ? 'Ganancia' : 'Pérdida',
+                      AppFormatters.formatCurrency(netProfit.abs().toInt()),
+                      netProfit >= 0 ? AppColors.success : AppColors.error,
+                      netProfit >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1054,96 +1057,100 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
         ),
         const SizedBox(height: 12),
 
-        // ✅ Indicador de Costo de Productos Vendidos (COGS) - Siempre mostrar
-        _buildLegendItem(
-          'COGS',
-          AppFormatters.formatCurrency(totalCOGS.toInt()),
-          '${totalSales > 0 ? (totalCOGS / totalSales * 100).toStringAsFixed(1) : "0.0"}%',
-          AppColors.warning,
-          Icons.inventory_rounded,
-          -2, // barIndex: -2 = no tiene barra correspondiente
-        ),
-        const SizedBox(height: 12),
+        // El costo de lo vendido y la ganancia solo los ve el administrador
+        // del tenant.
+        if (controller.canSeeProfit) ...[
+          // ✅ Indicador de Costo de Productos Vendidos (COGS) - Siempre mostrar
+          _buildLegendItem(
+            'COGS',
+            AppFormatters.formatCurrency(totalCOGS.toInt()),
+            '${totalSales > 0 ? (totalCOGS / totalSales * 100).toStringAsFixed(1) : "0.0"}%',
+            AppColors.warning,
+            Icons.inventory_rounded,
+            -2, // barIndex: -2 = no tiene barra correspondiente
+          ),
+          const SizedBox(height: 12),
 
-        // Separador elegante
-        Container(
-          height: 1,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.transparent,
-                AppColors.textSecondary.withOpacity(0.3),
-                Colors.transparent,
+          // Separador elegante
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  AppColors.textSecondary.withOpacity(0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Ganancia neta
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors:
+                    netProfit >= 0
+                        ? [
+                          AppColors.success.withOpacity(0.1),
+                          AppColors.success.withOpacity(0.05),
+                        ]
+                        : [
+                          AppColors.error.withOpacity(0.1),
+                          AppColors.error.withOpacity(0.05),
+                        ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color:
+                    netProfit >= 0
+                        ? AppColors.success.withOpacity(0.3)
+                        : AppColors.error.withOpacity(0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      netProfit >= 0
+                          ? Icons.arrow_upward_rounded
+                          : Icons.arrow_downward_rounded,
+                      color: netProfit >= 0 ? AppColors.success : AppColors.error,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      netProfit >= 0 ? 'Ganancia' : 'Pérdida',
+                      style: TextStyle(
+                        color:
+                            netProfit >= 0 ? AppColors.success : AppColors.error,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  AppFormatters.formatCurrency(netProfit.abs().toInt()),
+                  style: TextStyle(
+                    color: netProfit >= 0 ? AppColors.success : AppColors.error,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-
-        // Ganancia neta
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors:
-                  netProfit >= 0
-                      ? [
-                        AppColors.success.withOpacity(0.1),
-                        AppColors.success.withOpacity(0.05),
-                      ]
-                      : [
-                        AppColors.error.withOpacity(0.1),
-                        AppColors.error.withOpacity(0.05),
-                      ],
-            ),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color:
-                  netProfit >= 0
-                      ? AppColors.success.withOpacity(0.3)
-                      : AppColors.error.withOpacity(0.3),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    netProfit >= 0
-                        ? Icons.arrow_upward_rounded
-                        : Icons.arrow_downward_rounded,
-                    color: netProfit >= 0 ? AppColors.success : AppColors.error,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    netProfit >= 0 ? 'Ganancia' : 'Pérdida',
-                    style: TextStyle(
-                      color:
-                          netProfit >= 0 ? AppColors.success : AppColors.error,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                AppFormatters.formatCurrency(netProfit.abs().toInt()),
-                style: TextStyle(
-                  color: netProfit >= 0 ? AppColors.success : AppColors.error,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ],
     );
   }

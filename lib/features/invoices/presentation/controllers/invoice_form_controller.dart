@@ -34,6 +34,7 @@ import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 
 // Customer and Product entities
 import '../../../customers/domain/entities/customer.dart';
+import '../../../customer_credits/data/credit_limit_guard.dart';
 import '../../../customers/data/repositories/customer_offline_repository.dart';
 import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
@@ -1681,6 +1682,26 @@ class InvoiceFormController extends GetxController {
       if (blocked) return false;
     }
 
+    // LÍMITE DE CRÉDITO: si esta venta deja plata fiada (venta 100% a
+    // crédito, o pago parcial con el resto a crédito), validar ANTES de
+    // guardar que la deuda pendiente del cliente + lo nuevo no supere su
+    // cupo. Si lo supera, se avisa aquí y la venta NO se guarda.
+    if (!isEditMode) {
+      double amountOnCredit = 0;
+      if (paymentMethod == PaymentMethod.credit &&
+          status == InvoiceStatus.pending) {
+        amountOnCredit = total;
+      } else if (createCreditForRemaining) {
+        final paid = (multiplePayments ?? const <MultiplePaymentData>[])
+            .fold<double>(0, (sum, p) => sum + p.amount);
+        amountOnCredit = total - paid - (balanceApplied ?? 0);
+      }
+      if (amountOnCredit > 0.009) {
+        final blocked = await _blockIfOverCreditLimit(amountOnCredit);
+        if (blocked) return false;
+      }
+    }
+
     try {
       _isSaving.value = true;
 
@@ -2569,6 +2590,39 @@ class InvoiceFormController extends GetxController {
 
   void debugFormState() {
 
+  }
+
+  /// Bloquea la venta si lo que quedaría fiado supera el cupo del cliente.
+  /// Usa la deuda PENDIENTE (créditos activos locales), no el historial de
+  /// compras. Devuelve `true` si la venta debe detenerse.
+  Future<bool> _blockIfOverCreditLimit(double amountOnCredit) async {
+    final customer = selectedCustomer;
+    if (customer == null) return false;
+
+    final check = await CreditLimitGuard.check(
+      customerId: customer.id,
+      amount: amountOnCredit,
+      fallbackCreditLimit: customer.creditLimit,
+    );
+    if (check == null || check.allowed) return false;
+
+    await Get.dialog<void>(
+      AlertDialog(
+        icon: Icon(Icons.block_rounded, color: Colors.red.shade700, size: 36),
+        title: const Text('Límite de crédito excedido'),
+        content: Text(
+          '${'${customer.firstName} ${customer.lastName}'.trim()}\n\n${check.message}',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Get.back(),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+    return true;
   }
 
   /// Phase 2: bloqueo de ventas en efectivo cuando no hay caja abierta.

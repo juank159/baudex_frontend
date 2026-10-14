@@ -14,6 +14,7 @@ import '../../domain/entities/customer_credit.dart';
 import '../../domain/repositories/customer_credit_repository.dart';
 import '../datasources/customer_credit_local_datasource.dart';
 import '../datasources/customer_credit_remote_datasource.dart';
+import '../credit_limit_guard.dart';
 import '../models/customer_credit_model.dart';
 import '../../../invoices/data/models/isar/isar_invoice.dart';
 import '../../../invoices/domain/entities/invoice.dart';
@@ -268,6 +269,15 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, CustomerCredit>> createCredit(CreateCustomerCreditDto dto) async {
+    // LÍMITE DE CRÉDITO: una deuda directa (sin factura) no puede pasar el
+    // cupo del cliente. Se valida ANTES de guardar, con datos locales, para
+    // avisar de inmediato aunque no haya internet. Los créditos de factura
+    // se validan al guardar la factura.
+    if (dto.invoiceId == null || dto.invoiceId!.isEmpty) {
+      final limitFailure = await _creditLimitFailure(dto.customerId, dto.originalAmount);
+      if (limitFailure != null) return Left(limitFailure);
+    }
+
     if (await networkInfo.isConnected) {
       try {
         final credit = await remoteDataSource.createCredit(dto);
@@ -284,6 +294,12 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
         return Right(credit);
       } on ServerException catch (e) {
+        // Rechazo del servidor (límite de crédito, datos inválidos...): se
+        // informa y NO se guarda localmente como si hubiera quedado.
+        if (_isBusinessRejection(e)) {
+          AppLogger.w('[CREDIT_REPO] Crédito rechazado por el servidor (${e.statusCode}): ${e.message}', tag: 'CREDIT');
+          return Left(ServerFailure(e.message, code: e.statusCode));
+        }
         AppLogger.w('[CREDIT_REPO] ServerException en create: ${e.message} - Fallback offline...', tag: 'CREDIT');
         return _createCreditOffline(dto);
       } on ConnectionException catch (e) {
@@ -316,6 +332,14 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
         return Right(credit);
       } on ServerException catch (e) {
+        // El servidor RECHAZÓ el abono (crédito ya pagado, caja cerrada, sin
+        // permiso, datos inválidos...). No es un problema de red: encolarlo
+        // offline lo mostraría como pagado en el dispositivo sin que exista
+        // en el servidor. Se informa el error y no se guarda nada local.
+        if (_isBusinessRejection(e)) {
+          AppLogger.w('[CREDIT_REPO] Abono rechazado por el servidor (${e.statusCode}): ${e.message}', tag: 'CREDIT');
+          return Left(ServerFailure(e.message, code: e.statusCode));
+        }
         AppLogger.w('[CREDIT_REPO] ServerException en addPayment: ${e.message} - Fallback offline...', tag: 'CREDIT');
         return _addPaymentOffline(creditId, dto);
       } on ConnectionException catch (e) {
@@ -536,6 +560,18 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, CustomerCredit>> addAmountToCredit(String creditId, AddAmountToCreditDto dto) async {
+    // LÍMITE DE CRÉDITO: aumentar la deuda no puede pasar el cupo del
+    // cliente. Se valida antes de guardar, con datos locales.
+    try {
+      final cachedForLimit = await localDataSource.getCachedCredit(creditId);
+      if (cachedForLimit != null) {
+        final limitFailure = await _creditLimitFailure(cachedForLimit.customerId, dto.amount);
+        if (limitFailure != null) return Left(limitFailure);
+      }
+    } catch (e) {
+      AppLogger.w('No se pudo validar el límite localmente: $e', tag: 'CREDIT');
+    }
+
     if (await networkInfo.isConnected) {
       try {
         final credit = await remoteDataSource.addAmountToCredit(creditId, dto);
@@ -546,6 +582,12 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
         }
         return Right(credit);
       } catch (e) {
+        // Rechazo del servidor (límite de crédito, crédito pagado...): se
+        // informa y NO se aplica localmente.
+        if (e is ServerException && _isBusinessRejection(e)) {
+          AppLogger.w('[CREDIT_REPO] Aumento de deuda rechazado por el servidor (${e.statusCode}): ${e.message}', tag: 'CREDIT');
+          return Left(ServerFailure(e.message, code: e.statusCode));
+        }
         if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
         AppLogger.w('[CREDIT_REPO] Error en addAmountToCredit: $e - Fallback offline...', tag: 'CREDIT');
         return _addAmountToCreditOffline(creditId, dto);
@@ -566,6 +608,12 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
         }
         return Right(credit);
       } catch (e) {
+        // Rechazo del servidor (sin saldo a favor, crédito pagado...): se
+        // informa y NO se aplica localmente.
+        if (e is ServerException && _isBusinessRejection(e)) {
+          AppLogger.w('[CREDIT_REPO] Aplicación de saldo rechazada por el servidor (${e.statusCode}): ${e.message}', tag: 'CREDIT');
+          return Left(ServerFailure(e.message, code: e.statusCode));
+        }
         if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
         AppLogger.w('[CREDIT_REPO] Error en applyBalanceToCredit: $e - Fallback offline...', tag: 'CREDIT');
         return _applyBalanceToCreditOffline(creditId, dto);
@@ -716,6 +764,25 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
     }
   }
 
+  /// `true` cuando el servidor respondió y rechazó la operación por una regla
+  /// de negocio o de validación (4xx). Esos casos NO se reintentan ni se
+  /// encolan. 401 (sesión vencida), 408 y 429 sí son reintentables.
+  bool _isBusinessRejection(ServerException e) {
+    final code = e.statusCode;
+    if (code == null) return false;
+    if (code == 401 || code == 408 || code == 429) return false;
+    return code >= 400 && code < 500;
+  }
+
+  /// Devuelve un Failure si agregar [amount] de deuda al cliente supera su
+  /// límite de crédito (deuda pendiente + monto nuevo > cupo); `null` si cabe.
+  Future<Failure?> _creditLimitFailure(String customerId, double amount) async {
+    final check = await CreditLimitGuard.check(customerId: customerId, amount: amount);
+    if (check == null || check.allowed) return null;
+    AppLogger.w('[CREDIT_REPO] Límite de crédito excedido: debe ${check.pendingDebt}, cupo ${check.creditLimit}, nuevo ${check.amount}', tag: 'CREDIT');
+    return ServerFailure('Límite de crédito excedido. ${check.message}', code: 400);
+  }
+
   // ==================== SYNC QUEUE HELPER ====================
 
   /// Helper para agregar operaciones a la cola de sincronización de forma segura
@@ -728,32 +795,60 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
     String? fallbackOrganizationId,
     int priority = 1,
   }) async {
-    try {
-      final syncService = Get.find<SyncService>();
-      final authController = Get.find<AuthController>();
+    // Un cambio local SIN su operación en la cola nunca llegaría al
+    // servidor. Por eso, si no se puede encolar, esto LANZA: el llamador
+    // deshace el cambio local y le informa el error al usuario, en vez de
+    // dejarlo creyendo que quedó guardado.
+    final syncService = Get.find<SyncService>();
+    final authController = Get.find<AuthController>();
 
-      // Obtener organizationId: primero del usuario, luego del fallback
-      String organizationId = authController.currentUser?.organizationId ?? '';
-      if (organizationId.isEmpty && fallbackOrganizationId != null) {
-        organizationId = fallbackOrganizationId;
-      }
+    // Obtener organizationId: primero del usuario, luego del fallback
+    String organizationId = authController.currentUser?.organizationId ?? '';
+    if (organizationId.isEmpty && fallbackOrganizationId != null) {
+      organizationId = fallbackOrganizationId;
+    }
 
-      if (organizationId.isEmpty) {
-        AppLogger.w('No se pudo obtener organizationId para sync queue', tag: 'CREDIT');
-        return;
-      }
-
-      await syncService.addOperation(
-        entityType: entityType,
-        entityId: entityId,
-        operationType: operationType,
-        data: data,
-        organizationId: organizationId,
-        priority: priority,
+    if (organizationId.isEmpty) {
+      throw StateError(
+        'No se pudo identificar la organización para guardar la operación pendiente',
       );
-      AppLogger.d('Operación $operationType agregada a sync queue: $entityType/$entityId', tag: 'CREDIT');
+    }
+
+    await syncService.addOperation(
+      entityType: entityType,
+      entityId: entityId,
+      operationType: operationType,
+      data: data,
+      organizationId: organizationId,
+      priority: priority,
+    );
+    AppLogger.d('Operación $operationType agregada a sync queue: $entityType/$entityId', tag: 'CREDIT');
+  }
+
+  /// Encola un movimiento de un crédito ya modificado en la caché local. Si
+  /// no se puede encolar, restaura el crédito a como estaba y relanza, para
+  /// que el dispositivo nunca muestre un movimiento que no se va a subir.
+  Future<void> _queueCreditChangeOrRevert({
+    required String creditId,
+    required CustomerCreditModel previous,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      await _addToSyncQueue(
+        entityType: 'CustomerCredit',
+        entityId: creditId,
+        operationType: SyncOperationType.update,
+        data: data,
+        fallbackOrganizationId: previous.organizationId,
+      );
     } catch (e) {
-      AppLogger.w('Error adding to sync queue: $e', tag: 'CREDIT');
+      AppLogger.e('No se pudo encolar el movimiento del crédito $creditId: $e — se deshace el cambio local', tag: 'CREDIT');
+      try {
+        await localDataSource.cacheCredit(previous);
+      } catch (revertError) {
+        AppLogger.e('Tampoco se pudo restaurar el crédito local: $revertError', tag: 'CREDIT');
+      }
+      rethrow;
     }
   }
 
@@ -880,12 +975,13 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
       // Update cache
       await localDataSource.cacheCredit(updatedCredit);
 
-      // Add to sync queue. Generamos un idempotencyKey único para que un reintento no duplique el pago.
-      final idempotencyKey = 'payment_${DateTime.now().millisecondsSinceEpoch}_${creditId.hashCode}';
-      await _addToSyncQueue(
-        entityType: 'CustomerCredit',
-        entityId: creditId,
-        operationType: SyncOperationType.update,
+      // Add to sync queue. Se usa la MISMA clave del abono que ya pudo haber
+      // viajado en el intento en línea: si aquel intento sí llegó al servidor
+      // (la respuesta se perdió), el reenvío desde la cola no lo duplica.
+      final idempotencyKey = dto.idempotencyKey;
+      await _queueCreditChangeOrRevert(
+        creditId: creditId,
+        previous: cachedCredit,
         data: {
           'action': 'addPayment',
           'idempotencyKey': idempotencyKey,
@@ -896,7 +992,6 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
           'notes': dto.notes,
           'bankAccountId': dto.bankAccountId,
         },
-        fallbackOrganizationId: cachedCredit.organizationId,
       );
 
       // ✅ Cross-update: actualizar factura asociada en ISAR
@@ -1036,17 +1131,16 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
       await localDataSource.cacheCredit(updatedCredit);
 
       // Encolar para sincronización
-      await _addToSyncQueue(
-        entityType: 'CustomerCredit',
-        entityId: creditId,
-        operationType: SyncOperationType.update,
+      await _queueCreditChangeOrRevert(
+        creditId: creditId,
+        previous: cachedCredit,
         data: {
           'action': 'addAmount',
+          'idempotencyKey': dto.idempotencyKey,
           'creditId': creditId,
           'amount': dto.amount,
           'description': dto.description,
         },
-        fallbackOrganizationId: cachedCredit.organizationId,
       );
 
       AppLogger.i('Amount added offline successfully', tag: 'CREDIT');
@@ -1099,16 +1193,15 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
       await localDataSource.cacheCredit(updatedCredit);
 
-      await _addToSyncQueue(
-        entityType: 'CustomerCredit',
-        entityId: creditId,
-        operationType: SyncOperationType.update,
+      await _queueCreditChangeOrRevert(
+        creditId: creditId,
+        previous: cachedCredit,
         data: {
           'action': 'applyBalance',
+          'idempotencyKey': dto.idempotencyKey,
           'creditId': creditId,
           'amount': dto.amount,
         },
-        fallbackOrganizationId: cachedCredit.organizationId,
       );
 
       AppLogger.i('Balance applied offline successfully', tag: 'CREDIT');
@@ -1153,15 +1246,13 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
       await localDataSource.cacheCredit(updatedCredit);
 
-      await _addToSyncQueue(
-        entityType: 'CustomerCredit',
-        entityId: creditId,
-        operationType: SyncOperationType.update,
+      await _queueCreditChangeOrRevert(
+        creditId: creditId,
+        previous: cachedCredit,
         data: {
           'action': 'cancel',
           'creditId': creditId,
         },
-        fallbackOrganizationId: cachedCredit.organizationId,
       );
 
       AppLogger.i('Credit cancelled offline successfully', tag: 'CREDIT');

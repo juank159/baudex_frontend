@@ -705,14 +705,14 @@ class _CashRegisterDetailSheet extends StatelessWidget {
                             ),
                           const SizedBox(height: 12),
                           _buildHighlightRow(
-                            label: 'EFECTIVO ESPERADO',
+                            label: 'DINERO ESPERADO EN CAJA',
                             value: AppFormatters.formatCurrency(
                                 reg.closingExpectedAmount ?? 0),
                             gradient: ElegantLightTheme.primaryGradient,
                           ),
                           const SizedBox(height: 8),
                           _buildHighlightRow(
-                            label: 'EFECTIVO CONTADO',
+                            label: 'DINERO CONTADO',
                             value: AppFormatters.formatCurrency(
                                 reg.closingActualAmount ?? 0),
                             gradient: accentGradient,

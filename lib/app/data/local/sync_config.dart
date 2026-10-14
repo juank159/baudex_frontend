@@ -14,6 +14,13 @@ class SyncConfig {
   /// será eliminada de la cola y notificada al usuario.
   static const int maxRetries = 10;
 
+  /// Cada cuánto se reintenta sola una operación que el servidor rechazó
+  /// ("requiere atención"), por si la causa ya se resolvió.
+  static const Duration rejectedRetryInterval = Duration(minutes: 15);
+
+  /// Espera máxima entre reintentos de una falla transitoria (red/servidor).
+  static const Duration maxTransientBackoff = Duration(minutes: 2);
+
   /// Delay base para exponential backoff (en segundos)
   /// Fórmula: min(2^retryCount, maxBackoffSeconds)
   static const int baseBackoffSeconds = 1;

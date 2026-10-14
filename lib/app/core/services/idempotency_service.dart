@@ -49,6 +49,26 @@ class IdempotencyService extends GetxService {
     }
   }
 
+  /// `true` SOLO si la operación quedó confirmada como completada.
+  ///
+  /// A diferencia de [isOperationProcessed], un registro en estado
+  /// "processing" NO cuenta: si la app se cerró o se quedó sin red mientras
+  /// la operación viajaba, ese registro queda huérfano y la operación debe
+  /// volver a enviarse (el servidor evita el duplicado), no darse por hecha.
+  Future<bool> isOperationCompleted(String idempotencyKey) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final record = await isar.isarIdempotencyRecords
+          .filter()
+          .idempotencyKeyEqualTo(idempotencyKey)
+          .findFirst();
+      return record != null && record.isCompleted;
+    } catch (e) {
+      _logError('Error checking completed operation: $e');
+      return false;
+    }
+  }
+
   /// Registra una nueva operación como pendiente
   ///
   /// Retorna la clave de idempotencia generada
