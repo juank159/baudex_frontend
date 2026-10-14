@@ -1,4 +1,7 @@
 // lib/features/settings/presentation/controllers/organization_controller.dart
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/organization.dart';
@@ -6,6 +9,7 @@ import '../../domain/repositories/organization_repository.dart';
 import '../../data/repositories/organization_repository_impl.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/services/password_validation_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
@@ -54,6 +58,9 @@ class OrganizationController extends GetxController
       loadCurrentOrganization();
     }
 
+    // Tasas de cambio y configuración del negocio siempre al día.
+    _startConfigRefresh();
+
     // CRÍTICO: el OrganizationController se registra como `permanent`
     // antes del login, así que su `onInit` corre con _isAuthenticated
     // = false. Si NO escuchamos cambios, la organización (y por ende
@@ -77,7 +84,122 @@ class OrganizationController extends GetxController
   @override
   void onClose() {
     _authWorker?.dispose();
+    _configRefreshTimer?.cancel();
     super.onClose();
+  }
+
+  // ==================== CONFIGURACIÓN EN VIVO (TASAS DE CAMBIO) ====================
+
+  /// Cada cuánto se revisa en el servidor si cambió la configuración del
+  /// negocio (tasas de cambio, monedas). Es una consulta muy liviana.
+  static const Duration _configRefreshInterval = Duration(seconds: 20);
+  Timer? _configRefreshTimer;
+
+  /// `true` si hay cambios de la configuración del negocio hechos en este
+  /// equipo que todavía no suben al servidor (p. ej. el dueño cambió la tasa
+  /// sin internet). Mientras tanto, lo que traiga el servidor es VIEJO y no
+  /// debe pisar el cambio local.
+  static Future<bool> hasPendingLocalChanges() async {
+    try {
+      final pending = await IsarDatabase.instance.getPendingSyncOperations();
+      return pending.any((op) =>
+          op.entityType == 'organization' ||
+          op.entityType == 'organization_profit_margin');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Aplica la versión del servidor solo si no hay cambios locales sin subir.
+  Future<void> applyServerOrganization(Organization organization) async {
+    if (await hasPendingLocalChanges()) return;
+    applyOrganization(organization);
+  }
+
+  /// Firma de lo que define los cobros en otras monedas.
+  String _currencySignature(Organization? organization) {
+    if (organization == null) return '';
+    return jsonEncode({
+      'currency': organization.currency,
+      'multi': organization.multiCurrencyEnabled,
+      'accepted': organization.acceptedCurrencies,
+    });
+  }
+
+  /// Aplica una versión de la organización (del servidor o de la caché) a
+  /// TODA la app: facturación, órdenes de compra, caja y cualquier pantalla
+  /// que observe `currentOrganizationRx` se actualiza al instante.
+  ///
+  /// Si cambiaron las tasas de cambio y el cambio vino de otro equipo (o del
+  /// servidor), avisa al usuario con la tasa nueva.
+  void applyOrganization(Organization organization, {bool notifyRateChange = true}) {
+    final previous = _currentOrganization.value;
+    final previousSignature = _currencySignature(previous);
+    final nextSignature = _currencySignature(organization);
+
+    _currentOrganization.value = organization;
+    _tempProfitMargin.value = organization.profitMargin ?? 20.0;
+    _syncTimezone(organization);
+
+    if (notifyRateChange &&
+        previous != null &&
+        previousSignature != nextSignature &&
+        organization.multiCurrencyEnabled) {
+      _announceRateChange(previous, organization);
+    }
+  }
+
+  void _announceRateChange(Organization before, Organization after) {
+    final changes = <String>[];
+    for (final currency in after.acceptedCurrencies) {
+      final code = currency['code']?.toString() ?? '';
+      final newRate = (currency['defaultRate'] as num?)?.toDouble();
+      final old = before.acceptedCurrencies.firstWhere(
+        (c) => c['code'] == code,
+        orElse: () => <String, dynamic>{},
+      );
+      final oldRate = (old['defaultRate'] as num?)?.toDouble();
+      if (newRate != null && newRate != oldRate) {
+        changes.add(oldRate == null
+            ? '$code: ${_formatRate(newRate)}'
+            : '$code: ${_formatRate(oldRate)} → ${_formatRate(newRate)}');
+      }
+    }
+    if (changes.isEmpty) return;
+    try {
+      Get.snackbar(
+        'Tasa de cambio actualizada',
+        '${changes.join('   ·   ')}\nYa se aplica en ventas, pagos y órdenes de compra.',
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 6),
+        backgroundColor: Colors.blue.shade700,
+        colorText: Colors.white,
+        icon: const Icon(Icons.currency_exchange_rounded, color: Colors.white),
+        isDismissible: true,
+        shouldIconPulse: false,
+      );
+    } catch (_) {}
+  }
+
+  String _formatRate(double rate) {
+    final text = rate == rate.roundToDouble()
+        ? rate.toStringAsFixed(0)
+        : rate.toStringAsFixed(2);
+    return text.replaceAll('.', ',');
+  }
+
+  /// Revisa periódicamente si la configuración cambió en el servidor (p. ej.
+  /// el dueño actualizó la tasa desde otro equipo). Solo cuando el negocio
+  /// usa multimoneda, hay sesión y hay conexión. Sin conexión se sigue usando
+  /// la última tasa conocida.
+  void _startConfigRefresh() {
+    _configRefreshTimer?.cancel();
+    _configRefreshTimer = Timer.periodic(_configRefreshInterval, (_) {
+      if (!_isAuthenticated) return;
+      if (_currentOrganization.value?.multiCurrencyEnabled != true) return;
+      if (_isLoading.value) return;
+      _refreshFromServerInBackground();
+    });
   }
 
   @override
@@ -444,11 +566,7 @@ class OrganizationController extends GetxController
     final cacheResult = await impl.getCachedOrganization();
     cacheResult.fold(
       (_) {},
-      (organization) {
-        _currentOrganization.value = organization;
-        _tempProfitMargin.value = organization.profitMargin ?? 20.0;
-        _syncTimezone(organization);
-      },
+      (organization) => applyOrganization(organization),
     );
   }
 
@@ -467,11 +585,7 @@ class OrganizationController extends GetxController
               _handleFailure(failure);
             }
           },
-          (organization) {
-            _currentOrganization.value = organization;
-            _tempProfitMargin.value = organization.profitMargin ?? 20.0;
-            _syncTimezone(organization);
-          },
+          (organization) => applyServerOrganization(organization),
         );
       }).whenComplete(() => _isRefreshingInBackground = false);
       return;
@@ -487,9 +601,7 @@ class OrganizationController extends GetxController
           // Si ya teníamos cache, silenciar el error
         },
         (organization) {
-          _currentOrganization.value = organization;
-          _tempProfitMargin.value = organization.profitMargin ?? 20.0;
-          _syncTimezone(organization);
+          applyServerOrganization(organization);
           _clearError();
         },
       );

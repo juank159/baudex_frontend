@@ -1,4 +1,5 @@
 // lib/features/settings/data/repositories/organization_repository_impl.dart
+import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
@@ -34,9 +35,13 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
     }
     try {
       final result = await remoteDataSource.getCurrentOrganization();
-      try {
-        await _offlineRepo.cacheOrganization(result);
-      } catch (_) {}
+      // No guardar sobre un cambio local que aún no sube al servidor (p. ej.
+      // la tasa se cambió sin internet): lo del servidor es la versión vieja.
+      if (!await _hasPendingLocalChanges()) {
+        try {
+          await _offlineRepo.cacheOrganization(result);
+        } catch (_) {}
+      }
       return Right(result);
     } on ConnectionException catch (e) {
       networkInfo.markServerUnreachable();
@@ -89,6 +94,17 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
       );
     } catch (e) {
       return Left(CacheFailure('Error obteniendo organización de cache: $e'));
+    }
+  }
+
+  Future<bool> _hasPendingLocalChanges() async {
+    try {
+      final pending = await IsarDatabase.instance.getPendingSyncOperations();
+      return pending.any((op) =>
+          op.entityType == 'organization' ||
+          op.entityType == 'organization_profit_margin');
+    } catch (_) {
+      return false;
     }
   }
 

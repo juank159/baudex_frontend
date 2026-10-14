@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
 import 'isar_database.dart';
+import '../../../features/settings/presentation/controllers/organization_controller.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/dio_client.dart';
 
@@ -473,7 +474,24 @@ class FullSyncService extends GetxService {
     final offlineRepo = OrganizationOfflineRepository();
 
     final orgModel = await remoteDS.getCurrentOrganization();
+
+    // Si el dueño cambió la configuración en este equipo y aún no sube (p. ej.
+    // sin internet), lo del servidor es la versión VIEJA: no pisarla.
+    if (await OrganizationController.hasPendingLocalChanges()) {
+      debugPrint('[FULL_SYNC] Organización con cambios locales pendientes — no se sobrescribe');
+      return 1;
+    }
     await offlineRepo.cacheOrganization(orgModel);
+
+    // Aplicar de inmediato en toda la app (tasas de cambio, monedas, zona
+    // horaria...), sin esperar a que la descarga termine o "detecte cambios".
+    try {
+      if (Get.isRegistered<OrganizationController>()) {
+        Get.find<OrganizationController>().applyOrganization(orgModel);
+      }
+    } catch (e) {
+      debugPrint('[FULL_SYNC] No se pudo aplicar la organización en memoria: $e');
+    }
 
     return 1;
   }

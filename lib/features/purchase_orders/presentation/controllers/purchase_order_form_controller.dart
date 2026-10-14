@@ -98,6 +98,10 @@ class PurchaseOrderFormController extends GetxController
       <Map<String, dynamic>>[].obs;
   Worker? _orgWorker;
 
+  /// `true` si el usuario escribió la tasa a mano en esta orden: entonces no
+  /// se reemplaza cuando cambia la tasa de la configuración.
+  bool _rateEditedByUser = false;
+
   // Getters legacy (no-reactivos) por compatibilidad con código existente.
   bool get multiCurrencyEnabled => multiCurrencyEnabledRx.value;
   String get baseCurrencyCode => baseCurrencyCodeRx.value;
@@ -784,8 +788,28 @@ class PurchaseOrderFormController extends GetxController
       // Escuchar cambios futuros (p.ej. usuario edita settings y regresa).
       _orgWorker = ever<Organization?>(ctrl.currentOrganizationRx, (_) {
         _hydrateOrgConfig();
+        _applyLatestRateIfNotEdited();
       });
     } catch (_) {}
+  }
+
+  /// Si cambió la tasa de la configuración del negocio y en esta orden hay
+  /// una moneda extranjera elegida cuya tasa el usuario no escribió a mano,
+  /// aplica la tasa nueva y recalcula. Una orden ya guardada (edición) no se
+  /// toca: conserva la tasa con la que se hizo.
+  void _applyLatestRateIfNotEdited() {
+    final code = selectedPurchaseCurrency.value;
+    if (code == null || _rateEditedByUser || isEditMode.value) return;
+    final info = acceptedCurrencies.firstWhere(
+      (c) => c['code'] == code,
+      orElse: () => <String, dynamic>{},
+    );
+    final latest = (info['defaultRate'] as num?)?.toDouble();
+    if (latest == null || latest <= 0 || latest == exchangeRate.value) return;
+    exchangeRate.value = latest;
+    exchangeRateController.text = AppFormatters.formatRate(latest);
+    _recomputeForeignFromBase();
+    _reapplyForeignPricesToBase();
   }
 
   /// Cambia la moneda seleccionada. Si es la base, limpia los campos
@@ -800,6 +824,7 @@ class PurchaseOrderFormController extends GetxController
       return;
     }
     selectedPurchaseCurrency.value = code;
+    _rateEditedByUser = false;
     final info = acceptedCurrencies.firstWhere(
       (c) => c['code'] == code,
       orElse: () => <String, dynamic>{},
@@ -818,6 +843,7 @@ class PurchaseOrderFormController extends GetxController
   /// Usa `parseRate` (igual que facturas) para interpretar correctamente el
   /// formato es_CO: "6" → 6, "6,00" → 6, "4.000" → 4000, "0,12" → 0.12.
   void onExchangeRateChanged(String text) {
+    _rateEditedByUser = true;
     final parsed = AppFormatters.parseRate(text);
     if (parsed == null || parsed <= 0) return;
     exchangeRate.value = parsed;

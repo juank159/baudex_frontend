@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/widgets/enhanced_payment_dialog.dart
+import 'package:baudex_desktop/features/settings/domain/entities/organization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -232,6 +233,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   // Multi-moneda (pago simple)
   bool _isMultiCurrencyEnabled = false;
   List<Map<String, dynamic>> _acceptedCurrencies = [];
+
+  /// `true` si el usuario escribió la tasa a mano en este pago: entonces no
+  /// se le cambia aunque llegue una tasa nueva de la configuración.
+  bool _rateEditedByUser = false;
+
+  /// Escucha cambios de la configuración del negocio (tasa de cambio) mientras
+  /// el diálogo está abierto.
+  Worker? _orgConfigWorker;
   String _baseCurrency = 'COP';
   String? _selectedCurrency; // null = moneda base
   double? _exchangeRate;
@@ -303,6 +312,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
 
     // Cargar configuración multi-moneda de la organización
     _loadMultiCurrencyConfig();
+    _listenToOrganizationRates();
 
     // Intentar obtener o inicializar el controlador de cuentas bancarias
     _initBankAccountsController();
@@ -348,6 +358,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
 
   @override
   void dispose() {
+    _orgConfigWorker?.dispose();
     _animationController.dispose();
     receivedController.dispose();
     receivedFocusNode.dispose();
@@ -553,6 +564,39 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     }
   }
 
+  /// Si el dueño cambia la tasa de cambio (en este u otro equipo) mientras este
+  /// pago está abierto, se aplica aquí al instante: se actualizan las monedas
+  /// disponibles y, si hay una moneda elegida y el usuario no escribió la
+  /// tasa a mano, se usa la tasa nueva y se recalcula el pago.
+  void _listenToOrganizationRates() {
+    try {
+      if (!Get.isRegistered<OrganizationController>()) return;
+      final orgCtrl = Get.find<OrganizationController>();
+      _orgConfigWorker = ever<Organization?>(orgCtrl.currentOrganizationRx, (organization) {
+        if (!mounted || organization == null) return;
+        final accepted = List<Map<String, dynamic>>.from(organization.acceptedCurrencies);
+        double? newRate;
+        if (_selectedCurrency != null && !_rateEditedByUser) {
+          final info = accepted.firstWhere(
+            (c) => c['code'] == _selectedCurrency,
+            orElse: () => <String, dynamic>{},
+          );
+          newRate = (info['defaultRate'] as num?)?.toDouble();
+        }
+        setState(() {
+          _baseCurrency = organization.currency;
+          _isMultiCurrencyEnabled = organization.multiCurrencyEnabled;
+          _acceptedCurrencies = accepted;
+        });
+        if (newRate != null && newRate > 0 && newRate != _exchangeRate) {
+          _exchangeRate = newRate;
+          _exchangeRateController.text = AppFormatters.formatRate(newRate);
+          _recalculateForeignPayment();
+        }
+      });
+    } catch (_) {}
+  }
+
   /// Cargar configuración multi-moneda de la organización (offline-first)
   void _loadMultiCurrencyConfig() {
     // 1. Intentar desde OrganizationController (si ya tiene datos)
@@ -606,6 +650,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         _calculateChange();
       } else {
         _selectedCurrency = currencyCode;
+        _rateEditedByUser = false;
         // Buscar tasa por defecto
         final currencyInfo = _acceptedCurrencies.firstWhere(
           (c) => c['code'] == currencyCode,
@@ -2971,6 +3016,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
                   onChanged: (value) {
+                    _rateEditedByUser = true;
                     _exchangeRate = AppFormatters.parseRate(value);
                     _recalculateForeignPayment();
                   },
