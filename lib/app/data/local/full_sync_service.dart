@@ -589,6 +589,26 @@ class FullSyncService extends GetxService {
     'Notificaciones': 'notifications',
   };
 
+  /// Registros por página. Los módulos con muchas relaciones (facturas con
+  /// ítems y pagos, productos con precios…) van de a 200; los livianos de a
+  /// 500 (máximo del servidor).
+  static const Map<String, int> _changesPageSize = {
+    'invoices': 200,
+    'products': 200,
+    'credit_notes': 200,
+    'purchase_orders': 200,
+    'expenses': 200,
+  };
+  static const int _lightChangesPageSize = 500;
+
+  /// Ventana de "lo reciente" que se baja primero en una descarga completa.
+  static const Duration _recentWindow = Duration(days: 3);
+
+  /// ¿Hay algún módulo a medias de su descarga completa? Mientras tanto los
+  /// pulls van más seguido para terminarla pronto.
+  bool get hasPendingFullDownload =>
+      _changesProgress.values.any((p) => p.isFullDownload);
+
   static final RegExp _uuidPattern = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   );
@@ -718,7 +738,42 @@ class FullSyncService extends GetxService {
       _changesProgress[entity] = progress;
     }
 
+    final pageSize = _changesPageSize[entity] ?? _lightChangesPageSize;
     var applied = 0;
+
+    // Fase 1 de una descarga completa: lo de los últimos días primero.
+    if (progress.isFullDownload && !progress.recentDone) {
+      progress.recentSince ??= DateTime.now()
+          .toUtc()
+          .subtract(_recentWindow)
+          .toIso8601String();
+      while (true) {
+        if (!_hasTimeLeft()) return applied;
+        final page = await _changesClient.fetch(
+          entity,
+          since: progress.recentSince!,
+          afterId: progress.recentAfterId,
+          limit: pageSize,
+        );
+        if (page.items.isNotEmpty) {
+          final skipped = await handler.apply(page.items);
+          for (var i = 0; i < page.items.length; i++) {
+            final id = page.items[i]['id']?.toString();
+            if (id != null &&
+                skipped.contains(id) &&
+                i < page.stamps.length) {
+              progress.noteSkipped(page.stamps[i]);
+            }
+          }
+          applied += page.items.length;
+        }
+        if (!page.hasMore || page.nextSince == null) break;
+        progress.recentSince = page.nextSince;
+        progress.recentAfterId = page.nextAfterId;
+      }
+      progress.recentDone = true;
+    }
+
     while (true) {
       if (!_hasTimeLeft()) {
         // Se sigue en el próximo pull; la marca no avanza hasta terminar.
@@ -728,6 +783,7 @@ class FullSyncService extends GetxService {
         entity,
         since: progress!.since,
         afterId: progress.afterId,
+        limit: pageSize,
       );
 
       if (page.resetRequired) {
@@ -2437,6 +2493,13 @@ class _ChangesProgress {
 
   /// IDs recibidos (solo en descarga completa, para la limpieza final).
   final Set<String> seen = {};
+
+  /// Descarga completa: antes del histórico (que va de lo más viejo a lo
+  /// más nuevo) se bajan los últimos días, para que las ventas de hoy estén
+  /// en pantalla de inmediato. Cursor propio de esa fase.
+  bool recentDone = false;
+  String? recentSince;
+  String? recentAfterId;
 
   _ChangesProgress({required this.organization, required this.since})
       : isFullDownload = since == SyncChangesClient.epoch;

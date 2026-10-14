@@ -595,7 +595,15 @@ class SyncService extends GetxService {
       return false;
     }
     if (_lastPullTime == null) return true;
-    return DateTime.now().difference(_lastPullTime!) > const Duration(seconds: 60);
+    // Mientras un módulo termina su descarga completa (una sola vez por
+    // equipo), los pulls van cada 15 s para que no tarde una hora; después,
+    // cada 60 s y solo con lo que cambió.
+    final fullDownloadPending = Get.isRegistered<FullSyncService>() &&
+        Get.find<FullSyncService>().hasPendingFullDownload;
+    final interval = fullDownloadPending
+        ? const Duration(seconds: 15)
+        : const Duration(seconds: 60);
+    return DateTime.now().difference(_lastPullTime!) > interval;
   }
 
   /// Pull periódico: descarga cambios del servidor y notifica controllers si hay novedades

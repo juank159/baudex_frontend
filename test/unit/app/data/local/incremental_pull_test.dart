@@ -120,17 +120,43 @@ void main() {
     for (var i = 1; i <= 450; i++) {
       server.put(uuid(i), at(i % 60));
     }
-    final count = await sync.debugPullChanges('invoices');
-    expect(count, 450);
+    await sync.debugPullChanges('invoices');
     expect(local.length, 450);
-    expect(server.requests, 3); // 200 + 200 + 50
-    expect(server.sinceLog.first, SyncChangesClient.epoch);
+    // Histórico completo: 200 + 200 + 50 (más la fase de "lo reciente").
+    expect(server.sinceLog.where((s) => s == SyncChangesClient.epoch).length, 1);
 
     // Segunda vez: pide desde la marca del servidor, no desde el principio.
     server.requests = 0;
     await sync.debugPullChanges('invoices');
     expect(server.sinceLog.last, server.now);
     expect(server.requests, 1);
+  });
+
+  test('descarga completa: lo de los últimos días llega primero', () async {
+    final now = DateTime.now().toUtc();
+    String ago(Duration d) => now.subtract(d).toIso8601String();
+    server.put(uuid(1), ago(const Duration(days: 300))); // viejo
+    server.put(uuid(2), ago(const Duration(hours: 2))); // de hoy
+    final order = <String>[];
+    final handlers = sync.debugChangeHandlers!;
+    final original = handlers['invoices'];
+    sync.debugChangeHandlers = {
+      'invoices': FullSyncService.debugHandler(
+        apply: (items) async {
+          order.addAll(items.map((i) => i['id'] as String));
+          for (final i in items) {
+            local[i['id'] as String] = server.rows[i['id']]!.stamp;
+          }
+          return <String>{};
+        },
+        delete: (ids) async => 0,
+        sweep: (seen) async => 0,
+      ),
+    };
+    await sync.debugPullChanges('invoices');
+    expect(order.first, uuid(2)); // lo de hoy antes que el histórico
+    expect(local.keys.toSet(), {uuid(1), uuid(2)});
+    sync.debugChangeHandlers = {'invoices': original!};
   });
 
   test('después solo baja lo cambiado y aplica borrados', () async {
