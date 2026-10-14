@@ -611,6 +611,9 @@ class SyncService extends GetxService {
       _lastPullTime = DateTime.now();
 
       final result = await fullSyncService.performFullSync(skipCleanup: true);
+      // Contar los 60 s desde que TERMINA el pull, no desde que empezó: si
+      // un pull tarda, el siguiente no debe arrancar pegado a él.
+      _lastPullTime = DateTime.now();
 
       if (result.totalSynced > 0 && !result.wasAborted) {
         final countsChanged = !_mapsEqualInt(result.syncedCounts, _lastPullCounts);

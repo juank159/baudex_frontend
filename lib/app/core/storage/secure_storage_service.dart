@@ -190,6 +190,10 @@ class SecureStorageService {
   /// si la clave es sensible. Si el formato es viejo (sin prefijo
   /// `enc:v1:`), lo retorna tal cual y se reescribirá cifrado en el
   /// próximo write.
+  /// Valor descifrado de cada clave sensible, junto al texto cifrado del
+  /// que salió (para saber si sigue vigente).
+  static final Map<String, MapEntry<String, String?>> _decryptedCache = {};
+
   static Future<String?> _readSecure(String key) async {
     if (await _shouldUseSharedPreferences()) {
       try {
@@ -197,7 +201,15 @@ class SecureStorageService {
         final raw = prefs.getString('secure_$key');
         if (raw == null) return null;
         if (_isSensitive(key)) {
-          return _TokenCipher.decrypt(raw);
+          // Descifrar cuesta (varias rondas de HMAC en Dart) y el token se
+          // lee en CADA petición al servidor. Se recuerda el resultado
+          // mientras el valor guardado sea exactamente el mismo; si cambia
+          // (login, refresh, logout), se vuelve a descifrar.
+          final cached = _decryptedCache[key];
+          if (cached != null && cached.key == raw) return cached.value;
+          final plain = _TokenCipher.decrypt(raw);
+          _decryptedCache[key] = MapEntry(raw, plain);
+          return plain;
         }
         return raw;
       } catch (e) {

@@ -144,6 +144,35 @@ class FullSyncService extends GetxService {
 
   static const int _pageSize = 100;
 
+  /// Tiempo máximo que un módulo puede descargar en un pull periódico.
+  /// Al agotarse, el módulo se detiene entre páginas y el siguiente pull
+  /// sigue desde donde quedó. Sin este límite cada pull volvía a bajar
+  /// catálogos completos (miles de productos, facturas, lotes…) en el
+  /// hilo de la pantalla, y la app se trababa.
+  static const Duration _periodicEntityBudget = Duration(seconds: 10);
+
+  /// Módulos que se pueden descargar por tandas: solo guardan (upsert) lo
+  /// que llega, así que una descarga parcial no borra nada. Los que
+  /// reemplazan la lista completa al final (categorías de gastos,
+  /// almacenes…) no están aquí y siempre se descargan completos.
+  static const Set<String> _resumableEntities = {
+    'Productos',
+    'Presentaciones',
+    'Clientes',
+    'Proveedores',
+    'Facturas',
+    'Gastos',
+    'Órdenes de Compra',
+    'Notas de Crédito',
+    'Lotes de Inventario',
+    'Movimientos de Inventario',
+    'Notificaciones',
+  };
+
+  /// Página (o posición) donde quedó cada módulo cuando un pull periódico
+  /// agotó su tiempo.
+  final Map<String, int> _resumeCursor = {};
+
   // Tiers de sincronización paralela (por dependencias)
   // Tier 1: Entidades base sin dependencias
   // Tier 2: Entidades que dependen de categorías
@@ -183,6 +212,13 @@ class FullSyncService extends GetxService {
     progress.clear();
 
     final allEntities = _syncOrder;
+
+    // Descargas de cada módulo, aunque ya se haya dejado de esperarlas por
+    // el timeout. La sincronización no se da por terminada hasta que todas
+    // acaben: así nunca corren dos descargas encima una de otra.
+    final inFlight = <Future<void>>[];
+    final entityDeadline =
+        skipCleanup ? DateTime.now().add(_periodicEntityBudget) : null;
 
     // Inicializar progreso
     for (final entity in allEntities) {
@@ -319,9 +355,18 @@ class FullSyncService extends GetxService {
         // abortar — con 12s el sistema detecta la caída rápidamente y cambia
         // a modo offline sin que el usuario lo note.
         final futures = <Future<MapEntry<String, int?>>>[];
+        final tierDeadline = entityDeadline == null
+            ? null
+            : DateTime.now().add(_periodicEntityBudget);
         for (final entityName in tier) {
+          final download = _syncEntitySafe(
+            entityName,
+            syncFunctions[entityName]!,
+            deadline: tierDeadline,
+          );
+          inFlight.add(download);
           futures.add(
-            _syncEntitySafe(entityName, syncFunctions[entityName]!)
+            download
                 .timeout(
               const Duration(seconds: 12),
               onTimeout: () {
@@ -442,6 +487,9 @@ class FullSyncService extends GetxService {
         duration: stopwatch.elapsed,
       );
     } finally {
+      if (inFlight.isNotEmpty) {
+        await Future.wait(inFlight);
+      }
       isSyncing.value = false;
       currentEntity.value = '';
     }
@@ -450,15 +498,96 @@ class FullSyncService extends GetxService {
   /// Ejecuta sync de una entidad individual capturando errores
   Future<MapEntry<String, int?>> _syncEntitySafe(
     String entityName,
-    Future<int> Function() syncFn,
-  ) async {
+    Future<int> Function() syncFn, {
+    DateTime? deadline,
+  }) async {
+    final resumable = _resumableEntities.contains(entityName);
+    final pass = _EntityPass(
+      deadline: resumable ? deadline : null,
+      resumeFrom: resumable && deadline != null
+          ? _resumeCursor[entityName]
+          : null,
+    );
     try {
-      final count = await syncFn();
+      final count = await runZoned(
+        syncFn,
+        zoneValues: {_EntityPass.zoneKey: pass},
+      );
+      // Si terminó por tiempo, el siguiente pull sigue desde ahí; si llegó
+      // al final, el siguiente vuelve a empezar desde la primera página.
+      if (pass.stoppedAt != null) {
+        _resumeCursor[entityName] = pass.stoppedAt!;
+      } else {
+        _resumeCursor.remove(entityName);
+      }
       return MapEntry(entityName, count);
     } catch (e) {
       debugPrint('[FULL_SYNC] ERROR en $entityName: $e');
       return MapEntry(entityName, null);
     }
+  }
+
+  /// Solo para pruebas: corre [syncFn] como el módulo [entityName] de una
+  /// sincronización (pull periódico si se pasa [deadline]).
+  @visibleForTesting
+  Future<int?> debugSyncEntity(
+    String entityName,
+    Future<int> Function() syncFn, {
+    DateTime? deadline,
+  }) async =>
+      (await _syncEntitySafe(entityName, syncFn, deadline: deadline)).value;
+
+  @visibleForTesting
+  int debugStartPage() => _startPage();
+  @visibleForTesting
+  int debugNextPage(int page) => _nextPage(page);
+  @visibleForTesting
+  bool debugContinuePaging(int position) => _continuePaging(position);
+
+  _EntityPass? get _currentPass =>
+      Zone.current[_EntityPass.zoneKey] as _EntityPass?;
+
+  /// Primera página a pedir. Siempre la 1: así lo más reciente se refresca
+  /// en cada pull. Si el módulo había quedado a medias, después de la
+  /// primera página [_nextPage] salta a donde quedó.
+  int _startPage() => 1;
+
+  /// Siguiente página: después de la primera, salta a donde quedó el pull
+  /// anterior (si quedó a medias).
+  int _nextPage(int page) {
+    final pass = _currentPass;
+    final resumeFrom = pass?.resumeFrom;
+    if (pass != null && resumeFrom != null) {
+      pass.resumeFrom = null;
+      if (resumeFrom > page + 1) return resumeFrom;
+    }
+    return page + 1;
+  }
+
+  /// Posición inicial para módulos que recorren una lista local por tandas
+  /// (presentaciones, una consulta por producto): sigue donde quedó.
+  int _startIndex(int length) {
+    final pass = _currentPass;
+    final resumeFrom = pass?.resumeFrom;
+    if (pass == null || resumeFrom == null) return 0;
+    pass.resumeFrom = null;
+    return resumeFrom < length ? resumeFrom : 0;
+  }
+
+  /// ¿Sigue la descarga del módulo? No, si se pidió abortar o si en un
+  /// pull periódico se le acabó el tiempo; en ese caso anota la posición
+  /// para continuar en el siguiente pull.
+  bool _continuePaging(int position) {
+    if (_abortRequested) return false;
+    final pass = _currentPass;
+    final deadline = pass?.deadline;
+    if (pass != null &&
+        deadline != null &&
+        DateTime.now().isAfter(deadline)) {
+      pass.stoppedAt = position;
+      return false;
+    }
+    return true;
   }
 
   /// Abortar la sincronización en curso
@@ -540,10 +669,10 @@ class FullSyncService extends GetxService {
   Future<int> _syncCategories() async {
     final remoteDS = Get.find<CategoryRemoteDataSource>();
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getCategories(
         CategoryQueryModel(page: page, limit: _pageSize),
       );
@@ -561,7 +690,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -572,11 +701,11 @@ class FullSyncService extends GetxService {
     final remoteDS = Get.find<ExpenseRemoteDataSource>();
     final localDS = Get.find<ExpenseLocalDataSource>();
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
     final allCategories = <dynamic>[];
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getExpenseCategories(
         page: page,
         limit: _pageSize,
@@ -587,7 +716,7 @@ class FullSyncService extends GetxService {
       allCategories.addAll(response.data);
       totalSynced += response.data.length;
       hasMore = response.meta?.hasNextPage ?? false;
-      page++;
+      page = _nextPage(page);
     }
 
     // Preservar categorías offline con sync pendiente
@@ -629,7 +758,7 @@ class FullSyncService extends GetxService {
   Future<int> _syncProducts() async {
     final remoteDS = Get.find<ProductRemoteDataSource>();
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
     // Antes de construir el set de protección, sanamos productos que quedaron
@@ -658,7 +787,7 @@ class FullSyncService extends GetxService {
         .map((p) => p.serverId)
         .toSet();
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getProducts(
         ProductQueryModel(page: page, limit: _pageSize, includePrices: true, includeCategory: true),
       );
@@ -676,7 +805,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -800,7 +929,9 @@ class FullSyncService extends GetxService {
     int totalSynced = 0;
     const int chunkSize = 20;
 
-    for (int i = 0; i < syncedProducts.length && !_abortRequested; i += chunkSize) {
+    for (int i = _startIndex(syncedProducts.length);
+        i < syncedProducts.length && _continuePaging(i);
+        i += chunkSize) {
       final chunk = syncedProducts.sublist(
         i,
         (i + chunkSize).clamp(0, syncedProducts.length),
@@ -841,10 +972,10 @@ class FullSyncService extends GetxService {
       () => CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getCustomers(
         CustomerQueryModel(page: page, limit: _pageSize),
       );
@@ -862,7 +993,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -874,10 +1005,10 @@ class FullSyncService extends GetxService {
       () => SupplierRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getSuppliers(
         SupplierQueryParams(page: page, limit: _pageSize),
       );
@@ -895,7 +1026,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -907,10 +1038,10 @@ class FullSyncService extends GetxService {
       () => InvoiceRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getInvoices(
         InvoiceQueryParams(page: page, limit: _pageSize),
       );
@@ -928,7 +1059,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -938,10 +1069,10 @@ class FullSyncService extends GetxService {
   Future<int> _syncExpenses() async {
     final remoteDS = Get.find<ExpenseRemoteDataSource>();
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getExpenses(
         page: page,
         limit: _pageSize,
@@ -961,7 +1092,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -1019,10 +1150,10 @@ class FullSyncService extends GetxService {
       () => PurchaseOrderRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getPurchaseOrders(
         PurchaseOrderQueryParams(page: page, limit: _pageSize),
       );
@@ -1047,7 +1178,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -1059,10 +1190,10 @@ class FullSyncService extends GetxService {
       () => CreditNoteRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getCreditNotes(
         QueryCreditNotesParams(page: page, limit: _pageSize),
       );
@@ -1084,7 +1215,7 @@ class FullSyncService extends GetxService {
       final hasNextPage = response.meta['hasNextPage'] as bool?;
       // Usar hasNextPage si disponible, sino calcular desde totalPages
       hasMore = hasNextPage ?? (page < totalPages);
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -1192,7 +1323,7 @@ class FullSyncService extends GetxService {
   Future<int> _syncInventoryBatchesWithDS(InventoryRemoteDataSource remoteDS) async {
     int totalSynced = 0;
     int skippedUnsync = 0;
-    int page = 1;
+    int page = _startPage();
 
     // Determinar si hay operaciones de inventario pendientes de sync.
     // Si hay Invoices/FIFO pendientes, las deducciones locales aún no se reflejan
@@ -1220,7 +1351,7 @@ class FullSyncService extends GetxService {
 
     // getBatches devuelve List<Map<String, dynamic>>
     // Paginar manualmente ya que el endpoint acepta page/limit
-    while (!_abortRequested) {
+    while (_continuePaging(page)) {
       final batchMaps = await remoteDS.getBatches(
         page: page,
         limit: _pageSize,
@@ -1255,7 +1386,7 @@ class FullSyncService extends GetxService {
       // Caso borde: si último lote tiene exactamente _pageSize items,
       // hará 1 request extra que retorna vacío → break en isEmpty check arriba.
       if (batchMaps.length < _pageSize) break;
-      page++;
+      page = _nextPage(page);
     }
 
     if (skippedUnsync > 0) {
@@ -1271,10 +1402,10 @@ class FullSyncService extends GetxService {
       () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getMovements(
         InventoryMovementQueryParams(page: page, limit: _pageSize),
       );
@@ -1290,7 +1421,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -1302,10 +1433,10 @@ class FullSyncService extends GetxService {
       () => NotificationRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
     );
     int totalSynced = 0;
-    int page = 1;
+    int page = _startPage();
     bool hasMore = true;
 
-    while (hasMore && !_abortRequested) {
+    while (hasMore && _continuePaging(page)) {
       final response = await remoteDS.getNotifications(
         NotificationQueryModel(page: page, limit: _pageSize),
       );
@@ -1322,7 +1453,7 @@ class FullSyncService extends GetxService {
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
-      page++;
+      page = _nextPage(page);
     }
 
     return totalSynced;
@@ -1643,4 +1774,22 @@ class FullSyncService extends GetxService {
         return IsarCreditStatus.pending;
     }
   }
+}
+
+/// Estado de la descarga de un módulo dentro de una sincronización.
+/// Viaja en la zona de la descarga para que los ciclos de paginación sepan
+/// cuándo detenerse y desde dónde seguir.
+class _EntityPass {
+  static const Object zoneKey = #fullSyncEntityPass;
+
+  /// Hasta cuándo puede descargar (solo pulls periódicos).
+  final DateTime? deadline;
+
+  /// Posición donde quedó el pull anterior, si quedó a medias.
+  int? resumeFrom;
+
+  /// Posición donde se detuvo por tiempo en este pull.
+  int? stoppedAt;
+
+  _EntityPass({this.deadline, this.resumeFrom});
 }
