@@ -922,6 +922,44 @@ class MockIsarDatabase implements IIsarDatabase {
     });
   }
 
+  /// Falla transitoria: sigue viva, nunca se bloquea
+  Future<void> markSyncOperationRetryLater(
+    int operationId,
+    String error, {
+    int maxRetries = 10,
+  }) async {
+    await _mockIsar.writeTxn(() async {
+      final operation = await _mockIsar.syncOperations.get(operationId);
+      if (operation != null) {
+        operation.status = SyncStatus.pending;
+        operation.error = error;
+        operation.updatedAt = DateTime.now();
+        operation.retryCount = operation.retryCount < maxRetries - 1
+            ? operation.retryCount + 1
+            : maxRetries - 1;
+        await _mockIsar.syncOperations.put(operation);
+      }
+    });
+  }
+
+  /// Rechazada por el servidor: se conserva como "requiere atención"
+  Future<void> markSyncOperationRejected(
+    int operationId,
+    String reason, {
+    int maxRetries = 10,
+  }) async {
+    await _mockIsar.writeTxn(() async {
+      final operation = await _mockIsar.syncOperations.get(operationId);
+      if (operation != null) {
+        operation.status = SyncStatus.failed;
+        operation.error = reason;
+        operation.updatedAt = DateTime.now();
+        operation.retryCount = maxRetries;
+        await _mockIsar.syncOperations.put(operation);
+      }
+    });
+  }
+
   /// Delete sync operation
   Future<void> deleteSyncOperation(int operationId) async {
     await _mockIsar.writeTxn(() async {
