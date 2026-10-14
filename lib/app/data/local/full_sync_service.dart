@@ -324,7 +324,12 @@ class FullSyncService extends GetxService {
                 .timeout(
               const Duration(seconds: 12),
               onTimeout: () {
-
+                // No es un error de datos: el módulo tardó más de 12 s (típico
+                // en la primera descarga de catálogos grandes). Lo que ya
+                // bajó queda guardado y el resto llega en el siguiente pull.
+                debugPrint(
+                  '[FULL_SYNC] $entityName tardó más de 12 s — se completará en la siguiente descarga',
+                );
                 return MapEntry(entityName, null);
               },
             )

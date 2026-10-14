@@ -18,7 +18,7 @@ class ResourceUsageModel extends ResourceUsage {
       current: json['current'] as int? ?? 0,
       limit: json['limit'] as int? ?? 0,
       isUnlimited: json['isUnlimited'] as bool? ?? false,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      percentage: _usageNum(json['percentage']) ?? 0.0,
       isNearLimit: json['isNearLimit'] as bool? ?? false,
       hasReachedLimit: json['hasReachedLimit'] as bool? ?? false,
     );
@@ -60,7 +60,7 @@ class UsageWarningModel extends UsageWarning {
       resource: json['resource'] as String? ?? '',
       type: _parseWarningType(json['type']),
       message: json['message'] as String? ?? '',
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      percentage: _usageNum(json['percentage']) ?? 0.0,
     );
   }
 
@@ -266,4 +266,12 @@ class SubscriptionUsageModel extends SubscriptionUsage {
     }
     return null;
   }
+}
+
+/// Número que puede llegar como número o como texto desde el servidor.
+double? _usageNum(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value.trim());
+  return null;
 }

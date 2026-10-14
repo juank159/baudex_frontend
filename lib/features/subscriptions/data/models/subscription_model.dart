@@ -49,11 +49,11 @@ class SubscriptionModel extends Subscription {
       isTrial: json['isTrial'] as bool? ?? true,
       daysUntilExpiration: json['daysUntilExpiration'] as int? ?? 0,
       subscriptionProgress:
-          (json['subscriptionProgress'] as num?)?.toDouble() ?? 0.0,
+          _numOrNull(json['subscriptionProgress']) ?? 0.0,
       remainingDays: json['remainingDays'] as int? ?? 0,
       maxUsers: json['maxUsers'] as int? ?? 2,
       autoRenew: json['autoRenew'] as bool? ?? false,
-      price: (json['price'] as num?)?.toDouble(),
+      price: _numOrNull(json['price']),
       currency: json['currency'] as String?,
       paymentMethod: json['paymentMethod'] as String?,
       nextBillingDate: _parseDate(json['nextBillingDate']),
@@ -223,4 +223,14 @@ class SubscriptionModel extends Subscription {
     }
     return null;
   }
+}
+
+/// Número que puede llegar como número o como texto. El servidor envía los
+/// campos decimales de la base (p. ej. `price: "59.99"`) como texto; con un
+/// `as num?` directo la suscripción completa fallaba al leerse.
+double? _numOrNull(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value.trim());
+  return null;
 }
