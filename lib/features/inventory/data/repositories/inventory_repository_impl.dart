@@ -35,10 +35,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
 
-  // Throttle para cache de batches en background
-  DateTime? _lastBatchCacheTime;
-  bool _isCachingBatches = false;
-
   InventoryRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
@@ -56,8 +52,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteMovements = await remoteDataSource.getMovements(params);
         // Cache successful result
         await localDataSource.cacheMovements(params, remoteMovements);
-        // Cache batches en ISAR para soporte offline de balances
-        _ensureBatchesCachedInBackground();
         return Right(
           core.PaginatedResult(
             data:
@@ -639,8 +633,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteBalances = await remoteDataSource.getBalances(params);
         // Cache successful result
         await localDataSource.cacheBalances(params, remoteBalances);
-        // Cache batches en ISAR en background para que offline funcione
-        _ensureBatchesCachedInBackground();
         return Right(
           core.PaginatedResult(
             data: remoteBalances.data.map((model) => model.toEntity()).toList(),
@@ -764,8 +756,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteStats = await remoteDataSource.getInventoryStats(params);
         // Cache successful result
         await localDataSource.cacheStats(params, remoteStats);
-        // Cache batches en ISAR para soporte offline
-        _ensureBatchesCachedInBackground();
         return Right(remoteStats.toEntity());
       } on ServerException catch (e) {
         AppLogger.w(' ServerException en getInventoryStats: ${e.message} - Usando cache...');
@@ -1733,87 +1723,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   // ==================== PRIVATE HELPER METHODS ====================
-
-  /// Cachear batches en ISAR en background para soporte offline de balances.
-  /// Usa el patrón exacto de FullSyncService (putAllByServerId directo).
-  /// Throttled: máximo una vez cada 5 minutos.
-  void _ensureBatchesCachedInBackground() {
-    // Throttle: no cachear más de una vez cada 5 minutos
-    if (_isCachingBatches) {
-      AppLogger.d('📦 [BATCH CACHE] Ya está cacheando, skip');
-      return;
-    }
-    if (_lastBatchCacheTime != null &&
-        DateTime.now().difference(_lastBatchCacheTime!) < const Duration(minutes: 5)) {
-      AppLogger.d('📦 [BATCH CACHE] Throttled (último cache: ${_lastBatchCacheTime})');
-      return;
-    }
-
-    AppLogger.i('📦 [BATCH CACHE] Iniciando cache de batches en background...');
-    _isCachingBatches = true;
-    _fetchAndCacheAllBatches().then((totalCached) {
-      // Solo throttlear si realmente cacheamos batches
-      // Si cacheó 0, permitir reintentar pronto
-      if (totalCached > 0) {
-        _lastBatchCacheTime = DateTime.now();
-      }
-      _isCachingBatches = false;
-    }).catchError((e, stackTrace) {
-      AppLogger.e('📦 [BATCH CACHE] ERROR cacheando batches: $e');
-      AppLogger.e('📦 [BATCH CACHE] StackTrace: $stackTrace');
-      _isCachingBatches = false;
-    });
-  }
-
-  /// Obtiene todos los batches del servidor y los guarda DIRECTO en ISAR.
-  /// Usa el mismo patrón que FullSyncService._syncInventoryBatchesWithDS()
-  /// que está probado y funciona correctamente.
-  /// Retorna la cantidad de batches cacheados.
-  Future<int> _fetchAndCacheAllBatches() async {
-    final isar = Get.find<IsarDatabase>().database;
-    int page = 1;
-    int totalCached = 0;
-
-    while (true) {
-      AppLogger.d('📦 [BATCH CACHE] Fetching page $page...');
-
-      List<Map<String, dynamic>> batchMaps;
-      try {
-        batchMaps = await remoteDataSource.getBatches(
-          page: page,
-          limit: 100,
-        );
-      } catch (e) {
-        AppLogger.e('📦 [BATCH CACHE] Error fetching batches page $page: $e');
-        break;
-      }
-
-      AppLogger.d('📦 [BATCH CACHE] Page $page: ${batchMaps.length} batches recibidos');
-      if (batchMaps.isEmpty) break;
-
-      // Patrón directo de FullSyncService: fromJson → toEntity → IsarBatch → putAllByServerId
-      try {
-        await isar.writeTxn(() async {
-          final isarModels = batchMaps.map((map) {
-            final entity = InventoryBatchModel.fromJson(map).toEntity();
-            return IsarInventoryBatch.fromEntity(entity);
-          }).toList();
-          await isar.isarInventoryBatchs.putAllByServerId(isarModels);
-        });
-        totalCached += batchMaps.length;
-        AppLogger.d('📦 [BATCH CACHE] Page $page: ${batchMaps.length} batches escritos en ISAR');
-      } catch (e) {
-        AppLogger.e('📦 [BATCH CACHE] Error escribiendo page $page en ISAR: $e');
-        break;
-      }
-
-      if (batchMaps.length < 100) break;
-      page++;
-    }
-
-    AppLogger.i('📦 [BATCH CACHE] COMPLETADO: $totalCached batches cacheados en ISAR para offline');
-    return totalCached;
-  }
 
   /// Obtener movimientos desde cache local
   Future<Either<Failure, core.PaginatedResult<InventoryMovement>>> _getMovementsFromCache(
