@@ -3,6 +3,7 @@ import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../app/core/storage/local_cache_store.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/utils/app_logger.dart';
@@ -1068,7 +1069,11 @@ class InventoryLocalDataSourceIsar implements InventoryLocalDataSource {
   // SecureStorage puede fallar en macOS con error -34018, por eso usamos memory fallback
 
   static const String _warehousesCacheKey = 'inventory_warehouses_cache';
-  static const _secureStorage = FlutterSecureStorage();
+  // Cachés de inventario (almacenes, listas de agotados/vencidos): NO son
+  // datos sensibles, así que van en almacenamiento normal. Antes iban al
+  // llavero del sistema, que en macOS falla con -34018 sin un permiso
+  // especial y dejaba estas listas sin guardar.
+  static final _secureStorage = LocalCacheStore(prefix: 'inventory_cache_');
   // In-memory fallback para cuando SecureStorage falla
   static List<WarehouseModel>? _warehousesMemoryCache;
 

@@ -195,12 +195,10 @@ class _MainWarehouseSelectorState extends State<MainWarehouseSelector> {
       }
       
       // If not registered, initialize inventory dependencies
-      debugPrint('🏭 WarehousesController not found, initializing inventory dependencies...');
-      final inventoryBinding = InventoryBinding();
-      inventoryBinding.dependencies();
-      
-      // Wait a moment for dependencies to register
-      await Future.delayed(const Duration(milliseconds: 100));
+      debugPrint('🏭 Cargando solo los almacenes para Configuración...');
+      // Solo lo necesario para la lista de almacenes (no todo el módulo de
+      // inventario ni la descarga de lotes).
+      InventoryBinding.registerWarehousesOnly();
       
       // Get the controller
       final controller = Get.find<WarehousesController>();

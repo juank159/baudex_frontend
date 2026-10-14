@@ -1,4 +1,5 @@
 // lib/features/reports/data/datasources/reports_local_datasource.dart
+import 'package:baudex_desktop/app/core/storage/local_cache_store.dart';
 import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
@@ -120,7 +121,9 @@ abstract class ReportsLocalDataSource {
 }
 
 class ReportsLocalDataSourceImpl implements ReportsLocalDataSource {
-  final FlutterSecureStorage _secureStorage;
+  // Cachés de reportes: no son sensibles → almacenamiento normal, no el
+  // llavero del sistema (fallaba en macOS con -34018).
+  final LocalCacheStore _secureStorage;
 
   // Cache expiration time (1 hour by default)
   static const Duration _cacheExpiration = Duration(hours: 1);
@@ -138,8 +141,8 @@ class ReportsLocalDataSourceImpl implements ReportsLocalDataSource {
   static const String _prefixKardexSummary = 'report_kardex_summary_';
   static const String _prefixValuationVariances = 'report_valuation_variances_';
 
-  ReportsLocalDataSourceImpl({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  ReportsLocalDataSourceImpl({LocalCacheStore? secureStorage})
+      : _secureStorage = secureStorage ?? LocalCacheStore(prefix: 'reports_cache_');
 
   // ==================== PROFITABILITY REPORTS ====================
 

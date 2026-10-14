@@ -76,6 +76,52 @@ class InventoryBinding extends Bindings {
     Get.put<T>(instance, tag: tag);
   }
 
+  /// Registra SOLO lo necesario para listar y administrar almacenes (p. ej.
+  /// el selector de almacén principal en Configuración). Antes esa pantalla
+  /// cargaba todo el módulo de inventario —unos 50 controladores— y
+  /// disparaba la descarga completa de lotes, solo para mostrar la lista.
+  /// No reemplaza nada que ya esté registrado.
+  static void registerWarehousesOnly() {
+    if (Get.isRegistered<WarehousesController>()) return;
+
+    if (!Get.isRegistered<InventoryRemoteDataSource>()) {
+      Get.put<InventoryRemoteDataSource>(
+        InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+      );
+    }
+    if (!Get.isRegistered<InventoryLocalDataSource>()) {
+      Get.put<InventoryLocalDataSource>(
+        InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
+      );
+    }
+    if (!Get.isRegistered<InventoryRepository>()) {
+      Get.put<InventoryRepository>(
+        InventoryRepositoryImpl(
+          remoteDataSource: Get.find(),
+          localDataSource: Get.find(),
+          networkInfo: Get.find(),
+        ),
+      );
+    }
+    if (!Get.isRegistered<GetWarehousesUseCase>()) {
+      Get.put(GetWarehousesUseCase(Get.find()));
+    }
+    if (!Get.isRegistered<GetWarehouseStatsUseCase>()) {
+      Get.put(GetWarehouseStatsUseCase(Get.find()));
+    }
+    if (!Get.isRegistered<DeleteWarehouseUseCase>()) {
+      Get.put(DeleteWarehouseUseCase(Get.find()));
+    }
+    Get.put<WarehousesController>(
+      WarehousesController(
+        getWarehousesUseCase: Get.find(),
+        getWarehouseStatsUseCase: Get.find(),
+        deleteWarehouseUseCase: Get.find(),
+      ),
+      permanent: true,
+    );
+  }
+
   @override
   void dependencies() {
     // Asegurar SearchProductsUseCase disponible (normalmente registrado por ProductBinding)
