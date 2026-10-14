@@ -1,4 +1,6 @@
 // lib/app/data/local/sync_changes_client.dart
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/errors/exceptions.dart';
@@ -119,6 +121,35 @@ class SyncWatermarkStore {
   Future<void> remove(String organizationKey, String entity) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key(organizationKey, entity));
+  }
+
+  // Descarga a medias (para seguirla tras reiniciar la app). Comparte el
+  // prefijo para que [clearAll] también la borre.
+  String _progressKey(String organizationKey, String entity) =>
+      '${_prefix}progress|$organizationKey|$entity';
+
+  Future<Map<String, dynamic>?> getProgress(
+      String organizationKey, String entity) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_progressKey(organizationKey, entity));
+    if (raw == null) return null;
+    try {
+      return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setProgress(
+      String organizationKey, String entity, Map<String, dynamic> value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        _progressKey(organizationKey, entity), jsonEncode(value));
+  }
+
+  Future<void> removeProgress(String organizationKey, String entity) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_progressKey(organizationKey, entity));
   }
 
   /// Olvida todas las marcas (de todos los negocios). Se usa cuando se

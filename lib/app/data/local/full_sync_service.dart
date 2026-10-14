@@ -730,13 +730,21 @@ class FullSyncService extends GetxService {
 
     var progress = _changesProgress[entity];
     if (progress == null || progress.organization != organization) {
-      final watermark = await _watermarks.get(organization, entity);
-      progress = _ChangesProgress(
-        organization: organization,
-        since: watermark ?? SyncChangesClient.epoch,
-      );
+      // ¿Quedó una descarga a medias antes de cerrar la app? Se sigue desde
+      // ahí en vez de empezar de nuevo.
+      final saved = await _watermarks.getProgress(organization, entity);
+      progress = saved == null ? null : _ChangesProgress.fromJson(saved);
+      if (progress == null || progress.organization != organization) {
+        final watermark = await _watermarks.get(organization, entity);
+        progress = _ChangesProgress(
+          organization: organization,
+          since: watermark ?? SyncChangesClient.epoch,
+        );
+      }
       _changesProgress[entity] = progress;
     }
+    Future<void> saveProgress() =>
+        _watermarks.setProgress(organization, entity, progress!.toJson());
 
     final pageSize = _changesPageSize[entity] ?? _lightChangesPageSize;
     var applied = 0;
@@ -770,8 +778,10 @@ class FullSyncService extends GetxService {
         if (!page.hasMore || page.nextSince == null) break;
         progress.recentSince = page.nextSince;
         progress.recentAfterId = page.nextAfterId;
+        await saveProgress();
       }
       progress.recentDone = true;
+      await saveProgress();
     }
 
     while (true) {
@@ -790,6 +800,7 @@ class FullSyncService extends GetxService {
         // La marca es más vieja que el registro de borrados del servidor:
         // descarga completa y limpieza al final.
         await _watermarks.remove(organization, entity);
+        await _watermarks.removeProgress(organization, entity);
         progress = _ChangesProgress(
           organization: organization,
           since: SyncChangesClient.epoch,
@@ -821,9 +832,10 @@ class FullSyncService extends GetxService {
       if (!page.hasMore || page.nextSince == null) break;
       progress.since = page.nextSince!;
       progress.afterId = page.nextAfterId;
+      await saveProgress();
     }
 
-    if (progress.isFullDownload) {
+    if (progress.isFullDownload && progress.sweepValid) {
       final removed = await handler.sweep(progress.seen);
       if (removed > 0) {
         debugPrint(
@@ -840,6 +852,7 @@ class FullSyncService extends GetxService {
       );
     }
     _changesProgress.remove(entity);
+    await _watermarks.removeProgress(organization, entity);
     return applied;
   }
 
@@ -2501,8 +2514,48 @@ class _ChangesProgress {
   String? recentSince;
   String? recentAfterId;
 
-  _ChangesProgress({required this.organization, required this.since})
-      : isFullDownload = since == SyncChangesClient.epoch;
+  /// La limpieza final (quitar lo que no llegó) solo es válida si todos los
+  /// IDs se vieron en esta misma ejecución. Si la descarga se reanudó tras
+  /// reiniciar la app, no se tienen los IDs anteriores y no se limpia.
+  bool sweepValid = true;
+
+  _ChangesProgress({
+    required this.organization,
+    required this.since,
+    bool? isFullDownload,
+  }) : isFullDownload = isFullDownload ?? since == SyncChangesClient.epoch;
+
+  Map<String, dynamic> toJson() => {
+        'organization': organization,
+        'isFullDownload': isFullDownload,
+        'since': since,
+        'afterId': afterId,
+        'watermark': watermark,
+        'earliestSkipped': earliestSkipped,
+        'recentDone': recentDone,
+        'recentSince': recentSince,
+        'recentAfterId': recentAfterId,
+      };
+
+  /// Avance guardado antes de cerrar la app. Los IDs vistos no se guardan
+  /// (pueden ser decenas de miles), así que no habrá limpieza final.
+  static _ChangesProgress? fromJson(Map<String, dynamic> json) {
+    final organization = json['organization'] as String?;
+    final since = json['since'] as String?;
+    if (organization == null || since == null) return null;
+    return _ChangesProgress(
+      organization: organization,
+      since: since,
+      isFullDownload: json['isFullDownload'] == true,
+    )
+      ..afterId = json['afterId'] as String?
+      ..watermark = json['watermark'] as String?
+      ..earliestSkipped = json['earliestSkipped'] as String?
+      ..recentDone = json['recentDone'] == true
+      ..recentSince = json['recentSince'] as String?
+      ..recentAfterId = json['recentAfterId'] as String?
+      ..sweepValid = false;
+  }
 
   void noteSkipped(String stamp) {
     final current = earliestSkipped;

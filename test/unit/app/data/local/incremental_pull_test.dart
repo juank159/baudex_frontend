@@ -222,6 +222,34 @@ void main() {
     expect(server.sinceLog.last, server.now);
   });
 
+  test('tras reiniciar la app, la descarga completa sigue donde quedó', () async {
+    for (var i = 1; i <= 1500; i++) {
+      server.put(uuid(i), '2025-01-01T00:${(i ~/ 60 % 60).toString().padLeft(2, '0')}:${(i % 60).toString().padLeft(2, '0')}.000000Z');
+    }
+    server.delay = const Duration(milliseconds: 40);
+    await sync.debugPullChanges('invoices',
+        deadline: DateTime.now().add(const Duration(milliseconds: 150)));
+    final firstRun = local.length;
+    expect(firstRun, inInclusiveRange(1, 1499));
+
+    // "Reinicio": servicio nuevo (sin memoria), mismo almacenamiento.
+    final restarted = FullSyncService(IsarDatabase.instance)
+      ..debugChangesClient = server
+      ..debugOrganizationKey = 'org-1'
+      ..debugChangeHandlers = sync.debugChangeHandlers;
+    server.delay = Duration.zero;
+    server.sinceLog.clear();
+    await restarted.debugPullChanges('invoices');
+    expect(local.length, 1500);
+    expect(server.sinceLog.contains(SyncChangesClient.epoch), isFalse,
+        reason: 'no debe volver a empezar desde el principio');
+    // Reanudada tras reinicio: no se limpia (no tiene todos los IDs vistos).
+    expect(deletedLocally, isEmpty);
+    // Terminada: la siguiente ya es incremental.
+    await restarted.debugPullChanges('invoices');
+    expect(server.sinceLog.last, server.now);
+  });
+
   test('marca demasiado vieja: vuelve a descargar todo', () async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sync_wm_v1|org-1|invoices', '2026-01-01T00:00:00.000000Z');
