@@ -10,6 +10,8 @@ import '../../../../app/core/network/network_info.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/shared/services/subscription_alert_service.dart';
 import '../../../../app/shared/widgets/subscription_error_dialog.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
+import '../../data/datasources/subscription_remote_datasource.dart';
 import '../../domain/entities/subscription.dart';
 import '../../domain/entities/subscription_enums.dart';
 import '../../domain/entities/subscription_usage.dart';
@@ -215,6 +217,26 @@ class SubscriptionController extends GetxController {
     final wasExpired = await repository.isCachedSubscriptionExpired();
     if (wasExpired && !isOfflineMode) {
       _wasExpiredWhileOffline.value = true;
+    }
+  }
+
+  /// Admin temporal: activar suscripción premium en el servidor
+  Future<bool> adminActivatePremium() async {
+    try {
+      if (!Get.isRegistered<SubscriptionRemoteDataSource>()) return false;
+      final orgId = Get.isRegistered<OrganizationController>()
+          ? Get.find<OrganizationController>().currentOrganization?.id
+          : null;
+      final ds = Get.find<SubscriptionRemoteDataSource>();
+      final ok = await ds.adminRenewSelf(
+        plan: 'premium',
+        months: 12,
+        organizationId: orgId,
+      );
+      if (ok) await loadSubscription();
+      return ok;
+    } catch (_) {
+      return false;
     }
   }
 

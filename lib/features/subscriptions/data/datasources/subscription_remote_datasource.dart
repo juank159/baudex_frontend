@@ -12,6 +12,9 @@ abstract class SubscriptionRemoteDataSource {
   /// Obtener suscripcion actual del servidor
   Future<SubscriptionModel> getCurrentSubscription();
 
+  /// Admin temporal: renovar suscripción del org autenticado
+  Future<bool> adminRenewSelf({String plan = 'premium', int months = 12, String? organizationId});
+
   /// Obtener limites del plan actual
   Future<PlanLimitsModel> getSubscriptionLimits();
 
@@ -152,6 +155,25 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado: $e');
+    }
+  }
+
+  @override
+  Future<bool> adminRenewSelf({String plan = 'premium', int months = 12, String? organizationId}) async {
+    if (organizationId == null) return false;
+    try {
+      // Usa el endpoint de admin existente que ya está en producción
+      final response = await dioClient.post(
+        '/admin/subscriptions/renew',
+        data: {
+          'organizationId': organizationId,
+          'plan': plan,
+          'durationMonths': months,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
     }
   }
 

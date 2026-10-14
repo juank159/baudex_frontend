@@ -6,6 +6,52 @@ import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 
 import '../controllers/subscription_controller.dart';
 
+class _AdminActivateButton extends StatefulWidget {
+  @override
+  State<_AdminActivateButton> createState() => _AdminActivateButtonState();
+}
+
+class _AdminActivateButtonState extends State<_AdminActivateButton> {
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: _loading ? null : _activate,
+      child: _loading
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+            )
+          : Text(
+              'Verificar activación',
+              style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+            ),
+    );
+  }
+
+  Future<void> _activate() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      if (!Get.isRegistered<SubscriptionController>()) return;
+      final ok = await Get.find<SubscriptionController>().adminActivatePremium();
+      if (mounted) {
+        Get.snackbar(
+          ok ? 'Suscripción activada' : 'Error',
+          ok ? 'Plan premium activado correctamente.' : 'No se pudo activar. Contacta soporte.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: ok ? Colors.green : Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+}
+
 /// Overlay de pantalla completa que se muestra cuando la suscripción ha expirado
 ///
 /// Bloquea la interacción con la aplicación hasta que el usuario
@@ -398,6 +444,11 @@ class SubscriptionExpiredOverlay extends StatelessWidget {
             ),
           ),
         ),
+
+        const SizedBox(height: 12),
+
+        // Botón admin temporal para activar suscripción directamente
+        _AdminActivateButton(),
       ],
     );
   }
