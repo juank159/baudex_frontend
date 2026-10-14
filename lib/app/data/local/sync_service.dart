@@ -1048,7 +1048,10 @@ class SyncService extends GetxService {
 
       AppLogger.i('Iniciando PULL de datos del servidor...', tag: 'SYNC');
 
-      final result = await fullSyncService.performFullSync();
+      // Solo cambios, sin borrar el caché: vaciarlo y volver a bajar todo
+      // dejaba la app sin datos mientras descargaba (y perdía de vista lo
+      // creado sin conexión).
+      final result = await fullSyncService.performFullSync(skipCleanup: true);
 
       if (result.hasErrors) {
         AppLogger.w('PULL con errores: ${result.errors}', tag: 'SYNC');

@@ -69,6 +69,19 @@ import '../../../features/inventory/domain/repositories/inventory_repository.dar
 import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
 import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 import 'sync_queue.dart';
+import 'sync_changes_client.dart';
+import '../../core/storage/secure_storage_service.dart';
+import '../../../features/invoices/data/models/invoice_model.dart';
+import '../../../features/products/data/models/product_model.dart';
+import '../../../features/products/data/models/product_presentation_model.dart';
+import '../../../features/customers/data/models/customer_model.dart';
+import '../../../features/suppliers/data/models/supplier_model.dart';
+import '../../../features/expenses/data/models/expense_model.dart';
+import '../../../features/purchase_orders/data/models/purchase_order_model.dart';
+import '../../../features/credit_notes/data/models/credit_note_model.dart';
+import '../../../features/customer_credits/data/models/customer_credit_model.dart';
+import '../../../features/inventory/data/models/inventory_movement_model.dart';
+import '../../../features/notifications/data/models/notification_model.dart';
 
 /// Resultado de un Full Sync
 class FullSyncResult {
@@ -164,6 +177,7 @@ class FullSyncService extends GetxService {
     'Gastos',
     'Órdenes de Compra',
     'Notas de Crédito',
+    'Créditos de Clientes',
     'Lotes de Inventario',
     'Movimientos de Inventario',
     'Notificaciones',
@@ -191,9 +205,22 @@ class FullSyncService extends GetxService {
 
   FullSyncService(this._database);
 
-  /// Realiza un Full Sync completo con sincronización paralela por tiers
-  /// [skipCleanup] = true para pulls periódicos (upsert by serverId es seguro sin limpiar)
-  Future<FullSyncResult> performFullSync({bool skipCleanup = false}) async {
+  /// Sincroniza todos los módulos desde el servidor (en paralelo por tiers).
+  ///
+  /// Los módulos grandes descargan solo lo que cambió desde la última vez.
+  ///
+  /// - [skipCleanup] = true: pull periódico / al volver la conexión. Con
+  ///   tiempo límite por módulo.
+  /// - [skipCleanup] = false (login, cambio de negocio): sin tiempo límite.
+  ///   Los datos locales SOLO se borran si son de OTRO negocio; si es el
+  ///   mismo, se sigue con la descarga incremental (nunca se vacía el caché
+  ///   del negocio actual: lo creado sin conexión no desaparece de pantalla).
+  /// - [forceFullDownload]: vuelve a bajar todo (sin borrar antes) y al final
+  ///   quita lo que ya no exista en el servidor. Para reparar el caché.
+  Future<FullSyncResult> performFullSync({
+    bool skipCleanup = false,
+    bool forceFullDownload = false,
+  }) async {
     if (isSyncing.value) {
 
       return FullSyncResult(
@@ -260,7 +287,12 @@ class FullSyncService extends GetxService {
       // Limpiar datos del tenant anterior SELECTIVAMENTE
       // NUNCA borrar: syncOperations, idempotencyRecords, printerSettings no sincronizados
       // skipCleanup=true para pulls periódicos: upsert by serverId es seguro sin limpiar
-      if (!skipCleanup) {
+      final wipeLocalData = !skipCleanup && await _isDifferentBusiness();
+      if (!wipeLocalData && forceFullDownload) {
+        await _watermarks.clearAll();
+        _changesProgress.clear();
+      }
+      if (wipeLocalData) {
         try {
 
           await _isar.writeTxn(() async {
@@ -300,6 +332,11 @@ class FullSyncService extends GetxService {
             }
             // NUNCA tocar: syncOperations ni isarIdempotencyRecords
           });
+          // Datos locales borrados: la próxima descarga de cada módulo debe ser
+          // completa, no "desde la última vez".
+          await _watermarks.clearAll();
+          _changesProgress.clear();
+          await _rememberBusiness();
 
         } catch (e) {
 
@@ -308,7 +345,7 @@ class FullSyncService extends GetxService {
 
       }
 
-      final syncFunctions = <String, Future<int> Function()>{
+      final legacySyncFunctions = <String, Future<int> Function()>{
         'Organización': _syncOrganization,
         'Suscripción': _syncSubscription,
         'Preferencias de Usuario': _syncUserPreferences,
@@ -329,6 +366,13 @@ class FullSyncService extends GetxService {
         'Lotes de Inventario': _syncInventoryBatches,
         'Movimientos de Inventario': _syncInventoryMovements,
         'Notificaciones': _syncNotifications,
+      };
+      // Los módulos grandes descargan solo lo que cambió desde la última vez
+      // (GET /sync/changes). Si el servidor aún no lo soporta, se usa la
+      // descarga completa de siempre.
+      final syncFunctions = <String, Future<int> Function()>{
+        for (final entry in legacySyncFunctions.entries)
+          entry.key: _incrementalOr(entry.key, entry.value),
       };
 
       int completedCount = 0;
@@ -526,6 +570,593 @@ class FullSyncService extends GetxService {
       return MapEntry(entityName, null);
     }
   }
+
+  // ==================== DESCARGA INCREMENTAL ====================
+
+  /// Módulo (nombre en pantalla) → entidad del endpoint /sync/changes.
+  static const Map<String, String> _incrementalEntities = {
+    'Productos': 'products',
+    'Presentaciones': 'product_presentations',
+    'Clientes': 'customers',
+    'Proveedores': 'suppliers',
+    'Facturas': 'invoices',
+    'Gastos': 'expenses',
+    'Órdenes de Compra': 'purchase_orders',
+    'Notas de Crédito': 'credit_notes',
+    'Créditos de Clientes': 'customer_credits',
+    'Lotes de Inventario': 'inventory_batches',
+    'Movimientos de Inventario': 'inventory_movements',
+    'Notificaciones': 'notifications',
+  };
+
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  final SyncWatermarkStore _watermarks = SyncWatermarkStore();
+  SyncChangesClient? _changesClientInstance;
+  SyncChangesClient get _changesClient =>
+      _changesClientInstance ??= SyncChangesClient(Get.find<DioClient>());
+
+  /// Solo para pruebas: cliente, manejadores y negocio de reemplazo.
+  @visibleForTesting
+  set debugChangesClient(SyncChangesClient client) =>
+      _changesClientInstance = client;
+  @visibleForTesting
+  Map<String, Object>? debugChangeHandlers;
+  @visibleForTesting
+  String? debugOrganizationKey;
+
+  /// Solo para pruebas: un manejador de entidad hecho de funciones sueltas.
+  @visibleForTesting
+  static Object debugHandler({
+    required Future<Set<String>> Function(List<Map<String, dynamic>>) apply,
+    required Future<int> Function(List<String>) delete,
+    required Future<int> Function(Set<String>) sweep,
+  }) =>
+      _ChangeHandler(apply: apply, delete: delete, sweep: sweep);
+
+  /// Solo para pruebas: corre la descarga incremental de [entity] (pull
+  /// periódico si se pasa [deadline]).
+  @visibleForTesting
+  Future<int?> debugPullChanges(String entity, {DateTime? deadline}) =>
+      debugSyncEntity(
+        _incrementalEntities.entries.firstWhere((e) => e.value == entity).key,
+        () => _pullChanges(entity),
+        deadline: deadline,
+      );
+
+  /// Descargas incrementales a medias (por tiempo agotado); el siguiente pull
+  /// sigue desde aquí.
+  final Map<String, _ChangesProgress> _changesProgress = {};
+
+  /// Si el servidor no tiene /sync/changes, no se vuelve a intentar hasta
+  /// esta hora (se usa la descarga completa mientras tanto).
+  DateTime? _incrementalUnsupportedUntil;
+
+  Future<int> Function() _incrementalOr(
+    String entityName,
+    Future<int> Function() legacy,
+  ) {
+    final entity = _incrementalEntities[entityName];
+    if (entity == null) return legacy;
+    return () async {
+      final until = _incrementalUnsupportedUntil;
+      if (until != null && DateTime.now().isBefore(until)) return legacy();
+      try {
+        return await _pullChanges(entity);
+      } on SyncChangesUnsupportedException {
+        _incrementalUnsupportedUntil =
+            DateTime.now().add(const Duration(minutes: 30));
+        debugPrint(
+          '[FULL_SYNC] El servidor aún no tiene descarga incremental — se usa la descarga completa',
+        );
+        return legacy();
+      }
+    };
+  }
+
+  /// Identifica al negocio para guardar sus marcas por separado.
+  Future<String?> _organizationKey() async {
+    if (debugOrganizationKey != null) return debugOrganizationKey;
+    try {
+      final user = await Get.find<SecureStorageService>().getUserData();
+      final id = user?['organizationId']?.toString();
+      if (id != null && id.isNotEmpty) return id;
+    } catch (_) {}
+    try {
+      final id = Get.find<OrganizationController>().currentOrganization?.id;
+      if (id != null && id.isNotEmpty) return id;
+    } catch (_) {}
+    return null;
+  }
+
+  static const String _lastBusinessKey = 'full_sync_business_v1';
+
+  /// ¿Los datos locales son de otro negocio (o no se sabe de cuál)? Solo en
+  /// ese caso se borran antes de descargar.
+  Future<bool> _isDifferentBusiness() async {
+    final organization = await _organizationKey();
+    if (organization == null) return true;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastBusinessKey) != organization;
+  }
+
+  Future<void> _rememberBusiness() async {
+    final organization = await _organizationKey();
+    if (organization == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastBusinessKey, organization);
+  }
+
+  /// ¿Le queda tiempo a este módulo en el pull actual?
+  bool _hasTimeLeft() {
+    if (_abortRequested) return false;
+    final deadline = _currentPass?.deadline;
+    return deadline == null || DateTime.now().isBefore(deadline);
+  }
+
+  /// Descarga incremental de una entidad: pide solo lo cambiado desde la
+  /// última marca, aplica altas/cambios/borrados y guarda la nueva marca
+  /// cuando termina. La primera vez (sin marca) descarga todo y al final
+  /// quita los registros locales que ya no existen en el servidor.
+  Future<int> _pullChanges(String entity) async {
+    final organization = await _organizationKey();
+    if (organization == null) {
+      throw StateError('No se pudo identificar el negocio para sincronizar');
+    }
+    final handler =
+        (debugChangeHandlers?[entity] as _ChangeHandler?) ?? _changeHandlers[entity]!;
+
+    var progress = _changesProgress[entity];
+    if (progress == null || progress.organization != organization) {
+      final watermark = await _watermarks.get(organization, entity);
+      progress = _ChangesProgress(
+        organization: organization,
+        since: watermark ?? SyncChangesClient.epoch,
+      );
+      _changesProgress[entity] = progress;
+    }
+
+    var applied = 0;
+    while (true) {
+      if (!_hasTimeLeft()) {
+        // Se sigue en el próximo pull; la marca no avanza hasta terminar.
+        return applied;
+      }
+      final page = await _changesClient.fetch(
+        entity,
+        since: progress!.since,
+        afterId: progress.afterId,
+      );
+
+      if (page.resetRequired) {
+        // La marca es más vieja que el registro de borrados del servidor:
+        // descarga completa y limpieza al final.
+        await _watermarks.remove(organization, entity);
+        progress = _ChangesProgress(
+          organization: organization,
+          since: SyncChangesClient.epoch,
+        );
+        _changesProgress[entity] = progress;
+        continue;
+      }
+
+      if (progress.afterId == null) {
+        progress.watermark = page.watermark;
+        if (page.deletedIds.isNotEmpty) {
+          applied += await handler.delete(page.deletedIds);
+        }
+      }
+
+      if (page.items.isNotEmpty) {
+        final skipped = await handler.apply(page.items);
+        for (var i = 0; i < page.items.length; i++) {
+          final id = page.items[i]['id']?.toString();
+          if (id == null) continue;
+          if (progress.isFullDownload) progress.seen.add(id);
+          if (skipped.contains(id) && i < page.stamps.length) {
+            progress.noteSkipped(page.stamps[i]);
+          }
+        }
+        applied += page.items.length;
+      }
+
+      if (!page.hasMore || page.nextSince == null) break;
+      progress.since = page.nextSince!;
+      progress.afterId = page.nextAfterId;
+    }
+
+    if (progress.isFullDownload) {
+      final removed = await handler.sweep(progress.seen);
+      if (removed > 0) {
+        debugPrint(
+          '[FULL_SYNC] $entity: $removed registro(s) local(es) ya no existen en el servidor — quitados',
+        );
+      }
+    }
+    final watermark = progress.watermark;
+    if (watermark != null) {
+      await _watermarks.set(
+        organization,
+        entity,
+        SyncWatermarkStore.safeWatermark(watermark, progress.earliestSkipped),
+      );
+    }
+    _changesProgress.remove(entity);
+    return applied;
+  }
+
+  /// IDs con operaciones en la cola (pendientes o rechazadas): sus copias
+  /// locales tienen cambios que el servidor aún no conoce.
+  Future<Set<String>> _queuedEntityIds() async {
+    final db = IsarDatabase.instance;
+    final pending = await db.getPendingSyncOperations();
+    final failed = await db.getFailedSyncOperations();
+    return {
+      for (final op in pending) op.entityId,
+      for (final op in failed) op.entityId,
+    };
+  }
+
+  /// Borra copias locales de registros borrados en el servidor, salvo las
+  /// que tienen cambios locales sin subir.
+  Future<int> _deleteServerRows(
+    List<String> ids,
+    Future<int> Function(List<String> ids) deleteAll,
+  ) async {
+    if (ids.isEmpty) return 0;
+    final queued = await _queuedEntityIds();
+    final safe = ids.where((id) => !queued.contains(id)).toList();
+    if (safe.isEmpty) return 0;
+    return _isar.writeTxn(() => deleteAll(safe));
+  }
+
+  /// Tras una descarga completa: quita las copias locales de registros del
+  /// servidor que no llegaron (ya no existen). Nunca toca registros creados
+  /// sin conexión (ID temporal) ni los que tienen cambios sin subir.
+  Future<int> _sweepServerRows(
+    Set<String> seen,
+    Future<List<String>> Function() localServerIds,
+    Future<int> Function(List<String> ids) deleteAll,
+  ) async {
+    final queued = await _queuedEntityIds();
+    final stale = (await localServerIds())
+        .where((id) =>
+            _uuidPattern.hasMatch(id) &&
+            !seen.contains(id) &&
+            !queued.contains(id))
+        .toList();
+    if (stale.isEmpty) return 0;
+    return _isar.writeTxn(() => deleteAll(stale));
+  }
+
+  Set<String> _skippedIds(Iterable<String> all, Iterable<String> kept) {
+    final keptSet = kept.toSet();
+    return all.where((id) => !keptSet.contains(id)).toSet();
+  }
+
+  IsarCustomerCredit _isarCreditFromModel(CustomerCreditModel credit) {
+    return IsarCustomerCredit(
+      serverId: credit.id,
+      originalAmount: credit.originalAmount,
+      paidAmount: credit.paidAmount,
+      balanceDue: credit.balanceDue,
+      status: _mapCreditStatus(credit.status),
+      dueDate: credit.dueDate,
+      description: credit.description,
+      notes: credit.notes,
+      customerId: credit.customerId,
+      customerName: credit.customerName,
+      invoiceId: credit.invoiceId,
+      invoiceNumber: credit.invoiceNumber,
+      organizationId: credit.organizationId,
+      createdById: credit.createdById,
+      createdByName: credit.createdByName,
+      createdAt: credit.createdAt,
+      updatedAt: credit.updatedAt,
+      deletedAt: credit.deletedAt,
+      isSynced: true,
+      lastSyncAt: DateTime.now(),
+    );
+  }
+
+  late final Map<String, _ChangeHandler> _changeHandlers = {
+    'invoices': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) => IsarInvoice.fromModel(InvoiceModel.fromJson(json)))
+            .toList();
+        final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
+        await _isar.writeTxn(() => _isar.isarInvoices.putAllByServerId(safe));
+        return _skippedIds(
+            rows.map((m) => m.serverId), safe.map((m) => m.serverId));
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarInvoices.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarInvoices.where().serverIdProperty().findAll(),
+        _isar.isarInvoices.deleteAllByServerId,
+      ),
+    ),
+    'products': _ChangeHandler(
+      apply: (items) async {
+        // Misma protección que la descarga completa: productos con stock
+        // descontado sin conexión (aún sin subir) no se pisan.
+        await _healStuckProducts();
+        final unsynced =
+            await _isar.isarProducts.filter().isSyncedEqualTo(false).findAll();
+        final protected = unsynced
+            .where((p) => !p.serverId.startsWith('product_offline_'))
+            .map((p) => p.serverId)
+            .toSet();
+        final skipped = <String>{};
+        final rows = <IsarProduct>[];
+        for (final json in items) {
+          final model = ProductModel.fromJson(json);
+          if (protected.contains(model.id)) {
+            skipped.add(model.id);
+            continue;
+          }
+          rows.add(IsarProduct.fromModel(model));
+        }
+        await _isar.writeTxn(() async {
+          for (final row in rows) {
+            await _isar.isarProducts.putByServerId(row);
+          }
+        });
+        return skipped;
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarProducts.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarProducts.where().serverIdProperty().findAll(),
+        _isar.isarProducts.deleteAllByServerId,
+      ),
+    ),
+    'product_presentations': _ChangeHandler(
+      apply: (items) async {
+        final unsynced = (await _isar.isarProductPresentations
+                .filter()
+                .isSyncedEqualTo(false)
+                .findAll())
+            .map((p) => p.serverId)
+            .toSet();
+        final skipped = <String>{};
+        await _isar.writeTxn(() async {
+          for (final json in items) {
+            final model = ProductPresentationModel.fromJson(json);
+            if (unsynced.contains(model.id)) {
+              skipped.add(model.id);
+              continue;
+            }
+            await _isar.isarProductPresentations
+                .putByServerId(IsarProductPresentation.fromModel(model));
+          }
+        });
+        return skipped;
+      },
+      delete: (ids) => _deleteServerRows(
+          ids, _isar.isarProductPresentations.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () =>
+            _isar.isarProductPresentations.where().serverIdProperty().findAll(),
+        _isar.isarProductPresentations.deleteAllByServerId,
+      ),
+    ),
+    'customers': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) => IsarCustomer.fromModel(CustomerModel.fromJson(json)))
+            .toList();
+        final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
+        await _isar.writeTxn(() => _isar.isarCustomers.putAllByServerId(safe));
+        return _skippedIds(
+            rows.map((m) => m.serverId), safe.map((m) => m.serverId));
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarCustomers.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarCustomers.where().serverIdProperty().findAll(),
+        _isar.isarCustomers.deleteAllByServerId,
+      ),
+    ),
+    'suppliers': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) => IsarSupplier.fromModel(SupplierModel.fromJson(json)))
+            .toList();
+        final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
+        await _isar.writeTxn(() => _isar.isarSuppliers.putAllByServerId(safe));
+        return _skippedIds(
+            rows.map((m) => m.serverId), safe.map((m) => m.serverId));
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarSuppliers.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarSuppliers.where().serverIdProperty().findAll(),
+        _isar.isarSuppliers.deleteAllByServerId,
+      ),
+    ),
+    'expenses': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) =>
+                IsarExpense.fromEntity(ExpenseModel.fromJson(json).toEntity()))
+            .toList();
+        final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
+        await _isar.writeTxn(() => _isar.isarExpenses.putAllByServerId(safe));
+        return _skippedIds(
+            rows.map((m) => m.serverId), safe.map((m) => m.serverId));
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarExpenses.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarExpenses.where().serverIdProperty().findAll(),
+        _isar.isarExpenses.deleteAllByServerId,
+      ),
+    ),
+    'purchase_orders': _ChangeHandler(
+      apply: (items) async {
+        final skipped = <String>{};
+        await _isar.writeTxn(() async {
+          for (final json in items) {
+            final serverPO =
+                IsarPurchaseOrder.fromModel(PurchaseOrderModel.fromJson(json));
+            final existing = await _isar.isarPurchaseOrders
+                .filter()
+                .serverIdEqualTo(serverPO.serverId)
+                .findFirst();
+            if (existing != null && !existing.isSynced) {
+              skipped.add(serverPO.serverId);
+              continue;
+            }
+            await _isar.isarPurchaseOrders.putByServerId(serverPO);
+          }
+        });
+        return skipped;
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarPurchaseOrders.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarPurchaseOrders.where().serverIdProperty().findAll(),
+        _isar.isarPurchaseOrders.deleteAllByServerId,
+      ),
+    ),
+    'credit_notes': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) =>
+                IsarCreditNote.fromModel(CreditNoteModel.fromJson(json)))
+            .toList();
+        final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
+        await _isar.writeTxn(() => _isar.isarCreditNotes.putAllByServerId(safe));
+        return _skippedIds(
+            rows.map((m) => m.serverId), safe.map((m) => m.serverId));
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarCreditNotes.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarCreditNotes.where().serverIdProperty().findAll(),
+        _isar.isarCreditNotes.deleteAllByServerId,
+      ),
+    ),
+    'customer_credits': _ChangeHandler(
+      apply: (items) async {
+        final queued = await _queuedEntityIds();
+        final skipped = <String>{};
+        final rows = <IsarCustomerCredit>[];
+        for (final json in items) {
+          final credit = CustomerCreditModel.fromJson(json);
+          if (queued.contains(credit.id)) {
+            skipped.add(credit.id);
+            continue;
+          }
+          rows.add(_isarCreditFromModel(credit));
+        }
+        await _isar.writeTxn(
+            () => _isar.isarCustomerCredits.putAllByServerId(rows));
+        return skipped;
+      },
+      delete: (ids) => _deleteServerRows(
+          ids, _isar.isarCustomerCredits.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarCustomerCredits.where().serverIdProperty().findAll(),
+        _isar.isarCustomerCredits.deleteAllByServerId,
+      ),
+    ),
+    'inventory_batches': _ChangeHandler(
+      apply: (items) async {
+        // Igual que la descarga completa: si hay ventas/movimientos sin
+        // subir, los lotes modificados localmente no se pisan.
+        final pendingOps = await IsarDatabase.instance.getPendingSyncOperations();
+        final hasPendingInventoryOps = pendingOps.any((op) =>
+            op.entityType == 'Invoice' ||
+            op.entityType == 'invoice' ||
+            op.entityType == 'inventory_movement_fifo' ||
+            op.entityType == 'inventory_movement' ||
+            op.entityType == 'InventoryMovement' ||
+            op.entityType == 'PurchaseOrder' ||
+            op.entityType == 'purchase_order');
+        final protected = hasPendingInventoryOps
+            ? (await _isar.isarInventoryBatchs
+                    .filter()
+                    .isSyncedEqualTo(false)
+                    .findAll())
+                .map((b) => b.serverId)
+                .toSet()
+            : <String>{};
+        final skipped = <String>{};
+        final rows = <IsarInventoryBatch>[];
+        for (final json in items) {
+          final batch = IsarInventoryBatch.fromEntity(
+              InventoryBatchModel.fromJson(json).toEntity());
+          if (protected.contains(batch.serverId)) {
+            skipped.add(batch.serverId);
+            continue;
+          }
+          rows.add(batch);
+        }
+        if (rows.isNotEmpty) {
+          await _isar.writeTxn(
+              () => _isar.isarInventoryBatchs.putAllByServerId(rows));
+        }
+        return skipped;
+      },
+      delete: (ids) => _deleteServerRows(
+          ids, _isar.isarInventoryBatchs.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarInventoryBatchs.where().serverIdProperty().findAll(),
+        _isar.isarInventoryBatchs.deleteAllByServerId,
+      ),
+    ),
+    'inventory_movements': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) => IsarInventoryMovement.fromModel(
+                InventoryMovementModel.fromJson(json)))
+            .toList();
+        await _isar.writeTxn(
+            () => _isar.isarInventoryMovements.putAllByServerId(rows));
+        return <String>{};
+      },
+      delete: (ids) => _deleteServerRows(
+          ids, _isar.isarInventoryMovements.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarInventoryMovements.where().serverIdProperty().findAll(),
+        _isar.isarInventoryMovements.deleteAllByServerId,
+      ),
+    ),
+    'notifications': _ChangeHandler(
+      apply: (items) async {
+        final rows = items
+            .map((json) =>
+                IsarNotification.fromEntity(NotificationModel.fromJson(json)))
+            .toList();
+        await _isar.writeTxn(
+            () => _isar.isarNotifications.putAllByServerId(rows));
+        return <String>{};
+      },
+      delete: (ids) =>
+          _deleteServerRows(ids, _isar.isarNotifications.deleteAllByServerId),
+      sweep: (seen) => _sweepServerRows(
+        seen,
+        () => _isar.isarNotifications.where().serverIdProperty().findAll(),
+        _isar.isarNotifications.deleteAllByServerId,
+      ),
+    ),
+  };
 
   /// Solo para pruebas: corre [syncFn] como el módulo [entityName] de una
   /// sincronización (pull periódico si se pasa [deadline]).
@@ -1281,30 +1912,7 @@ class FullSyncService extends GetxService {
     if (creditsToWrite.isEmpty) return credits.length;
 
     await _isar.writeTxn(() async {
-      final isarModels = creditsToWrite.map((credit) {
-        return IsarCustomerCredit(
-          serverId: credit.id,
-          originalAmount: credit.originalAmount,
-          paidAmount: credit.paidAmount,
-          balanceDue: credit.balanceDue,
-          status: _mapCreditStatus(credit.status),
-          dueDate: credit.dueDate,
-          description: credit.description,
-          notes: credit.notes,
-          customerId: credit.customerId,
-          customerName: credit.customerName,
-          invoiceId: credit.invoiceId,
-          invoiceNumber: credit.invoiceNumber,
-          organizationId: credit.organizationId,
-          createdById: credit.createdById,
-          createdByName: credit.createdByName,
-          createdAt: credit.createdAt,
-          updatedAt: credit.updatedAt,
-          deletedAt: credit.deletedAt,
-          isSynced: true,
-          lastSyncAt: DateTime.now(),
-        );
-      }).toList();
+      final isarModels = creditsToWrite.map(_isarCreditFromModel).toList();
       await _isar.isarCustomerCredits.putAllByServerId(isarModels);
     });
 
@@ -1792,4 +2400,55 @@ class _EntityPass {
   int? stoppedAt;
 
   _EntityPass({this.deadline, this.resumeFrom});
+}
+
+/// Qué hacer con los registros de una entidad en la descarga incremental.
+class _ChangeHandler {
+  /// Guarda los registros recibidos; devuelve los IDs que NO se guardaron
+  /// por tener cambios locales sin subir.
+  final Future<Set<String>> Function(List<Map<String, dynamic>> items) apply;
+
+  /// Quita las copias locales de registros borrados en el servidor.
+  final Future<int> Function(List<String> ids) delete;
+
+  /// Tras una descarga completa, quita las copias locales que no llegaron.
+  final Future<int> Function(Set<String> seen) sweep;
+
+  const _ChangeHandler({
+    required this.apply,
+    required this.delete,
+    required this.sweep,
+  });
+}
+
+/// Estado de una descarga incremental en curso (puede repartirse en varios
+/// pulls si se agota el tiempo).
+class _ChangesProgress {
+  final String organization;
+  final bool isFullDownload;
+  String since;
+  String? afterId;
+
+  /// Marca que entregó el servidor en la primera página.
+  String? watermark;
+
+  /// `updated_at` más antiguo de los registros que no se aplicaron.
+  String? earliestSkipped;
+
+  /// IDs recibidos (solo en descarga completa, para la limpieza final).
+  final Set<String> seen = {};
+
+  _ChangesProgress({required this.organization, required this.since})
+      : isFullDownload = since == SyncChangesClient.epoch;
+
+  void noteSkipped(String stamp) {
+    final current = earliestSkipped;
+    if (current == null) {
+      earliestSkipped = stamp;
+      return;
+    }
+    final a = DateTime.tryParse(stamp);
+    final b = DateTime.tryParse(current);
+    if (a != null && b != null && a.isBefore(b)) earliestSkipped = stamp;
+  }
 }

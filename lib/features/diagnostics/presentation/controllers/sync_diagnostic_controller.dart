@@ -237,7 +237,7 @@ class SyncDiagnosticController extends GetxController {
     isLoading.value = true;
     try {
       final fullSync = Get.find<FullSyncService>();
-      final result = await fullSync.performFullSync();
+      final result = await fullSync.performFullSync(forceFullDownload: true);
       lastActionMessage.value =
           'Sincronización completa terminada en ${result.duration.inSeconds}s';
       await refreshAll();
