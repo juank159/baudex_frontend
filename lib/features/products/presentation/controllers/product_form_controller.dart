@@ -1,6 +1,7 @@
 // lib/features/products/presentation/controllers/product_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
@@ -467,6 +468,18 @@ class ProductFormController extends GetxController {
     _isSaving.value = true;
 
     try {
+      // El costo de la ficha se usa en el stock inicial y en los ajustes.
+      final costWarning = CostAbovePrice.check(
+        productName: nameController.text.trim(),
+        unitCost: AppFormatters.parseNumber(costPriceController.text) ?? 0,
+        unitPrice: AppFormatters.parseNumber(price1Controller.text),
+      );
+      if (!await confirmCostsAbovePrice([
+        if (costWarning != null) costWarning,
+      ])) {
+        return;
+      }
+
       if (isEditMode) {
         await _updateProduct();
       } else {
@@ -525,7 +538,7 @@ class ProductFormController extends GetxController {
   void setTaxCategory(TaxCategory category) {
     _selectedTaxCategory.value = category;
     // Auto-actualizar la tasa según la categoría
-    taxRateController.text = category.defaultRate.toString();
+    taxRateController.text = AppFormatters.formatStock(category.defaultRate);
     update(['tax_selector']);
   }
 
@@ -551,7 +564,7 @@ class ProductFormController extends GetxController {
     _selectedRetentionCategory.value = category;
     if (category != null) {
       // Auto-actualizar la tasa según la categoría
-      retentionRateController.text = category.defaultRate.toString();
+      retentionRateController.text = AppFormatters.formatStock(category.defaultRate);
       _hasRetention.value = true;
     }
     update(['retention_selector']);
@@ -841,7 +854,7 @@ class ProductFormController extends GetxController {
         prices: prices,
         // Campos de facturación electrónica
         taxCategory: _selectedTaxCategory.value,
-        taxRate: AppFormatters.parseNumber(taxRateController.text) ?? 19.0,
+        taxRate: AppFormatters.parseRate(taxRateController.text) ?? 19.0,
         isTaxable: _isTaxable.value,
         taxDescription:
             taxDescriptionController.text.trim().isEmpty
@@ -850,7 +863,7 @@ class ProductFormController extends GetxController {
         retentionCategory: _selectedRetentionCategory.value,
         retentionRate:
             _hasRetention.value
-                ? AppFormatters.parseNumber(retentionRateController.text) ?? 0
+                ? AppFormatters.parseRate(retentionRateController.text) ?? 0
                 : null,
         hasRetention: _hasRetention.value,
       ),
@@ -922,7 +935,7 @@ class ProductFormController extends GetxController {
           prices: prices, // ✅ CRÍTICO: Incluir precios procesados
           // Campos de facturación electrónica
           taxCategory: _selectedTaxCategory.value,
-          taxRate: AppFormatters.parseNumber(taxRateController.text) ?? 19.0,
+          taxRate: AppFormatters.parseRate(taxRateController.text) ?? 19.0,
           isTaxable: _isTaxable.value,
           taxDescription:
               taxDescriptionController.text.trim().isEmpty
@@ -931,7 +944,7 @@ class ProductFormController extends GetxController {
           retentionCategory: _selectedRetentionCategory.value,
           retentionRate:
               _hasRetention.value
-                  ? AppFormatters.parseNumber(retentionRateController.text) ?? 0
+                  ? AppFormatters.parseRate(retentionRateController.text) ?? 0
                   : null,
           hasRetention: _hasRetention.value,
         ),
@@ -1057,16 +1070,20 @@ class ProductFormController extends GetxController {
     descriptionController.text = product.description ?? '';
     skuController.text = product.sku;
     barcodeController.text = product.barcode ?? '';
-    stockController.text = AppFormatters.formatNumber(product.stock);
-    minStockController.text = AppFormatters.formatNumber(product.minStock);
+    stockController.text = AppFormatters.formatStock(product.stock);
+    minStockController.text = AppFormatters.formatStock(product.minStock);
 
     // ✅ CARGAR UNIDAD DE MEDIDA
     _loadUnitFromProduct(product);
 
-    weightController.text = product.weight?.toString() ?? '';
-    lengthController.text = product.length?.toString() ?? '';
-    widthController.text = product.width?.toString() ?? '';
-    heightController.text = product.height?.toString() ?? '';
+    weightController.text =
+        product.weight != null ? AppFormatters.formatStock(product.weight) : '';
+    lengthController.text =
+        product.length != null ? AppFormatters.formatStock(product.length) : '';
+    widthController.text =
+        product.width != null ? AppFormatters.formatStock(product.width) : '';
+    heightController.text =
+        product.height != null ? AppFormatters.formatStock(product.height) : '';
 
     // ✅ ACTUALIZADO: Configurar categoría con ID y nombre
     final categoryName =
@@ -1120,11 +1137,15 @@ class ProductFormController extends GetxController {
 
     // ✅ NUEVO: Poblar campos de facturación electrónica
     _selectedTaxCategory.value = product.taxCategory;
-    taxRateController.text = product.taxRate.toString();
+    // Formato es_CO ("19", "2,5"): con toString() quedaba "19.0", y al
+    // guardar el punto se leía como separador de miles → IVA de 190%.
+    taxRateController.text = AppFormatters.formatStock(product.taxRate);
     _isTaxable.value = product.isTaxable;
     taxDescriptionController.text = product.taxDescription ?? '';
     _selectedRetentionCategory.value = product.retentionCategory;
-    retentionRateController.text = product.retentionRate?.toString() ?? '0';
+    retentionRateController.text = product.retentionRate != null
+        ? AppFormatters.formatStock(product.retentionRate)
+        : '0';
     _hasRetention.value = product.hasRetention;
 
     if (product.hasRetention && product.retentionCategory != null) {

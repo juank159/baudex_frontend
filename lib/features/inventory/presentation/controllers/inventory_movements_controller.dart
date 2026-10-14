@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../../../app/core/models/paginated_result.dart' as core;
 import '../../domain/entities/inventory_movement.dart';
 import '../../domain/repositories/inventory_repository.dart';
@@ -85,6 +86,8 @@ class InventoryMovementsController extends GetxController {
   // Form state for new movement
   final RxString selectedProductId = ''.obs;
   final RxString selectedProductName = ''.obs;
+  // Precio de venta del producto elegido, para avisar si el costo lo supera.
+  double? _selectedProductPrice;
   final Rx<InventoryMovementType> selectedType =
       InventoryMovementType.inbound.obs;
   final Rx<InventoryMovementReason> selectedReason =
@@ -302,6 +305,17 @@ class InventoryMovementsController extends GetxController {
   Future<void> createMovement() async {
     if (!_validateForm()) return;
 
+    if (selectedType.value == InventoryMovementType.inbound) {
+      final warning = CostAbovePrice.check(
+        productName: selectedProductName.value,
+        unitCost: unitCost.value,
+        unitPrice: _selectedProductPrice,
+      );
+      if (!await confirmCostsAbovePrice([if (warning != null) warning])) {
+        return;
+      }
+    }
+
     try {
       isCreating.value = true;
       error.value = '';
@@ -413,6 +427,7 @@ class InventoryMovementsController extends GetxController {
   void _clearForm() {
     selectedProductId.value = '';
     selectedProductName.value = '';
+    _selectedProductPrice = null;
     selectedType.value = InventoryMovementType.inbound;
     selectedReason.value = InventoryMovementReason.adjustment;
     quantity.value = 1;
@@ -524,6 +539,7 @@ class InventoryMovementsController extends GetxController {
 
     selectedProductId.value = product.id;
     selectedProductName.value = product.name;
+    _selectedProductPrice = product.sellingPrice;
 
     // Set default unit cost if available
     if (product.costPrice != null && product.costPrice! > 0) {

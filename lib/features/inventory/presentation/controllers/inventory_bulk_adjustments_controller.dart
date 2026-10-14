@@ -1,6 +1,7 @@
 // lib/features/inventory/presentation/controllers/inventory_bulk_adjustments_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -324,6 +325,18 @@ class InventoryBulkAdjustmentsController extends GetxController {
       );
       return;
     }
+
+    // Las entradas crean lotes con el costo de la ficha del producto.
+    final costWarnings = [
+      for (final item in itemsWithChanges)
+        if (item.adjustmentDifference > 0)
+          CostAbovePrice.check(
+            productName: item.product.name,
+            unitCost: item.product.costPrice ?? 0.0,
+            unitPrice: item.product.sellingPrice,
+          ),
+    ].whereType<CostAbovePrice>().toList();
+    if (!await confirmCostsAbovePrice(costWarnings)) return;
 
     try {
       isCreating.value = true;

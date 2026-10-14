@@ -1584,7 +1584,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                     keyboardType: TextInputType.number,
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Requerido';
-                      final rate = double.tryParse(value);
+                      final rate = AppFormatters.parseRate(value);
                       if (rate == null || rate < 0 || rate > 100) {
                         return 'Ingrese tasa válida (0-100)';
                       }
@@ -1755,7 +1755,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                     validator: (value) {
                       if (!controller.hasRetention) return null;
                       if (value == null || value.isEmpty) return 'Requerido';
-                      final rate = double.tryParse(value);
+                      final rate = AppFormatters.parseRate(value);
                       if (rate == null || rate < 0 || rate > 100) {
                         return 'Tasa válida (0-100)';
                       }

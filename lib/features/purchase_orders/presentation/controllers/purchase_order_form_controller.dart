@@ -2,6 +2,7 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -901,6 +902,11 @@ class PurchaseOrderFormController extends GetxController
       return;
     }
 
+    if (!await confirmCostsAbovePrice(await _costsAboveSellingPrice())) {
+      currentStep.value = 1;
+      return;
+    }
+
     try {
       isSaving.value = true;
       error.value = '';
@@ -916,6 +922,30 @@ class PurchaseOrderFormController extends GetxController
     } finally {
       isSaving.value = false;
     }
+  }
+
+  /// Ítems cuyo costo por unidad supera el precio de venta del producto
+  /// (casi siempre el costo del paquete anotado como costo por unidad).
+  /// Lee los productos de ISAR, así que funciona igual sin conexión.
+  Future<List<CostAbovePrice>> _costsAboveSellingPrice() async {
+    if (!Get.isRegistered<ProductOfflineRepository>()) return const [];
+    final repo = Get.find<ProductOfflineRepository>();
+    final warnings = <CostAbovePrice>[];
+    for (final item in items.where((item) => item.isValid)) {
+      try {
+        final result = await repo.getProductById(item.productId);
+        final product = result.fold((_) => null, (p) => p);
+        final warning = CostAbovePrice.check(
+          productName: product?.name ?? item.productName,
+          unitCost: item.unitPrice,
+          unitPrice: product?.sellingPrice,
+        );
+        if (warning != null) warnings.add(warning);
+      } catch (_) {
+        // Sin el producto no hay con qué comparar: no se avisa.
+      }
+    }
+    return warnings;
   }
 
   Future<void> _createPurchaseOrder() async {

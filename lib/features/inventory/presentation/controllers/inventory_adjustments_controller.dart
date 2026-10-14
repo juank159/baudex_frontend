@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../domain/usecases/create_stock_adjustment_usecase.dart';
 import '../../domain/usecases/get_inventory_balance_by_product_usecase.dart';
 import '../../domain/usecases/get_warehouses_usecase.dart';
@@ -92,7 +93,9 @@ class InventoryAdjustmentsController extends GetxController {
     });
 
     unitCostController.addListener(() {
-      final value = double.tryParse(unitCostController.text) ?? 0.0;
+      // parseRate entiende "14.000" (miles) y "1,5" (decimal); double.tryParse
+      // leía "14.000" como 14.
+      final value = AppFormatters.parseRate(unitCostController.text) ?? 0.0;
       unitCost.value = value;
     });
 
@@ -246,6 +249,18 @@ class InventoryAdjustmentsController extends GetxController {
 
   Future<void> createAdjustment() async {
     if (!_validateForm()) return;
+
+    // Entrada de mercancía: el costo ingresado será el de un lote nuevo.
+    if (newQuantity.value > currentStock.value) {
+      final warning = CostAbovePrice.check(
+        productName: selectedProductName.value,
+        unitCost: unitCost.value,
+        unitPrice: selectedProduct.value?.sellingPrice,
+      );
+      if (!await confirmCostsAbovePrice([if (warning != null) warning])) {
+        return;
+      }
+    }
 
     try {
       isCreating.value = true;
