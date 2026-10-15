@@ -67,9 +67,11 @@ class Product extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     // Campos de facturación electrónica
-    this.taxCategory = TaxCategory.iva,
-    this.taxRate = 19.0,
-    this.isTaxable = true,
+    // Sin IVA por defecto: el POS no maneja impuestos salvo que el producto
+    // se configure explícitamente como gravado.
+    this.taxCategory = TaxCategory.noGravado,
+    this.taxRate = 0.0,
+    this.isTaxable = false,
     this.taxDescription,
     this.retentionCategory,
     this.retentionRate,

@@ -61,9 +61,9 @@ class ProductModel {
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
-    this.taxCategory = 'IVA',
-    this.taxRate = 19.0,
-    this.isTaxable = true,
+    this.taxCategory = 'NO_GRAVADO',
+    this.taxRate = 0.0,
+    this.isTaxable = false,
     this.taxDescription,
     this.retentionCategory,
     this.retentionRate,
@@ -131,9 +131,10 @@ class ProductModel {
                 ? DateTime.parse(json['updatedAt'] as String)
                 : DateTime.now(),
         // ✅ CAMPOS DE FACTURACIÓN ELECTRÓNICA
-        taxCategory: json['taxCategory'] as String? ?? 'IVA',
-        taxRate: json['taxRate'] != null ? _parseDouble(json['taxRate']) : 19.0,
-        isTaxable: json['isTaxable'] as bool? ?? true,
+        // Si el dato no viene, sin IVA (nunca suponer impuesto).
+        taxCategory: json['taxCategory'] as String? ?? 'NO_GRAVADO',
+        taxRate: json['taxRate'] != null ? _parseDouble(json['taxRate']) : 0.0,
+        isTaxable: json['isTaxable'] as bool? ?? false,
         taxDescription: json['taxDescription'] as String?,
         retentionCategory: json['retentionCategory'] as String?,
         retentionRate:

@@ -862,9 +862,9 @@ class ProductRepositoryImpl implements ProductRepository {
           createdAt: now,
           updatedAt: now,
           // Campos fiscales
-          taxCategory: taxCategory ?? TaxCategory.iva,
-          taxRate: taxRate ?? 19.0,
-          isTaxable: isTaxable ?? true,
+          taxCategory: taxCategory ?? TaxCategory.noGravado,
+          taxRate: taxRate ?? 0.0,
+          isTaxable: isTaxable ?? false,
           taxDescription: taxDescription,
           retentionCategory: retentionCategory,
           retentionRate: retentionRate,

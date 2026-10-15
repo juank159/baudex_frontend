@@ -215,7 +215,7 @@ class InvoiceFormData {
     required this.paymentMethod,
     this.customerId,
     required this.items,
-    this.taxPercentage = 19,
+    this.taxPercentage = 0,
     this.discountPercentage = 0,
     this.discountAmount = 0,
     this.notes,

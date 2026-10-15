@@ -54,7 +54,7 @@ class CreateInvoiceParams {
     this.dueDate,
     this.paymentMethod = PaymentMethod.cash,
     this.status,
-    this.taxPercentage = 19,
+    this.taxPercentage = 0,
     this.discountPercentage = 0,
     this.discountAmount = 0,
     this.notes,

@@ -547,7 +547,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     DateTime? dueDate,
     PaymentMethod paymentMethod = PaymentMethod.cash,
     InvoiceStatus? status,
-    double taxPercentage = 19,
+    double taxPercentage = 0,
     double discountPercentage = 0,
     double discountAmount = 0,
     String? notes,

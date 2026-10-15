@@ -352,9 +352,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               ..updatedAt = DateTime.now()
               ..lastSyncAt = DateTime.now()
               ..version = 1
-              ..taxCategory = IsarTaxCategory.iva
-              ..taxRate = 19.0
-              ..isTaxable = true
+              ..taxCategory = IsarTaxCategory.noGravado
+              ..taxRate = 0.0
+              ..isTaxable = false
               ..hasRetention = false
               ..metadataJson = jsonEncode(stats.toJson());
 

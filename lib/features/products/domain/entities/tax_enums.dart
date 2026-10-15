@@ -53,7 +53,7 @@ enum TaxCategory {
   static TaxCategory fromString(String value) {
     return TaxCategory.values.firstWhere(
       (e) => e.value == value,
-      orElse: () => TaxCategory.iva,
+      orElse: () => TaxCategory.noGravado,
     );
   }
 }

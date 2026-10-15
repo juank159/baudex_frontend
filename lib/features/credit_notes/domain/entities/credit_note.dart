@@ -287,7 +287,7 @@ class CreditNote extends Equatable {
       reason: CreditNoteReason.other,
       status: CreditNoteStatus.draft,
       subtotal: 0,
-      taxPercentage: 19,
+      taxPercentage: 0,
       taxAmount: 0,
       total: 0,
       invoiceId: '',

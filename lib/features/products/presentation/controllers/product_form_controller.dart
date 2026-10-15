@@ -854,7 +854,7 @@ class ProductFormController extends GetxController {
         prices: prices,
         // Campos de facturación electrónica
         taxCategory: _selectedTaxCategory.value,
-        taxRate: AppFormatters.parseRate(taxRateController.text) ?? 19.0,
+        taxRate: AppFormatters.parseRate(taxRateController.text) ?? 0.0,
         isTaxable: _isTaxable.value,
         taxDescription:
             taxDescriptionController.text.trim().isEmpty
@@ -935,7 +935,7 @@ class ProductFormController extends GetxController {
           prices: prices, // ✅ CRÍTICO: Incluir precios procesados
           // Campos de facturación electrónica
           taxCategory: _selectedTaxCategory.value,
-          taxRate: AppFormatters.parseRate(taxRateController.text) ?? 19.0,
+          taxRate: AppFormatters.parseRate(taxRateController.text) ?? 0.0,
           isTaxable: _isTaxable.value,
           taxDescription:
               taxDescriptionController.text.trim().isEmpty
@@ -1362,13 +1362,15 @@ class ProductFormController extends GetxController {
     specialMarginController.clear();
 
     // Limpiar controladores de facturación electrónica
-    taxRateController.text = '19';
+    taxRateController.text = '0';
     taxDescriptionController.clear();
     retentionRateController.text = '0';
 
-    // Restablecer valores por defecto
-    _selectedTaxCategory.value = TaxCategory.iva;
-    _isTaxable.value = true;
+    // Restablecer valores por defecto (los mismos del formulario nuevo: sin
+    // IVA). Antes volvía a IVA 19% y el siguiente producto creado quedaba
+    // gravado sin que nadie lo eligiera.
+    _selectedTaxCategory.value = TaxCategory.noGravado;
+    _isTaxable.value = false;
     _hasRetention.value = false;
     _selectedRetentionCategory.value = null;
   }

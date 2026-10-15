@@ -115,9 +115,9 @@ class IsarProduct {
     this.lastModifiedAt,
     this.lastModifiedBy,
     this.prices = const [],
-    this.taxCategory = IsarTaxCategory.iva,
-    this.taxRate = 19.0,
-    this.isTaxable = true,
+    this.taxCategory = IsarTaxCategory.noGravado,
+    this.taxRate = 0.0,
+    this.isTaxable = false,
     this.taxDescription,
     this.retentionCategory,
     this.retentionRate,
@@ -342,11 +342,11 @@ class IsarProduct {
         return IsarTaxCategory.incBolsa;
       case 'EXENTO':
         return IsarTaxCategory.exento;
-      case 'NO_GRAVADO':
-        return IsarTaxCategory.noGravado;
       case 'IVA':
-      default:
         return IsarTaxCategory.iva;
+      case 'NO_GRAVADO':
+      default:
+        return IsarTaxCategory.noGravado;
     }
   }
 

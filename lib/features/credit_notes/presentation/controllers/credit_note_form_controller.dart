@@ -57,7 +57,7 @@ class CreditNoteFormController extends GetxController {
   final _selectedReason = CreditNoteReason.returnedGoods.obs;
   final _date = DateTime.now().obs;
   final _items = <CreditNoteItem>[].obs;
-  final _taxPercentage = 19.0.obs;
+  final _taxPercentage = 0.0.obs;
   final _notes = ''.obs;
   final _terms = ''.obs;
   final _restoreInventory = true.obs;

@@ -424,7 +424,7 @@ class Invoice extends Equatable {
       status: InvoiceStatus.draft,
       paymentMethod: PaymentMethod.cash,
       subtotal: 0,
-      taxPercentage: 19,
+      taxPercentage: 0,
       taxAmount: 0,
       discountPercentage: 0,
       discountAmount: 0,
