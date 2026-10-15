@@ -80,6 +80,7 @@ import '../../../features/expenses/data/models/expense_model.dart';
 import '../../../features/purchase_orders/data/models/purchase_order_model.dart';
 import '../../../features/credit_notes/data/models/credit_note_model.dart';
 import '../../../features/customer_credits/data/models/customer_credit_model.dart';
+import '../../../features/customer_credits/data/datasources/customer_credit_local_datasource_isar.dart';
 import '../../../features/inventory/data/models/inventory_movement_model.dart';
 import '../../../features/notifications/data/models/notification_model.dart';
 
@@ -1122,17 +1123,55 @@ class FullSyncService extends GetxService {
       apply: (items) async {
         final queued = await _queuedEntityIds();
         final skipped = <String>{};
-        final rows = <IsarCustomerCredit>[];
+        final credits = <CustomerCreditModel>[];
         for (final json in items) {
           final credit = CustomerCreditModel.fromJson(json);
           if (queued.contains(credit.id)) {
             skipped.add(credit.id);
             continue;
           }
-          rows.add(_isarCreditFromModel(credit));
+          credits.add(credit);
         }
-        await _isar.writeTxn(
-            () => _isar.isarCustomerCredits.putAllByServerId(rows));
+        // Abonos (vienen con el crédito) e ítems de la factura ya guardados:
+        // sin esto, cada descarga borraba el historial del crédito en el equipo.
+        final existing = await _isar.isarCustomerCredits
+            .getAllByServerId(credits.map((c) => c.id).toList());
+        final rows = <IsarCustomerCredit>[];
+        for (var i = 0; i < credits.length; i++) {
+          rows.add(_isarCreditFromModel(credits[i])
+            ..metadataJson = CustomerCreditLocalDataSourceIsar.serializeCreditMetadata(
+              credits[i],
+              existingMetadataJson: existing[i]?.metadataJson,
+            ));
+        }
+        // Créditos provisionales creados en el equipo por una venta a crédito
+        // sin conexión: cuando llega el crédito real de esa factura, el
+        // provisional sobra (si no, la deuda aparecería dos veces). Se
+        // conservan los que tienen abonos locales aún sin subir.
+        final invoiceIds = credits
+            .map((c) => c.invoiceId)
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        final provisional = invoiceIds.isEmpty
+            ? const <IsarCustomerCredit>[]
+            : await _isar.isarCustomerCredits
+                .filter()
+                .serverIdStartsWith('credit_offline_')
+                .findAll();
+        final replaced = provisional
+            .where((c) =>
+                c.invoiceId != null &&
+                invoiceIds.contains(c.invoiceId) &&
+                !queued.contains(c.serverId))
+            .map((c) => c.id)
+            .toList();
+        await _isar.writeTxn(() async {
+          await _isar.isarCustomerCredits.putAllByServerId(rows);
+          if (replaced.isNotEmpty) {
+            await _isar.isarCustomerCredits.deleteAll(replaced);
+          }
+        });
         return skipped;
       },
       delete: (ids) => _deleteServerRows(

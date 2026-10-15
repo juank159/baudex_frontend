@@ -17,6 +17,8 @@ import 'sync_failure_policy.dart';
 import 'sync_lock.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../core/errors/exceptions.dart';
+import '../../../features/cash_register/data/datasources/cash_register_remote_datasource.dart';
+import '../../../features/cash_register/presentation/controllers/cash_register_controller.dart';
 import '../../core/network/api_interceptor.dart';
 import '../../core/services/idempotency_service.dart';
 import '../../core/services/conflict_resolution_service.dart';
@@ -1249,6 +1251,9 @@ class SyncService extends GetxService {
       'CreditNote': 5, 'credit_note': 5, 'CustomerCredit': 5, 'customer_credit': 5,
       'ClientBalance': 5, 'client_balance': 5,
       'notification': 6, 'user_preferences': 6,
+      // Después de ventas, gastos y créditos: el cierre de caja necesita que
+      // el efectivo del turno ya esté en el servidor.
+      'CashRegister': 7,
     };
 
     for (final op in sorted) {
@@ -1325,6 +1330,7 @@ class SyncService extends GetxService {
       'Customer': 'Un cliente',
       'Product': 'Un producto',
       'Expense': 'Un gasto',
+      'CashRegister': 'Una apertura o cierre de caja',
     };
     final what = labels[operation.entityType] ?? 'Una operación (${operation.entityType})';
 
@@ -1518,6 +1524,9 @@ class SyncService extends GetxService {
         case 'PrinterSettings':
         case 'printer_settings':
           await _syncPrinterSettingsOperation(operation);
+          break;
+        case 'CashRegister':
+          await _syncCashRegisterOperation(operation);
           break;
         default:
           throw Exception('Tipo de entidad no soportado: ${operation.entityType}');
@@ -4812,7 +4821,14 @@ class SyncService extends GetxService {
                 finalData['tags'] != null
                     ? List<String>.from(finalData['tags'])
                     : null,
-            metadata: finalData['metadata'],
+            // `recordedAt`: hora en que se registró el gasto en este equipo.
+            // Si se pagó con la caja y sube después de cerrarla, el servidor
+            // lo acepta igual (ya ocurrió) en vez de rechazarlo.
+            metadata: _withOccurredAt(
+              finalData['metadata'],
+              'recordedAt',
+              operation.createdAt,
+            ),
             status:
                 finalData['status'] != null
                     ? (finalData['status'] is ExpenseStatus
@@ -5799,7 +5815,7 @@ class SyncService extends GetxService {
             taxPercentage:
                 finalData['taxPercentage'] != null
                     ? (finalData['taxPercentage'] as num).toDouble()
-                    : 19,
+                    : 0,
             discountPercentage:
                 finalData['discountPercentage'] != null
                     ? (finalData['discountPercentage'] as num).toDouble()
@@ -5810,7 +5826,15 @@ class SyncService extends GetxService {
                     : 0,
             notes: finalData['notes'],
             terms: finalData['terms'],
-            metadata: finalData['metadata'],
+            // `soldAt`: hora real de la venta en este equipo. El servidor la
+            // usa como fecha del pago (para que una venta hecha sin conexión
+            // quede en su día y su turno de caja, no en la hora en que subió)
+            // y para no rechazarla si la caja ya se cerró.
+            metadata: _withOccurredAt(
+              finalData['metadata'],
+              'soldAt',
+              operation.createdAt,
+            ),
             bankAccountId: finalData['bankAccountId'],
             skipStockValidation: skipStock,
           );
@@ -6059,6 +6083,26 @@ class SyncService extends GetxService {
                   'Crédito ya existe en servidor - ignorando',
                   tag: 'SYNC',
                 );
+                // El servidor ya creó el crédito junto con la factura. El
+                // crédito local queda apuntando a la factura real para que,
+                // al descargar el del servidor, se reemplace (y no aparezca
+                // la deuda dos veces).
+                try {
+                  final isar = IsarDatabase.instance.database;
+                  final localCredit = await isar.isarCustomerCredits
+                      .filter()
+                      .invoiceIdEqualTo(operation.entityId)
+                      .findFirst();
+                  if (localCredit != null) {
+                    localCredit.invoiceId = createdInvoice.id;
+                    localCredit.invoiceNumber = createdInvoice.number;
+                    await isar.writeTxn(() async {
+                      await isar.isarCustomerCredits.put(localCredit);
+                    });
+                  }
+                } catch (e) {
+                  AppLogger.w('Error actualizando invoiceId en crédito: $e', tag: 'SYNC');
+                }
               } else {
                 AppLogger.w(
                   'Error creando crédito para factura a crédito: $creditError',
@@ -8032,6 +8076,71 @@ class SyncService extends GetxService {
     }
   }
 
+  // ==================== CAJA REGISTRADORA ====================
+
+  /// Apertura o cierre de caja hecho sin conexión. El servidor lo registra con
+  /// el id y la hora reales del equipo, y una repetición no duplica nada.
+  Future<void> _syncCashRegisterOperation(SyncOperation operation) async {
+    final data = Map<String, dynamic>.from(jsonDecode(operation.payload) as Map);
+    final remote = Get.isRegistered<CashRegisterRemoteDataSource>()
+        ? Get.find<CashRegisterRemoteDataSource>()
+        : CashRegisterRemoteDataSourceImpl(dioClient: Get.find<DioClient>());
+    final action = data['action'];
+
+    if (action == 'open') {
+      await remote.open(
+        openingAmount: (data['openingAmount'] as num).toDouble(),
+        openingNotes: data['openingNotes'] as String?,
+        id: data['id'] as String,
+        openedAt: DateTime.tryParse(data['openedAt']?.toString() ?? ''),
+      );
+    } else if (action == 'close') {
+      // El cuadre se calcula en el servidor al cerrar: primero deben subir
+      // las ventas, abonos y gastos registrados antes del cierre, o quedarían
+      // fuera del turno. Mientras tanto, el cierre espera (no se pierde).
+      final waiting = await _moneyOperationsBefore(operation);
+      if (waiting > 0) {
+        throw ConnectionException(
+          'El cierre de caja espera a que suban $waiting movimientos del turno',
+        );
+      }
+      await remote.close(
+        id: data['id'] as String,
+        closingActualAmount: (data['closingActualAmount'] as num).toDouble(),
+        closingNotes: data['closingNotes'] as String?,
+        closedAt: DateTime.tryParse(data['closedAt']?.toString() ?? ''),
+      );
+    } else {
+      throw Exception('Acción de caja no soportada: $action');
+    }
+
+    // Refrescar la caja en pantalla cuando la operación ya salió de la cola.
+    Future.delayed(const Duration(seconds: 2), () {
+      if (Get.isRegistered<CashRegisterController>()) {
+        Get.find<CashRegisterController>().loadCurrent(silent: true);
+      }
+    });
+  }
+
+  /// Ventas, abonos y gastos encolados antes que [operation] que aún no
+  /// suben. No cuenta los rechazados por el servidor ("requieren atención"):
+  /// esos no van a entrar al cuadre y no deben trabar el cierre.
+  Future<int> _moneyOperationsBefore(SyncOperation operation) async {
+    const moneyTypes = {
+      'Invoice', 'invoice', 'CustomerCredit', 'customer_credit',
+      'Expense', 'expense', 'ClientBalance', 'client_balance',
+      'CreditNote', 'credit_note',
+    };
+    final pending = await _isarDatabase.getPendingSyncOperations();
+    return pending
+        .where((op) =>
+            moneyTypes.contains(op.entityType) &&
+            op.id < operation.id &&
+            op.organizationId == operation.organizationId &&
+            op.retryCount < SyncConfig.maxRetries)
+        .length;
+  }
+
   // ==================== CONFLICT RESOLUTION ====================
 
   /// Maneja un conflicto 409 de forma centralizada usando el ConflictResolutionService
@@ -8822,6 +8931,20 @@ class SyncService extends GetxService {
 ///   1. Marcar la op como `failed` (no `completed` — datos NO se descartan).
 ///   2. Setear `retryCount = maxRetries` para suprimir reintentos automáticos.
 ///   3. Persistir un log de error para que el usuario lo vea en Diagnóstico.
+/// Agrega a la metadata de un registro la hora real en que ocurrió en el
+/// equipo (UTC). Respeta un valor ya presente.
+Map<String, dynamic> _withOccurredAt(
+  dynamic metadata,
+  String key,
+  DateTime occurredAt,
+) {
+  final result = metadata is Map
+      ? Map<String, dynamic>.from(metadata)
+      : <String, dynamic>{};
+  result.putIfAbsent(key, () => occurredAt.toUtc().toIso8601String());
+  return result;
+}
+
 class _PermanentValidationException implements Exception {
   final String entityType;
   final String entityId;

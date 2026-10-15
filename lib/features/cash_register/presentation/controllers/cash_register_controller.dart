@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/repositories/cash_register_repository.dart';
+import '../../../../app/core/network/network_info.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 
 /// Controlador de Caja Registradora.
@@ -144,9 +145,13 @@ class CashRegisterController extends GetxController {
           _showError(failure.message);
           return false;
         },
-        (_) {
-          _showSuccess('¡Caja abierta!',
-              'Saldo inicial: \$${openingAmount.toStringAsFixed(0)}');
+        (_) async {
+          final offline = !await _isOnline();
+          _showSuccess(
+            '¡Caja abierta!',
+            'Saldo inicial: \$${openingAmount.toStringAsFixed(0)}'
+                '${offline ? '\nSin conexión: se sincronizará sola al volver el internet.' : ''}',
+          );
           loadCurrent();
           return true;
         },
@@ -186,14 +191,20 @@ class CashRegisterController extends GetxController {
           _showError(failure.message);
           return false;
         },
-        (closed) {
+        (closed) async {
           final diff = closed.closingDifference ?? 0;
           final diffMsg = diff == 0
               ? '¡Cuadre perfecto!'
               : diff > 0
                   ? 'Sobrante: \$${diff.abs().toStringAsFixed(0)}'
                   : 'Faltante: \$${diff.abs().toStringAsFixed(0)}';
-          _showSuccess('Caja cerrada', diffMsg);
+          final offline = !await _isOnline();
+          _showSuccess(
+            'Caja cerrada',
+            offline
+                ? '$diffMsg (estimado)\nSin conexión: el cierre se sincronizará solo y el servidor confirmará el cuadre.'
+                : diffMsg,
+          );
           loadCurrent();
           loadHistory();
           return true;
@@ -213,6 +224,14 @@ class CashRegisterController extends GetxController {
       (_) {},
       (list) => history.value = list,
     );
+  }
+
+  Future<bool> _isOnline() async {
+    try {
+      return await Get.find<NetworkInfo>().isConnected;
+    } catch (_) {
+      return true;
+    }
   }
 
   void _showError(String message) {

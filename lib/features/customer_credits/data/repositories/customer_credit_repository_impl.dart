@@ -44,29 +44,116 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
         msg.contains('connection') || error is ConnectionException;
   }
 
+  /// Lista de créditos LOCAL-FIRST: se lee de la base del equipo, que la
+  /// sincronización incremental mantiene al día cada pocos segundos. Antes se
+  /// pedía al servidor la lista completa (miles de créditos) y la pantalla
+  /// esperaba esa respuesta; además no mostraba los créditos hechos sin
+  /// conexión que aún no subían. Solo si el equipo no tiene ningún crédito
+  /// (primera descarga sin terminar) se consulta al servidor.
   @override
   Future<Either<Failure, List<CustomerCredit>>> getCredits(CustomerCreditQueryParams? query) async {
-    final isConnected = await networkInfo.isConnected;
+    final local = await _localCredits();
+    if (local.isNotEmpty) return Right(_applyQuery(local, query));
 
-    if (isConnected) {
+    if (await networkInfo.isConnected) {
       try {
         final credits = await remoteDataSource.getCredits(query);
-        // ✅ Resetear estado de conectividad
         networkInfo.resetServerReachability();
-        // Cachear en local
-        await localDataSource.cacheCredits(credits.cast<CustomerCreditModel>());
+        await _cacheWithoutPendingChanges(credits.cast<CustomerCreditModel>());
         return Right(credits);
       } catch (e) {
-        AppLogger.w('Error obteniendo créditos del servidor: $e - intentando cache local...', tag: 'CREDIT');
-        // ✅ Marcar servidor como no alcanzable si es timeout
-        if (_isTimeoutError(e)) {
-          networkInfo.markServerUnreachable();
-        }
-        return _getCreditsFromCache();
+        AppLogger.w('Error obteniendo créditos del servidor: $e', tag: 'CREDIT');
+        if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
       }
-    } else {
-      AppLogger.d('📴 Sin conexión, cargando créditos desde cache local...', tag: 'CREDIT');
-      return _getCreditsFromCache();
+    }
+    return const Right(<CustomerCredit>[]);
+  }
+
+  Future<List<CustomerCreditModel>> _localCredits() async {
+    try {
+      return withoutReplacedProvisionalCredits(
+          await localDataSource.getCachedCredits());
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Una venta a crédito hecha sin conexión crea en el equipo un crédito
+  /// provisional (`credit_offline_…`). Cuando la factura sube, el servidor
+  /// crea el crédito real. Si ambos están en el equipo, se muestra solo el
+  /// real (si no, la deuda aparecería dos veces). Mientras el real no llegue,
+  /// el provisional se sigue mostrando.
+  static List<CustomerCreditModel> withoutReplacedProvisionalCredits(
+    List<CustomerCreditModel> credits,
+  ) {
+    bool isProvisional(CustomerCreditModel c) => c.id.startsWith('credit_offline_');
+    final realInvoiceIds = <String>{};
+    final realInvoiceNumbers = <String>{};
+    for (final c in credits) {
+      if (isProvisional(c)) continue;
+      if (c.invoiceId != null && c.invoiceId!.isNotEmpty) realInvoiceIds.add(c.invoiceId!);
+      if (c.invoiceNumber != null && c.invoiceNumber!.isNotEmpty) {
+        realInvoiceNumbers.add('${c.customerId}|${c.invoiceNumber}');
+      }
+    }
+    return credits.where((c) {
+      if (!isProvisional(c)) return true;
+      if (c.invoiceId != null && realInvoiceIds.contains(c.invoiceId)) return false;
+      if (c.invoiceNumber != null &&
+          realInvoiceNumbers.contains('${c.customerId}|${c.invoiceNumber}')) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  /// Mismos filtros que el listado del servidor.
+  List<CustomerCredit> _applyQuery(
+    List<CustomerCreditModel> credits,
+    CustomerCreditQueryParams? query,
+  ) {
+    final now = DateTime.now();
+    DateTime? parseDay(String? value, {bool end = false}) {
+      if (value == null || value.isEmpty) return null;
+      final d = DateTime.tryParse(value);
+      if (d == null) return null;
+      return end ? DateTime(d.year, d.month, d.day, 23, 59, 59) : DateTime(d.year, d.month, d.day);
+    }
+
+    final start = parseDay(query?.startDate);
+    final end = parseDay(query?.endDate, end: true);
+    return credits.where((c) {
+      if (query?.customerId != null && c.customerId != query!.customerId) return false;
+      if (query?.status != null && c.status.value != query!.status) return false;
+      if (query?.includeCancelled != true && c.status == CreditStatus.cancelled) return false;
+      if (query?.overdueOnly == true) {
+        final open = c.status != CreditStatus.paid && c.status != CreditStatus.cancelled;
+        if (!open || c.dueDate == null || !c.dueDate!.isBefore(now)) return false;
+      }
+      if (start != null && c.createdAt.isBefore(start)) return false;
+      if (end != null && c.createdAt.isAfter(end)) return false;
+      return true;
+    }).toList();
+  }
+
+  /// Guarda en el equipo lo que respondió el servidor, sin pisar créditos con
+  /// cambios hechos aquí que aún no suben (un abono sin conexión, p. ej.).
+  Future<void> _cacheWithoutPendingChanges(List<CustomerCreditModel> credits) async {
+    final pending = await _creditIdsWithPendingChanges();
+    final safe = credits.where((c) => !pending.contains(c.id)).toList();
+    if (safe.isEmpty) return;
+    await localDataSource.cacheCredits(safe);
+  }
+
+  Future<Set<String>> _creditIdsWithPendingChanges() async {
+    try {
+      final ops = await IsarDatabase.instance.getPendingSyncOperations();
+      return ops
+          .where((op) => op.entityType == 'CustomerCredit' || op.entityType == 'customer_credit')
+          .map((op) => op.entityId)
+          .toSet();
+    } catch (_) {
+      return const {};
     }
   }
 
@@ -91,6 +178,10 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
     if (isConnected) {
       try {
+        // Con cambios hechos en este equipo sin subir, manda lo local.
+        if ((await _creditIdsWithPendingChanges()).contains(id)) {
+          return _getCreditFromCache(id);
+        }
         final credit = await remoteDataSource.getCreditById(id);
         networkInfo.resetServerReachability();
         await localDataSource.cacheCredit(credit as CustomerCreditModel);
@@ -212,6 +303,10 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, List<CustomerCredit>>> getCreditsByCustomer(String customerId) async {
+    final local = await _localCredits();
+    if (local.isNotEmpty) {
+      return Right(local.where((c) => c.customerId == customerId).toList());
+    }
     if (await networkInfo.isConnected) {
       try {
         final credits = await remoteDataSource.getCreditsByCustomer(customerId);
@@ -240,6 +335,19 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, List<CustomerCredit>>> getPendingCreditsByCustomer(String customerId) async {
+    final local = await _localCredits();
+    if (local.isNotEmpty) {
+      // Igual que el servidor: lo que no está pagado, del más antiguo al más
+      // nuevo (los abonos se aplican en ese orden). Sin cancelados: no deben.
+      final pending = local
+          .where((c) =>
+              c.customerId == customerId &&
+              c.status != CreditStatus.paid &&
+              c.status != CreditStatus.cancelled)
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return Right(pending);
+    }
     if (await networkInfo.isConnected) {
       try {
         final credits = await remoteDataSource.getPendingCreditsByCustomer(customerId);
@@ -424,8 +532,10 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, CreditStats>> getCreditStats() async {
-    final isConnected = await networkInfo.isConnected;
+    // Local-first: calculadas con los mismos créditos que muestra la lista.
+    if ((await _localCredits()).isNotEmpty) return _getStatsFromCache();
 
+    final isConnected = await networkInfo.isConnected;
     if (isConnected) {
       try {
         final stats = await remoteDataSource.getCreditStats();
@@ -448,7 +558,7 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   /// Consistente con el backend: totalPaid = originalAmount de créditos PAID
   Future<Either<Failure, CreditStats>> _getStatsFromCache() async {
     try {
-      final cachedCredits = await localDataSource.getCachedCredits();
+      final cachedCredits = await _localCredits();
 
       double totalPending = 0, totalOverdue = 0, totalPaid = 0;
       int countPending = 0, countOverdue = 0;

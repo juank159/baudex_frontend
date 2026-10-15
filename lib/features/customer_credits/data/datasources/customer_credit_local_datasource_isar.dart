@@ -472,7 +472,12 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
   /// Serializa pagos e ítems de factura a JSON para almacenar en ISAR.
   /// Si el crédito entrante NO trae items (ej: viene de la lista, no del detalle),
   /// preserva los items ya cacheados para no perderlos al sincronizar.
-  String _serializeCreditData(CustomerCreditModel credit, {String? existingMetadataJson}) {
+  String _serializeCreditData(CustomerCreditModel credit, {String? existingMetadataJson}) =>
+      serializeCreditMetadata(credit, existingMetadataJson: existingMetadataJson);
+
+  /// Abonos e ítems de factura del crédito en JSON (campo metadataJson).
+  /// Público para que la sincronización incremental guarde lo mismo.
+  static String serializeCreditMetadata(CustomerCreditModel credit, {String? existingMetadataJson}) {
     try {
       // Determinar qué items persistir
       List<dynamic> itemsJson;
@@ -497,6 +502,22 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
         }
       } else {
         itemsJson = [];
+      }
+
+      // Si el crédito no trae abonos (p. ej. una respuesta sin ese detalle),
+      // conservar los ya guardados en vez de dejarlo sin historial.
+      if (credit.payments == null &&
+          existingMetadataJson != null &&
+          existingMetadataJson.isNotEmpty) {
+        try {
+          final existing = jsonDecode(existingMetadataJson) as Map<String, dynamic>;
+          if (existing['payments'] is List) {
+            return jsonEncode({
+              'payments': existing['payments'],
+              'invoiceItems': itemsJson,
+            });
+          }
+        } catch (_) {}
       }
 
       return jsonEncode({
