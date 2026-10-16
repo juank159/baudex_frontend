@@ -48,19 +48,17 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         _queryInvoices(startDate, endDate),
         // 1: Expenses con filtro de fecha nativo ISAR
         _queryExpenses(startDate, endDate),
-        // 2: Products (sin filtro de fecha)
-        _isar.isarProducts.filter().deletedAtIsNull().findAll(),
-        // 3: Customers (sin filtro de fecha)
-        _isar.isarCustomers.filter().deletedAtIsNull().findAll(),
-        // 4: Bank accounts (para resolver nombres en paymentMethodsBreakdown)
+        // 2: Bank accounts (para resolver nombres en paymentMethodsBreakdown)
         _isar.isarBankAccounts.filter().deletedAtIsNull().findAll(),
       ]);
 
       final invoices = results[0] as List<IsarInvoice>;
       final expenses = results[1] as List<IsarExpense>;
-      final products = results[2] as List<IsarProduct>;
-      final customers = results[3] as List<IsarCustomer>;
-      final bankAccounts = results[4] as List<IsarBankAccount>;
+      final bankAccounts = results[2] as List<IsarBankAccount>;
+      // Solo los productos vendidos en el período (para el costo de lo
+      // vendido). Antes se cargaban los ~2.500 productos y todos los
+      // clientes en cada actualización solo para contarlos.
+      final products = await _productsSoldIn(invoices);
 
       // Mapa bankAccountId → nombre para resolver pagos por cuenta bancaria (ej: Nequi)
       final bankAccountNames = <String, String>{};
@@ -309,25 +307,34 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         if (exp.status == IsarExpenseStatus.approved) approvedExpenses++;
       }
 
-      // ⚡ SINGLE-PASS: Products stats
-      int activeProducts = 0;
+      // Conteos de productos y clientes dentro de la base (sin cargarlos).
+      final productBase = _isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE');
+      final totalProducts = await productBase.count();
+      final activeProducts =
+          await productBase.and().statusEqualTo(IsarProductStatus.active).count();
+      final outOfStockProducts =
+          await productBase.and().stockLessThan(0, include: true).count();
+      // Stock bajo compara dos columnas: se leen solo esas dos.
+      final stocks = await productBase.stockProperty().findAll();
+      final minStocks = await productBase.minStockProperty().findAll();
       int lowStockProducts = 0;
-      int outOfStockProducts = 0;
-      for (final p in products) {
-        if (p.status == IsarProductStatus.active) activeProducts++;
-        if (p.stock <= p.minStock) lowStockProducts++;
-        if (p.stock <= 0) outOfStockProducts++;
+      for (var i = 0; i < stocks.length && i < minStocks.length; i++) {
+        if (stocks[i] <= minStocks[i]) lowStockProducts++;
       }
 
-      // ⚡ SINGLE-PASS: Customer stats
-      int activeCustomers = 0;
-      int newCustomersMonth = 0;
-      int newCustomersToday = 0;
-      for (final c in customers) {
-        if (c.status == IsarCustomerStatus.active) activeCustomers++;
-        if (c.createdAt.isAfter(monthStart)) newCustomersMonth++;
-        if (c.createdAt.isAfter(todayStart)) newCustomersToday++;
-      }
+      final customerBase = _isar.isarCustomers.filter().deletedAtIsNull();
+      final totalCustomers = await customerBase.count();
+      final activeCustomers =
+          await customerBase.and().statusEqualTo(IsarCustomerStatus.active).count();
+      final newCustomersMonth =
+          await customerBase.and().createdAtGreaterThan(monthStart).count();
+      final newCustomersToday =
+          await customerBase.and().createdAtGreaterThan(todayStart).count();
 
       final averageOrderValue = totalPaidCount > 0 ? totalRevenue / totalPaidCount : 0.0;
 
@@ -370,7 +377,8 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       final netRevenue = totalRevenue - creditNotesTotal;
 
       // ⚡ CALCULAR COGS REAL desde precios de costo de productos
-      final cogsResult = _calculateCOGSFromProducts(invoices, products);
+      final cogsResult = _calculateCOGSFromProducts(
+          invoices, products, await _batchCostByProduct(products));
       final totalCOGS = cogsResult.totalCOGS;
       // Phase 1B: profitabilidad sobre netRevenue (no totalRevenue) para que
       // los márgenes reflejen la realidad económica cuando hay devoluciones.
@@ -405,7 +413,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           todayGrowth: 0.0,
         ),
         products: ProductStatsModel(
-          totalProducts: products.length,
+          totalProducts: totalProducts,
           activeProducts: activeProducts,
           lowStockProducts: lowStockProducts,
           outOfStockProducts: outOfStockProducts,
@@ -413,7 +421,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           todayGrowth: 0,
         ),
         customers: CustomerStatsModel(
-          totalCustomers: customers.length,
+          totalCustomers: totalCustomers,
           activeCustomers: activeCustomers,
           newCustomersToday: newCustomersToday,
           newCustomersMonth: newCustomersMonth,
@@ -729,12 +737,11 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       final results = await Future.wait([
         _queryInvoices(startDate, endDate),
         _queryExpenses(startDate, endDate),
-        _isar.isarProducts.filter().deletedAtIsNull().findAll(),
       ]);
 
       final invoices = results[0] as List<IsarInvoice>;
       final expenses = results[1] as List<IsarExpense>;
-      final products = results[2] as List<IsarProduct>;
+      final products = await _productsSoldIn(invoices);
 
       double totalRevenue = 0.0;
       int paidCount = 0;
@@ -755,7 +762,8 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       }
 
       // ⚡ CALCULAR COGS REAL desde precios de costo de productos
-      final cogsResult = _calculateCOGSFromProducts(invoices, products);
+      final cogsResult = _calculateCOGSFromProducts(
+          invoices, products, await _batchCostByProduct(products));
       final totalCOGS = cogsResult.totalCOGS;
       final grossProfit = totalRevenue - totalCOGS;
       final grossMarginPercentage = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0.0;
@@ -956,7 +964,77 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
 
   /// Calcula COGS real desde inventory batches (FIFO) y precios de costo de productos en ISAR.
   /// Prioridad: 1) unitCost de inventory_batches (como hace el backend), 2) costPrice de product_prices
-  _COGSResult _calculateCOGSFromProducts(List<IsarInvoice> invoices, List<IsarProduct> products) {
+  /// IDs de producto de las facturas pagadas (lo que se usa para el costo).
+  Set<String> _soldProductIds(List<IsarInvoice> invoices) {
+    final ids = <String>{};
+    for (final inv in invoices) {
+      final isPaid = inv.status == IsarInvoiceStatus.paid ||
+          inv.status == IsarInvoiceStatus.partiallyPaid;
+      if (!isPaid || inv.itemsJson == null || inv.itemsJson!.isEmpty) continue;
+      try {
+        final decoded = jsonDecode(inv.itemsJson!);
+        if (decoded is! List) continue;
+        for (final item in decoded) {
+          if (item is Map && item['productId'] != null) {
+            final id = item['productId'].toString();
+            if (id.isNotEmpty) ids.add(id);
+          }
+        }
+      } catch (_) {}
+    }
+    return ids;
+  }
+
+  /// Solo los productos vendidos en el período, en una consulta.
+  Future<List<IsarProduct>> _productsSoldIn(List<IsarInvoice> invoices) async {
+    final ids = _soldProductIds(invoices).toList();
+    if (ids.isEmpty) return const [];
+    return _isar.isarProducts
+        .filter()
+        .anyOf(ids, (q, String id) => q.serverIdEqualTo(id))
+        .findAll();
+  }
+
+  /// Costo promedio ponderado por producto desde sus lotes con existencias
+  /// (lectura asíncrona: no congela la pantalla).
+  Future<Map<String, double>> _batchCostByProduct(List<IsarProduct> products) async {
+    if (products.isEmpty) return const {};
+    try {
+      final ids = products.map((p) => p.serverId).toList();
+      final batches = await _isar.isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .currentQuantityGreaterThan(0)
+          .and()
+          .anyOf(ids, (q, String id) => q.productIdEqualTo(id))
+          .findAll();
+      final accum = <String, List<double>>{};
+      for (final batch in batches) {
+        if (batch.unitCost > 0) {
+          final a = accum.putIfAbsent(batch.productId, () => [0.0, 0.0]);
+          a[0] += batch.unitCost * batch.currentQuantity;
+          a[1] += batch.currentQuantity;
+        }
+      }
+      if (accum.isNotEmpty) {
+        AppLogger.d('COGS: costos de ${accum.length} productos desde batches', tag: 'DASHBOARD');
+      }
+      return {
+        for (final e in accum.entries)
+          if (e.value[1] > 0) e.key: e.value[0] / e.value[1],
+      };
+    } catch (e) {
+      AppLogger.w('COGS: error leyendo lotes, usando precios de costo: $e', tag: 'DASHBOARD');
+      return const {};
+    }
+  }
+
+  _COGSResult _calculateCOGSFromProducts(
+    List<IsarInvoice> invoices,
+    List<IsarProduct> products,
+    Map<String, double> batchCosts,
+  ) {
     // 1. Construir mapa productId → costPrice usando múltiples fuentes
     final costPriceMap = <String, double>{};
     final productNameMap = <String, String>{};
@@ -975,39 +1053,9 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       }
     }
 
-    // Fuente principal: Calcular costo promedio ponderado desde IsarInventoryBatch
-    // Esto replica la lógica FIFO del backend que usa inventory_batches.unitCost
-    try {
-      final isar = _database.database;
-      final batches = isar.isarInventoryBatchs.filter()
-          .deletedAtIsNull()
-          .currentQuantityGreaterThan(0)
-          .findAllSync();
-
-      // Mapa productId → (totalCost, totalQuantity) para promedio ponderado
-      final batchCostAccum = <String, List<double>>{}; // [totalCost, totalQty]
-
-      for (final batch in batches) {
-        if (batch.unitCost > 0) {
-          final accum = batchCostAccum.putIfAbsent(batch.productId, () => [0.0, 0.0]);
-          accum[0] += batch.unitCost * batch.currentQuantity;
-          accum[1] += batch.currentQuantity;
-        }
-      }
-
-      // Sobrescribir costPriceMap con costos reales de batches (promedio ponderado)
-      for (final entry in batchCostAccum.entries) {
-        if (entry.value[1] > 0) {
-          costPriceMap[entry.key] = entry.value[0] / entry.value[1];
-        }
-      }
-
-      if (batchCostAccum.isNotEmpty) {
-        AppLogger.d('COGS: costos de ${batchCostAccum.length} productos desde batches', tag: 'DASHBOARD');
-      }
-    } catch (e) {
-      AppLogger.w('COGS: error leyendo inventory batches, usando product prices: $e', tag: 'DASHBOARD');
-    }
+    // Fuente principal: costo promedio ponderado de los lotes con existencias
+    // (calculado antes, sin bloquear la pantalla).
+    costPriceMap.addAll(batchCosts);
 
     // 2. Para cada factura pagada, calcular COGS por item
     double totalCOGS = 0.0;
