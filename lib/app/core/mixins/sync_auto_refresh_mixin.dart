@@ -28,6 +28,12 @@ import '../../data/local/sync_service.dart';
 mixin SyncAutoRefreshMixin on GetxController {
   Worker? _syncWorker;
   Timer? _deferredRefresh;
+  Timer? _coalescedRefresh;
+
+  /// Varias sincronizaciones seguidas (subida + descarga al abrir la app, o
+  /// varias ventas) se juntan en un solo refresco. Antes cada una recargaba
+  /// la pantalla completa y el mismo cálculo se repetía 3 o 4 veces.
+  static const Duration _coalesceWindow = Duration(milliseconds: 700);
 
   /// Llamado cuando SyncService transiciona a idle (sync completó).
   /// Cada controller implementa para refrescar sus datos.
@@ -69,7 +75,11 @@ mixin SyncAutoRefreshMixin on GetxController {
   void requestSyncRefresh() {
     if (isClosed) return;
     if (!deferRefreshWhileSelling || !isSellingScreenVisible) {
-      onSyncCompleted();
+      _coalescedRefresh?.cancel();
+      _coalescedRefresh = Timer(_coalesceWindow, () {
+        _coalescedRefresh = null;
+        if (!isClosed) onSyncCompleted();
+      });
       return;
     }
     _deferredRefresh ??= Timer.periodic(const Duration(seconds: 2), (timer) {
@@ -92,6 +102,8 @@ mixin SyncAutoRefreshMixin on GetxController {
     _syncWorker = null;
     _deferredRefresh?.cancel();
     _deferredRefresh = null;
+    _coalescedRefresh?.cancel();
+    _coalescedRefresh = null;
   }
 
   @override

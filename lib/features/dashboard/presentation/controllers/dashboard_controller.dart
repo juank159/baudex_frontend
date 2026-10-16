@@ -69,6 +69,9 @@ class DashboardController extends GetxController
 
   // Guard para evitar cargas concurrentes
   bool _isLoadingData = false;
+  // Se pidió otra carga mientras una estaba en curso: se hace UNA más al
+  // terminar (con el rango de fechas vigente), en vez de varias en paralelo.
+  bool _reloadPending = false;
 
   // Guard para evitar updates post-dispose
   bool _isDisposed = false;
@@ -220,7 +223,6 @@ class DashboardController extends GetxController
   @override
   Future<void> onSyncCompleted() async {
     if (!_isAlive) return;
-    _isLoadingData = false;
     refreshAll();
   }
 
@@ -238,9 +240,12 @@ class DashboardController extends GetxController
 
   Future<void> _loadInitialData() async {
     if (!_isAlive) return;
-    // Guard: evitar cargas concurrentes
+    // Guard: nunca dos cargas a la vez. Si llega otra petición (sincronización,
+    // cambio de fechas), se anota y se hace una sola carga más al terminar.
+    // Antes cada sincronización reiniciaba el guard y el tablero se calculaba
+    // varias veces seguidas al abrir la app.
     if (_isLoadingData) {
-      // Carga ya en progreso, ignorando duplicado
+      _reloadPending = true;
       return;
     }
     _isLoadingData = true;
@@ -255,7 +260,9 @@ class DashboardController extends GetxController
       update();
 
       // ═══ PASO 2: Refresh en background si hay red ═══
-      _refreshFromServer(startDate, endDate);
+      // Se le pasa el cálculo local recién hecho para que no lo repita al
+      // mezclar con la respuesta del servidor.
+      _refreshFromServer(startDate, endDate, null, _lastLocalStats);
 
       _showSubscriptionDialogIfNeeded();
     } catch (e) {
@@ -269,11 +276,16 @@ class DashboardController extends GetxController
       _showSubscriptionDialogIfNeeded();
     } finally {
       _isLoadingData = false;
+      if (_reloadPending && _isAlive) {
+        _reloadPending = false;
+        unawaited(_loadInitialData());
+      }
     }
   }
 
   /// Refresca datos del servidor en background (no bloquea UI)
-  void _refreshFromServer(DateTime? startDate, DateTime? endDate, [int? version]) {
+  void _refreshFromServer(DateTime? startDate, DateTime? endDate,
+      [int? version, DashboardStatsModel? localStats]) {
     final v = version ?? _dataVersion;
     () async {
       if (!_isAlive) return;
@@ -302,7 +314,8 @@ class DashboardController extends GetxController
         // cada vez que el usuario navega y los futures siguen volando.
         await Future.wait([
           _withSoftTimeout(
-            () => loadDashboardStats(startDate: startDate, endDate: endDate),
+            () => loadDashboardStats(
+                startDate: startDate, endDate: endDate, localStats: localStats),
             timeout: const Duration(seconds: 8),
             tag: 'estadísticas',
             onTimeoutOrError: () => _isLoadingStats.value = false,
@@ -349,6 +362,9 @@ class DashboardController extends GetxController
   }
 
   /// ⚡ Carga rápida offline: todo desde ISAR sin verificaciones de red adicionales
+  /// Cálculo local de la carga en curso (lo deja `_loadAllOffline`).
+  DashboardStatsModel? _lastLocalStats;
+
   Future<void> _loadAllOffline(DateTime? startDate, DateTime? endDate) async {
     if (!_isAlive) return;
     final localDataSource = Get.find<DashboardLocalDataSource>();
@@ -378,6 +394,7 @@ class DashboardController extends GetxController
 
       // Procesar stats
       final stats = results[0] as DashboardStatsModel?;
+      _lastLocalStats = stats;
       if (stats != null) {
         // ═══════════════════════════════════════════════════════════════
         // PROFITABILITY: Usar cache EXACTO para armonizar, fallback solo para COGS
@@ -504,6 +521,9 @@ class DashboardController extends GetxController
   Future<void> loadDashboardStats({
     DateTime? startDate,
     DateTime? endDate,
+    // Cálculo local ya hecho en esta misma carga (mismo rango). Si no viene,
+    // se calcula aquí.
+    DashboardStatsModel? localStats,
   }) async {
     if (!_isAlive) return;
     _isLoadingStats.value = true;
@@ -525,11 +545,12 @@ class DashboardController extends GetxController
           // siempre tiene las NCs reales.
           DashboardStats finalStats = stats;
           try {
-            final localDataSource = Get.find<DashboardLocalDataSource>();
-            final offlineStats = await localDataSource.getCachedDashboardStats(
-              startDate: startDate,
-              endDate: endDate,
-            );
+            final offlineStats = localStats ??
+                await Get.find<DashboardLocalDataSource>()
+                    .getCachedDashboardStats(
+                  startDate: startDate,
+                  endDate: endDate,
+                );
             if (offlineStats != null) {
               // Merge defensivo: si el server retorna MENOS data que el
               // local (típicamente porque la factura recién creada aún no

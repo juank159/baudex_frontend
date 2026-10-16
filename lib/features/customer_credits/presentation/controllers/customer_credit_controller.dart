@@ -46,6 +46,13 @@ class CustomerCreditController extends GetxController
   // Flag para saber si ya se cargaron los datos iniciales
   bool _initialLoadDone = false;
   bool _isLoadInProgress = false;
+  // Pedidos que llegaron mientras ya había una carga en curso: se hace UNA
+  // carga más al terminar (con los filtros vigentes) en vez de varias a la
+  // vez. Antes las estadísticas se calculaban 3 veces seguidas sobre todos
+  // los créditos al abrir la pantalla.
+  bool _creditsReloadPending = false;
+  bool _isStatsInProgress = false;
+  bool _statsReloadPending = false;
 
   @override
   void onInit() {
@@ -61,9 +68,10 @@ class CustomerCreditController extends GetxController
 
   @override
   Future<void> onSyncCompleted() async {
-    _isLoadInProgress = false;
     _initialLoadDone = false;
-    refreshAllData();
+    // Datos nuevos: si ya hay una carga en curso, se repite una vez al
+    // terminar para no quedarse con lo de antes de la sincronización.
+    await Future.wait([loadCredits(), loadStats()]);
   }
 
   /// Carga inicial de datos (créditos y estadísticas en paralelo)
@@ -79,7 +87,8 @@ class CustomerCreditController extends GetxController
 
   /// Refresca todos los datos (para usar cuando la página vuelve a ser visible)
   Future<void> refreshAllData() async {
-    if (_isLoadInProgress) {
+    // Al abrir la pantalla: si ya se está cargando, esa carga sirve.
+    if (_isLoadInProgress || _isStatsInProgress) {
       return;
     }
     await Future.wait([
@@ -99,6 +108,7 @@ class CustomerCreditController extends GetxController
   /// Patrón cache-first: si ya hay datos, actualiza en segundo plano sin spinner.
   Future<void> loadCredits() async {
     if (_isLoadInProgress) {
+      _creditsReloadPending = true;
       return;
     }
     _isLoadInProgress = true;
@@ -131,25 +141,41 @@ class CustomerCreditController extends GetxController
       isLoading.value = false;
       _isLoadInProgress = false;
     }
+    if (_creditsReloadPending && !isClosed) {
+      _creditsReloadPending = false;
+      await loadCredits();
+    }
   }
 
   /// Carga las estadísticas de créditos
   Future<void> loadStats() async {
+    if (_isStatsInProgress) {
+      _statsReloadPending = true;
+      return;
+    }
+    _isStatsInProgress = true;
     isLoadingStats.value = true;
 
-    final result = await repository.getCreditStats();
+    try {
+      final result = await repository.getCreditStats();
 
-    result.fold(
-      (failure) {
-        // Si falla la API, calcular estadísticas localmente desde los créditos cargados
-        _calculateLocalStats();
-      },
-      (data) {
-        stats.value = data;
-      },
-    );
-
-    isLoadingStats.value = false;
+      result.fold(
+        (failure) {
+          // Si falla la API, calcular estadísticas localmente desde los créditos cargados
+          _calculateLocalStats();
+        },
+        (data) {
+          stats.value = data;
+        },
+      );
+    } finally {
+      isLoadingStats.value = false;
+      _isStatsInProgress = false;
+    }
+    if (_statsReloadPending && !isClosed) {
+      _statsReloadPending = false;
+      await loadStats();
+    }
   }
 
   /// Calcula estadísticas localmente desde la lista de créditos cargados

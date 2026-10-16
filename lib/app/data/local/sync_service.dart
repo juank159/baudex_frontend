@@ -819,7 +819,10 @@ class SyncService extends GetxService {
     }
 
     try {
-      _syncState.value = SyncState.syncing;
+      // El estado pasa a "sincronizando" solo si hay algo que subir (más
+      // abajo). Antes cambiaba en cada revisión aunque la cola estuviera
+      // vacía, y al volver a "listo" todas las pantallas abiertas se
+      // recargaban sin que nada hubiera cambiado.
       AppLogger.i('Iniciando sincronización...', tag: 'SYNC');
 
       // 🧹 PRE-LIMPIEZA: Eliminar ops `inventory_movement_fifo` bloqueadas
@@ -853,6 +856,8 @@ class SyncService extends GetxService {
         _syncState.value = SyncState.idle;
         return;
       }
+
+      _syncState.value = SyncState.syncing;
 
       // ✅ ORDENAR OPERACIONES POR DEPENDENCIAS
       // Categories primero, luego Products, luego el resto

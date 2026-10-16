@@ -1469,8 +1469,18 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
   }
 
+  // Varios filtros y selectores de inventario piden las bodegas al mismo
+  // tiempo al abrir la pantalla: comparten una sola petición en vez de ir
+  // cada uno al servidor.
+  static Future<Either<Failure, List<Warehouse>>>? _warehousesInFlight;
+
   @override
-  Future<Either<Failure, List<Warehouse>>> getWarehouses() async {
+  Future<Either<Failure, List<Warehouse>>> getWarehouses() {
+    return _warehousesInFlight ??=
+        _fetchWarehouses().whenComplete(() => _warehousesInFlight = null);
+  }
+
+  Future<Either<Failure, List<Warehouse>>> _fetchWarehouses() async {
     try {
       if (await networkInfo.isConnected) {
         final warehouseModels = await remoteDataSource.getWarehouses();
