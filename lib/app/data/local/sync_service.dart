@@ -456,7 +456,7 @@ class SyncService extends GetxService {
       if (!wasOnline && _isOnline.value) {
         AppLogger.i('Conectividad restaurada', tag: 'SYNC');
         // Solo sincronizar si el usuario está autenticado
-        if (await _isUserAuthenticated()) {
+        if (await _isUserAuthenticated() && await _waitForServer()) {
           await syncAll(ignoreBackoff: true);
           await _pullServerChanges();
         } else {
@@ -468,6 +468,28 @@ class SyncService extends GetxService {
     } catch (e) {
       AppLogger.e('Error verificando conectividad: $e', tag: 'SYNC');
       _isOnline.value = false;
+    }
+  }
+
+  /// Al reconectar, el sistema avisa "wifi conectado" un instante antes de
+  /// que el internet funcione (el nombre del servidor aún no resuelve). Se
+  /// espera a que el servidor responda (hasta ~20 s) antes de subir y
+  /// descargar; si no responde, la revisión periódica lo hará después.
+  Future<bool> _waitForServer() async {
+    try {
+      final networkInfo = Get.find<NetworkInfo>();
+      for (var attempt = 0; attempt < 6; attempt++) {
+        if (!_isOnline.value) return false;
+        if (await networkInfo.canReachServer(timeout: const Duration(seconds: 3))) {
+          networkInfo.resetServerReachability();
+          return true;
+        }
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      AppLogger.d('Servidor aún no responde tras reconectar; se reintenta luego', tag: 'SYNC');
+      return false;
+    } catch (_) {
+      return true; // sin NetworkInfo: comportamiento de siempre
     }
   }
 
@@ -488,8 +510,10 @@ class SyncService extends GetxService {
               networkInfo.resetServerReachability();
               AppLogger.i('NetworkInfo cooldown reseteado por restauración de conectividad', tag: 'SYNC');
             } catch (_) {}
-            await syncAll(ignoreBackoff: true);
-            await _pullServerChanges();
+            if (await _waitForServer()) {
+              await syncAll(ignoreBackoff: true);
+              await _pullServerChanges();
+            }
           } else {
             AppLogger.d('Sync omitido - usuario no autenticado', tag: 'SYNC');
           }
