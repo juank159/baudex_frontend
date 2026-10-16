@@ -79,11 +79,11 @@ class ExpenseOfflineRepository implements ExpenseRepository {
       }
 
       if (startDate != null) {
-        query = query.and().dateGreaterThan(startDate);
+        query = query.and().dateGreaterThan(startDate, include: true);
       }
 
       if (endDate != null) {
-        query = query.and().dateLessThan(endDate);
+        query = query.and().dateLessThan(endDate, include: true);
       }
 
       // Obtener todos los resultados (ordenar y paginar en Dart)
@@ -462,11 +462,11 @@ class ExpenseOfflineRepository implements ExpenseRepository {
       var query = _isar.isarExpenses.filter().deletedAtIsNull();
 
       if (startDate != null) {
-        query = query.and().dateGreaterThan(startDate);
+        query = query.and().dateGreaterThan(startDate, include: true);
       }
 
       if (endDate != null) {
-        query = query.and().dateLessThan(endDate);
+        query = query.and().dateLessThan(endDate, include: true);
       }
 
       final expenses = await query.findAll();

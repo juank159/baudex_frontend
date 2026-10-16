@@ -71,10 +71,10 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
 
       // Apply date range filters
       if (params.startDate != null) {
-        query = query.and().dateGreaterThan(params.startDate!);
+        query = query.and().dateGreaterThan(params.startDate!, include: true);
       }
       if (params.endDate != null) {
-        query = query.and().dateLessThan(params.endDate!);
+        query = query.and().dateLessThan(params.endDate!, include: true);
       }
 
       // Obtener todos los resultados

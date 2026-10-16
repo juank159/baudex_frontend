@@ -15,6 +15,11 @@ import '../datasources/notification_local_datasource.dart';
 import '../models/notification_model.dart';
 import '../models/notification_query_model.dart';
 import '../models/create_notification_request_model.dart';
+import 'package:isar/isar.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/local_first.dart';
+import '../../../dashboard/data/repositories/notification_offline_repository.dart';
+import '../models/isar/isar_notification.dart';
 
 /// Implementación del repositorio de notificaciones
 ///
@@ -31,6 +36,14 @@ class NotificationRepositoryImpl implements NotificationRepository {
     required this.networkInfo,
   });
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  NotificationOfflineRepository get _localNotifications =>
+      Get.isRegistered<NotificationOfflineRepository>() ? Get.find<NotificationOfflineRepository>() : NotificationOfflineRepository();
+
+  Future<bool> _notificationsReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarNotifications);
+
   // ==================== READ OPERATIONS ====================
 
   @override
@@ -45,6 +58,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<Notification>>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getNotifications(page: page, limit: limit, unreadOnly: unreadOnly, type: type, priority: priority, startDate: startDate, endDate: endDate, sortBy: sortBy, sortOrder: sortOrder),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getNotifications llamado');
     AppLogger.d('Params: page=$page, limit=$limit, unreadOnly=$unreadOnly');
 
@@ -129,6 +149,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   @override
   Future<Either<Failure, Notification>> getNotificationById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Notification>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getNotificationById(id),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getNotificationById($id)');
 
     try {
@@ -170,6 +197,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
     String searchTerm, {
     int limit = 10,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Notification>>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.searchNotifications(searchTerm, limit: limit),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: searchNotifications($searchTerm)');
 
     try {
@@ -201,6 +235,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   @override
   Future<Either<Failure, int>> getUnreadCount() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<int>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getUnreadCount(),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getUnreadCount');
 
     try {
@@ -230,6 +271,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
   Future<Either<Failure, List<Notification>>> getUnreadNotifications({
     int limit = 20,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Notification>>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getUnreadNotifications(limit: limit),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getUnreadNotifications');
 
     try {
@@ -264,6 +312,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
     NotificationType type, {
     int limit = 20,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Notification>>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getNotificationsByType(type, limit: limit),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getNotificationsByType($type)');
 
     try {
@@ -288,6 +343,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
     NotificationPriority priority, {
     int limit = 20,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Notification>>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getNotificationsByPriority(priority, limit: limit),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getNotificationsByPriority($priority)');
 
     try {
@@ -311,6 +373,13 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   @override
   Future<Either<Failure, NotificationStats>> getStatistics() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<NotificationStats>(
+      hasLocalData: () => _notificationsReady(),
+      read: () => _localNotifications.getStatistics(),
+    );
+    if (local != null) return local;
+
     AppLogger.d('NotificationRepository: getStatistics');
 
     try {

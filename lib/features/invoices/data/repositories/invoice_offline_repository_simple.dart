@@ -24,6 +24,7 @@ import '../models/invoice_model.dart';
 import '../../../customer_credits/domain/entities/customer_credit.dart';
 import '../../../customer_credits/data/datasources/customer_credit_local_datasource_isar.dart';
 import '../../../customers/data/models/isar/isar_customer.dart';
+import '../../../bank_accounts/data/models/isar/isar_bank_account.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../../../inventory/data/repositories/inventory_offline_repository.dart';
@@ -70,64 +71,119 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     try {
       AppLogger.d('ISAR: Cargando facturas offline...');
       
-      final collection = _isar.isarInvoices;
-      
-      // Build base query (exclude deleted items)
-      var query = collection.filter().deletedAtIsNull();
-      
-      // Apply search filter
-      if (search != null && search.isNotEmpty) {
-        query = query.numberContains(search, caseSensitive: false);
+      // Mismos filtros que el servidor, resueltos dentro de la base: solo se
+      // cargan las facturas de la página que se muestra (antes se cargaban
+      // todas con sus ítems y se ordenaban en memoria en cada página).
+      var query = _isar.isarInvoices.filter().deletedAtIsNull();
+
+      // Búsqueda: número de factura o nombre/empresa del cliente.
+      if (search != null && search.trim().isNotEmpty) {
+        final term = search.trim();
+        final customerIds = await _isar.isarCustomers
+            .filter()
+            .firstNameContains(term, caseSensitive: false)
+            .or()
+            .lastNameContains(term, caseSensitive: false)
+            .or()
+            .companyNameContains(term, caseSensitive: false)
+            .serverIdProperty()
+            .findAll();
+        query = customerIds.isEmpty
+            ? query.and().numberContains(term, caseSensitive: false)
+            : query.and().group((q) => q
+                .numberContains(term, caseSensitive: false)
+                .or()
+                .anyOf(customerIds, (q, String id) => q.customerIdEqualTo(id)));
       }
-      
-      // Apply status filter
+
       if (status != null) {
-        final isarStatus = _mapInvoiceStatusToIsar(status);
-        query = query.statusEqualTo(isarStatus);
+        query = query.and().statusEqualTo(_mapInvoiceStatusToIsar(status));
       }
-      
-      // Apply customer filter
+      if (paymentMethod != null) {
+        query = query
+            .and()
+            .paymentMethodEqualTo(_mapPaymentMethodToIsar(paymentMethod));
+      }
       if (customerId != null) {
-        query = query.customerIdEqualTo(customerId);
+        query = query.and().customerIdEqualTo(customerId);
       }
-      
-      // Apply date range filters
+      if (createdById != null) {
+        query = query.and().createdByIdEqualTo(createdById);
+      }
+      // Fechas y montos inclusivos, como el servidor (>= y <=).
       if (startDate != null) {
-        query = query.dateGreaterThan(startDate);
+        query = query.and().dateGreaterThan(startDate, include: true);
       }
       if (endDate != null) {
-        query = query.dateLessThan(endDate);
+        query = query.and().dateLessThan(endDate, include: true);
       }
-      
-      // Obtener todos los resultados (ordenar y paginar en Dart)
-      final allResults = await query.findAll();
-      final totalItems = allResults.length;
+      if (minAmount != null) {
+        query = query.and().totalGreaterThan(minAmount, include: true);
+      }
+      if (maxAmount != null) {
+        query = query.and().totalLessThan(maxAmount, include: true);
+      }
 
-      // Ordenar en Dart
-      allResults.sort((a, b) {
-        int comparison = 0;
-        switch (sortBy) {
-          case 'number':
-            comparison = a.number.compareTo(b.number);
-            break;
-          case 'date':
-            comparison = a.date.compareTo(b.date);
-            break;
-          case 'total':
-            comparison = a.total.compareTo(b.total);
-            break;
-          case 'createdAt':
-          default:
-            comparison = a.createdAt.compareTo(b.createdAt);
+      // Cuenta bancaria: está en los pagos de la factura.
+      final accountIds = <String>[
+        if (bankAccountId != null && bankAccountId.isNotEmpty) bankAccountId,
+      ];
+      if (bankAccountName != null && bankAccountName.trim().isNotEmpty) {
+        final byName = await _isar.isarBankAccounts
+            .filter()
+            .nameContains(bankAccountName.trim(), caseSensitive: false)
+            .serverIdProperty()
+            .findAll();
+        if (byName.isEmpty) {
+          return Right(PaginatedResult(
+            data: const [],
+            meta: PaginationMeta(
+              page: page,
+              limit: limit,
+              totalItems: 0,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: page > 1,
+            ),
+          ));
         }
-        return sortOrder == 'DESC' ? -comparison : comparison;
-      });
+        accountIds.addAll(byName);
+      }
+      if (accountIds.isNotEmpty) {
+        query = query.and().anyOf(
+            accountIds, (q, String id) => q.paymentsJsonContains(id));
+      }
 
-      // Paginar manualmente
+      final totalItems = await query.count();
       final offset = (page - 1) * limit;
-      final start = offset.clamp(0, allResults.length);
-      final end = (start + limit).clamp(0, allResults.length);
-      final isarInvoices = allResults.sublist(start, end);
+      final desc = '$sortOrder'.toLowerCase() == 'desc';
+      final List<IsarInvoice> isarInvoices;
+      switch (sortBy) {
+        case 'number':
+          isarInvoices = desc
+              ? await query.sortByNumberDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByNumber().offset(offset).limit(limit).findAll();
+          break;
+        case 'date':
+          isarInvoices = desc
+              ? await query.sortByDateDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByDate().offset(offset).limit(limit).findAll();
+          break;
+        case 'total':
+          isarInvoices = desc
+              ? await query.sortByTotalDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByTotal().offset(offset).limit(limit).findAll();
+          break;
+        case 'dueDate':
+          isarInvoices = desc
+              ? await query.sortByDueDateDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByDueDate().offset(offset).limit(limit).findAll();
+          break;
+        default:
+          isarInvoices = desc
+              ? await query.sortByCreatedAtDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByCreatedAt().offset(offset).limit(limit).findAll();
+      }
 
       // Convert to domain entities y resolver customers
       final rawInvoices = isarInvoices.map((isar) => isar.toEntity()).toList();
@@ -254,44 +310,40 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     try {
       AppLogger.d('ISAR: Cargando estadísticas offline...');
       
-      final collection = _isar.isarInvoices;
-      
-      // Get all invoices for calculations
-      final allInvoices = await collection.filter().deletedAtIsNull().findAll();
-      
-      // Calculate stats
-      final totalInvoices = allInvoices.length;
-      final paidInvoices = allInvoices.where((inv) => inv.status == IsarInvoiceStatus.paid).length;
-      final pendingInvoices = allInvoices.where((inv) => inv.status == IsarInvoiceStatus.pending).length;
-      final cancelledInvoices = allInvoices.where((inv) => inv.status == IsarInvoiceStatus.cancelled).length;
-      
-      final totalAmount = allInvoices.fold<double>(0, (sum, inv) => sum + inv.total);
-      // final paidAmount = allInvoices
-      //     .where((inv) => inv.status == IsarInvoiceStatus.paid)
-      //     .fold<double>(0, (sum, inv) => sum + inv.total);
-      final pendingAmount = allInvoices
-          .where((inv) => inv.status == IsarInvoiceStatus.pending)
-          .fold<double>(0, (sum, inv) => sum + inv.total);
-      
-      // Count overdue invoices
+      // Mismas definiciones que el servidor, con conteos y sumas dentro de
+      // la base (antes se cargaban todas las facturas con sus ítems).
+      final base = _isar.isarInvoices.filter().deletedAtIsNull();
+      Future<int> countStatus(IsarInvoiceStatus st) =>
+          _isar.isarInvoices.filter().deletedAtIsNull().and().statusEqualTo(st).count();
       final now = DateTime.now();
-      final overdueInvoices = allInvoices
-          .where((inv) => inv.status == IsarInvoiceStatus.pending && inv.dueDate.isBefore(now))
-          .length;
+      final overdueQuery = _isar.isarInvoices
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .dueDateLessThan(now)
+          .and()
+          .group((q) => q
+              .statusEqualTo(IsarInvoiceStatus.pending)
+              .or()
+              .statusEqualTo(IsarInvoiceStatus.partiallyPaid));
+      final notCancelled = _isar.isarInvoices
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .not()
+          .statusEqualTo(IsarInvoiceStatus.cancelled);
 
       final stats = InvoiceStats(
-        total: totalInvoices,
-        draft: 0, // Not tracked in current implementation
-        pending: pendingInvoices,
-        paid: paidInvoices,
-        overdue: overdueInvoices,
-        cancelled: cancelledInvoices,
-        partiallyPaid: 0, // Not tracked in current implementation
-        totalSales: totalAmount,
-        pendingAmount: pendingAmount,
-        overdueAmount: allInvoices
-            .where((inv) => inv.status == IsarInvoiceStatus.pending && inv.dueDate.isBefore(now))
-            .fold<double>(0, (sum, inv) => sum + inv.total),
+        total: await base.count(),
+        draft: await countStatus(IsarInvoiceStatus.draft),
+        pending: await countStatus(IsarInvoiceStatus.pending),
+        paid: await countStatus(IsarInvoiceStatus.paid),
+        overdue: await overdueQuery.count(),
+        cancelled: await countStatus(IsarInvoiceStatus.cancelled),
+        partiallyPaid: await countStatus(IsarInvoiceStatus.partiallyPaid),
+        totalSales: await notCancelled.totalProperty().sum(),
+        pendingAmount: await notCancelled.balanceDueProperty().sum(),
+        overdueAmount: await overdueQuery.balanceDueProperty().sum(),
       );
 
       AppLogger.i('ISAR: Estadísticas cargadas');

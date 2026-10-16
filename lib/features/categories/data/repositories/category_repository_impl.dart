@@ -21,6 +21,8 @@ import '../models/category_query_model.dart';
 import '../models/create_category_request_model.dart';
 import '../models/update_category_request_model.dart';
 import '../models/isar/isar_category.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'category_offline_repository.dart';
 
 /// Implementación del repositorio de categorías
 ///
@@ -39,6 +41,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required this.database,
   });
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  CategoryOfflineRepository get _localCategories =>
+      Get.isRegistered<CategoryOfflineRepository>() ? Get.find<CategoryOfflineRepository>() : CategoryOfflineRepository();
+
+  Future<bool> _categoriesReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarCategorys);
+
   // Helper getter for ISAR access
   Isar get isar => database.database as Isar;
 
@@ -56,6 +66,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<Category>>(
+      hasLocalData: () => _categoriesReady(),
+      read: () => _localCategories.getCategories(page: page, limit: limit, search: search, status: status, parentId: parentId, onlyParents: onlyParents, includeChildren: includeChildren, sortBy: sortBy, sortOrder: sortOrder),
+    );
+    if (local != null) return local;
+
     // Verificar conexión a internet
     if (await networkInfo.isConnected) {
       try {
@@ -163,6 +180,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
   @override
   Future<Either<Failure, Category>> getCategoryById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Category>(
+      hasLocalData: () => _categoriesReady(),
+      read: () => _localCategories.getCategoryById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         // Intentar obtener desde el servidor
@@ -198,6 +222,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
   @override
   Future<Either<Failure, Category>> getCategoryBySlug(String slug) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Category>(
+      hasLocalData: () => _categoriesReady(),
+      read: () => _localCategories.getCategoryBySlug(slug),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getCategoryBySlug(slug);
@@ -309,6 +340,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
   @override
   Future<Either<Failure, CategoryStats>> getCategoryStats() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<CategoryStats>(
+      hasLocalData: () => _categoriesReady(),
+      read: () => _localCategories.getCategoryStats(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getCategoryStats();
@@ -338,6 +376,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
     String searchTerm, {
     int limit = 10,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Category>>(
+      hasLocalData: () => _categoriesReady(),
+      read: () => _localCategories.searchCategories(searchTerm, limit: limit),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.searchCategories(

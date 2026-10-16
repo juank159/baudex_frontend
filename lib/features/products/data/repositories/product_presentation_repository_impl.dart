@@ -18,6 +18,7 @@ import '../datasources/product_presentation_local_datasource.dart';
 import '../models/create_product_presentation_request_model.dart';
 import '../models/update_product_presentation_request_model.dart';
 import '../models/isar/isar_product_presentation.dart';
+import '../../../../app/data/local/local_first.dart';
 
 class ProductPresentationRepositoryImpl
     implements ProductPresentationRepository {
@@ -67,6 +68,15 @@ class ProductPresentationRepositoryImpl
   Future<Either<Failure, List<ProductPresentation>>> getPresentations(
     String productId,
   ) async {
+    // local-first: lo del equipo al instante (facturación lo pide al elegir
+    // cada producto); el servidor actualiza con la descarga automática.
+    final local = await readLocalFirst<List<ProductPresentation>>(
+      hasLocalData: () => localCollectionReady(
+          (IsarDatabase.instance.database as Isar).isarProductPresentations),
+      read: () => _getFromCache(productId),
+    );
+    if (local != null) return local;
+
     final isConnected = await networkInfo.isConnected;
 
     if (isConnected) {
@@ -117,6 +127,20 @@ class ProductPresentationRepositoryImpl
     String productId,
     String id,
   ) async {
+    // local-first: si ya está en el equipo, se usa sin esperar al servidor.
+    final local = await readLocalFirst<ProductPresentation>(
+      hasLocalData: () => localCollectionReady(
+          (IsarDatabase.instance.database as Isar).isarProductPresentations),
+      read: () async {
+        final list = await localDataSource.getPresentationsByProductId(productId);
+        final cached = list.firstWhereOrNull((p) => p.id == id);
+        return cached != null
+            ? Right(cached.toEntity())
+            : Left(CacheFailure('Presentación no encontrada en el equipo'));
+      },
+    );
+    if (local != null) return local;
+
     final isConnected = await networkInfo.isConnected;
     if (!isConnected) {
       // Offline-first: leer del cache local. Si no está, recién entonces

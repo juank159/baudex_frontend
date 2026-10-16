@@ -13,6 +13,8 @@ import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/customer_stats.dart';
 import '../../domain/repositories/customer_repository.dart';
 import '../models/isar/isar_customer.dart';
+import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
+import '../../../invoices/data/models/isar/isar_invoice.dart';
 
 /// Minúsculas y sin tildes, para comparar lo que escribe el cajero con los
 /// datos del cliente ("Díaz" = "diaz", "Peña" = "pena").
@@ -52,19 +54,12 @@ class CustomerOfflineRepository implements CustomerRepository {
     try {
       var query = _isar.isarCustomers.filter().deletedAtIsNull();
 
-      // Apply filters
-      if (search != null && search.isNotEmpty) {
-        query = query.and().group((q) => q
-            .firstNameContains(search, caseSensitive: false)
-            .or()
-            .lastNameContains(search, caseSensitive: false)
-            .or()
-            .emailContains(search, caseSensitive: false)
-            .or()
-            .documentNumberContains(search, caseSensitive: false)
-            .or()
-            .companyNameContains(search, caseSensitive: false));
-      }
+      // La búsqueda por texto se aplica en memoria más abajo (cada palabra,
+      // sin tildes), igual que en facturación.
+      final terms = normalizeCustomerSearch(search ?? '')
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toList();
 
       if (status != null) {
         final isarStatus = _mapCustomerStatus(status);
@@ -92,12 +87,49 @@ class CustomerOfflineRepository implements CustomerRepository {
 
       // Aplicar ordenamiento y paginación con métodos nativos de ISAR
       // Para totalPurchases usamos fallback a memoria (no es campo indexado para sort)
+      if (terms.isNotEmpty) {
+        final matches = (await query.findAll())
+            .where((c) => terms.every(normalizeCustomerSearch([
+                  c.firstName,
+                  c.lastName,
+                  c.companyName,
+                  c.email,
+                  c.documentNumber,
+                  c.phone,
+                  c.mobile,
+                ].whereType<String>().join(' ')).contains))
+            .toList();
+        final desc = '$sortOrder'.toLowerCase() == 'desc';
+        int cmp(Comparable a, Comparable b) => desc ? b.compareTo(a) : a.compareTo(b);
+        matches.sort((a, b) => switch (sortBy) {
+              'createdAt' => cmp(a.createdAt, b.createdAt),
+              'email' => cmp(a.email, b.email),
+              'totalPurchases' => cmp(a.totalPurchases, b.totalPurchases),
+              _ => cmp(a.firstName, b.firstName),
+            });
+        final start = offset.clamp(0, matches.length);
+        final end = (start + limit).clamp(0, matches.length);
+        final pageItems = matches.sublist(start, end);
+        final pages = (matches.length / limit).ceil();
+        return Right(PaginatedResult(
+          data: pageItems.map((c) => c.toEntity()).toList(),
+          meta: PaginationMeta(
+            page: page,
+            limit: limit,
+            totalItems: matches.length,
+            totalPages: pages,
+            hasNextPage: page < pages,
+            hasPreviousPage: page > 1,
+          ),
+        ));
+      }
+
       if (sortBy == 'totalPurchases') {
         // Fallback: ordenar en memoria para campo calculado
         final allResults = await query.findAll();
         allResults.sort((a, b) {
           final comparison = a.totalPurchases.compareTo(b.totalPurchases);
-          return sortOrder == 'desc' ? -comparison : comparison;
+          return '$sortOrder'.toLowerCase() == 'desc' ? -comparison : comparison;
         });
         final start = offset.clamp(0, allResults.length);
         final end = (start + limit).clamp(0, allResults.length);
@@ -105,15 +137,15 @@ class CustomerOfflineRepository implements CustomerRepository {
       } else {
         // ✅ Usar paginación nativa de ISAR
         if (sortBy == 'name' || sortBy == null) {
-          isarCustomers = sortOrder == 'desc'
+          isarCustomers = '$sortOrder'.toLowerCase() == 'desc'
               ? await query.sortByFirstNameDesc().offset(offset).limit(limit).findAll()
               : await query.sortByFirstName().offset(offset).limit(limit).findAll();
         } else if (sortBy == 'email') {
-          isarCustomers = sortOrder == 'desc'
+          isarCustomers = '$sortOrder'.toLowerCase() == 'desc'
               ? await query.sortByEmailDesc().offset(offset).limit(limit).findAll()
               : await query.sortByEmail().offset(offset).limit(limit).findAll();
         } else if (sortBy == 'createdAt') {
-          isarCustomers = sortOrder == 'desc'
+          isarCustomers = '$sortOrder'.toLowerCase() == 'desc'
               ? await query.sortByCreatedAtDesc().offset(offset).limit(limit).findAll()
               : await query.sortByCreatedAt().offset(offset).limit(limit).findAll();
         } else {
@@ -727,18 +759,81 @@ class CustomerOfflineRepository implements CustomerRepository {
         return Left(CacheFailure('Customer not found'));
       }
 
-      final availableCredit = isarCustomer.creditLimit - isarCustomer.currentBalance;
+      // Mismo cálculo que el servidor, con lo que hay en el equipo: la deuda
+      // real es la suma de los créditos activos; las métricas salen de las
+      // facturas del cliente.
+      final credits = await _isar.isarCustomerCredits
+          .filter()
+          .customerIdEqualTo(customerId)
+          .and()
+          .deletedAtIsNull()
+          .findAll();
+      final pendingAmount = credits
+          .where((c) =>
+              c.status == IsarCreditStatus.pending ||
+              c.status == IsarCreditStatus.partiallyPaid ||
+              c.status == IsarCreditStatus.overdue)
+          .fold<double>(0, (sum, c) => sum + c.balanceDue);
+
+      final invoices = await _isar.isarInvoices
+          .filter()
+          .customerIdEqualTo(customerId)
+          .and()
+          .deletedAtIsNull()
+          .findAll();
+      final now = DateTime.now();
+      final paid =
+          invoices.where((i) => i.status == IsarInvoiceStatus.paid).toList();
+      final pending = invoices
+          .where((i) =>
+              i.status == IsarInvoiceStatus.pending ||
+              i.status == IsarInvoiceStatus.partiallyPaid)
+          .toList();
+      final overdue = invoices
+          .where((i) =>
+              i.status == IsarInvoiceStatus.overdue ||
+              ((i.status == IsarInvoiceStatus.pending ||
+                      i.status == IsarInvoiceStatus.partiallyPaid) &&
+                  i.dueDate.isBefore(now)))
+          .toList();
+      final totalSales = paid.fold<double>(0, (sum, i) => sum + i.total);
+      final overdueAmount =
+          overdue.fold<double>(0, (sum, i) => sum + i.balanceDue);
+      final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+      final history = paid.where((i) => !i.date.isBefore(sixMonthsAgo)).toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      DateTime? lastInvoiceDate;
+      for (final i in invoices) {
+        if (lastInvoiceDate == null || i.date.isAfter(lastInvoiceDate)) {
+          lastInvoiceDate = i.date;
+        }
+      }
 
       return Right({
         'customerId': customerId,
-        'currentBalance': isarCustomer.currentBalance,
+        'totalInvoices': invoices.length,
+        'paidInvoices': paid.length,
+        'pendingInvoices': pending.length,
+        'overdueInvoices': overdue.length,
+        'totalSales': totalSales,
+        'pendingAmount': pendingAmount,
+        'overdueAmount': overdueAmount,
+        'averageInvoiceAmount':
+            invoices.isEmpty ? 0.0 : invoices.fold<double>(0, (s, i) => s + i.total) / invoices.length,
+        'lastInvoiceDate': lastInvoiceDate?.toIso8601String(),
+        'paymentHistory': history
+            .take(10)
+            .map((i) => {
+                  'invoiceNumber': i.number,
+                  'date': i.date.toIso8601String(),
+                  'amount': i.total,
+                  'dueDate': i.dueDate.toIso8601String(),
+                })
+            .toList(),
+        'currentBalance': pendingAmount,
         'creditLimit': isarCustomer.creditLimit,
-        'availableCredit': availableCredit,
-        'totalPurchases': isarCustomer.totalPurchases,
-        'totalOrders': isarCustomer.totalOrders,
-        'lastPurchaseAt': isarCustomer.lastPurchaseAt?.toIso8601String(),
+        'availableCredit': isarCustomer.creditLimit - pendingAmount,
         'paymentTerms': isarCustomer.paymentTerms,
-        'overdueAmount': isarCustomer.currentBalance,
         'status': isarCustomer.status.toString().split('.').last,
         'riskLevel': _calculateRiskLevel(isarCustomer),
       });

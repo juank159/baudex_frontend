@@ -89,7 +89,7 @@ class CategoryOfflineRepository implements CategoryRepository {
           default:
             comparison = a.sortOrder.compareTo(b.sortOrder);
         }
-        return sortOrder == 'desc' ? -comparison : comparison;
+        return '$sortOrder'.toLowerCase() == 'desc' ? -comparison : comparison;
       });
 
       // Paginar manualmente

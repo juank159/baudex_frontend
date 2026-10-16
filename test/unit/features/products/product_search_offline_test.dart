@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/features/products/data/models/isar/isar_product.dart';
+import 'package:baudex_desktop/features/products/data/models/isar/isar_product_price.dart';
 import 'package:baudex_desktop/features/products/data/repositories/product_offline_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
@@ -109,5 +110,39 @@ void main() {
     // ignore: avoid_print
     print('búsquedas sin resultado en 2.600 productos: ${sw.elapsedMilliseconds} ms');
     expect(sw.elapsedMilliseconds, lessThan(500));
+  });
+
+  test('lista local: más nuevos primero con DESC, filtro de precio y sin registro interno', () async {
+    IsarProductPrice price(double amount) => IsarProductPrice.create(
+          serverId: 'p$amount',
+          type: IsarPriceType.price1,
+          amount: amount,
+          currency: 'COP',
+          status: IsarPriceStatus.active,
+          discountPercentage: 0,
+          minQuantity: 1,
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        );
+    await isar.writeTxn(() async {
+      await isar.isarProducts.clear();
+      await isar.isarProducts.putAll([
+        p('a', 'Viejo')..createdAt = DateTime(2026, 1, 1)..prices = [price(1000)],
+        p('b', 'Medio')..createdAt = DateTime(2026, 5, 1)..prices = [price(5000)],
+        p('c', 'Nuevo')..createdAt = DateTime(2026, 9, 1)..prices = [price(9000)],
+        p('STATS_CACHE', 'stats'),
+      ]);
+    });
+    Future<List<String>> ids({String order = 'DESC', double? min, double? max}) async =>
+        (await repo.getProducts(sortBy: 'createdAt', sortOrder: order, minPrice: min, maxPrice: max))
+            .getOrElse(() => throw 'falló')
+            .data
+            .map((e) => e.id)
+            .toList();
+    expect(await ids(), ['c', 'b', 'a']);
+    expect(await ids(order: 'ASC'), ['a', 'b', 'c']);
+    expect(await ids(min: 2000, max: 8000), ['b']);
+    final stats = (await repo.getProductStats()).getOrElse(() => throw 'falló');
+    expect(stats.total, 3);
   });
 }

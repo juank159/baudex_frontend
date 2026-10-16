@@ -82,10 +82,10 @@ class InvoiceOfflineRepository implements InvoiceRepository {
 
       // Apply date range filters
       if (startDate != null) {
-        filterQuery = filterQuery.and().dateGreaterThan(startDate);
+        filterQuery = filterQuery.and().dateGreaterThan(startDate, include: true);
       }
       if (endDate != null) {
-        filterQuery = filterQuery.and().dateLessThan(endDate);
+        filterQuery = filterQuery.and().dateLessThan(endDate, include: true);
       }
 
       // Obtener todos los resultados (ordenar y paginar en Dart)
@@ -112,7 +112,7 @@ class InvoiceOfflineRepository implements InvoiceRepository {
           default:
             comparison = a.createdAt.compareTo(b.createdAt);
         }
-        return sortOrder == 'DESC' ? -comparison : comparison;
+        return '$sortOrder'.toLowerCase() == 'desc' ? -comparison : comparison;
       });
 
       // Paginar manualmente

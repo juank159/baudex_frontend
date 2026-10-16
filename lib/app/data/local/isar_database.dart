@@ -52,6 +52,9 @@ class IsarDatabase implements IIsarDatabase {
     return _instance!;
   }
 
+  /// Solo para pruebas: usar una base ISAR abierta por la prueba.
+  static void debugSetDatabase(Isar? isar) => _isar = isar;
+
   /// Getter para la instancia de ISAR
   @override
   Isar get database {

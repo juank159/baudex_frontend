@@ -27,6 +27,8 @@ import '../models/create_expense_request_model.dart';
 import '../models/update_expense_request_model.dart';
 import '../models/create_expense_category_request_model.dart';
 import '../models/expense_category_model.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'expense_offline_repository.dart';
 
 class ExpenseRepositoryImpl implements ExpenseRepository {
   final ExpenseRemoteDataSource remoteDataSource;
@@ -38,6 +40,14 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     required this.localDataSource,
     required this.networkInfo,
   });
+
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  ExpenseOfflineRepository get _localExpenses =>
+      Get.isRegistered<ExpenseOfflineRepository>() ? Get.find<ExpenseOfflineRepository>() : ExpenseOfflineRepository();
+
+  Future<bool> _expensesReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarExpenses);
 
   /// Formatea un DateTime como 'YYYY-MM-DD' preservando los componentes
   /// locales del objeto (si es TZDateTime, ya viene en la TZ del tenant).
@@ -62,6 +72,13 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     String? orderBy,
     String? orderDirection,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResponse<Expense>>(
+      hasLocalData: () => _expensesReady(),
+      read: () => _localExpenses.getExpenses(page: page, limit: limit, search: search, status: status, type: type, categoryId: categoryId, startDate: startDate, endDate: endDate, orderBy: orderBy, orderDirection: orderDirection),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getExpenses(
@@ -195,6 +212,13 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
 
   @override
   Future<Either<Failure, Expense>> getExpenseById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Expense>(
+      hasLocalData: () => _expensesReady(),
+      read: () => _localExpenses.getExpenseById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final expenseModel = await remoteDataSource.getExpenseById(id);
@@ -823,6 +847,13 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
 
   @override
   Future<Either<Failure, List<Expense>>> searchExpenses(String query) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Expense>>(
+      hasLocalData: () => _expensesReady(),
+      read: () => _localExpenses.searchExpenses(query),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final expenseModels = await remoteDataSource.searchExpenses(query);
@@ -883,6 +914,13 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<ExpenseStats>(
+      hasLocalData: () => _expensesReady(),
+      read: () => _localExpenses.getExpenseStats(startDate: startDate, endDate: endDate),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final statsModel = await remoteDataSource.getExpenseStats(

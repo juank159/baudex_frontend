@@ -8,6 +8,8 @@ import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'customer_offline_repository.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/core/services/conflict_resolver.dart';
@@ -40,6 +42,15 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
   // Helper getter for ISAR access
   Isar get isar => database.database as Isar;
+
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  CustomerOfflineRepository get _localCustomers =>
+      Get.isRegistered<CustomerOfflineRepository>()
+          ? Get.find<CustomerOfflineRepository>()
+          : CustomerOfflineRepository(database: database);
+
+  Future<bool> _customersReady() => localCollectionReady(isar.isarCustomers);
 
   // ==================== CACHE OPERATIONS ====================
 
@@ -121,6 +132,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<Customer>>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getCustomers(page: page, limit: limit, search: search, status: status, documentType: documentType, city: city, state: state, sortBy: sortBy, sortOrder: sortOrder),
+    );
+    if (local != null) return local;
+
 
     final isConnected = await networkInfo.isConnected;
 
@@ -197,6 +215,14 @@ class CustomerRepositoryImpl implements CustomerRepository {
   Future<Either<Failure, Customer?>> getDefaultCustomer(
     String customerId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Customer?>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getDefaultCustomer(customerId),
+      accept: (customer) => customer != null,
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
 
@@ -233,6 +259,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
   @override
   Future<Either<Failure, Customer>> getCustomerById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Customer>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getCustomerById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getCustomerById(id);
@@ -298,6 +331,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
     DocumentType documentType,
     String documentNumber,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Customer>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getCustomerByDocument(documentType, documentNumber),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getCustomerByDocument(
@@ -343,6 +383,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
   @override
   Future<Either<Failure, Customer>> getCustomerByEmail(String email) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Customer>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getCustomerByEmail(email),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getCustomerByEmail(email);
@@ -372,6 +419,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
     String searchTerm, {
     int? limit,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Customer>>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.searchCustomers(searchTerm, limit: limit),
+    );
+    if (local != null) return local;
+
     // El remote data source exige `int` no nullable. Si el caller no
     // envía límite (búsqueda completa), aplicamos un cap defensivo alto
     // en el server para no traer una página gigante por accidente. La
@@ -456,6 +510,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
   @override
   Future<Either<Failure, CustomerStats>> getCustomerStats() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<CustomerStats>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getCustomerStats(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getCustomerStats();
@@ -538,6 +599,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
   Future<Either<Failure, List<Customer>>> getTopCustomers({
     int limit = 10,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Customer>>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getTopCustomers(limit: limit),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getTopCustomers(limit);
@@ -1654,6 +1722,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
   Future<Either<Failure, Map<String, dynamic>>> getCustomerFinancialSummary(
     String customerId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Map<String, dynamic>>(
+      hasLocalData: () => _customersReady(),
+      read: () => _localCustomers.getCustomerFinancialSummary(customerId),
+    );
+    if (local != null) return local;
+
     // Calcular deuda real desde ISAR customer_credits (fuente de verdad local).
     // El campo currentBalance en la entidad Customer del backend no se actualizaba
     // correctamente al crear facturas a crédito, así que lo calculamos aquí

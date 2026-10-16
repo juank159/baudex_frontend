@@ -97,11 +97,11 @@ class InventoryOfflineRepository implements InventoryRepository {
 
       // Sort in memory
       if (params.sortBy == 'movementDate') {
-        isarMovements.sort((a, b) => params.sortOrder == 'desc'
+        isarMovements.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.movementDate.compareTo(a.movementDate)
             : a.movementDate.compareTo(b.movementDate));
       } else if (params.sortBy == 'createdAt') {
-        isarMovements.sort((a, b) => params.sortOrder == 'desc'
+        isarMovements.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.createdAt.compareTo(a.createdAt)
             : a.createdAt.compareTo(b.createdAt));
       } else {
@@ -552,15 +552,15 @@ class InventoryOfflineRepository implements InventoryRepository {
 
       // Ordenar
       if (params.sortBy == 'productName') {
-        balances.sort((a, b) => params.sortOrder == 'desc'
+        balances.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.productName.compareTo(a.productName)
             : a.productName.compareTo(b.productName));
       } else if (params.sortBy == 'totalQuantity') {
-        balances.sort((a, b) => params.sortOrder == 'desc'
+        balances.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.totalQuantity.compareTo(a.totalQuantity)
             : a.totalQuantity.compareTo(b.totalQuantity));
       } else if (params.sortBy == 'totalValue') {
-        balances.sort((a, b) => params.sortOrder == 'desc'
+        balances.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.totalValue.compareTo(a.totalValue)
             : a.totalValue.compareTo(b.totalValue));
       }
@@ -1228,12 +1228,12 @@ class InventoryOfflineRepository implements InventoryRepository {
           if (a.expiryDate == null && b.expiryDate == null) return 0;
           if (a.expiryDate == null) return 1;
           if (b.expiryDate == null) return -1;
-          return params.sortOrder == 'desc'
+          return '${params.sortOrder}'.toLowerCase() == 'desc'
               ? b.expiryDate!.compareTo(a.expiryDate!)
               : a.expiryDate!.compareTo(b.expiryDate!);
         });
       } else if (params.sortBy == 'entryDate') {
-        isarBatches.sort((a, b) => params.sortOrder == 'desc'
+        isarBatches.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.entryDate.compareTo(a.entryDate)
             : a.entryDate.compareTo(b.entryDate));
       } else {

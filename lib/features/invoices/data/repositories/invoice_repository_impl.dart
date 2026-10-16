@@ -7,6 +7,7 @@ import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/local_first.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/core/services/conflict_resolver.dart';
@@ -49,6 +50,15 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     this.offlineRepository,
   });
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  InvoiceOfflineRepositorySimple get _localInvoices =>
+      offlineRepository ??
+      InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+
+  Future<bool> _invoicesReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarInvoices);
+
   // ==================== READ OPERATIONS ====================
 
   @override
@@ -69,6 +79,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     String sortBy = 'createdAt',
     String sortOrder = 'DESC',
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<Invoice>>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.getInvoices(page: page, limit: limit, search: search, status: status, paymentMethod: paymentMethod, customerId: customerId, createdById: createdById, bankAccountId: bankAccountId, bankAccountName: bankAccountName, startDate: startDate, endDate: endDate, minAmount: minAmount, maxAmount: maxAmount, sortBy: sortBy, sortOrder: sortOrder),
+    );
+    if (local != null) return local;
+
     try {
 
       // Crear parámetros de query
@@ -129,6 +146,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<Either<Failure, Invoice>> getInvoiceById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Invoice>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.getInvoiceById(id),
+    );
+    if (local != null) return local;
+
     try {
 
       if (await networkInfo.isConnected) {
@@ -241,6 +265,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<Either<Failure, Invoice>> getInvoiceByNumber(String number) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Invoice>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.getInvoiceByNumber(number),
+    );
+    if (local != null) return local;
+
     try {
 
       if (await networkInfo.isConnected) {
@@ -287,6 +318,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<Either<Failure, List<Invoice>>> getOverdueInvoices() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Invoice>>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.getOverdueInvoices(),
+    );
+    if (local != null) return local;
+
     try {
 
       if (await networkInfo.isConnected) {
@@ -344,6 +382,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<Either<Failure, InvoiceStats>> getInvoiceStats() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<InvoiceStats>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.getInvoiceStats(),
+    );
+    if (local != null) return local;
+
     try {
 
       if (await networkInfo.isConnected) {
@@ -474,6 +519,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<Either<Failure, List<Invoice>>> getInvoicesByCustomer(
     String customerId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Invoice>>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.getInvoicesByCustomer(customerId),
+    );
+    if (local != null) return local;
+
     try {
 
       if (await networkInfo.isConnected) {
@@ -507,6 +559,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<Either<Failure, List<Invoice>>> searchInvoices(
     String searchTerm,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Invoice>>(
+      hasLocalData: () => _invoicesReady(),
+      read: () => _localInvoices.searchInvoices(searchTerm),
+    );
+    if (local != null) return local;
+
     try {
 
       if (await networkInfo.isConnected) {

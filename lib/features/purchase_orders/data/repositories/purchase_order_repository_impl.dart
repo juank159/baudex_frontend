@@ -17,6 +17,8 @@ import '../../domain/repositories/purchase_order_repository.dart';
 import '../datasources/purchase_order_local_datasource.dart';
 import '../datasources/purchase_order_remote_datasource.dart';
 import '../models/purchase_order_model.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'purchase_order_offline_repository.dart';
 
 class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   final PurchaseOrderRemoteDataSource remoteDataSource;
@@ -29,10 +31,25 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     required this.networkInfo,
   });
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  PurchaseOrderOfflineRepository get _localPurchaseOrders =>
+      Get.isRegistered<PurchaseOrderOfflineRepository>() ? Get.find<PurchaseOrderOfflineRepository>() : PurchaseOrderOfflineRepository();
+
+  Future<bool> _purchaseOrdersReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarPurchaseOrders);
+
   @override
   Future<Either<Failure, PaginatedResult<PurchaseOrder>>> getPurchaseOrders(
     PurchaseOrderQueryParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<PurchaseOrder>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getPurchaseOrders(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.getPurchaseOrders(params);
@@ -137,6 +154,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, PurchaseOrder>> getPurchaseOrderById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PurchaseOrder>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getPurchaseOrderById(id),
+    );
+    if (local != null) return local;
+
     // Cache-first: si el cache tiene items completos, retornar inmediatamente
     final cacheResult = await _getPurchaseOrderByIdFromCache(id);
     final cachedOrder = cacheResult.fold((_) => null, (order) => order);
@@ -181,6 +205,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   Future<Either<Failure, List<PurchaseOrder>>> searchPurchaseOrders(
     SearchPurchaseOrdersParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<PurchaseOrder>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.searchPurchaseOrders(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.searchPurchaseOrders(params);
@@ -210,6 +241,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, PurchaseOrderStats>> getPurchaseOrderStats() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PurchaseOrderStats>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getPurchaseOrderStats(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteStats = await remoteDataSource.getPurchaseOrderStats();
@@ -646,6 +684,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> getPurchaseOrdersBySupplier(String supplierId) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<PurchaseOrder>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getPurchaseOrdersBySupplier(supplierId),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.getPurchaseOrdersBySupplier(supplierId);
@@ -669,6 +714,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> getOverduePurchaseOrders() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<PurchaseOrder>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getOverduePurchaseOrders(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.getOverduePurchaseOrders();
@@ -692,6 +744,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> getPendingApprovalPurchaseOrders() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<PurchaseOrder>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getPendingApprovalPurchaseOrders(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.getPendingApprovalPurchaseOrders();
@@ -715,6 +774,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> getRecentPurchaseOrders(int limit) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<PurchaseOrder>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getRecentPurchaseOrders(limit),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.getRecentPurchaseOrders(limit);
@@ -747,6 +813,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, List<Map<String, dynamic>>>> getPurchaseOrdersByStatus() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Map<String, dynamic>>>(
+      hasLocalData: () => _purchaseOrdersReady(),
+      read: () => _localPurchaseOrders.getPurchaseOrdersByStatus(),
+    );
+    if (local != null) return local;
+
     return Left(ServerFailure('Funcionalidad no implementada aún'));
   }
 

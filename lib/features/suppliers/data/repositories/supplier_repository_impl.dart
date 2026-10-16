@@ -19,6 +19,8 @@ import '../models/create_supplier_request_model.dart';
 import '../models/update_supplier_request_model.dart';
 import '../models/supplier_model.dart';
 import '../models/isar/isar_supplier.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'supplier_offline_repository.dart';
 
 class SupplierRepositoryImpl implements SupplierRepository {
   final SupplierRemoteDataSource remoteDataSource;
@@ -30,6 +32,14 @@ class SupplierRepositoryImpl implements SupplierRepository {
     required this.localDataSource,
     required this.networkInfo,
   });
+
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  SupplierOfflineRepository get _localSuppliers =>
+      Get.isRegistered<SupplierOfflineRepository>() ? Get.find<SupplierOfflineRepository>() : SupplierOfflineRepository();
+
+  Future<bool> _suppliersReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarSuppliers);
 
   @override
   Future<Either<Failure, PaginatedResult<Supplier>>> getSuppliers({
@@ -46,6 +56,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<Supplier>>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.getSuppliers(page: page, limit: limit, search: search, status: status, documentType: documentType, currency: currency, hasEmail: hasEmail, hasPhone: hasPhone, hasCreditLimit: hasCreditLimit, hasDiscount: hasDiscount, sortBy: sortBy, sortOrder: sortOrder),
+    );
+    if (local != null) return local;
+
     final params = SupplierQueryParams(
       page: page,
       limit: limit,
@@ -110,6 +127,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
   @override
   Future<Either<Failure, Supplier>> getSupplierById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Supplier>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.getSupplierById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final supplierModel = await remoteDataSource.getSupplierById(id);
@@ -141,6 +165,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
     String searchTerm, {
     int? limit,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Supplier>>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.searchSuppliers(searchTerm, limit: limit),
+    );
+    if (local != null) return local;
+
     // Si no se especifica `limit` aplicamos un cap defensivo alto al
     // hablar con el server para no traer una página enorme. La rama de
     // cache local respeta el `null` y devuelve todo.
@@ -192,6 +223,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
   @override
   Future<Either<Failure, List<Supplier>>> getActiveSuppliers() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Supplier>>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.getActiveSuppliers(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final supplierModels = await remoteDataSource.getActiveSuppliers();
@@ -225,6 +263,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
   @override
   Future<Either<Failure, SupplierStats>> getSupplierStats() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<SupplierStats>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.getSupplierStats(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final statsModel = await remoteDataSource.getSupplierStats();
@@ -769,6 +814,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
   @override
   Future<Either<Failure, double>> getTotalPurchasesAmount(String supplierId) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<double>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.getTotalPurchasesAmount(supplierId),
+    );
+    if (local != null) return local;
+
     // Esta funcionalidad requiere integración con el módulo de compras
     // Por ahora retornamos 0, se implementará cuando tengamos el módulo de compras
     return const Right(0.0);
@@ -776,6 +828,13 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
   @override
   Future<Either<Failure, DateTime?>> getLastPurchaseDate(String supplierId) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<DateTime?>(
+      hasLocalData: () => _suppliersReady(),
+      read: () => _localSuppliers.getLastPurchaseDate(supplierId),
+    );
+    if (local != null) return local;
+
     // Esta funcionalidad requiere integración con el módulo de compras
     // Por ahora retornamos null, se implementará cuando tengamos el módulo de compras
     return const Right(null);

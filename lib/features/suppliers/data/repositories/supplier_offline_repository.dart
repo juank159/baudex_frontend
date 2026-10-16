@@ -96,11 +96,11 @@ class SupplierOfflineRepository implements SupplierRepository {
 
       // Sort in memory
       if (sortBy == 'name') {
-        isarSuppliers.sort((a, b) => sortOrder == 'desc'
+        isarSuppliers.sort((a, b) => '$sortOrder'.toLowerCase() == 'desc'
             ? b.name.compareTo(a.name)
             : a.name.compareTo(b.name));
       } else if (sortBy == 'createdAt') {
-        isarSuppliers.sort((a, b) => sortOrder == 'desc'
+        isarSuppliers.sort((a, b) => '$sortOrder'.toLowerCase() == 'desc'
             ? b.createdAt.compareTo(a.createdAt)
             : a.createdAt.compareTo(b.createdAt));
       } else {

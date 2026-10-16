@@ -18,6 +18,8 @@ import '../../domain/repositories/bank_account_repository.dart';
 import '../datasources/bank_account_remote_datasource.dart';
 import '../models/bank_account_model.dart';
 import '../models/bank_account_transaction_model.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'bank_account_offline_repository.dart';
 
 /// Implementación del repositorio de cuentas bancarias
 class BankAccountRepositoryImpl implements BankAccountRepository {
@@ -29,12 +31,27 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     required this.networkInfo,
   });
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  BankAccountOfflineRepository get _localBankAccounts =>
+      Get.isRegistered<BankAccountOfflineRepository>() ? Get.find<BankAccountOfflineRepository>() : BankAccountOfflineRepository();
+
+  Future<bool> _bankAccountsReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarBankAccounts);
+
   @override
   Future<Either<Failure, List<BankAccount>>> getBankAccounts({
     BankAccountType? type,
     bool? isActive,
     bool includeInactive = false,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<BankAccount>>(
+      hasLocalData: () => _bankAccountsReady(),
+      read: () => _localBankAccounts.getBankAccounts(type: type, isActive: isActive, includeInactive: includeInactive),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       // ============ MODO ONLINE: Obtener del servidor y actualizar ISAR ============
       try {
@@ -113,12 +130,26 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
 
   @override
   Future<Either<Failure, List<BankAccount>>> getActiveBankAccounts() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<BankAccount>>(
+      hasLocalData: () => _bankAccountsReady(),
+      read: () => _localBankAccounts.getActiveBankAccounts(),
+    );
+    if (local != null) return local;
+
     // Delegar a getBankAccounts con isActive=true
     return getBankAccounts(isActive: true, includeInactive: false);
   }
 
   @override
   Future<Either<Failure, BankAccount>> getBankAccountById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<BankAccount>(
+      hasLocalData: () => _bankAccountsReady(),
+      read: () => _localBankAccounts.getBankAccountById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       // ============ MODO ONLINE: Obtener del servidor y actualizar ISAR ============
       try {
@@ -174,6 +205,14 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
 
   @override
   Future<Either<Failure, BankAccount?>> getDefaultBankAccount() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<BankAccount?>(
+      hasLocalData: () => _bankAccountsReady(),
+      read: () => _localBankAccounts.getDefaultBankAccount(),
+      accept: (account) => account != null,
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final account = await remoteDataSource.getDefaultBankAccount();

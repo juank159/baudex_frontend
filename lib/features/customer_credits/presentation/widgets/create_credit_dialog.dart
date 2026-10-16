@@ -10,6 +10,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../../customers/data/datasources/customer_remote_datasource.dart';
+import '../../../customers/data/repositories/customer_offline_repository.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../domain/entities/customer_credit.dart';
 import '../../data/models/customer_credit_model.dart';
@@ -295,17 +296,14 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
     });
 
     try {
-      // Verificar si el datasource está registrado
-      if (!Get.isRegistered<CustomerRemoteDataSource>()) {
-        // Registrarlo si no existe
-        final dioClient = Get.find<DioClient>();
-        Get.put<CustomerRemoteDataSource>(
-          CustomerRemoteDataSourceImpl(dioClient: dioClient),
-        );
-      }
-
-      final datasource = Get.find<CustomerRemoteDataSource>();
-      final result = await datasource.searchCustomers(query, 10);
+      // Búsqueda en el equipo (funciona con o sin internet): cada palabra,
+      // sin importar tildes, igual que en facturación.
+      final repo = Get.isRegistered<CustomerOfflineRepository>()
+          ? Get.find<CustomerOfflineRepository>()
+          : CustomerOfflineRepository();
+      final result = (await repo.searchCustomers(query, limit: 20))
+          .fold((failure) => throw Exception(failure.message), (list) => list);
+      if (!mounted) return;
       setState(() {
         _searchResults = result;
         _isSearching = false;

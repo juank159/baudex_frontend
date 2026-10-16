@@ -29,6 +29,8 @@ import '../models/warehouse_model.dart';
 import '../models/isar/isar_inventory_movement.dart';
 import '../models/isar/isar_inventory_batch.dart';
 import '../../../../features/products/data/models/isar/isar_product.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'inventory_offline_repository.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryRemoteDataSource remoteDataSource;
@@ -41,12 +43,30 @@ class InventoryRepositoryImpl implements InventoryRepository {
     required this.networkInfo,
   });
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  InventoryOfflineRepository get _localInventory =>
+      Get.isRegistered<InventoryOfflineRepository>() ? Get.find<InventoryOfflineRepository>() : InventoryOfflineRepository();
+
+  Future<bool> _batchesReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarInventoryBatchs);
+
+  Future<bool> _movementsReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarInventoryMovements);
+
   // ==================== READ OPERATIONS ====================
 
   @override
   Future<Either<Failure, core.PaginatedResult<InventoryMovement>>> getMovements(
     InventoryMovementQueryParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<core.PaginatedResult<InventoryMovement>>(
+      hasLocalData: () => _movementsReady(),
+      read: () => _localInventory.getMovements(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteMovements = await remoteDataSource.getMovements(params);
@@ -77,6 +97,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   @override
   Future<Either<Failure, InventoryMovement>> getMovementById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<InventoryMovement>(
+      hasLocalData: () => _movementsReady(),
+      read: () => _localInventory.getMovementById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteMovement = await remoteDataSource.getMovementById(id);
@@ -602,6 +629,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryMovement>>> searchMovements(
     SearchInventoryMovementsParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<InventoryMovement>>(
+      hasLocalData: () => _movementsReady(),
+      read: () => _localInventory.searchMovements(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteMovements = await remoteDataSource.searchMovements(params);
@@ -628,6 +662,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, core.PaginatedResult<InventoryBalance>>> getBalances(
     InventoryBalanceQueryParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<core.PaginatedResult<InventoryBalance>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getBalances(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalances = await remoteDataSource.getBalances(params);
@@ -660,6 +701,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String productId, {
     String? warehouseId,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<InventoryBalance>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getBalanceByProduct(productId, warehouseId: warehouseId),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalance = await remoteDataSource.getBalanceByProduct(
@@ -689,6 +737,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryBalance>>> getLowStockProducts({
     String? warehouseId,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<InventoryBalance>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getLowStockProducts(warehouseId: warehouseId),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalances = await remoteDataSource.getLowStockProducts(
@@ -749,6 +804,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryStats>> getInventoryStats(
     InventoryStatsParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<InventoryStats>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getInventoryStats(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         AppLogger.d('REPOSITORY DEBUG: About to call remoteDataSource.getInventoryStats');
@@ -781,6 +843,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
     List<String> productIds, {
     String? warehouseId,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<InventoryBalance>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getBalancesByProducts(productIds, warehouseId: warehouseId),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalances = await remoteDataSource.getBalancesByProducts(
@@ -801,6 +870,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryBalance>>> getOutOfStockProducts({
     String? warehouseId,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<InventoryBalance>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getOutOfStockProducts(warehouseId: warehouseId),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalances = await remoteDataSource.getOutOfStockProducts(
@@ -830,6 +906,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryBalance>>> getExpiredProducts({
     String? warehouseId,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<InventoryBalance>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getExpiredProducts(warehouseId: warehouseId),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalances = await remoteDataSource.getExpiredProducts(
@@ -858,6 +941,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? warehouseId,
     int? daysThreshold,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<InventoryBalance>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getNearExpiryProducts(warehouseId: warehouseId, daysThreshold: daysThreshold),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final remoteBalances = await remoteDataSource.getNearExpiryProducts(
@@ -1101,6 +1191,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? warehouseId,
     DateTime? asOfDate,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Map<String, double>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getInventoryValuation(warehouseId: warehouseId, asOfDate: asOfDate),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final valuation = await remoteDataSource.getInventoryValuation(
@@ -1368,6 +1465,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, core.PaginatedResult<InventoryBatch>>> getBatches(
     InventoryBatchQueryParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<core.PaginatedResult<InventoryBatch>>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getBatches(params),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final batchMaps = await remoteDataSource.getBatches(
@@ -1440,6 +1544,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   @override
   Future<Either<Failure, InventoryBatch>> getBatchById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<InventoryBatch>(
+      hasLocalData: () => _batchesReady(),
+      read: () => _localInventory.getBatchById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final batchMap = await remoteDataSource.getBatchById(id);

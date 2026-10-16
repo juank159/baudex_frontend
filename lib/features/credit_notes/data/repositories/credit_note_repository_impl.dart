@@ -22,6 +22,8 @@ import '../../../products/data/models/isar/isar_product.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../invoices/data/models/isar/isar_invoice.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'credit_note_offline_repository.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -33,6 +35,14 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     required this.localDataSource,
     required this.networkInfo,
   });
+
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  CreditNoteOfflineRepository get _localCreditNotes =>
+      Get.isRegistered<CreditNoteOfflineRepository>() ? Get.find<CreditNoteOfflineRepository>() : CreditNoteOfflineRepository();
+
+  Future<bool> _creditNotesReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarCreditNotes);
 
   @override
   Future<Either<Failure, CreditNote>> createCreditNote(
@@ -104,6 +114,13 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
   @override
   Future<Either<Failure, CreditNote>> getCreditNoteById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<CreditNote>(
+      hasLocalData: () => _creditNotesReady(),
+      read: () => _localCreditNotes.getCreditNoteById(id),
+    );
+    if (local != null) return local;
+
     try {
       AppLogger.d('CreditNoteRepository: Obteniendo nota de crédito $id');
       final creditNote = await remoteDataSource.getCreditNoteById(id);
@@ -175,6 +192,13 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, PaginatedResult<CreditNote>>> getCreditNotes(
     QueryCreditNotesParams params,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<CreditNote>>(
+      hasLocalData: () => _creditNotesReady(),
+      read: () => _localCreditNotes.getCreditNotes(params),
+    );
+    if (local != null) return local;
+
     try {
       AppLogger.d('CreditNoteRepository: Obteniendo notas de crédito...');
       final response = await remoteDataSource.getCreditNotes(params);
@@ -233,6 +257,13 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, List<CreditNote>>> getCreditNotesByInvoice(
     String invoiceId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<CreditNote>>(
+      hasLocalData: () => _creditNotesReady(),
+      read: () => _localCreditNotes.getCreditNotesByInvoice(invoiceId),
+    );
+    if (local != null) return local;
+
     try {
       AppLogger.d('Obteniendo notas de crédito de factura $invoiceId', tag: 'CREDIT_NOTE');
       final creditNotes = await remoteDataSource.getCreditNotesByInvoice(
@@ -266,6 +297,13 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, double>> getRemainingCreditableAmount(
     String invoiceId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<double>(
+      hasLocalData: () => _creditNotesReady(),
+      read: () => _localCreditNotes.getRemainingCreditableAmount(invoiceId),
+    );
+    if (local != null) return local;
+
     try {
       AppLogger.d('Obteniendo monto acreditable de factura $invoiceId', tag: 'CREDIT_NOTE');
       final amount = await remoteDataSource.getRemainingCreditableAmount(
@@ -472,6 +510,13 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, AvailableQuantitiesResponse>> getAvailableQuantitiesForCreditNote(
     String invoiceId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<AvailableQuantitiesResponse>(
+      hasLocalData: () => _creditNotesReady(),
+      read: () => _localCreditNotes.getAvailableQuantitiesForCreditNote(invoiceId),
+    );
+    if (local != null) return local;
+
     // Si no hay conexión, calcular directamente desde ISAR sin pasar por el
     // backend. Sin esto el formulario de nota crédito quedaba bloqueado
     // offline por el error "Bad Gateway".

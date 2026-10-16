@@ -69,6 +69,7 @@ import '../../../features/inventory/domain/repositories/inventory_repository.dar
 import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
 import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 import 'sync_queue.dart';
+import 'local_first.dart';
 import 'sync_changes_client.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../../features/invoices/data/models/invoice_model.dart';
@@ -335,6 +336,7 @@ class FullSyncService extends GetxService {
           });
           // Datos locales borrados: la próxima descarga de cada módulo debe ser
           // completa, no "desde la última vez".
+          resetLocalCollectionsReady();
           await _watermarks.clearAll();
           _changesProgress.clear();
           await _rememberBusiness();

@@ -11,6 +11,8 @@ import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'product_offline_repository.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../../../app/core/services/conflict_resolver.dart';
 import '../../domain/entities/product.dart';
@@ -44,6 +46,28 @@ class ProductRepositoryImpl implements ProductRepository {
     IIsarDatabase? database,
   }) : _database = database ?? IsarDatabase.instance;
 
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  ProductOfflineRepository get _localProducts =>
+      Get.isRegistered<ProductOfflineRepository>()
+          ? Get.find<ProductOfflineRepository>()
+          : ProductOfflineRepository(database: _database);
+
+  /// ¿Ya hay productos en el equipo? (sin contar el registro interno de
+  /// estadísticas). Una vez que sí, se recuerda.
+  static bool _productsDownloaded = false;
+  Future<bool> _productsReady() async {
+    if (_productsDownloaded) return true;
+    final isar = _database.database as Isar;
+    _productsDownloaded = await isar.isarProducts
+            .filter()
+            .not()
+            .serverIdEqualTo('STATS_CACHE')
+            .count() >
+        0;
+    return _productsDownloaded;
+  }
+
   // Getter para acceder a la base de datos ISAR
   Isar get _isar => _database.database as Isar;
 
@@ -69,6 +93,13 @@ class ProductRepositoryImpl implements ProductRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<PaginatedResult<Product>>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getProducts(page: page, limit: limit, search: search, status: status, type: type, categoryId: categoryId, createdById: createdById, inStock: inStock, lowStock: lowStock, minPrice: minPrice, maxPrice: maxPrice, priceType: priceType, includePrices: includePrices, includeCategory: includeCategory, includeCreatedBy: includeCreatedBy, sortBy: sortBy, sortOrder: sortOrder),
+    );
+    if (local != null) return local;
+
     // Verificar conexión a internet
     AppLogger.d(' ProductRepository: Verificando conexión a internet...');
     try {
@@ -175,6 +206,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, Product>> getProductById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Product>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getProductById(id),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         // Intentar obtener desde el servidor
@@ -251,6 +289,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, Product>> getProductBySku(String sku) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Product>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getProductBySku(sku),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.getProductBySku(sku);
 
@@ -279,6 +324,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, Product>> getProductByBarcode(String barcode) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Product>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getProductByBarcode(barcode),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.getProductByBarcode(barcode);
 
@@ -307,6 +359,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, Product>> findBySkuOrBarcode(String code) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<Product>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.findBySkuOrBarcode(code),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.findBySkuOrBarcode(code);
 
@@ -345,6 +404,13 @@ class ProductRepositoryImpl implements ProductRepository {
     String searchTerm, {
     int? limit,
   }) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Product>>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.searchProducts(searchTerm, limit: limit),
+    );
+    if (local != null) return local;
+
     // El remoteDataSource exige `int` no nullable. Si el caller no envía
     // límite (búsqueda completa), usamos un cap defensivo alto al ir al
     // server para no traer una página gigante por accidente. La rama
@@ -457,6 +523,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, List<Product>>> getLowStockProducts() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Product>>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getLowStockProducts(),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.getLowStockProducts();
       final products = response.map((model) => model.toEntity()).toList();
@@ -479,6 +552,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, List<Product>>> getOutOfStockProducts() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Product>>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getOutOfStockProducts(),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.getOutOfStockProducts();
       final products = response.map((model) => model.toEntity()).toList();
@@ -503,6 +583,13 @@ class ProductRepositoryImpl implements ProductRepository {
   Future<Either<Failure, List<Product>>> getProductsByCategory(
     String categoryId,
   ) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<Product>>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getProductsByCategory(categoryId),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.getProductsByCategory(
         categoryId,
@@ -527,6 +614,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, ProductStats>> getProductStats() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<ProductStats>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getProductStats(),
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getProductStats();
@@ -567,6 +661,13 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, double>> getInventoryValue() async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<double>(
+      hasLocalData: () => _productsReady(),
+      read: () => _localProducts.getInventoryValue(),
+    );
+    if (local != null) return local;
+
     try {
       final response = await remoteDataSource.getInventoryValue();
       return Right(response);

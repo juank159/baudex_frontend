@@ -72,18 +72,18 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
 
       // Apply date range filter (orderDate)
       if (params.startDate != null) {
-        query = query.and().orderDateGreaterThan(params.startDate!);
+        query = query.and().orderDateGreaterThan(params.startDate!, include: true);
       }
       if (params.endDate != null) {
-        query = query.and().orderDateLessThan(params.endDate!);
+        query = query.and().orderDateLessThan(params.endDate!, include: true);
       }
 
       // Apply expected delivery date range filter
       if (params.expectedDeliveryStartDate != null) {
-        query = query.and().expectedDeliveryDateGreaterThan(params.expectedDeliveryStartDate!);
+        query = query.and().expectedDeliveryDateGreaterThan(params.expectedDeliveryStartDate!, include: true);
       }
       if (params.expectedDeliveryEndDate != null) {
-        query = query.and().expectedDeliveryDateLessThan(params.expectedDeliveryEndDate!);
+        query = query.and().expectedDeliveryDateLessThan(params.expectedDeliveryEndDate!, include: true);
       }
 
       // Fetch all filtered results
@@ -117,24 +117,24 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
         isarPurchaseOrders.sort((a, b) {
           final aNum = a.orderNumber ?? '';
           final bNum = b.orderNumber ?? '';
-          return params.sortOrder == 'desc'
+          return '${params.sortOrder}'.toLowerCase() == 'desc'
               ? bNum.compareTo(aNum)
               : aNum.compareTo(bNum);
         });
       } else if (params.sortBy == 'totalAmount') {
-        isarPurchaseOrders.sort((a, b) => params.sortOrder == 'desc'
+        isarPurchaseOrders.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.totalAmount.compareTo(a.totalAmount)
             : a.totalAmount.compareTo(b.totalAmount));
       } else if (params.sortBy == 'expectedDeliveryDate') {
         isarPurchaseOrders.sort((a, b) {
           final aDate = a.expectedDeliveryDate ?? DateTime(2099);
           final bDate = b.expectedDeliveryDate ?? DateTime(2099);
-          return params.sortOrder == 'desc'
+          return '${params.sortOrder}'.toLowerCase() == 'desc'
               ? bDate.compareTo(aDate)
               : aDate.compareTo(bDate);
         });
       } else if (params.sortBy == 'createdAt') {
-        isarPurchaseOrders.sort((a, b) => params.sortOrder == 'desc'
+        isarPurchaseOrders.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
             ? b.createdAt.compareTo(a.createdAt)
             : a.createdAt.compareTo(b.createdAt));
       } else {
@@ -142,7 +142,7 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
         isarPurchaseOrders.sort((a, b) {
           final aDate = a.orderDate ?? DateTime(1970);
           final bDate = b.orderDate ?? DateTime(1970);
-          return params.sortOrder == 'desc'
+          return '${params.sortOrder}'.toLowerCase() == 'desc'
               ? bDate.compareTo(aDate)
               : aDate.compareTo(bDate);
         });

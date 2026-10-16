@@ -60,7 +60,13 @@ class ProductOfflineRepository implements ProductRepository {
     String? sortOrder,
   }) async {
     try {
-      var query = _isar.isarProducts.filter().deletedAtIsNull();
+      // Excluir el registro interno de estadísticas (no es un producto).
+      var query = _isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE');
 
       // Apply filters
       if (search != null && search.isNotEmpty) {
@@ -94,45 +100,54 @@ class ProductOfflineRepository implements ProductRepository {
         query = query.and().stockGreaterThan(0.0);
       }
 
-      // ✅ OPTIMIZACIÓN: Usar paginación nativa de ISAR cuando es posible
-      // Solo necesitamos cargar todo en memoria si hay filtro lowStock
-      // (porque requiere comparación cross-field: stock <= minStock)
-
       final offset = (page - 1) * limit;
+      final order = _normalizeSortOrder(sortOrder);
       List<IsarProduct> paginatedProducts;
       int totalItems;
 
-      if (lowStock == true) {
-        // Fallback a paginación en memoria para filtro lowStock
+      final priceFilter = minPrice != null || maxPrice != null;
+      if (lowStock == true || priceFilter) {
+        // Filtros que la base no compara por sí sola (stock contra mínimo,
+        // precio dentro de la lista de precios): se resuelven en memoria.
         List<IsarProduct> allProducts = await query.findAll();
-        allProducts = allProducts.where((p) => p.stock <= p.minStock).toList();
+        if (lowStock == true) {
+          allProducts = allProducts.where((p) => p.stock <= p.minStock).toList();
+        }
+        if (priceFilter) {
+          allProducts = allProducts.where((p) => p.prices.any((price) {
+                if (priceType != null && price.type.name != priceType.name) {
+                  return false;
+                }
+                if (minPrice != null && price.amount < minPrice) return false;
+                if (maxPrice != null && price.amount > maxPrice) return false;
+                return true;
+              })).toList();
+        }
         totalItems = allProducts.length;
-
-        // Sort in memory
-        _sortProductsInMemory(allProducts, sortBy, sortOrder);
-
-        // Paginate in memory
+        _sortProductsInMemory(allProducts, sortBy, order);
         paginatedProducts = allProducts.skip(offset).take(limit).toList();
       } else {
         // ✅ USAR PAGINACIÓN NATIVA DE ISAR (más eficiente)
         totalItems = await query.count();
-
-        // Apply sorting and pagination using ISAR native methods
+        final desc = order == 'desc';
         if (sortBy == 'name') {
-          paginatedProducts = sortOrder == 'desc'
+          paginatedProducts = desc
               ? await query.sortByNameDesc().offset(offset).limit(limit).findAll()
               : await query.sortByName().offset(offset).limit(limit).findAll();
         } else if (sortBy == 'stock') {
-          paginatedProducts = sortOrder == 'desc'
+          paginatedProducts = desc
               ? await query.sortByStockDesc().offset(offset).limit(limit).findAll()
               : await query.sortByStock().offset(offset).limit(limit).findAll();
-        } else if (sortBy == 'createdAt') {
-          paginatedProducts = sortOrder == 'desc'
+        } else if (sortBy == 'updatedAt') {
+          paginatedProducts = desc
+              ? await query.sortByUpdatedAtDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByUpdatedAt().offset(offset).limit(limit).findAll();
+        } else {
+          // Igual que el servidor: por fecha de creación (por defecto, los
+          // más nuevos primero).
+          paginatedProducts = (sortOrder == null || desc)
               ? await query.sortByCreatedAtDesc().offset(offset).limit(limit).findAll()
               : await query.sortByCreatedAt().offset(offset).limit(limit).findAll();
-        } else {
-          // Default sort by name descending
-          paginatedProducts = await query.sortByNameDesc().offset(offset).limit(limit).findAll();
         }
       }
 
@@ -380,13 +395,18 @@ class ProductOfflineRepository implements ProductRepository {
       final List<IsarProduct> allProducts = await _isar.isarProducts
           .filter()
           .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE')
           .findAll();
 
+      // Mismas definiciones que el servidor: "agotado" es el estado del
+      // producto y "stock bajo" es stock <= mínimo (incluye los de 0).
       final total = allProducts.length;
       final active = allProducts.where((p) => p.status == IsarProductStatus.active).length;
       final inactive = allProducts.where((p) => p.status == IsarProductStatus.inactive).length;
-      final outOfStock = allProducts.where((p) => p.stock == 0).length;
-      final lowStock = allProducts.where((p) => p.stock <= p.minStock && p.stock > 0).length;
+      final outOfStock = allProducts.where((p) => p.status == IsarProductStatus.outOfStock).length;
+      final lowStock = allProducts.where((p) => p.stock <= p.minStock).length;
 
       // Calculate total value (stock * cost price)
       double totalValue = 0.0;
@@ -431,6 +451,9 @@ class ProductOfflineRepository implements ProductRepository {
       final List<IsarProduct> allProducts = await _isar.isarProducts
           .filter()
           .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE')
           .findAll();
 
       double totalValue = 0.0;
@@ -882,22 +905,21 @@ class ProductOfflineRepository implements ProductRepository {
   }
 
   /// Helper para ordenar productos en memoria (usado cuando hay filtro lowStock)
+  /// 'DESC'/'desc'/null → 'desc' | 'asc'. La pantalla manda mayúsculas.
+  static String _normalizeSortOrder(String? sortOrder) =>
+      (sortOrder ?? 'desc').toLowerCase() == 'asc' ? 'asc' : 'desc';
+
   void _sortProductsInMemory(List<IsarProduct> products, String? sortBy, String? sortOrder) {
+    final desc = _normalizeSortOrder(sortOrder) == 'desc';
+    int cmp(Comparable a, Comparable b) => desc ? b.compareTo(a) : a.compareTo(b);
     if (sortBy == 'name') {
-      products.sort((a, b) => sortOrder == 'desc'
-          ? b.name.compareTo(a.name)
-          : a.name.compareTo(b.name));
+      products.sort((a, b) => cmp(a.name, b.name));
     } else if (sortBy == 'stock') {
-      products.sort((a, b) => sortOrder == 'desc'
-          ? b.stock.compareTo(a.stock)
-          : a.stock.compareTo(b.stock));
-    } else if (sortBy == 'createdAt') {
-      products.sort((a, b) => sortOrder == 'desc'
-          ? b.createdAt.compareTo(a.createdAt)
-          : a.createdAt.compareTo(b.createdAt));
+      products.sort((a, b) => cmp(a.stock, b.stock));
+    } else if (sortBy == 'updatedAt') {
+      products.sort((a, b) => cmp(a.updatedAt, b.updatedAt));
     } else {
-      // Default sort by name descending
-      products.sort((a, b) => b.name.compareTo(a.name));
+      products.sort((a, b) => cmp(a.createdAt, b.createdAt));
     }
   }
 

@@ -23,6 +23,8 @@ import '../../../invoices/domain/entities/invoice_payment.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/enums/isar_enums.dart' show IsarInvoiceStatus;
 import '../models/isar/isar_customer_credit.dart';
+import '../../../../app/data/local/local_first.dart';
+import 'customer_credit_offline_repository.dart';
 
 /// Implementación del repositorio de créditos
 class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
@@ -35,6 +37,14 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
     required this.localDataSource,
     required this.networkInfo,
   });
+
+  // ==================== LECTURA LOCAL-FIRST ====================
+
+  CustomerCreditOfflineRepository get _localCreditRepo =>
+      Get.isRegistered<CustomerCreditOfflineRepository>() ? Get.find<CustomerCreditOfflineRepository>() : CustomerCreditOfflineRepository();
+
+  Future<bool> _creditsReady() => localCollectionReady(
+      (IsarDatabase.instance.database as Isar).isarCustomerCredits);
 
   /// Helper para detectar errores de timeout/conexión
   bool _isTimeoutError(Object error) {
@@ -174,6 +184,13 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, CustomerCredit>> getCreditById(String id) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<CustomerCredit>(
+      hasLocalData: () => _creditsReady(),
+      read: () => _localCreditRepo.getCreditById(id),
+    );
+    if (local != null) return local;
+
     final isConnected = await networkInfo.isConnected;
 
     if (isConnected) {
@@ -464,6 +481,16 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   @override
   Future<Either<Failure, List<CreditPayment>>> getCreditPayments(String creditId) async {
+    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    final local = await readLocalFirst<List<CreditPayment>>(
+      hasLocalData: () => _creditsReady(),
+      read: () => _localCreditRepo.getCreditPayments(creditId),
+      // Créditos descargados antes de que la descarga trajera los abonos no
+      // los tienen guardados: en ese caso se piden al servidor.
+      accept: (payments) => payments.isNotEmpty,
+    );
+    if (local != null) return local;
+
     if (await networkInfo.isConnected) {
       try {
         final payments = await remoteDataSource.getCreditPayments(creditId);
