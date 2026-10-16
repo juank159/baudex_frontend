@@ -1215,7 +1215,17 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   Future<Either<Failure, Map<String, double>>> _getInventoryValuationFromCache({String? warehouseId}) async {
     try {
-      final batches = await localDataSource.getCachedBatches();
+      // Solo lotes con existencias (y de la bodega pedida): la base filtra.
+      var query = (IsarDatabase.instance.database as Isar)
+          .isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .currentQuantityGreaterThan(0);
+      if (warehouseId != null) {
+        query = query.and().warehouseIdEqualTo(warehouseId);
+      }
+      final batches = (await query.findAll()).map((b) => b.toEntity()).toList();
       if (batches.isEmpty) return const Right(<String, double>{});
 
       final valuation = <String, double>{};
@@ -1263,10 +1273,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
         ),
       );
 
-      // Obtener batches para info del producto
-      final batches = await localDataSource.getCachedBatches();
-      final productBatches = batches.whereType<InventoryBatch>()
-          .where((b) => b.productId == params.productId)
+      // Lotes solo de este producto (antes se cargaban todos los del equipo).
+      final productBatches = (await (IsarDatabase.instance.database as Isar)
+              .isarInventoryBatchs
+              .filter()
+              .deletedAtIsNull()
+              .and()
+              .productIdEqualTo(params.productId)
+              .findAll())
+          .map((b) => b.toEntity())
           .toList();
 
       String productName = '';
@@ -1390,7 +1405,17 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   Future<Either<Failure, List<Map<String, dynamic>>>> _getInventoryAgingFromCache({String? warehouseId}) async {
     try {
-      final batches = await localDataSource.getCachedBatches();
+      // Solo lotes con existencias (y de la bodega pedida): la base filtra.
+      var query = (IsarDatabase.instance.database as Isar)
+          .isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .currentQuantityGreaterThan(0);
+      if (warehouseId != null) {
+        query = query.and().warehouseIdEqualTo(warehouseId);
+      }
+      final batches = (await query.findAll()).map((b) => b.toEntity()).toList();
       if (batches.isEmpty) return const Right(<Map<String, dynamic>>[]);
 
       final now = DateTime.now();
