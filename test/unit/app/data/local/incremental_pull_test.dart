@@ -285,4 +285,54 @@ void main() {
     const e = ServerException('x', statusCode: 404);
     expect(e.statusCode, 404);
   });
+
+  test('lo que el servidor repite por el margen no se reaplica ni cuenta como cambio', () async {
+    final now = DateTime.now().toUtc();
+    String ago(int seconds) =>
+        now.subtract(Duration(seconds: seconds)).toIso8601String();
+    server.now = ago(0);
+    server.put(uuid(1), ago(30));
+    server.put(uuid(2), ago(20));
+    expect(await sync.debugPullChanges('invoices'), 2);
+
+    // El servidor devuelve una marca 2 minutos atrás: repite los mismos dos.
+    server.now = ago(120);
+    await sync.debugPullChanges('invoices'); // guarda la marca con margen
+    var applies = 0;
+    final real = sync.debugChangeHandlers!['invoices']!;
+    sync.debugChangeHandlers = {
+      'invoices': FullSyncService.debugHandler(
+        apply: (items) async {
+          applies += items.length;
+          return (real as dynamic).apply(items) as Future<Set<String>>;
+        },
+        delete: (ids) async => 0,
+        sweep: (seen) async => 0,
+      ),
+    };
+    expect(await sync.debugPullChanges('invoices'), 0);
+    expect(applies, 0);
+
+    // Uno cambia de verdad (marca nueva): ese sí se aplica.
+    server.put(uuid(2), ago(1));
+    expect(await sync.debugPullChanges('invoices'), 1);
+    expect(applies, 1);
+    expect(local[uuid(2)], server.rows[uuid(2)]!.stamp);
+  });
+
+  test('uno protegido por cambios locales se vuelve a intentar aunque llegue igual', () async {
+    final now = DateTime.now().toUtc();
+    String ago(int seconds) =>
+        now.subtract(Duration(seconds: seconds)).toIso8601String();
+    server.now = ago(120);
+    server.put(uuid(1), ago(30));
+    protectedIds.add(uuid(1));
+    await sync.debugPullChanges('invoices');
+    expect(local.containsKey(uuid(1)), isFalse);
+
+    // Ya subió el cambio local: la misma versión del servidor sí se guarda.
+    protectedIds.clear();
+    await sync.debugPullChanges('invoices');
+    expect(local[uuid(1)], server.rows[uuid(1)]!.stamp);
+  });
 }

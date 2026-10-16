@@ -602,7 +602,13 @@ class SyncDiagnosticController extends GetxController {
   Future<void> _refreshPendingQueue() async {
     try {
       final isar = IsarDatabase.instance.database;
-      final allOps = await isar.syncOperations.where().findAll();
+      // Solo las no completadas: las completadas (una semana de ventas con
+      // su detalle) no se usan aquí y cargarlas hacía lenta la pantalla.
+      final allOps = await isar.syncOperations
+          .filter()
+          .not()
+          .statusEqualTo(SyncStatus.completed)
+          .findAll();
 
       int pending = 0;
       int failed = 0;
@@ -721,7 +727,13 @@ class SyncDiagnosticController extends GetxController {
       }
 
       // Ops de stock no completadas → productos que SÍ deben estar protegidos
-      final allOps = await isar.syncOperations.where().findAll();
+      // Solo las no completadas: las completadas (una semana de ventas con
+      // su detalle) no se usan aquí y cargarlas hacía lenta la pantalla.
+      final allOps = await isar.syncOperations
+          .filter()
+          .not()
+          .statusEqualTo(SyncStatus.completed)
+          .findAll();
       final pendingStockOps = allOps.where((op) =>
           op.status != SyncStatus.completed &&
           (op.entityType == 'Invoice' ||
@@ -781,7 +793,13 @@ class SyncDiagnosticController extends GetxController {
 
       // 1. Indexar todas las ops activas (no completed) por (entityType, entityId)
       //    para chequeo O(1).
-      final allOps = await isar.syncOperations.where().findAll();
+      // Solo las no completadas: las completadas (una semana de ventas con
+      // su detalle) no se usan aquí y cargarlas hacía lenta la pantalla.
+      final allOps = await isar.syncOperations
+          .filter()
+          .not()
+          .statusEqualTo(SyncStatus.completed)
+          .findAll();
       final activeOps = <String>{};
       for (final op in allOps) {
         if (op.status == SyncStatus.completed) continue;

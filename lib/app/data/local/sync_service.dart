@@ -626,7 +626,7 @@ class SyncService extends GetxService {
       _lastPullTime = DateTime.now();
 
       if (result.totalSynced > 0 && !result.wasAborted) {
-        final countsChanged = !_mapsEqualInt(result.syncedCounts, _lastPullCounts);
+        final countsChanged = _pullBroughtChanges(result.syncedCounts);
         final timeSinceNotification = _lastControllerNotificationAt == null
             ? null
             : DateTime.now().difference(_lastControllerNotificationAt!);
@@ -1076,7 +1076,7 @@ class SyncService extends GetxService {
         // Solo notificar controllers si algo cambió realmente.
         // Comparamos los conteos de este pull con los del anterior.
         // Si son idénticos Y se notificó hace <3 min → nada cambió, omitir.
-        final countsChanged = !_mapsEqualInt(result.syncedCounts, _lastPullCounts);
+        final countsChanged = _pullBroughtChanges(result.syncedCounts);
         final timeSinceNotification = _lastControllerNotificationAt == null
             ? null
             : now.difference(_lastControllerNotificationAt!);
@@ -1107,6 +1107,29 @@ class SyncService extends GetxService {
   }
 
   /// Compara dos Map<String,int> por valor (sin importar el orden de las keys).
+  /// ¿La descarga trajo algo nuevo? Los módulos incrementales solo cuentan
+  /// lo que cambió (> 0 = hubo cambios). Los pequeños que se bajan completos
+  /// (organización, cuentas, categorías…) siempre traen lo mismo, así que
+  /// solo cuentan si su cantidad varió. Antes se comparaba el total con la
+  /// descarga anterior y "14 → 10" se tomaba como cambio, recargando las
+  /// pantallas sin motivo.
+  bool _pullBroughtChanges(Map<String, int> counts) {
+    final full = <String, int>{};
+    for (final entry in counts.entries) {
+      if (FullSyncService.isIncrementalModule(entry.key)) {
+        if (entry.value > 0) return true;
+      } else {
+        full[entry.key] = entry.value;
+      }
+    }
+    final lastFull = <String, int>{
+      for (final entry in _lastPullCounts.entries)
+        if (!FullSyncService.isIncrementalModule(entry.key))
+          entry.key: entry.value,
+    };
+    return !_mapsEqualInt(full, lastFull);
+  }
+
   static bool _mapsEqualInt(Map<String, int> a, Map<String, int> b) {
     if (a.length != b.length) return false;
     for (final key in a.keys) {

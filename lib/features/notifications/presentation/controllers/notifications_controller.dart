@@ -87,11 +87,9 @@ class NotificationsController extends GetxController
   Timer? _searchDebounceTimer;
 
   // Auto-refresh timer
-  Timer? _autoRefreshTimer;
 
   // Configuración
   static const int _pageSize = 20;
-  static const Duration _autoRefreshInterval = Duration(seconds: 30);
 
   // Cache para carga rápida
   static List<Notification>? _cachedNotifications;
@@ -153,8 +151,15 @@ class NotificationsController extends GetxController
     setupSyncListener();
     _setupScrollListener();
     _setupSearchListener();
-    _setupAutoRefresh();
+    // Sin consulta periódica al servidor: las notificaciones llegan con la
+    // descarga automática y `onSyncCompleted` refresca cuando hay cambios.
+    // Antes se hacían 3 peticiones cada 30 s toda la jornada, en todas las
+    // pantallas.
   }
+
+  /// No se ve en facturación: recarga al salir de ahí.
+  @override
+  bool get deferRefreshWhileSelling => true;
 
   @override
   Future<void> onSyncCompleted() async {
@@ -174,9 +179,7 @@ class NotificationsController extends GetxController
   @override
   void onClose() {
     _searchDebounceTimer?.cancel();
-    _autoRefreshTimer?.cancel();
     _searchDebounceTimer = null;
-    _autoRefreshTimer = null;
     super.onClose();
   }
 
@@ -194,15 +197,6 @@ class NotificationsController extends GetxController
           searchNotifications(query);
         }
       });
-    });
-  }
-
-  /// Configurar auto-refresh cada 30 segundos
-  void _setupAutoRefresh() {
-    _autoRefreshTimer = Timer.periodic(_autoRefreshInterval, (_) {
-      if (!_isLoading.value && !_isLoadingMore.value) {
-        _refreshInBackground();
-      }
     });
   }
 

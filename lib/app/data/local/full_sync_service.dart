@@ -590,6 +590,11 @@ class FullSyncService extends GetxService {
     'Notificaciones': 'notifications',
   };
 
+  /// El módulo baja solo lo que cambió (su conteo = registros nuevos o
+  /// modificados). Los demás se bajan completos en cada descarga.
+  static bool isIncrementalModule(String moduleName) =>
+      _incrementalEntities.containsKey(moduleName);
+
   /// Registros por página. Los módulos con muchas relaciones (facturas con
   /// ítems y pagos, productos con precios…) van de a 200; los livianos de a
   /// 500 (máximo del servidor).
@@ -746,6 +751,39 @@ class FullSyncService extends GetxService {
     }
     Future<void> saveProgress() =>
         _watermarks.setProgress(organization, entity, progress!.toJson());
+    final recent = _recentlyApplied(organization, entity);
+
+    // Guarda los registros de una página y devuelve cuántos eran nuevos o
+    // cambiados. El servidor repite los últimos minutos en cada descarga
+    // (margen de seguridad); lo que ya se guardó con esa misma marca de
+    // tiempo es idéntico, así que no se vuelve a escribir ni cuenta como
+    // cambio. Antes cada descarga "traía cambios" y recargaba las pantallas
+    // cada minuto sin que nada hubiera cambiado. Lo que no se guardó por
+    // tener cambios locales sin subir no se recuerda: se reintenta.
+    Future<int> applyFresh(SyncChangesPage page) async {
+      final fresh = <Map<String, dynamic>>[];
+      final freshStamps = <String?>[];
+      for (var i = 0; i < page.items.length; i++) {
+        final stamp = i < page.stamps.length ? page.stamps[i] : null;
+        final id = page.items[i]['id']?.toString();
+        if (id != null && stamp != null && recent[id] == stamp) continue;
+        fresh.add(page.items[i]);
+        freshStamps.add(stamp);
+      }
+      if (fresh.isEmpty) return 0;
+      final skipped = await handler.apply(fresh);
+      for (var i = 0; i < fresh.length; i++) {
+        final id = fresh[i]['id']?.toString();
+        final stamp = freshStamps[i];
+        if (id == null || stamp == null) continue;
+        if (skipped.contains(id)) {
+          progress!.noteSkipped(stamp);
+        } else {
+          recent[id] = stamp;
+        }
+      }
+      return fresh.length;
+    }
 
     final pageSize = _changesPageSize[entity] ?? _lightChangesPageSize;
     var applied = 0;
@@ -765,16 +803,7 @@ class FullSyncService extends GetxService {
           limit: pageSize,
         );
         if (page.items.isNotEmpty) {
-          final skipped = await handler.apply(page.items);
-          for (var i = 0; i < page.items.length; i++) {
-            final id = page.items[i]['id']?.toString();
-            if (id != null &&
-                skipped.contains(id) &&
-                i < page.stamps.length) {
-              progress.noteSkipped(page.stamps[i]);
-            }
-          }
-          applied += page.items.length;
+          applied += await applyFresh(page);
         }
         if (!page.hasMore || page.nextSince == null) break;
         progress.recentSince = page.nextSince;
@@ -818,16 +847,13 @@ class FullSyncService extends GetxService {
       }
 
       if (page.items.isNotEmpty) {
-        final skipped = await handler.apply(page.items);
-        for (var i = 0; i < page.items.length; i++) {
-          final id = page.items[i]['id']?.toString();
-          if (id == null) continue;
-          if (progress.isFullDownload) progress.seen.add(id);
-          if (skipped.contains(id) && i < page.stamps.length) {
-            progress.noteSkipped(page.stamps[i]);
+        if (progress.isFullDownload) {
+          for (final item in page.items) {
+            final id = item['id']?.toString();
+            if (id != null) progress.seen.add(id);
           }
         }
-        applied += page.items.length;
+        applied += await applyFresh(page);
       }
 
       if (!page.hasMore || page.nextSince == null) break;
@@ -855,6 +881,25 @@ class FullSyncService extends GetxService {
     _changesProgress.remove(entity);
     await _watermarks.removeProgress(organization, entity);
     return applied;
+  }
+
+  // Registros guardados en las últimas descargas: id → marca de tiempo con
+  // la que se guardaron. Solo en memoria; se olvidan pasados unos minutos
+  // (más que el margen que repite el servidor).
+  final Map<String, Map<String, String>> _appliedStamps = {};
+  static const Duration _appliedStampsTtl = Duration(minutes: 10);
+
+  Map<String, String> _recentlyApplied(String organization, String entity) {
+    final stamps = _appliedStamps.putIfAbsent('$organization/$entity', () => {});
+    // Tope de seguridad (p. ej. reloj del equipo desfasado): nunca crece sin
+    // límite; olvidar solo significa volver a guardar algo idéntico.
+    if (stamps.length > 5000) stamps.clear();
+    final cutoff = DateTime.now().toUtc().subtract(_appliedStampsTtl);
+    stamps.removeWhere((_, stamp) {
+      final at = DateTime.tryParse(stamp);
+      return at == null || at.isBefore(cutoff);
+    });
+    return stamps;
   }
 
   /// IDs con operaciones en la cola (pendientes o rechazadas): sus copias
