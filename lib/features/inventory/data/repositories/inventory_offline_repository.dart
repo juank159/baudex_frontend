@@ -80,38 +80,33 @@ class InventoryOfflineRepository implements InventoryRepository {
         query = query.and().warehouseIdEqualTo(params.warehouseId!);
       }
 
-      // Apply date filters
+      // Apply date filters (inclusivos, como el servidor)
       if (params.startDate != null) {
-        query = query.and().movementDateGreaterThan(params.startDate!);
+        query = query.and().movementDateGreaterThan(params.startDate!, include: true);
       }
 
       if (params.endDate != null) {
-        query = query.and().movementDateLessThan(params.endDate!);
+        query = query.and().movementDateLessThan(params.endDate!, include: true);
       }
 
-      // Fetch all filtered results
-      var isarMovements = await query.findAll();
-
-      // Get total count after filters
-      final totalItems = isarMovements.length;
-
-      // Sort in memory
-      if (params.sortBy == 'movementDate') {
-        isarMovements.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
-            ? b.movementDate.compareTo(a.movementDate)
-            : a.movementDate.compareTo(b.movementDate));
-      } else if (params.sortBy == 'createdAt') {
-        isarMovements.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
-            ? b.createdAt.compareTo(a.createdAt)
-            : a.createdAt.compareTo(b.createdAt));
-      } else {
-        // Default sort by movementDate desc
-        isarMovements.sort((a, b) => b.movementDate.compareTo(a.movementDate));
-      }
-
-      // Paginate in memory
+      // Orden y página dentro de la base: solo se cargan los movimientos de
+      // la página (antes se cargaban todos y se ordenaban en memoria).
+      final totalItems = await query.count();
       final offset = (params.page - 1) * params.limit;
-      final paginatedMovements = isarMovements.skip(offset).take(params.limit).toList();
+      final desc = '${params.sortOrder}'.toLowerCase() != 'asc';
+      final List<IsarInventoryMovement> paginatedMovements;
+      if (params.sortBy == 'createdAt') {
+        paginatedMovements = desc
+            ? await query.sortByCreatedAtDesc().offset(offset).limit(params.limit).findAll()
+            : await query.sortByCreatedAt().offset(offset).limit(params.limit).findAll();
+      } else if (params.sortBy == 'movementDate') {
+        paginatedMovements = desc
+            ? await query.sortByMovementDateDesc().offset(offset).limit(params.limit).findAll()
+            : await query.sortByMovementDate().offset(offset).limit(params.limit).findAll();
+      } else {
+        paginatedMovements =
+            await query.sortByMovementDateDesc().offset(offset).limit(params.limit).findAll();
+      }
 
       // Convert to domain entities
       final movements = paginatedMovements.map((isar) => isar.toEntity()).toList();
@@ -415,27 +410,39 @@ class InventoryOfflineRepository implements InventoryRepository {
     String productId, {
     String? warehouseId,
   }) async {
-    // Obtener producto
     final product = await _isar.isarProducts
         .filter()
         .serverIdEqualTo(productId)
         .findFirst();
-
     if (product == null) return null;
+    final batches = await _batchesFor([productId], warehouseId: warehouseId);
+    return _balanceFrom(product, batches, warehouseId: warehouseId);
+  }
 
-    // Obtener lotes del producto
-    var batchQuery = _isar.isarInventoryBatchs
-        .filter()
-        .deletedAtIsNull()
-        .and()
-        .productIdEqualTo(productId);
-
+  /// Lotes (no borrados) de los productos indicados, en UNA consulta.
+  /// Con `productIds == null` trae los de todos los productos.
+  Future<List<IsarInventoryBatch>> _batchesFor(
+    List<String>? productIds, {
+    String? warehouseId,
+  }) async {
+    if (productIds != null && productIds.isEmpty) return const [];
+    var query = _isar.isarInventoryBatchs.filter().deletedAtIsNull();
     if (warehouseId != null) {
-      batchQuery = batchQuery.and().warehouseIdEqualTo(warehouseId);
+      query = query.and().warehouseIdEqualTo(warehouseId);
     }
+    if (productIds != null) {
+      query = query.and().anyOf(productIds, (q, String id) => q.productIdEqualTo(id));
+    }
+    return query.findAll();
+  }
 
-    final batches = await batchQuery.findAll();
-
+  /// Saldo de un producto a partir de sus lotes (sin consultar la base).
+  InventoryBalance _balanceFrom(
+    IsarProduct product,
+    List<IsarInventoryBatch> batches, {
+    String? warehouseId,
+  }) {
+    final productId = product.serverId;
     // Calcular totales
     int totalQuantity = 0;
     int availableQuantity = 0;
@@ -514,8 +521,12 @@ class InventoryOfflineRepository implements InventoryRepository {
     InventoryBalanceQueryParams params,
   ) async {
     try {
-      // Obtener todos los productos
-      var productQuery = _isar.isarProducts.filter().deletedAtIsNull();
+      var productQuery = _isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE');
 
       if (params.search != null && params.search!.isNotEmpty) {
         productQuery = productQuery.and().group((q) => q
@@ -528,47 +539,68 @@ class InventoryOfflineRepository implements InventoryRepository {
         productQuery = productQuery.and().categoryIdEqualTo(params.categoryId!);
       }
 
-      final products = await productQuery.findAll();
+      final desc = '${params.sortOrder}'.toLowerCase() == 'desc';
+      final offset = (params.page - 1) * params.limit;
+      final needsAll = params.lowStock == true ||
+          params.outOfStock == true ||
+          params.nearExpiry == true ||
+          params.expired == true ||
+          params.sortBy == 'totalQuantity' ||
+          params.sortBy == 'totalValue';
 
-      // Calcular balance para cada producto
-      final balances = <InventoryBalance>[];
+      final List<InventoryBalance> pageItems;
+      final int totalItems;
 
-      for (final product in products) {
-        final balance = await _calculateProductBalance(
-          product.serverId,
+      if (!needsAll) {
+        // Caso normal: la base ordena por nombre y trae solo la página;
+        // se leen únicamente los lotes de esos productos (2 consultas).
+        totalItems = await productQuery.count();
+        final products = desc
+            ? await productQuery.sortByNameDesc().offset(offset).limit(params.limit).findAll()
+            : await productQuery.sortByName().offset(offset).limit(params.limit).findAll();
+        final batches = await _batchesFor(
+          products.map((p) => p.serverId).toList(),
           warehouseId: params.warehouseId,
         );
-
-        if (balance != null) {
-          // Aplicar filtros adicionales
+        final byProduct = <String, List<IsarInventoryBatch>>{};
+        for (final b in batches) {
+          (byProduct[b.productId] ??= []).add(b);
+        }
+        pageItems = [
+          for (final p in products)
+            _balanceFrom(p, byProduct[p.serverId] ?? const [],
+                warehouseId: params.warehouseId),
+        ];
+      } else {
+        // Filtros por saldo u orden por cantidad/valor: productos y lotes se
+        // leen UNA vez y se agrupan (antes: una consulta por producto).
+        final products = await productQuery.findAll();
+        final batches = await _batchesFor(null, warehouseId: params.warehouseId);
+        final byProduct = <String, List<IsarInventoryBatch>>{};
+        for (final b in batches) {
+          (byProduct[b.productId] ??= []).add(b);
+        }
+        final balances = <InventoryBalance>[];
+        for (final product in products) {
+          final balance = _balanceFrom(product, byProduct[product.serverId] ?? const [],
+              warehouseId: params.warehouseId);
           if (params.lowStock == true && !balance.isLowStock) continue;
           if (params.outOfStock == true && !balance.isOutOfStock) continue;
           if (params.nearExpiry == true && balance.nearExpiryQuantity <= 0) continue;
           if (params.expired == true && balance.expiredQuantity <= 0) continue;
-
           balances.add(balance);
         }
+        int cmp(Comparable a, Comparable b) => desc ? b.compareTo(a) : a.compareTo(b);
+        if (params.sortBy == 'totalQuantity') {
+          balances.sort((a, b) => cmp(a.totalQuantity, b.totalQuantity));
+        } else if (params.sortBy == 'totalValue') {
+          balances.sort((a, b) => cmp(a.totalValue, b.totalValue));
+        } else {
+          balances.sort((a, b) => cmp(a.productName, b.productName));
+        }
+        totalItems = balances.length;
+        pageItems = balances.skip(offset).take(params.limit).toList();
       }
-
-      // Ordenar
-      if (params.sortBy == 'productName') {
-        balances.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
-            ? b.productName.compareTo(a.productName)
-            : a.productName.compareTo(b.productName));
-      } else if (params.sortBy == 'totalQuantity') {
-        balances.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
-            ? b.totalQuantity.compareTo(a.totalQuantity)
-            : a.totalQuantity.compareTo(b.totalQuantity));
-      } else if (params.sortBy == 'totalValue') {
-        balances.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
-            ? b.totalValue.compareTo(a.totalValue)
-            : a.totalValue.compareTo(b.totalValue));
-      }
-
-      // Paginar
-      final totalItems = balances.length;
-      final offset = (params.page - 1) * params.limit;
-      final paginatedBalances = balances.skip(offset).take(params.limit).toList();
 
       final totalPages = (totalItems / params.limit).ceil();
       final meta = PaginationMeta(
@@ -580,10 +612,7 @@ class InventoryOfflineRepository implements InventoryRepository {
         hasPreviousPage: params.page > 1,
       );
 
-      return Right(core.PaginatedResult(
-        data: paginatedBalances,
-        meta: meta,
-      ));
+      return Right(core.PaginatedResult(data: pageItems, meta: meta));
     } catch (e) {
       return Left(CacheFailure('Error loading balances offline: ${e.toString()}'));
     }
@@ -613,14 +642,24 @@ class InventoryOfflineRepository implements InventoryRepository {
     String? warehouseId,
   }) async {
     try {
-      final balances = <InventoryBalance>[];
-
-      for (final productId in productIds) {
-        final balance = await _calculateProductBalance(productId, warehouseId: warehouseId);
-        if (balance != null) {
-          balances.add(balance);
-        }
+      // Productos y lotes en dos consultas (antes, dos por producto).
+      final products = productIds.isEmpty
+          ? <IsarProduct>[]
+          : await _isar.isarProducts
+              .filter()
+              .anyOf(productIds, (q, String id) => q.serverIdEqualTo(id))
+              .findAll();
+      final batches = await _batchesFor(productIds, warehouseId: warehouseId);
+      final byProduct = <String, List<IsarInventoryBatch>>{};
+      for (final b in batches) {
+        (byProduct[b.productId] ??= []).add(b);
       }
+      final byId = {for (final p in products) p.serverId: p};
+      final balances = <InventoryBalance>[
+        for (final id in productIds)
+          if (byId[id] != null)
+            _balanceFrom(byId[id]!, byProduct[id] ?? const [], warehouseId: warehouseId),
+      ];
 
       return Right(balances);
     } catch (e) {
@@ -1015,23 +1054,24 @@ class InventoryOfflineRepository implements InventoryRepository {
         }
       }
 
-      // Contar productos con stock bajo
-      for (final productId in uniqueProductIds) {
-        final product = await _isar.isarProducts
-            .filter()
-            .serverIdEqualTo(productId)
-            .findFirst();
-
-        if (product != null && product.minStock != null && product.minStock! > 0) {
-          final productBatches = batches.where((b) => b.productId == productId);
-          final totalStock = productBatches.fold<int>(
-            0,
-            (sum, batch) => sum + batch.currentQuantity,
-          );
-
-          if (totalStock <= product.minStock! && totalStock > 0) {
-            lowStockCount++;
-          }
+      // Contar productos con stock bajo: stock por producto en una pasada y
+      // mínimos de todos los productos en una consulta (antes: una consulta
+      // por producto y un recorrido de todos los lotes por cada uno).
+      final stockByProduct = <String, int>{};
+      for (final batch in batches) {
+        stockByProduct[batch.productId] =
+            (stockByProduct[batch.productId] ?? 0) + batch.currentQuantity;
+      }
+      // Solo las dos columnas necesarias (mismo orden en ambas listas).
+      final productFilter = _isar.isarProducts.filter().deletedAtIsNull();
+      final productIds = await productFilter.serverIdProperty().findAll();
+      final minStocks = await productFilter.minStockProperty().findAll();
+      for (var i = 0; i < productIds.length && i < minStocks.length; i++) {
+        final totalStock = stockByProduct[productIds[i]];
+        if (totalStock == null) continue;
+        final minStock = minStocks[i];
+        if (minStock > 0 && totalStock <= minStock && totalStock > 0) {
+          lowStockCount++;
         }
       }
 
@@ -1050,41 +1090,21 @@ class InventoryOfflineRepository implements InventoryRepository {
         movementQuery = movementQuery.and().movementDateLessThan(params.endDate!);
       }
 
-      final movements = await movementQuery.findAll();
-      final totalMovements = movements.length;
-
-      // Contar movimientos por tipo
-      int inboundCount = 0;
-      int outboundCount = 0;
-      int adjustmentCount = 0;
-      int transferCount = 0;
+      // Conteos dentro de la base (antes se cargaban todos los movimientos).
+      final totalMovements = await movementQuery.count();
+      Future<int> countType(IsarInventoryMovementType type) =>
+          movementQuery.and().typeEqualTo(type).count();
+      final inboundCount = await countType(IsarInventoryMovementType.inbound);
+      final outboundCount = await countType(IsarInventoryMovementType.outbound);
+      final adjustmentCount = await countType(IsarInventoryMovementType.adjustment);
+      final transferCount = await countType(IsarInventoryMovementType.transfer) +
+          await countType(IsarInventoryMovementType.transferIn) +
+          await countType(IsarInventoryMovementType.transferOut);
 
       // Movimientos de hoy
       final startOfDay = DateTime(now.year, now.month, now.day);
-      int movementsToday = 0;
-
-      for (final movement in movements) {
-        switch (movement.type) {
-          case IsarInventoryMovementType.inbound:
-            inboundCount++;
-            break;
-          case IsarInventoryMovementType.outbound:
-            outboundCount++;
-            break;
-          case IsarInventoryMovementType.adjustment:
-            adjustmentCount++;
-            break;
-          case IsarInventoryMovementType.transfer:
-          case IsarInventoryMovementType.transferIn:
-          case IsarInventoryMovementType.transferOut:
-            transferCount++;
-            break;
-        }
-
-        if (movement.movementDate.isAfter(startOfDay)) {
-          movementsToday++;
-        }
-      }
+      final movementsToday =
+          await movementQuery.and().movementDateGreaterThan(startOfDay).count();
 
       return Right(InventoryStats(
         totalProducts: totalProducts,
@@ -1138,15 +1158,20 @@ class InventoryOfflineRepository implements InventoryRepository {
 
       // Calcular por categorías si es posible
       final valuationByCategory = <String, double>{};
+      // Categoría de cada producto en una sola consulta (antes, una por producto).
+      final productFilter = _isar.isarProducts.filter().deletedAtIsNull();
+      final ids = await productFilter.serverIdProperty().findAll();
+      final categories = await productFilter.categoryIdProperty().findAll();
+      final categoryByProduct = <String, String>{
+        for (var i = 0; i < ids.length && i < categories.length; i++)
+          ids[i]: categories[i],
+      };
       for (final productId in valuationByProduct.keys) {
-        final product = await _isar.isarProducts
-            .filter()
-            .serverIdEqualTo(productId)
-            .findFirst();
+        final categoryId = categoryByProduct[productId];
 
-        if (product != null && product.categoryId != null) {
-          valuationByCategory[product.categoryId!] =
-              (valuationByCategory[product.categoryId!] ?? 0) +
+        if (categoryId != null) {
+          valuationByCategory[categoryId] =
+              (valuationByCategory[categoryId] ?? 0) +
                   valuationByProduct[productId]!;
         }
       }
@@ -1198,52 +1223,55 @@ class InventoryOfflineRepository implements InventoryRepository {
         query = query.and().statusEqualTo(isarStatus);
       }
 
-      // Fetch all filtered results
-      var isarBatches = await query.findAll();
-
-      // Apply expiry filters in memory
+      // Vencimiento, orden y página se resuelven dentro de la base: solo se
+      // cargan los lotes de la página (antes se cargaban todos, miles).
+      final now = DateTime.now();
       if (params.nearExpiryOnly == true) {
-        final now = DateTime.now();
-        final threshold = now.add(const Duration(days: 30));
-        isarBatches = isarBatches.where((batch) {
-          if (batch.expiryDate == null) return false;
-          return batch.expiryDate!.isAfter(now) && batch.expiryDate!.isBefore(threshold);
-        }).toList();
+        query = query
+            .and()
+            .expiryDateIsNotNull()
+            .and()
+            .expiryDateBetween(now, now.add(const Duration(days: 30)),
+                includeLower: false, includeUpper: false);
       }
-
       if (params.expiredOnly == true) {
-        final now = DateTime.now();
-        isarBatches = isarBatches.where((batch) {
-          if (batch.expiryDate == null) return false;
-          return batch.expiryDate!.isBefore(now);
-        }).toList();
+        query = query.and().expiryDateIsNotNull().and().expiryDateLessThan(now);
       }
 
-      // Get total count after filters
-      final totalItems = isarBatches.length;
-
-      // Sort in memory
-      if (params.sortBy == 'expiryDate') {
-        isarBatches.sort((a, b) {
-          if (a.expiryDate == null && b.expiryDate == null) return 0;
-          if (a.expiryDate == null) return 1;
-          if (b.expiryDate == null) return -1;
-          return '${params.sortOrder}'.toLowerCase() == 'desc'
-              ? b.expiryDate!.compareTo(a.expiryDate!)
-              : a.expiryDate!.compareTo(b.expiryDate!);
-        });
-      } else if (params.sortBy == 'entryDate') {
-        isarBatches.sort((a, b) => '${params.sortOrder}'.toLowerCase() == 'desc'
-            ? b.entryDate.compareTo(a.entryDate)
-            : a.entryDate.compareTo(b.entryDate));
-      } else {
-        // Default sort by createdAt desc
-        isarBatches.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      }
-
-      // Paginate in memory
+      final totalItems = await query.count();
       final offset = (params.page - 1) * params.limit;
-      final paginatedBatches = isarBatches.skip(offset).take(params.limit).toList();
+      final desc = '${params.sortOrder}'.toLowerCase() == 'desc';
+      final List<IsarInventoryBatch> paginatedBatches;
+
+      if (params.sortBy == 'expiryDate') {
+        // Los lotes sin vencimiento van al final, como antes.
+        final withExpiry = query.and().expiryDateIsNotNull();
+        final withExpiryCount = await withExpiry.count();
+        final first = offset < withExpiryCount
+            ? (desc
+                ? await withExpiry.sortByExpiryDateDesc().offset(offset).limit(params.limit).findAll()
+                : await withExpiry.sortByExpiryDate().offset(offset).limit(params.limit).findAll())
+            : <IsarInventoryBatch>[];
+        final remaining = params.limit - first.length;
+        final rest = remaining > 0
+            ? await query
+                .and()
+                .expiryDateIsNull()
+                .sortByCreatedAtDesc()
+                .offset((offset - withExpiryCount).clamp(0, totalItems))
+                .limit(remaining)
+                .findAll()
+            : <IsarInventoryBatch>[];
+        paginatedBatches = [...first, ...rest];
+      } else if (params.sortBy == 'entryDate') {
+        paginatedBatches = desc
+            ? await query.sortByEntryDateDesc().offset(offset).limit(params.limit).findAll()
+            : await query.sortByEntryDate().offset(offset).limit(params.limit).findAll();
+      } else {
+        // Por defecto, los más nuevos primero.
+        paginatedBatches =
+            await query.sortByCreatedAtDesc().offset(offset).limit(params.limit).findAll();
+      }
 
       // Convert to domain entities
       final batches = paginatedBatches.map((isar) => isar.toEntity()).toList();
