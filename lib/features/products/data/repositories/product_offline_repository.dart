@@ -17,6 +17,17 @@ import '../../domain/repositories/product_repository.dart';
 import '../models/isar/isar_product.dart';
 import '../models/isar/isar_product_price.dart';
 
+/// Minúsculas y sin tildes ("Café" = "cafe", "Piñata" = "pinata").
+String normalizeProductSearch(String text) {
+  const withAccents = 'áéíóúàèìòùäëïöüâêîôûãõñ';
+  const withoutAccents = 'aeiouaeiouaeiouaeiouaon';
+  var result = text.toLowerCase();
+  for (int i = 0; i < withAccents.length; i++) {
+    result = result.replaceAll(withAccents[i], withoutAccents[i]);
+  }
+  return result;
+}
+
 /// Implementación offline del repositorio de productos usando ISAR
 class ProductOfflineRepository implements ProductRepository {
   final IIsarDatabase _database;
@@ -255,6 +266,50 @@ class ProductOfflineRepository implements ProductRepository {
           : await baseQuery.limit(limit).findAll();
 
       final products = isarProducts.map((isar) => isar.toEntity()).toList();
+      return Right(products);
+    } catch (e) {
+      return Left(CacheFailure('Error searching products: ${e.toString()}'));
+    }
+  }
+
+  /// Igual que [searchProducts] pero sin importar tildes ("cafe" encuentra
+  /// "CAFÉ"). La base hace el primer filtro con un comodín en cada vocal y
+  /// en la n (por la ñ; el comodín de un carácter no sirve porque la base
+  /// guarda las letras con tilde como dos); solo esos candidatos se revisan
+  /// aquí. Así no hay que recorrer todo el catálogo en memoria cuando no
+  /// hay coincidencia exacta.
+  Future<Either<Failure, List<Product>>> searchProductsIgnoringAccents(
+    String searchTerm,
+  ) async {
+    try {
+      final term = normalizeProductSearch(searchTerm.trim());
+      if (term.isEmpty) return const Right([]);
+      const loose = 'aeioun*?';
+      final pattern =
+          '*${term.split('').map((ch) => loose.contains(ch) ? '*' : ch).join()}*'
+              .replaceAll(RegExp(r'\*+'), '*');
+
+      final candidates = await _isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .group((q) => q
+              .nameMatches(pattern, caseSensitive: false)
+              .or()
+              .skuMatches(pattern, caseSensitive: false)
+              .or()
+              .barcodeMatches(pattern, caseSensitive: false)
+              .or()
+              .descriptionMatches(pattern, caseSensitive: false))
+          .findAll();
+
+      bool has(String? field) =>
+          field != null && normalizeProductSearch(field).contains(term);
+      final products = candidates
+          .where((p) =>
+              has(p.name) || has(p.sku) || has(p.barcode) || has(p.description))
+          .map((isar) => isar.toEntity())
+          .toList();
       return Right(products);
     } catch (e) {
       return Left(CacheFailure('Error searching products: ${e.toString()}'));

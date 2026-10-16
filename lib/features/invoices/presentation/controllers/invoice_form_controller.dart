@@ -1136,6 +1136,25 @@ class InvoiceFormController extends GetxController {
     _recalculateTotals();
   }
 
+  /// Vuelve a leer de la base local los productos indicados y actualiza la
+  /// lista en memoria (stock después de una venta).
+  Future<void> _refreshProductsInMemory(Set<String> productIds) async {
+    if (productIds.isEmpty ||
+        !Get.isRegistered<ProductOfflineRepository>()) {
+      return;
+    }
+    final repo = Get.find<ProductOfflineRepository>();
+    for (final id in productIds) {
+      final index = _availableProducts.indexWhere((p) => p.id == id);
+      if (index == -1) continue;
+      final result = await repo.getProductById(id);
+      result.fold((_) {}, (product) {
+        final current = _availableProducts.indexWhere((p) => p.id == id);
+        if (current != -1) _availableProducts[current] = product;
+      });
+    }
+  }
+
   void _ensureProductIsAvailable(Product product) {
     final instanceId = hashCode;
     final existingIndex = _availableProducts.indexWhere(
@@ -1177,22 +1196,35 @@ class InvoiceFormController extends GetxController {
       // descriptionContains, case-insensitive, sin caps.
       // ═══════════════════════════════════════════════════════════════════
       List<Product> results = const [];
+      var isarAvailable = false;
 
       if (Get.isRegistered<ProductOfflineRepository>()) {
-        final isarSearch = await Get.find<ProductOfflineRepository>()
-            .searchProducts(query, limit: null);
+        final repo = Get.find<ProductOfflineRepository>();
+        final isarSearch = await repo.searchProducts(query, limit: null);
         isarSearch.fold(
           (failure) => AppLogger.w('ISAR search falló: ${failure.message}'),
-          (list) => results = list,
+          (list) {
+            results = list;
+            isarAvailable = true;
+          },
         );
 
+        // Sin coincidencia exacta: probar sin tildes ("cafe" → "CAFÉ").
+        // Lo resuelve la base; antes se recorría todo el catálogo en
+        // memoria quitando tildes, y eso frenaba cada búsqueda sin
+        // resultados (por ejemplo, el precio de un producto no registrado).
+        if (isarAvailable && results.isEmpty) {
+          final loose = await repo.searchProductsIgnoringAccents(query);
+          loose.fold(
+            (failure) => AppLogger.w('ISAR search falló: ${failure.message}'),
+            (list) => results = list,
+          );
+        }
       }
 
-      // Fallback: si por alguna razón el offline repo no está registrado
-      // o devolvió vacío, intentamos la búsqueda en memoria igual.
-      if (results.isEmpty) {
+      // Último recurso: si la base local no respondió, buscar en memoria.
+      if (!isarAvailable && results.isEmpty) {
         results = _searchInLocalProducts(query);
-
       }
 
       // Dedupe por id y filtrar SOLO activos. Los sin stock SÍ aparecen
@@ -1258,51 +1290,11 @@ class InvoiceFormController extends GetxController {
     // ═══════════════════════════════════════════════════════════════════
     await _loadProductsFromCacheFirst();
 
-    // ═══════════════════════════════════════════════════════════════════
-    // PASO 2 — Background refresh desde el servidor.
-    // Si triunfa: actualiza con datos frescos.
-    // Si falla (timeout, sin red, servidor caído): NO se limpia el cache.
-    // ═══════════════════════════════════════════════════════════════════
-    try {
-
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      final result = await _getProductsUseCase!(
-            const GetProductsParams(
-              page: 1,
-              limit: 50,
-              status: ProductStatus.active,
-              includePrices: true,
-            ),
-          )
-          .timeout(
-            const Duration(seconds: 8),
-            onTimeout: () {
-
-              return Left(ServerFailure('Timeout al cargar productos'));
-            },
-          );
-
-      await Future.delayed(const Duration(milliseconds: 10));
-
-      result.fold(
-        (failure) {
-          // Cache-first ya pobló los productos; log y seguimos con lo que hay.
-        },
-        (paginatedResult) {
-          _availableProducts.value = paginatedResult.data;
-
-          if (paginatedResult.data.length == 50 &&
-              paginatedResult.meta.hasNextPage) {
-            _loadMoreProductsSlowly(2);
-          }
-        },
-      );
-    } catch (e) {
-      // NO hacemos clear — el cache cargado en el paso 1 queda disponible.
-    } finally {
-      _isLoadingProducts.value = false;
-    }
+    // No se vuelve a pedir el catálogo al servidor al abrir facturación (ni
+    // cada pestaña): la base local se mantiene al día con la descarga
+    // periódica, y bajar 150 productos aquí reemplazaba la lista completa
+    // por esos 150 y cargaba el equipo justo al empezar a vender.
+    _isLoadingProducts.value = false;
   }
 
   /// Carga productos DIRECTO desde ISAR sin pasar por el UseCase (que tiene
@@ -1329,55 +1321,6 @@ class InvoiceFormController extends GetxController {
                 .where((p) => p.status == ProductStatus.active)
                 .toList();
             _availableProducts.value = activos;
-          }
-        },
-      );
-    } catch (e) {
-
-    }
-  }
-
-  // ✅ NUEVA FUNCIÓN: Carga asíncrona de más productos MUY LENTAMENTE
-  void _loadMoreProductsSlowly(int page) {
-    // Esperar mucho tiempo antes de cargar más productos
-    Timer(const Duration(seconds: 3), () {
-      _loadMoreProducts(page).catchError((e) {
-
-      });
-    });
-  }
-
-  Future<void> _loadMoreProducts(int page) async {
-    if (_getProductsUseCase == null) return;
-
-    try {
-      // ✅ TIMEOUT PARA PÁGINAS ADICIONALES
-      final result = await _getProductsUseCase!(
-            GetProductsParams(
-              page: page,
-              limit: 100,
-              status: ProductStatus.active,
-              includePrices: true,
-            ),
-          )
-          .timeout(
-            const Duration(seconds: 8),
-            onTimeout: () {
-
-              return Left(ServerFailure('Timeout'));
-            },
-          );
-
-      result.fold(
-        (failure) {
-
-        },
-        (paginatedResult) {
-          _availableProducts.addAll(paginatedResult.data);
-
-          if (page < 5 && paginatedResult.meta.hasNextPage) {
-            // ✅ CARGAR SIGUIENTE PÁGINA DE FORMA ASÍNCRONA
-            // _loadMoreProductsAsync(page + 1);
           }
         },
       );
@@ -2338,6 +2281,10 @@ class InvoiceFormController extends GetxController {
 
   void _prepareForNewSale() {
     final dtService = Get.find<TenantDateTimeService>();
+    final soldProductIds = _invoiceItems
+        .map((item) => item.productId)
+        .whereType<String>()
+        .toSet();
     _invoiceItems.clear();
     _loadDefaultCustomer();
     _invoiceDate.value = dtService.now();
@@ -2349,12 +2296,12 @@ class InvoiceFormController extends GetxController {
     _discountAmount.value = 0.0;
     _recalculateTotals();
 
-    // ✅ Refresca _availableProducts desde ISAR fire-and-forget. La factura
-    // recién creada descontó stock en ISAR (vía _processInventoryForOfflineInvoice
-    // o backend al sincronizar online), pero la lista en memoria aún tenía
-    // los stocks viejos cargados al inicio del POS. Sin este refresh, la
-    // siguiente búsqueda muestra cantidades obsoletas.
-    unawaited(_loadProductsFromCacheFirst());
+    // La venta descontó stock en la base local: refrescar en memoria solo
+    // los productos vendidos. Antes se recargaba el catálogo entero después
+    // de cada venta y eso frenaba el equipo justo al empezar la siguiente.
+    // (La búsqueda lee la base local, y al agregar un producto al carrito se
+    // usa su dato fresco, así que no hace falta más.)
+    unawaited(_refreshProductsInMemory(soldProductIds));
 
   }
 

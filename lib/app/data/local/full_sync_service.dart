@@ -1575,7 +1575,11 @@ class FullSyncService extends GetxService {
       if (candidates.isEmpty) return 0;
 
       // Todas las ops NO completadas que pueden afectar stock
-      final allOps = await _isar.syncOperations.where().findAll();
+      final allOps = await _isar.syncOperations
+          .filter()
+          .not()
+          .statusEqualTo(SyncStatus.completed)
+          .findAll();
       final pendingStockOps = allOps.where((op) =>
           op.status != SyncStatus.completed &&
           (op.entityType == 'Invoice' ||
@@ -2368,10 +2372,10 @@ class FullSyncService extends GetxService {
   /// No borra batches cuyo purchaseOrderId corresponda a un PO aún en cola de sync.
   Future<int> _cleanupBatchOfflineRecords(Set<String> pendingEntityIds) async {
     try {
-      final allBatches = await _isar.isarInventoryBatchs.where().findAll();
-      final offlineBatches = allBatches
-          .where((b) => b.serverId.startsWith('batch_offline_'))
-          .toList();
+      final offlineBatches = await _isar.isarInventoryBatchs
+          .filter()
+          .serverIdStartsWith('batch_offline_')
+          .findAll();
 
       if (offlineBatches.isEmpty) return 0;
 
@@ -2407,9 +2411,12 @@ class FullSyncService extends GetxService {
       final allItems = await _isar.isarPurchaseOrderItems.where().findAll();
       if (allItems.isEmpty) return 0;
 
-      // Obtener todos los serverIds de POs existentes
-      final allPOs = await _isar.isarPurchaseOrders.where().findAll();
-      final existingPOIds = allPOs.map((po) => po.serverId).toSet();
+      // Obtener todos los serverIds de POs existentes (solo ese campo)
+      final existingPOIds = (await _isar.isarPurchaseOrders
+              .where()
+              .serverIdProperty()
+              .findAll())
+          .toSet();
 
       // Items cuyo PO padre ya no existe
       final orphaned = allItems.where((item) =>
@@ -2441,8 +2448,19 @@ class FullSyncService extends GetxService {
     required int Function(T) getId,
   }) async {
     try {
-      final allRecords = await collection.where().findAll();
-      final orphaned = allRecords
+      // La base filtra por dentro y solo devuelve los registros temporales.
+      // Antes se cargaban TODOS los registros (facturas, movimientos…) en
+      // cada descarga periódica para quedarse con unos pocos, y eso trababa
+      // el equipo cada minuto.
+      final candidates = await collection
+          .buildQuery<T>(
+            filter: FilterCondition.startsWith(
+              property: 'serverId',
+              value: prefix,
+            ),
+          )
+          .findAll();
+      final orphaned = candidates
           .where((r) => getServerId(r).startsWith(prefix))
           .where((r) => !pendingIds.contains(getServerId(r)))
           .toList();

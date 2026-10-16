@@ -2653,10 +2653,10 @@ class SyncService extends GetxService {
       int totalCleaned = 0;
 
       // 1. Limpiar batches con prefijo batch_offline_
-      final allBatches = await isar.isarInventoryBatchs.where().findAll();
-      final offlineBatches = allBatches
-          .where((b) => b.serverId.startsWith('batch_offline_'))
-          .toList();
+      final offlineBatches = await isar.isarInventoryBatchs
+          .filter()
+          .serverIdStartsWith('batch_offline_')
+          .findAll();
 
       if (offlineBatches.isNotEmpty) {
         // Solo borrar si el PO asociado ya NO está pendiente de sync
@@ -2683,9 +2683,10 @@ class SyncService extends GetxService {
       }
 
       // 2. Limpiar productos con prefijo product_offline_
-      final allProducts = await isar.isarProducts.where().findAll();
-      final offlineProducts = allProducts
-          .where((p) => p.serverId.startsWith('product_offline_'))
+      final offlineProducts = (await isar.isarProducts
+              .filter()
+              .serverIdStartsWith('product_offline_')
+              .findAll())
           .where((p) => !pendingEntityIds.contains(p.serverId))
           .toList();
 
@@ -5946,7 +5947,13 @@ class SyncService extends GetxService {
 
                   if (productIdsFromThisInvoice.isNotEmpty) {
                     // Buscar otras ops de stock pendientes (excluyendo la actual)
-                    final allOps = await isar.syncOperations.where().findAll();
+                    // Solo las no completadas: cargar toda la semana de
+                    // operaciones en cada venta subida frenaba el equipo.
+                    final allOps = await isar.syncOperations
+                        .filter()
+                        .not()
+                        .statusEqualTo(SyncStatus.completed)
+                        .findAll();
                     final otherPendingStockOps = allOps.where((op) =>
                         op.entityId != operation.entityId &&
                         op.status != SyncStatus.completed &&
