@@ -14,6 +14,18 @@ import '../../domain/entities/customer_stats.dart';
 import '../../domain/repositories/customer_repository.dart';
 import '../models/isar/isar_customer.dart';
 
+/// Minúsculas y sin tildes, para comparar lo que escribe el cajero con los
+/// datos del cliente ("Díaz" = "diaz", "Peña" = "pena").
+String normalizeCustomerSearch(String text) {
+  const withAccents = 'áéíóúàèìòùäëïöüâêîôûãõñ';
+  const withoutAccents = 'aeiouaeiouaeiouaeiouaon';
+  var result = text.toLowerCase();
+  for (int i = 0; i < withAccents.length; i++) {
+    result = result.replaceAll(withAccents[i], withoutAccents[i]);
+  }
+  return result;
+}
+
 /// Implementación offline del repositorio de clientes usando ISAR
 class CustomerOfflineRepository implements CustomerRepository {
   final IIsarDatabase _database;
@@ -218,28 +230,39 @@ class CustomerOfflineRepository implements CustomerRepository {
     int? limit,
   }) async {
     try {
+      // Cada palabra escrita debe aparecer en algún dato del cliente, sin
+      // importar mayúsculas ni tildes: "keyla maita", "maita keyla" y
+      // "yolimar diaz" encuentran a "KEYLA MAITA" y "YOLIMAR DÍAZ".
       // `limit` null → sin tope (devuelve todos los matches).
-      // Cualquier valor explícito → aplica `.limit()` nativo de ISAR.
-      final baseQuery = _isar.isarCustomers
+      final terms = normalizeCustomerSearch(searchTerm)
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (terms.isEmpty) return const Right([]);
+
+      final all = await _isar.isarCustomers
           .filter()
           .deletedAtIsNull()
-          .and()
-          .group((q) => q
-              .firstNameContains(searchTerm, caseSensitive: false)
-              .or()
-              .lastNameContains(searchTerm, caseSensitive: false)
-              .or()
-              .emailContains(searchTerm, caseSensitive: false)
-              .or()
-              .documentNumberContains(searchTerm, caseSensitive: false)
-              .or()
-              .companyNameContains(searchTerm, caseSensitive: false));
+          .findAll() as List<IsarCustomer>;
 
-      final isarCustomers = limit == null
-          ? await baseQuery.findAll() as List<IsarCustomer>
-          : await baseQuery.limit(limit).findAll() as List<IsarCustomer>;
+      final matches = <IsarCustomer>[];
+      for (final c in all) {
+        final text = normalizeCustomerSearch([
+          c.firstName,
+          c.lastName,
+          c.companyName,
+          c.email,
+          c.documentNumber,
+          c.phone,
+          c.mobile,
+        ].whereType<String>().join(' '));
+        if (terms.every(text.contains)) {
+          matches.add(c);
+          if (limit != null && matches.length >= limit) break;
+        }
+      }
 
-      final customers = isarCustomers.map((isar) => isar.toEntity()).toList();
+      final customers = matches.map((isar) => isar.toEntity()).toList();
       return Right(customers);
     } catch (e) {
       return Left(CacheFailure('Error searching customers: ${e.toString()}'));

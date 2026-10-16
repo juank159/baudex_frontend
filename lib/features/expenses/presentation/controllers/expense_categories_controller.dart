@@ -57,6 +57,10 @@ class ExpenseCategoriesController extends GetxController
     );
   }
 
+  /// No se ve en facturación: recarga al salir de ahí.
+  @override
+  bool get deferRefreshWhileSelling => true;
+
   @override
   Future<void> onSyncCompleted() async {
     await loadCategories();

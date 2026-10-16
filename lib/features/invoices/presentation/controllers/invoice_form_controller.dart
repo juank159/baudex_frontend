@@ -1,7 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
 import 'dart:async';
 import 'package:baudex_desktop/app/core/utils/app_logger.dart';
-import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/controllers/cash_register_controller.dart';
@@ -289,7 +288,11 @@ class InvoiceFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    SyncService.notifyFormOpened();
+    // Facturación NO pausa la descarga periódica (a diferencia de los demás
+    // formularios): la caja pasa el día entero aquí, y con la descarga
+    // pausada no llegaban los clientes, precios ni stock que se cambian en
+    // otro equipo. La descarga solo escribe en la base local; el carrito y
+    // el cliente elegido viven en memoria y no se tocan.
     final instanceId = hashCode;
 
     _initializeForm();
@@ -371,8 +374,6 @@ class InvoiceFormController extends GetxController {
 
   @override
   void onClose() {
-    SyncService.notifyFormClosed();
-
     _disposeControllers();
     super.onClose();
   }
@@ -2240,10 +2241,11 @@ class InvoiceFormController extends GetxController {
 
         }
 
-        // 📊 Notificar al dashboard para que actualice sus datos
+        // 📊 Avisar al tablero: se actualiza cuando el cajero salga de
+        // facturación (recargarlo aquí frenaba la venta siguiente).
         try {
           if (Get.isRegistered<DashboardController>()) {
-            Get.find<DashboardController>().refreshAll();
+            Get.find<DashboardController>().requestSyncRefresh();
           }
         } catch (_) {}
 

@@ -49,6 +49,10 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   Timer? _debounceTimer;
   static const Duration _debounceDuration = Duration(milliseconds: 300);
 
+  // Número de la búsqueda en curso: si una búsqueda lenta termina después
+  // de una más nueva, su resultado se descarta y no tapa al nuevo.
+  int _searchSeq = 0;
+
   // Control para pausar la restauración automática de focus.
   // El padre (ej: CustomerSelectorWidget) lo puede activar mientras el
   // usuario está editando otros campos.
@@ -779,6 +783,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
       // ✅ No auto-seleccionar durante la escritura para evitar cortar el código
 
     if (query.isEmpty) {
+      _searchSeq++;
       setState(() {
         _searchResults.clear();
         _showResults = false;
@@ -814,6 +819,7 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
 
     // Búsqueda mínima de 2 caracteres
     if (query.length < 2) {
+      _searchSeq++;
       setState(() {
         _searchResults.clear();
         _showResults =
@@ -824,6 +830,7 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
 
     // Do NOT block on isLoadingProducts — ISAR is always ready regardless of remote refresh
 
+    final seq = ++_searchSeq;
     setState(() {
       _isSearching = true;
     });
@@ -882,7 +889,7 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
         uniqueResults[product.id] = product;
       }
 
-      if (mounted) {
+      if (mounted && seq == _searchSeq) {
         setState(() {
           _searchResults.clear();
           // Sin cap: mostramos TODOS los resultados que coinciden. El
@@ -919,7 +926,7 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
 
     } catch (e) {
 AppLogger.e('❌ Error en búsqueda de productos: $e');
-      if (mounted) {
+      if (mounted && seq == _searchSeq) {
         setState(() {
           _searchResults.clear();
           _showResults = true;

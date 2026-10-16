@@ -1,4 +1,6 @@
 // lib/features/invoices/presentation/widgets/customer_selector_widget.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -34,6 +36,9 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   bool _isSearching = false;
   bool _showSearchField = false;
   String _lastSearchTerm = '';
+  Timer? _debounceTimer;
+  int _searchSeq = 0;
+  static const Duration _debounceDuration = Duration(milliseconds: 200);
 
   // ✅ MODIFICADO: Usar el controlador del widget como prioridad
   InvoiceFormController? get _invoiceController {
@@ -64,6 +69,7 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   @override
   void dispose() {
     try {
+      _debounceTimer?.cancel();
       // Remover listener antes de dispose
       _searchController.removeListener(_onSearchChanged);
 
@@ -595,6 +601,9 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   }
 
   void _closeSearch() {
+    _debounceTimer?.cancel();
+    _searchSeq++;
+    _lastSearchTerm = '';
     setState(() {
       _showSearchField = false;
       _searchController.clear();
@@ -613,6 +622,11 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
       final query = _searchController.text.trim();
 
       if (query.isEmpty) {
+        _debounceTimer?.cancel();
+        _searchSeq++;
+        // Sin esto, volver a escribir lo mismo que la búsqueda anterior
+        // (ya cerrada) no buscaba y mostraba "sin resultados".
+        _lastSearchTerm = '';
         setState(() {
           _searchResults.clear();
           _isSearching = false;
@@ -626,8 +640,11 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
       // Búsqueda mínima de 2 caracteres
       if (query.length < 2) {
+        _debounceTimer?.cancel();
+        _searchSeq++;
         setState(() {
           _searchResults.clear();
+          _isSearching = false;
         });
         return;
       }
@@ -636,6 +653,18 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         _isSearching = true;
       });
 
+      // Buscar cuando el cajero deja de escribir, no en cada tecla.
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(_debounceDuration, () => _runSearch(query));
+    } catch (e) {
+    }
+  }
+
+  Future<void> _runSearch(String query) async {
+    // Cada búsqueda lleva un número: si mientras tanto el cajero siguió
+    // escribiendo, la respuesta vieja se descarta y no tapa a la nueva.
+    final seq = ++_searchSeq;
+    try {
       try {
         List<Customer> results = [];
 
@@ -647,7 +676,7 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
           results = _searchInAvailableCustomers(query);
         }
 
-        if (mounted) {
+        if (mounted && seq == _searchSeq) {
           setState(() {
             _searchResults.clear();
             // Sin cap: mostramos TODOS los matches del catálogo offline.
@@ -659,7 +688,7 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
           });
         }
       } catch (e) {
-        if (mounted) {
+        if (mounted && seq == _searchSeq) {
           setState(() {
             _searchResults.clear();
             _isSearching = false;
@@ -686,8 +715,15 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     }).toList();
   }
 
-  void _handleDirectSearch(String query) {
+  Future<void> _handleDirectSearch(String query) async {
     if (query.trim().isEmpty) return;
+
+    // Enter antes de que termine la espera entre teclas: buscar ya.
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer!.cancel();
+      await _runSearch(query.trim());
+      if (!mounted) return;
+    }
 
     // Si hay resultados, seleccionar el primero
     if (_searchResults.isNotEmpty) {
