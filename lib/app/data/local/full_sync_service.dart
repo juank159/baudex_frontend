@@ -608,6 +608,27 @@ class FullSyncService extends GetxService {
     'expenses': 200,
   };
   static const int _lightChangesPageSize = 500;
+  static const int _minChangesPageSize = 25;
+
+  /// Tamaño reducido por módulo tras páginas que no alcanzaron a llegar
+  /// (internet lento). Se mantiene mientras la app esté abierta.
+  final Map<String, int> _adaptivePageSize = {};
+
+  int _effectivePageSize(String entity) =>
+      _adaptivePageSize[entity] ??
+      (_changesPageSize[entity] ?? _lightChangesPageSize);
+
+  /// Error de red por lentitud (tiempo de espera, conexión cortada a media
+  /// respuesta): se puede reintentar con una página más pequeña.
+  static bool _isSlowNetworkError(Object e) {
+    final text = e.toString().toLowerCase();
+    return text.contains('timeout') ||
+        text.contains('tiempo de espera') ||
+        text.contains('timed out') ||
+        text.contains('connection closed') ||
+        text.contains('connection reset') ||
+        text.contains('receive');
+  }
 
   /// Ventana de "lo reciente" que se baja primero en una descarga completa.
   static const Duration _recentWindow = Duration(days: 3);
@@ -802,7 +823,29 @@ class FullSyncService extends GetxService {
       return fresh.length;
     }
 
-    final pageSize = _changesPageSize[entity] ?? _lightChangesPageSize;
+    // Tamaño de página adaptable: con internet lento, una página grande
+    // puede no alcanzar a llegar antes del tiempo de espera y la descarga
+    // se quedaba repitiendo la misma página sin avanzar nunca.
+    Future<SyncChangesPage> fetchPage(String since, String? afterId) async {
+      while (true) {
+        final size = _effectivePageSize(entity);
+        try {
+          return await _changesClient.fetch(
+            entity,
+            since: since,
+            afterId: afterId,
+            limit: size,
+          );
+        } catch (e) {
+          if (!_isSlowNetworkError(e) || size <= _minChangesPageSize) rethrow;
+          _adaptivePageSize[entity] = (size ~/ 2).clamp(_minChangesPageSize, size);
+          debugPrint(
+            '[FULL_SYNC] $entity: página de $size tardó demasiado — se reintenta de a ${_adaptivePageSize[entity]}',
+          );
+          if (!_hasTimeLeft()) rethrow;
+        }
+      }
+    }
     var applied = 0;
 
     // Fase 1 de una descarga completa: lo de los últimos días primero.
@@ -813,12 +856,8 @@ class FullSyncService extends GetxService {
           .toIso8601String();
       while (true) {
         if (!_hasTimeLeft()) return applied;
-        final page = await _changesClient.fetch(
-          entity,
-          since: progress.recentSince!,
-          afterId: progress.recentAfterId,
-          limit: pageSize,
-        );
+        final page =
+            await fetchPage(progress.recentSince!, progress.recentAfterId);
         if (page.items.isNotEmpty) {
           applied += await applyFresh(page);
         }
@@ -836,12 +875,7 @@ class FullSyncService extends GetxService {
         // Se sigue en el próximo pull; la marca no avanza hasta terminar.
         return applied;
       }
-      final page = await _changesClient.fetch(
-        entity,
-        since: progress!.since,
-        afterId: progress.afterId,
-        limit: pageSize,
-      );
+      final page = await fetchPage(progress!.since, progress.afterId);
 
       if (page.resetRequired) {
         // La marca es más vieja que el registro de borrados del servidor:

@@ -67,6 +67,23 @@ class FakeServer implements SyncChangesClient {
   }
 }
 
+/// Internet lento: páginas grandes no alcanzan a llegar (tiempo de espera).
+class SlowServer extends FakeServer {
+  final int maxLimit;
+  final List<int> limits = [];
+  SlowServer(this.maxLimit);
+
+  @override
+  Future<SyncChangesPage> fetch(String entity,
+      {required String since, String? afterId, int limit = 200}) {
+    limits.add(limit);
+    if (limit > maxLimit) {
+      throw Exception('DioException [receive timeout]: tiempo de espera agotado');
+    }
+    return super.fetch(entity, since: since, afterId: afterId, limit: limit);
+  }
+}
+
 String uuid(int n) => '00000000-0000-0000-0000-${n.toString().padLeft(12, '0')}';
 String at(int second) => '2026-10-14T11:00:${second.toString().padLeft(2, '0')}.000000Z';
 
@@ -352,5 +369,19 @@ void main() {
     await sync.debugPullChanges('invoices');
     expect(local.length, 450);
     expect(await sync.isModuleDownloaded('invoices'), isTrue);
+  });
+
+  test('con internet lento la descarga achica las páginas y termina completa', () async {
+    final slow = SlowServer(50);
+    for (var i = 1; i <= 230; i++) {
+      slow.put(uuid(i), at(i % 60));
+    }
+    sync.debugChangesClient = slow;
+    server.rows.addAll(slow.rows); // el manejador de prueba lee las marcas de `server`
+    await sync.debugPullChanges('invoices');
+    expect(local.length, 230);
+    expect(await sync.isModuleDownloaded('invoices'), isTrue);
+    expect(slow.limits.first, 200); // empezó con páginas grandes…
+    expect(slow.limits.last, lessThanOrEqualTo(50)); // …y bajó hasta que pasaron
   });
 }
