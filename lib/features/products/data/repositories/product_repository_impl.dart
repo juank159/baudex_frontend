@@ -59,6 +59,9 @@ class ProductRepositoryImpl implements ProductRepository {
   Future<bool> _productsReady() async {
     if (_productsDownloaded) return true;
     final isar = _database.database as Isar;
+    // La descarga completa debe haber terminado: si no, el equipo puede
+    // tener solo los productos de los últimos días.
+    if (!await localCollectionReady(isar.isarProducts)) return false;
     _productsDownloaded = await isar.isarProducts
             .filter()
             .not()

@@ -1,7 +1,9 @@
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 
 import '../../core/errors/failures.dart';
+import 'full_sync_service.dart';
 
 /// Lectura local-first: las pantallas muestran lo que hay en el equipo al
 /// instante, con o sin internet. El servidor no se espera para pintar: la
@@ -30,13 +32,40 @@ Future<Either<Failure, T>?> readLocalFirst<T>({
   }
 }
 
-/// ¿La colección ya tiene datos en el equipo? Una vez que sí, se recuerda
-/// para no volver a contar en cada lectura.
+/// Colección local → módulo de la descarga incremental. Estos módulos se
+/// descargan por partes (primero lo reciente, luego el histórico), así que
+/// "tener datos" no basta: hay que esperar a que la descarga termine.
+const Map<String, String> _incrementalEntityByCollection = {
+  'IsarProduct': 'products',
+  'IsarProductPresentation': 'product_presentations',
+  'IsarCustomer': 'customers',
+  'IsarSupplier': 'suppliers',
+  'IsarInvoice': 'invoices',
+  'IsarExpense': 'expenses',
+  'IsarPurchaseOrder': 'purchase_orders',
+  'IsarCreditNote': 'credit_notes',
+  'IsarCustomerCredit': 'customer_credits',
+  'IsarInventoryBatch': 'inventory_batches',
+  'IsarInventoryMovement': 'inventory_movements',
+  'IsarNotification': 'notifications',
+};
+
+/// ¿El equipo ya tiene el módulo COMPLETO? Para los módulos incrementales,
+/// su descarga completa debe haber terminado (antes bastaba con tener algún
+/// registro, y tras una reinstalación las pantallas mostraban solo lo de los
+/// últimos días, p. ej. "6 productos"). Una vez listo, se recuerda.
 final Set<String> _readyCollections = {};
 
 Future<bool> localCollectionReady(IsarCollection<dynamic> collection) async {
   final key = collection.name;
   if (_readyCollections.contains(key)) return true;
+  final entity = _incrementalEntityByCollection[key];
+  if (entity != null) {
+    if (!Get.isRegistered<FullSyncService>()) return false;
+    if (!await Get.find<FullSyncService>().isModuleDownloaded(entity)) {
+      return false;
+    }
+  }
   final ready = await collection.count() > 0;
   if (ready) _readyCollections.add(key);
   return ready;

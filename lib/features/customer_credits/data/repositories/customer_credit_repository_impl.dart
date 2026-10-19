@@ -63,7 +63,11 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   @override
   Future<Either<Failure, List<CustomerCredit>>> getCredits(CustomerCreditQueryParams? query) async {
     final local = await _localCredits();
-    if (local.isNotEmpty) return Right(_applyQuery(local, query));
+    // Del equipo solo si la descarga de créditos terminó (si no, el equipo
+    // puede tener solo los de los últimos días).
+    if (local.isNotEmpty && await _creditsReady()) {
+      return Right(_applyQuery(local, query));
+    }
 
     if (await networkInfo.isConnected) {
       try {
@@ -76,7 +80,8 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
         if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
       }
     }
-    return const Right(<CustomerCredit>[]);
+    // Sin conexión o sin respuesta: lo que haya en el equipo.
+    return Right(_applyQuery(local, query));
   }
 
   Future<List<CustomerCreditModel>> _localCredits() async {
@@ -321,7 +326,7 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   @override
   Future<Either<Failure, List<CustomerCredit>>> getCreditsByCustomer(String customerId) async {
     final local = await _localCredits();
-    if (local.isNotEmpty) {
+    if (local.isNotEmpty && await _creditsReady()) {
       return Right(local.where((c) => c.customerId == customerId).toList());
     }
     if (await networkInfo.isConnected) {
@@ -353,7 +358,7 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   @override
   Future<Either<Failure, List<CustomerCredit>>> getPendingCreditsByCustomer(String customerId) async {
     final local = await _localCredits();
-    if (local.isNotEmpty) {
+    if (local.isNotEmpty && await _creditsReady()) {
       // Igual que el servidor: lo que no está pagado, del más antiguo al más
       // nuevo (los abonos se aplican en ese orden). Sin cancelados: no deben.
       final pending = local
@@ -560,7 +565,9 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   @override
   Future<Either<Failure, CreditStats>> getCreditStats() async {
     // Local-first: calculadas con los mismos créditos que muestra la lista.
-    if ((await _localCredits()).isNotEmpty) return _getStatsFromCache();
+    if ((await _localCredits()).isNotEmpty && await _creditsReady()) {
+      return _getStatsFromCache();
+    }
 
     final isConnected = await networkInfo.isConnected;
     if (isConnected) {

@@ -1,5 +1,11 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
 import 'dart:async';
+import 'package:isar/isar.dart';
+import 'package:baudex_desktop/app/data/local/isar_database.dart';
+import 'package:baudex_desktop/app/data/local/local_first.dart';
+import 'package:baudex_desktop/features/customers/domain/repositories/customer_repository.dart';
+import 'package:baudex_desktop/features/products/data/models/isar/isar_product.dart';
+import 'package:baudex_desktop/features/customers/data/models/isar/isar_customer.dart';
 import 'package:baudex_desktop/app/core/utils/app_logger.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
@@ -1227,6 +1233,20 @@ class InvoiceFormController extends GetxController {
         results = _searchInLocalProducts(query);
       }
 
+      // Mientras el catálogo no termina de bajar al equipo (instalación nueva
+      // o descarga completa en curso), la base local tiene solo una parte:
+      // con internet, se suman los resultados del servidor.
+      results = await _withServerResultsIfIncomplete<Product>(
+        local: results,
+        collection: () => (IsarDatabase.instance.database as Isar).isarProducts,
+        remote: () async {
+          if (!Get.isRegistered<ProductRepository>()) return const [];
+          final r = await Get.find<ProductRepository>().searchProducts(query, limit: 100);
+          return r.fold((_) => const <Product>[], (list) => list);
+        },
+        idOf: (p) => p.id,
+      );
+
       // Dedupe por id y filtrar SOLO activos. Los sin stock SÍ aparecen
       // (con `canSelect=false` en `_buildResultItem`); el cajero ve que
       // existen pero no puede venderlos si `shouldValidateStock=true`.
@@ -1381,6 +1401,36 @@ class InvoiceFormController extends GetxController {
     }
   }
 
+  /// Junta resultados locales con los del servidor SOLO si el módulo aún no
+  /// terminó de bajar al equipo y hay internet. Con el módulo completo no se
+  /// toca la red (búsqueda instantánea, igual con o sin conexión).
+  Future<List<T>> _withServerResultsIfIncomplete<T>({
+    required List<T> local,
+    required IsarCollection<dynamic> Function() collection,
+    required Future<List<T>> Function() remote,
+    required String Function(T) idOf,
+  }) async {
+    try {
+      if (await localCollectionReady(collection())) return local;
+      if (!Get.isRegistered<NetworkInfo>() ||
+          !await Get.find<NetworkInfo>().isConnected) {
+        return local;
+      }
+      final fromServer = await remote().timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => <T>[],
+      );
+      if (fromServer.isEmpty) return local;
+      final merged = <String, T>{for (final item in local) idOf(item): item};
+      for (final item in fromServer) {
+        merged.putIfAbsent(idOf(item), () => item);
+      }
+      return merged.values.toList();
+    } catch (_) {
+      return local;
+    }
+  }
+
   Future<List<Customer>> searchCustomers(String query) async {
     if (query.trim().isEmpty) return [];
 
@@ -1398,6 +1448,19 @@ class InvoiceFormController extends GetxController {
         );
 
       }
+
+      // Mientras los clientes no terminan de bajar al equipo, se suman los
+      // del servidor (con internet).
+      results = await _withServerResultsIfIncomplete<Customer>(
+        local: results,
+        collection: () => (IsarDatabase.instance.database as Isar).isarCustomers,
+        remote: () async {
+          if (!Get.isRegistered<CustomerRepository>()) return const [];
+          final r = await Get.find<CustomerRepository>().searchCustomers(query, limit: 50);
+          return r.fold((_) => const <Customer>[], (list) => list);
+        },
+        idOf: (c) => c.id,
+      );
 
       // Fallback defensivo si por algún motivo el offline repo no está.
       if (results.isEmpty) {

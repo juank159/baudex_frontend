@@ -617,6 +617,21 @@ class FullSyncService extends GetxService {
   bool get hasPendingFullDownload =>
       _changesProgress.values.any((p) => p.isFullDownload);
 
+  /// El módulo ya terminó su descarga completa en este equipo: tiene marca
+  /// guardada y no hay una descarga completa en curso (ni en memoria ni
+  /// guardada a medias). Mientras no, la base local puede tener solo una
+  /// parte (p. ej. lo de los últimos días) y las pantallas deben usar el
+  /// servidor.
+  Future<bool> isModuleDownloaded(String entity) async {
+    final inMemory = _changesProgress[entity];
+    if (inMemory != null && inMemory.isFullDownload) return false;
+    final organization = await _organizationKey();
+    if (organization == null) return false;
+    final saved = await _watermarks.getProgress(organization, entity);
+    if (saved != null && saved['isFullDownload'] == true) return false;
+    return await _watermarks.get(organization, entity) != null;
+  }
+
   static final RegExp _uuidPattern = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   );

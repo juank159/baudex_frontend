@@ -335,4 +335,22 @@ void main() {
     await sync.debugPullChanges('invoices');
     expect(local[uuid(1)], server.rows[uuid(1)]!.stamp);
   });
+
+  test('un módulo solo cuenta como descargado cuando su descarga completa terminó', () async {
+    for (var i = 1; i <= 450; i++) {
+      server.put(uuid(i), at(i % 60));
+    }
+    // Nada descargado todavía.
+    expect(await sync.isModuleDownloaded('invoices'), isFalse);
+
+    // Descarga cortada por tiempo: hay datos en el equipo, pero incompletos.
+    await sync.debugPullChanges('invoices',
+        deadline: DateTime.now().subtract(const Duration(seconds: 1)));
+    expect(await sync.isModuleDownloaded('invoices'), isFalse);
+
+    // Termina la descarga: ahora sí.
+    await sync.debugPullChanges('invoices');
+    expect(local.length, 450);
+    expect(await sync.isModuleDownloaded('invoices'), isTrue);
+  });
 }
