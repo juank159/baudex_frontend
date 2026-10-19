@@ -70,6 +70,8 @@ import '../../../features/products/data/datasources/product_presentation_remote_
 import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 import 'sync_queue.dart';
 import 'local_first.dart';
+import 'sync_event_log.dart';
+import 'sync_event_log_service.dart';
 import 'sync_changes_client.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../../features/invoices/data/models/invoice_model.dart';
@@ -570,15 +572,46 @@ class FullSyncService extends GetxService {
       _lastModuleError.remove(entityName);
       _lastModuleOkAt[entityName] = DateTime.now();
       return MapEntry(entityName, count);
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[FULL_SYNC] ERROR en $entityName: $e');
       _lastModuleError[entityName] = '$e';
       _lastModuleErrorAt[entityName] = DateTime.now();
+      _recordDownloadError(entityName, e, stack);
       return MapEntry(entityName, null);
     }
   }
 
   // ==================== ESTADO PARA DIAGNÓSTICO ====================
+
+  final Map<String, DateTime> _lastErrorRecordedAt = {};
+
+  /// Deja el error de descarga guardado en el registro de Diagnóstico
+  /// ("Eventos recientes"), con el detalle técnico, para poder rastrear en
+  /// el propio equipo por qué un módulo no termina de bajar. Un mismo
+  /// módulo se registra como máximo cada 2 minutos (no llenar el registro).
+  void _recordDownloadError(String module, Object error, StackTrace stack) {
+    final last = _lastErrorRecordedAt[module];
+    final now = DateTime.now();
+    if (last != null && now.difference(last) < const Duration(minutes: 2)) return;
+    _lastErrorRecordedAt[module] = now;
+    try {
+      if (!Get.isRegistered<SyncEventLogService>()) return;
+      final entity = _incrementalEntities[module];
+      Get.find<SyncEventLogService>().log(
+        severity: SyncEventSeverity.error,
+        eventType: SyncEventType.fullSync,
+        operation: 'Descarga de $module',
+        message: 'No se pudo descargar $module: $error',
+        entityType: entity ?? module,
+        details: [
+          'Tamaño de página: ${entity == null ? '-' : _effectivePageSize(entity)}',
+          'Error: $error',
+          'Traza:',
+          ...stack.toString().split('\n').take(12),
+        ].join('\n'),
+      );
+    } catch (_) {}
+  }
 
   final Map<String, String> _lastModuleError = {};
   final Map<String, DateTime> _lastModuleErrorAt = {};
