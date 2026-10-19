@@ -5821,12 +5821,58 @@ class SyncService extends GetxService {
           }
           finalData['customerId'] = resolvedCustomerId;
 
-          // Parsear items
+          // Parsear items. Cada ítem se arma igual venga de la base local o
+          // del payload guardado en la cola:
+          // - Producto NO registrado (id `temp_…`/`unregistered_…` o marcado
+          //   isTemporary): va sin productId y con isTemporary. Antes, si los
+          //   ítems salían del payload, se mandaba `temp_…` y el servidor
+          //   rechazaba la venta ("el ID del producto debe ser un UUID").
+          // - Producto creado sin conexión (`product_offline_…`): se traduce a
+          //   su id real; si aún no subió, la venta espera y se reintenta.
+          // - La presentación (paca, cartón…) viaja con el ítem: sin ella el
+          //   servidor descontaba unidades sueltas en vez de presentaciones.
+          final uuidPattern = RegExp(
+              r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+          final resolvedItems = <Map<String, dynamic>>[];
+          for (final raw in (finalData['items'] as List)) {
+            final item = Map<String, dynamic>.from(raw as Map);
+            var pid = item['productId']?.toString();
+            final isTemp = item['isTemporary'] == true ||
+                (pid != null &&
+                    (pid.startsWith('temp_') || pid.startsWith('unregistered_')));
+            if (isTemp) {
+              item['productId'] = null;
+              item['isTemporary'] = true;
+              item['presentationId'] = null;
+            } else if (pid != null && pid.isNotEmpty && !uuidPattern.hasMatch(pid)) {
+              String? realId;
+              try {
+                final local = await IsarDatabase.instance.database.isarProducts
+                    .filter()
+                    .serverIdEqualTo(pid)
+                    .findFirst();
+                if (local != null && uuidPattern.hasMatch(local.serverId)) {
+                  realId = local.serverId;
+                }
+              } catch (_) {}
+              realId ??= await lookupTempIdMapping(pid);
+              if (realId == null || !uuidPattern.hasMatch(realId)) {
+                throw ConnectionException(
+                  'La venta incluye un producto creado sin conexión que aún no subió ($pid); se reintenta cuando suba',
+                );
+              }
+              item['productId'] = realId;
+            }
+            resolvedItems.add(item);
+          }
+
           final items =
-              (finalData['items'] as List)
+              resolvedItems
                   .map(
                     (item) => CreateInvoiceItemRequestModel(
-                      productId: item['productId'],
+                      productId: item['productId'] as String?,
+                      isTemporary: item['isTemporary'] == true ? true : null,
+                      presentationId: item['presentationId'] as String?,
                       description: item['description'],
                       quantity: (item['quantity'] as num).toDouble(),
                       unitPrice: (item['unitPrice'] as num).toDouble(),
