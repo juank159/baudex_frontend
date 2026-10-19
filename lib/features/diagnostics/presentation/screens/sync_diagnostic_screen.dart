@@ -51,6 +51,8 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
                     const SizedBox(height: 4),
                     _ConnectionStatusSection(isNarrow: isNarrow),
                     const SizedBox(height: 16),
+                    _DownloadStatusSection(isNarrow: isNarrow),
+                    const SizedBox(height: 16),
                     _EntityHealthSection(isNarrow: isNarrow),
                     const SizedBox(height: 16),
                     Obx(() {
@@ -758,6 +760,118 @@ class _DiagnosticHeader extends GetView<SyncDiagnosticController> {
 }
 
 // ==================== CONNECTION STATUS ====================
+
+// ==================== DESCARGA DEL SERVIDOR ====================
+
+/// Por módulo: si ya bajó completo al equipo, si va a medias (y cuántos
+/// registros lleva), si el internet está lento y el último error. Con esto
+/// se ve en el propio equipo por qué algo no aparece.
+class _DownloadStatusSection extends GetView<SyncDiagnosticController> {
+  final bool isNarrow;
+  const _DownloadStatusSection({required this.isNarrow});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Descarga del servidor',
+      icon: Icons.cloud_download_outlined,
+      child: Obx(() {
+        final statuses = controller.downloadStatuses;
+        final counts = controller.localCountsByEntity;
+        if (statuses.isEmpty) {
+          return const Text('Calculando…');
+        }
+        final pending = statuses.where((s) => !s.downloaded).length;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              pending == 0
+                  ? 'Todo descargado: el equipo tiene la información completa.'
+                  : 'Descargando $pending módulo(s). Mientras tanto la app usa el servidor; deja la app abierta y con internet.',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: pending == 0
+                    ? ElegantLightTheme.successGreen
+                    : Colors.orange.shade800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final s in statuses)
+              _DownloadRow(status: s, localCount: counts[s.entity] ?? 0),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _DownloadRow extends StatelessWidget {
+  final dynamic status; // ModuleDownloadStatus
+  final int localCount;
+  const _DownloadRow({required this.status, required this.localCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final bool downloaded = status.downloaded as bool;
+    final String? error = status.lastError as String?;
+    final bool slow = status.slowNetwork as bool;
+    final color = error != null
+        ? ElegantLightTheme.errorRed
+        : downloaded
+            ? ElegantLightTheme.successGreen
+            : Colors.orange.shade800;
+    final state = error != null
+        ? 'Error'
+        : downloaded
+            ? 'Completo'
+            : 'Descargando…';
+    final count = AppFormatters.formatNumber(localCount);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                error != null
+                    ? Icons.error_outline
+                    : downloaded
+                        ? Icons.check_circle
+                        : Icons.downloading,
+                size: 16,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text('${status.label}')),
+              Text(
+                '$state · $count en el equipo',
+                style: TextStyle(color: color, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          if (slow)
+            Padding(
+              padding: const EdgeInsets.only(left: 24, top: 2),
+              child: Text(
+                'Internet lento: bajando de a ${status.pageSize} registros por vez',
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+              ),
+            ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 24, top: 2),
+              child: SelectableText(
+                error.length > 220 ? '${error.substring(0, 220)}…' : error,
+                style: const TextStyle(fontSize: 12, color: ElegantLightTheme.errorRed),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ConnectionStatusSection extends GetView<SyncDiagnosticController> {
   final bool isNarrow;

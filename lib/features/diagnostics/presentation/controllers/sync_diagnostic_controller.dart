@@ -27,6 +27,9 @@ import '../../../../features/products/data/models/isar/isar_product.dart';
 import '../../../../features/products/data/models/isar/isar_product_presentation.dart';
 import '../../../../features/purchase_orders/data/models/isar/isar_purchase_order.dart';
 import '../../../../features/suppliers/data/models/isar/isar_supplier.dart';
+import '../../../../features/notifications/data/models/isar/isar_notification.dart';
+import '../../../../features/inventory/data/models/isar/isar_inventory_movement.dart';
+import '../../../../features/inventory/data/models/isar/isar_inventory_batch.dart';
 
 /// Resumen de conteos de una entidad para mostrar en la pantalla de
 /// diagnóstico.
@@ -166,12 +169,24 @@ class SyncDiagnosticController extends GetxController {
   /// para mostrar feedback al usuario en la UI.
   final RxnString lastActionMessage = RxnString();
 
+  /// Descarga del servidor por módulo (completo / a medias / error).
+  final RxList<ModuleDownloadStatus> downloadStatuses = <ModuleDownloadStatus>[].obs;
+  /// Registros de cada módulo que ya hay en el equipo.
+  final RxMap<String, int> localCountsByEntity = <String, int>{}.obs;
+  Timer? _downloadStatusTimer;
+
   // ==================== LIFECYCLE ====================
 
   @override
   void onInit() {
     super.onInit();
     refreshAll();
+    // Mientras la pantalla está abierta, el estado de la descarga se
+    // actualiza solo (cada 5 s) para ver cómo avanza.
+    _downloadStatusTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => refreshDownloadStatus(),
+    );
     // Si al abrir diagnósticos hay un sync en progreso (arrancado en background
     // por el timer periódico o por reconexión), esperamos a que termine y
     // re-analizamos la salud para que el score refleje el estado real.
@@ -203,6 +218,7 @@ class SyncDiagnosticController extends GetxController {
     isLoading.value = true;
     try {
       await Future.wait([
+        refreshDownloadStatus(),
         _refreshConnectionState(),
         _refreshEntityCounts(),
         _refreshPendingQueue(),
@@ -470,6 +486,41 @@ class SyncDiagnosticController extends GetxController {
   }
 
   // ==================== INTERNALS ====================
+
+  @override
+  void onClose() {
+    _downloadStatusTimer?.cancel();
+    super.onClose();
+  }
+
+  /// Estado de la descarga de cada módulo y cuántos registros hay en el equipo.
+  Future<void> refreshDownloadStatus() async {
+    try {
+      if (!Get.isRegistered<FullSyncService>()) return;
+      downloadStatuses.assignAll(await Get.find<FullSyncService>().downloadStatus());
+      final isar = IsarDatabase.instance.database;
+      localCountsByEntity.assignAll({
+        'products': await isar.isarProducts
+            .filter()
+            .not()
+            .serverIdEqualTo('STATS_CACHE')
+            .count(),
+        'product_presentations': await isar.isarProductPresentations.count(),
+        'customers': await isar.isarCustomers.count(),
+        'suppliers': await isar.isarSuppliers.count(),
+        'invoices': await isar.isarInvoices.count(),
+        'expenses': await isar.isarExpenses.count(),
+        'purchase_orders': await isar.isarPurchaseOrders.count(),
+        'credit_notes': await isar.isarCreditNotes.count(),
+        'customer_credits': await isar.isarCustomerCredits.count(),
+        'inventory_batches': await isar.isarInventoryBatchs.count(),
+        'inventory_movements': await isar.isarInventoryMovements.count(),
+        'notifications': await isar.isarNotifications.count(),
+      });
+    } catch (e) {
+      AppLogger.w('Error leyendo estado de descarga: $e', tag: 'DIAGNOSTIC');
+    }
+  }
 
   Future<void> _refreshConnectionState() async {
     try {

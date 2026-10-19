@@ -567,11 +567,42 @@ class FullSyncService extends GetxService {
       } else {
         _resumeCursor.remove(entityName);
       }
+      _lastModuleError.remove(entityName);
+      _lastModuleOkAt[entityName] = DateTime.now();
       return MapEntry(entityName, count);
     } catch (e) {
       debugPrint('[FULL_SYNC] ERROR en $entityName: $e');
+      _lastModuleError[entityName] = '$e';
+      _lastModuleErrorAt[entityName] = DateTime.now();
       return MapEntry(entityName, null);
     }
+  }
+
+  // ==================== ESTADO PARA DIAGNÓSTICO ====================
+
+  final Map<String, String> _lastModuleError = {};
+  final Map<String, DateTime> _lastModuleErrorAt = {};
+  final Map<String, DateTime> _lastModuleOkAt = {};
+
+  /// Estado de la descarga de cada módulo (para la pantalla de Diagnóstico):
+  /// si ya bajó completo, si va a medias, con qué tamaño de página y el
+  /// último error. Así se ve en el equipo por qué algo no aparece.
+  Future<List<ModuleDownloadStatus>> downloadStatus() async {
+    final list = <ModuleDownloadStatus>[];
+    for (final entry in _incrementalEntities.entries) {
+      final entity = entry.value;
+      list.add(ModuleDownloadStatus(
+        label: entry.key,
+        entity: entity,
+        downloaded: await isModuleDownloaded(entity),
+        pageSize: _effectivePageSize(entity),
+        defaultPageSize: _changesPageSize[entity] ?? _lightChangesPageSize,
+        lastError: _lastModuleError[entry.key],
+        lastErrorAt: _lastModuleErrorAt[entry.key],
+        lastOkAt: _lastModuleOkAt[entry.key],
+      ));
+    }
+    return list;
   }
 
   // ==================== DESCARGA INCREMENTAL ====================
@@ -2720,4 +2751,29 @@ class _ChangesProgress {
     final b = DateTime.tryParse(current);
     if (a != null && b != null && a.isBefore(b)) earliestSkipped = stamp;
   }
+}
+
+/// Estado de descarga de un módulo, para Diagnóstico.
+class ModuleDownloadStatus {
+  final String label;
+  final String entity;
+  final bool downloaded;
+  final int pageSize;
+  final int defaultPageSize;
+  final String? lastError;
+  final DateTime? lastErrorAt;
+  final DateTime? lastOkAt;
+
+  const ModuleDownloadStatus({
+    required this.label,
+    required this.entity,
+    required this.downloaded,
+    required this.pageSize,
+    required this.defaultPageSize,
+    this.lastError,
+    this.lastErrorAt,
+    this.lastOkAt,
+  });
+
+  bool get slowNetwork => pageSize < defaultPageSize;
 }
