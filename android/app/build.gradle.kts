@@ -28,7 +28,7 @@ android {
         // ese mínimo. `flutter.minSdkVersion` evalúa a 21 en Flutter
         // 3.32, lo cual rompe el build con
         // "plugin mobile_scanner requires a higher Android SDK version".
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
