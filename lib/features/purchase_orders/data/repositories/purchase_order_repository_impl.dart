@@ -409,6 +409,13 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     return _deletePurchaseOrderOffline(id);
   }
 
+  /// Rechazo del servidor por regla de negocio (400-499, salvo 408/429 que
+  /// son de espera): reintentarlo no cambia nada.
+  static bool _isRejection(ServerException e) {
+    final code = e.statusCode;
+    return code != null && code >= 400 && code < 500 && code != 408 && code != 429;
+  }
+
   @override
   Future<Either<Failure, PurchaseOrder>> approvePurchaseOrder(
     String id,
@@ -420,6 +427,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         await localDataSource.cachePurchaseOrder(approvedPurchaseOrder);
         return Right(approvedPurchaseOrder.toEntity());
       } on ServerException catch (e) {
+        // El servidor respondió y rechazó la acción (4xx): se muestra el
+        // motivo. Guardarla como pendiente solo la haría fallar otra vez
+        // (y en recepciones sumaba stock en el equipo que el servidor nunca
+        // aceptó). Solo se encola si no hubo respuesta o el servidor falló.
+        if (_isRejection(e)) return Left(ServerFailure(e.message));
         return _changeStatusOffline(id, 'approved', 'approve', notes: approvalNotes);
       } catch (e) {
         return _changeStatusOffline(id, 'approved', 'approve', notes: approvalNotes);
@@ -440,6 +452,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         await localDataSource.cachePurchaseOrder(rejectedPurchaseOrder);
         return Right(rejectedPurchaseOrder.toEntity());
       } on ServerException catch (e) {
+        // El servidor respondió y rechazó la acción (4xx): se muestra el
+        // motivo. Guardarla como pendiente solo la haría fallar otra vez
+        // (y en recepciones sumaba stock en el equipo que el servidor nunca
+        // aceptó). Solo se encola si no hubo respuesta o el servidor falló.
+        if (_isRejection(e)) return Left(ServerFailure(e.message));
         return _changeStatusOffline(id, 'rejected', 'reject', reason: rejectionReason);
       } catch (e) {
         return _changeStatusOffline(id, 'rejected', 'reject', reason: rejectionReason);
@@ -460,6 +477,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         await localDataSource.cachePurchaseOrder(sentPurchaseOrder);
         return Right(sentPurchaseOrder.toEntity());
       } on ServerException catch (e) {
+        // El servidor respondió y rechazó la acción (4xx): se muestra el
+        // motivo. Guardarla como pendiente solo la haría fallar otra vez
+        // (y en recepciones sumaba stock en el equipo que el servidor nunca
+        // aceptó). Solo se encola si no hubo respuesta o el servidor falló.
+        if (_isRejection(e)) return Left(ServerFailure(e.message));
         return _changeStatusOffline(id, 'sent', 'send', notes: sendNotes);
       } catch (e) {
         return _changeStatusOffline(id, 'sent', 'send', notes: sendNotes);
@@ -479,6 +501,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         await localDataSource.cachePurchaseOrder(receivedPurchaseOrder);
         return Right(receivedPurchaseOrder.toEntity());
       } on ServerException catch (e) {
+        // El servidor respondió y rechazó la acción (4xx): se muestra el
+        // motivo. Guardarla como pendiente solo la haría fallar otra vez
+        // (y en recepciones sumaba stock en el equipo que el servidor nunca
+        // aceptó). Solo se encola si no hubo respuesta o el servidor falló.
+        if (_isRejection(e)) return Left(ServerFailure(e.message));
         return _receiveOffline(params);
       } catch (e) {
         return _receiveOffline(params);
@@ -499,6 +526,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         await localDataSource.cachePurchaseOrder(cancelledPurchaseOrder);
         return Right(cancelledPurchaseOrder.toEntity());
       } on ServerException catch (e) {
+        // El servidor respondió y rechazó la acción (4xx): se muestra el
+        // motivo. Guardarla como pendiente solo la haría fallar otra vez
+        // (y en recepciones sumaba stock en el equipo que el servidor nunca
+        // aceptó). Solo se encola si no hubo respuesta o el servidor falló.
+        if (_isRejection(e)) return Left(ServerFailure(e.message));
         return _changeStatusOffline(id, 'cancelled', 'cancel', reason: cancellationReason);
       } catch (e) {
         return _changeStatusOffline(id, 'cancelled', 'cancel', reason: cancellationReason);

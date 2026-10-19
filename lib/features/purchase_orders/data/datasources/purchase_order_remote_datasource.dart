@@ -105,8 +105,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -139,8 +142,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -169,8 +175,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -198,8 +207,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -236,8 +248,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -293,8 +308,11 @@ class PurchaseOrderRemoteDataSourceImpl
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -326,8 +344,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -359,8 +380,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -392,8 +416,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -426,8 +453,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -459,8 +489,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -490,8 +523,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -519,8 +555,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -548,8 +587,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -578,8 +620,11 @@ class PurchaseOrderRemoteDataSourceImpl
       } else {
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
+    } on ServerException {
+      // Ya trae el código del servidor (400, 404…): no envolverlo.
+      rethrow;
     } on DioException catch (e) {
-      throw ServerException(_handleDioError(e));
+      throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
