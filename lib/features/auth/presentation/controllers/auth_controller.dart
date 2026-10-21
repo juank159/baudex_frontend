@@ -5,6 +5,10 @@ import 'package:dartz/dartz.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/tenant_switch_policy.dart';
+import 'package:isar/isar.dart';
+import '../../../../app/data/local/sync_queue.dart';
+import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../domain/entities/auth_result.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/login_usecase.dart' show LoginParams;
@@ -334,19 +338,22 @@ class AuthController extends GetxController {
     }
   }
 
-  /// Detecta cambio de tenant comparando el userId actual con el lastUserId
-  /// guardado al hacer logout. Si son DIFERENTES, borra la BD ISAR para
-  /// evitar mezcla de datos entre tenants. Si son IGUALES, preserva el
-  /// cache offline-first.
+  /// Decide si los datos guardados en el equipo se deben borrar al iniciar
+  /// sesión. Se compara el NEGOCIO, no el usuario: un empleado del mismo
+  /// negocio usa los mismos datos (antes, entrar con otro usuario del mismo
+  /// negocio borraba toda la base local, incluida la cola de operaciones sin
+  /// subir).
   ///
-  /// **Orden de operaciones (CRÍTICO para resiliencia):**
-  /// 1. Persistir `lastUserId` PRIMERO. Si la app muere después de este
-  ///    paso, el próximo arranque detectará correctamente el tenant.
-  /// 2. SOLO ENTONCES borrar ISAR si hace falta. El clear se ejecuta
-  ///    bajo timeout para no bloquear el login indefinidamente.
-  /// 3. Cualquier excepción se loguea pero NO se propaga: un error aquí
-  ///    no debe impedir que el usuario inicie sesión.
-  Future<void> _handleTenantSwitchIfNeeded(String newUserId) async {
+  /// - Mismo negocio: no se borra nada.
+  /// - Otro negocio sin operaciones pendientes: se limpia (no mezclar datos).
+  /// - Otro negocio CON operaciones pendientes del anterior: no se borra
+  ///   nada y se devuelve `false` para no dejar entrar; esas operaciones
+  ///   deben subir antes con un usuario del negocio anterior.
+  ///
+  /// Cualquier error se registra pero no impide iniciar sesión.
+  Future<bool> _handleTenantSwitchIfNeeded(User user) async {
+    final newUserId = user.id;
+    final newOrganization = user.organizationId;
     final storage = Get.find<SecureStorageService>();
     String? lastUserId;
     try {
@@ -355,22 +362,50 @@ class AuthController extends GetxController {
       lastUserId = null;
     }
 
-    // PASO 1: Persistir lastUserId ANTES de tocar ISAR. Atómico semántico:
-    // si el clear falla o la app muere, el próximo arranque ya sabe a qué
-    // tenant pertenece la BD actual.
-    try {
-      await storage.setLastUserId(newUserId);
-    } catch (e) {
+    // Negocio de los datos que hay en el equipo.
+    String? dataOrganization = await FullSyncService.localDataOrganization();
+    if (dataOrganization == null) {
+      try {
+        if (IsarDatabase.instance.isInitialized) {
+          final org = await IsarDatabase.instance.database.isarOrganizations
+              .where()
+              .findFirst();
+          final id = org?.serverId;
+          if (id != null && id.isNotEmpty) dataOrganization = id;
+        }
+      } catch (_) {}
     }
 
-    // PASO 2: Decidir si hace falta limpiar ISAR.
-    final needsClear = lastUserId != null && lastUserId != newUserId;
-    if (!needsClear) {
-      if (lastUserId == newUserId) {
-      } else {
+    int pending = 0;
+    try {
+      if (IsarDatabase.instance.isInitialized) {
+        pending = await IsarDatabase.instance.database.syncOperations
+            .filter()
+            .not()
+            .statusEqualTo(SyncStatus.completed)
+            .count();
       }
-      return;
+    } catch (_) {}
+
+    final decision = decideTenantSwitch(
+      dataOrganization: dataOrganization,
+      newOrganization: newOrganization,
+      lastUserId: lastUserId,
+      newUserId: newUserId,
+      pendingOperations: pending,
+    );
+
+    if (decision == TenantSwitchDecision.blockedByPendingOperations) {
+      // Otro negocio con operaciones sin subir: no se borra nada.
+      _pendingOperationsBlockingSwitch = pending;
+      return false;
     }
+
+    try {
+      await storage.setLastUserId(newUserId);
+    } catch (_) {}
+
+    if (decision == TenantSwitchDecision.keepLocalData) return true;
 
     // PASO 3: Clear ISAR con timeout y guard de inicialización. Si ISAR
     // nunca se inicializó (init falló en main.dart), NO crasheamos: el
@@ -408,6 +443,7 @@ class AuthController extends GetxController {
       _resetPermanentTenantControllers();
     } catch (e) {
     }
+    return true;
   }
 
   /// Resetea el estado en memoria de controllers `permanent: true` que
@@ -547,7 +583,17 @@ class AuthController extends GetxController {
           // ✅ CRÍTICO: detectar cambio de tenant ANTES de cualquier sync.
           // Solo se borra la BD ISAR si el usuario que entra es DIFERENTE
           // al que cerró sesión. Si es el mismo, el cache offline se preserva.
-          await _handleTenantSwitchIfNeeded(authResult.user.id);
+          final canUseThisDevice =
+              await _handleTenantSwitchIfNeeded(authResult.user);
+          if (!canUseThisDevice) {
+            _isAuthenticated.value = false;
+            _currentUser.value = null;
+            await _showPendingOperationsFromOtherBusiness();
+            try {
+              await logout();
+            } catch (_) {}
+            return;
+          }
 
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
           await _setTenantAfterLogin(authResult.user);
@@ -1226,6 +1272,31 @@ class AuthController extends GetxController {
   /// descubrir a qué organización pertenece ni si la pass es correcta.
   ///
   /// Solo se llama desde paths donde NO se va a guardar token ni navegar.
+  int _pendingOperationsBlockingSwitch = 0;
+
+  /// En el equipo quedan operaciones sin subir de OTRO negocio: no se borran
+  /// ni se mezclan; hay que entrar con un usuario de ese negocio para que
+  /// suban.
+  Future<void> _showPendingOperationsFromOtherBusiness() async {
+    await Get.dialog(
+      AlertDialog(
+        title: const Text('Hay ventas sin subir de otro negocio'),
+        content: Text(
+          'Este equipo tiene $_pendingOperationsBlockingSwitch operación(es) '
+          'hechas sin conexión que todavía no se han subido al servidor, y '
+          'pertenecen a otro negocio.\n\n'
+          'Para no perderlas, inicia sesión con un usuario de ese negocio, con '
+          'internet, y espera a que suban (Diagnóstico de sincronización '
+          'muestra cuántas quedan). Después ya puedes entrar con este negocio.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Entendido')),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
   void _showGenericLoginError() {
     Get.snackbar(
       'No se pudo iniciar sesión',

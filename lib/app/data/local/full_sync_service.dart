@@ -346,8 +346,10 @@ class FullSyncService extends GetxService {
         } catch (e) {
 
         }
-      } else {
-
+      } else if (await localDataOrganization() == null) {
+        // Primera descarga en este equipo: anotar de qué negocio son los
+        // datos, para que al cambiar de usuario se sepa si es el mismo.
+        await _rememberBusiness();
       }
 
       final legacySyncFunctions = <String, Future<int> Function()>{
@@ -801,13 +803,31 @@ class FullSyncService extends GetxService {
 
   static const String _lastBusinessKey = 'full_sync_business_v1';
 
+  /// Negocio al que pertenecen los datos guardados en este equipo (lo
+  /// anota la descarga). `null` si todavía no se ha descargado nada.
+  static Future<String?> localDataOrganization() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final value = prefs.getString(_lastBusinessKey);
+      return (value == null || value.isEmpty) ? null : value;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// ¿Los datos locales son de otro negocio (o no se sabe de cuál)? Solo en
   /// ese caso se borran antes de descargar.
   Future<bool> _isDifferentBusiness() async {
     final organization = await _organizationKey();
-    if (organization == null) return true;
+    // Sin saber el negocio actual no se borra nada "por si acaso": se
+    // perdería el trabajo del equipo. La descarga espera a conocerlo.
+    if (organization == null) return false;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_lastBusinessKey) != organization;
+    final stored = prefs.getString(_lastBusinessKey);
+    // Datos sin negocio anotado (equipo nuevo): no hay nada que proteger
+    // de otro negocio; la descarga lo anota.
+    if (stored == null || stored.isEmpty) return false;
+    return stored != organization;
   }
 
   Future<void> _rememberBusiness() async {
