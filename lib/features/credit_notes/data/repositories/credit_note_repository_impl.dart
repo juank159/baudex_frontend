@@ -510,12 +510,11 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, AvailableQuantitiesResponse>> getAvailableQuantitiesForCreditNote(
     String invoiceId,
   ) async {
-    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
-    final local = await readLocalFirst<AvailableQuantitiesResponse>(
-      hasLocalData: () => _creditNotesReady(),
-      read: () => _localCreditNotes.getAvailableQuantitiesForCreditNote(invoiceId),
-    );
-    if (local != null) return local;
+    // Servidor primero: lo que se puede acreditar debe ser exacto (otro
+    // equipo pudo hacer una nota hace un momento). Sin servidor, se calcula
+    // con la base del equipo. NO usar local-first aquí: el repositorio
+    // offline devuelve una respuesta vacía ("no se puede") y bloqueaba la
+    // nota crédito de cualquier factura, aunque fuera nueva.
 
     // Si no hay conexión, calcular directamente desde ISAR sin pasar por el
     // backend. Sin esto el formulario de nota crédito quedaba bloqueado
@@ -679,6 +678,8 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       final remainingCreditable =
           (invoice.total - totalCredited - totalDraft).clamp(0, double.infinity).toDouble();
       final canCreate = remainingCreditable > 0;
+      // Igual que el servidor: la completa solo si no hay borradores.
+      final canCreateFull = canCreate && draftSummaries.isEmpty;
 
       final response = AvailableQuantitiesResponse(
         invoiceId: invoiceId,
@@ -689,7 +690,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
         totalDraftAmount: totalDraft,
         items: items,
         draftCreditNotes: draftSummaries,
-        canCreateFullCreditNote: canCreate,
+        canCreateFullCreditNote: canCreateFull,
         canCreatePartialCreditNote: canCreate,
         message: 'Calculado offline desde ISAR — los datos pueden no reflejar '
             'cambios hechos por otros usuarios hasta que vuelva la conexión',

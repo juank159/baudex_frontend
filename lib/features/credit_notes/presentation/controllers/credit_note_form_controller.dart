@@ -313,7 +313,10 @@ class CreditNoteFormController extends GetxController {
     if (type == CreditNoteType.full && !canCreateFullCreditNote) {
       Get.snackbar(
         'No Disponible',
-        'No se puede crear una nota de crédito completa porque ya existen notas de crédito aplicadas o en borrador para esta factura.',
+        _availableQuantities.value == null
+            ? 'Aún no se cargó la información de la factura. Espere un momento e intente de nuevo.'
+            : (_availableQuantities.value!.message ??
+                'No se puede crear una nota de crédito completa porque ya existen notas de crédito aplicadas o en borrador para esta factura.'),
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange,
         colorText: Colors.white,

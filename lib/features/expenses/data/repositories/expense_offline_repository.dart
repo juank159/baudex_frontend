@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/services/file_service.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../../../app/data/local/isar_database.dart';
@@ -495,6 +496,25 @@ class ExpenseOfflineRepository implements ExpenseRepository {
           .where((e) => e.isPaid)
           .fold(0.0, (sum, e) => sum + e.amount);
 
+      // Hoy, esta semana (desde el lunes 00:00) y este mes.
+      final now = tenantNow();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final startOfWeek =
+          DateTime(now.year, now.month, now.day - (now.weekday - 1));
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      double dailyAmount = 0;
+      double weeklyAmount = 0;
+      double monthlyAmount = 0;
+      int monthlyCount = 0;
+      for (final e in expenses) {
+        if (!e.date.isBefore(startOfMonth)) {
+          monthlyAmount += e.amount;
+          monthlyCount++;
+        }
+        if (!e.date.isBefore(startOfWeek)) weeklyAmount += e.amount;
+        if (!e.date.isBefore(startOfDay)) dailyAmount += e.amount;
+      }
+
       // Group by category
       final expensesByCategory = <String, double>{};
       for (var expense in expenses) {
@@ -530,14 +550,14 @@ class ExpenseOfflineRepository implements ExpenseRepository {
         rejectedAmount: rejectedAmount,
         paidAmount: paidAmount,
         paidExpenses: paidExpenses,
-        dailyAmount: 0.0, // TODO: Calculate
-        weeklyAmount: 0.0, // TODO: Calculate
-        monthlyAmount: 0.0, // TODO: Calculate
-        monthlyCount: 0, // TODO: Calculate
+        dailyAmount: dailyAmount,
+        weeklyAmount: weeklyAmount,
+        monthlyAmount: monthlyAmount,
+        monthlyCount: monthlyCount,
         expensesByStatus: expensesByStatus,
         expensesByType: expensesByType,
         expensesByCategory: expensesByCategory,
-        monthlyTrends: const [], // TODO: Calculate
+        monthlyTrends: const [],
       );
 
       return Right(stats);

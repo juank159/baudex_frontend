@@ -15,6 +15,7 @@ import '../models/isar/isar_credit_note.dart';
 import '../../../../app/core/utils/app_logger.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../products/data/models/isar/isar_product.dart';
+import '../../../invoices/data/models/isar/isar_invoice.dart';
 
 /// Implementación offline del repositorio de notas de crédito usando ISAR
 ///
@@ -179,6 +180,16 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
     String invoiceId,
   ) async {
     try {
+      // Total de la factura guardada en el equipo. Si no está, se responde
+      // error para que se le pregunte al servidor (nunca un valor inventado).
+      final invoice = await _isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(invoiceId)
+          .findFirst();
+      if (invoice == null) {
+        return Left(CacheFailure('Factura $invoiceId no está en el equipo'));
+      }
+
       // Obtener todas las notas de crédito para esta factura
       final creditNotesResult = await getCreditNotesByInvoice(invoiceId);
 
@@ -190,9 +201,9 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
               .where((cn) => cn.status == CreditNoteStatus.confirmed)
               .fold<double>(0, (sum, cn) => sum + cn.total);
 
-          // TODO: Obtener el total de la factura original para calcular el restante
-          // Por ahora retornamos 0 (offline no puede calcular esto sin la factura)
-          return Right(0.0 - totalCredited);
+          // Igual que el servidor: total de la factura - notas confirmadas.
+          final remaining = invoice.total - totalCredited;
+          return Right(remaining > 0 ? remaining : 0.0);
         },
       );
     } catch (e) {
@@ -204,19 +215,11 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
   Future<Either<Failure, AvailableQuantitiesResponse>> getAvailableQuantitiesForCreditNote(
     String invoiceId,
   ) async {
-    // Esta operación requiere datos del servidor, retornar respuesta vacía en modo offline
-    return Right(AvailableQuantitiesResponse(
-      invoiceId: invoiceId,
-      invoiceNumber: 'OFFLINE',
-      invoiceTotal: 0,
-      remainingCreditableAmount: 0,
-      totalCreditedAmount: 0,
-      totalDraftAmount: 0,
-      items: [],
-      draftCreditNotes: [],
-      canCreateFullCreditNote: false,
-      canCreatePartialCreditNote: false,
-      message: 'Esta operación requiere conexión al servidor',
+    // Este repositorio no calcula cantidades disponibles: lo hace
+    // CreditNoteRepositoryImpl (servidor o base del equipo). Responder error
+    // y NUNCA una respuesta vacía que parezca real (bloqueaba las notas).
+    return Left(CacheFailure(
+      'Cantidades disponibles de $invoiceId: usar CreditNoteRepositoryImpl',
     ));
   }
 

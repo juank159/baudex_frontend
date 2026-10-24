@@ -917,7 +917,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
     final local = await readLocalFirst<ExpenseStats>(
       hasLocalData: () => _expensesReady(),
-      read: () => _localExpenses.getExpenseStats(startDate: startDate, endDate: endDate),
+      // Mismo cálculo que sin internet (hoy, semana y mes incluidos).
+      read: () => _calculateStatsFromIsar(startDate, endDate),
     );
     if (local != null) return local;
 
@@ -960,7 +961,9 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
 
       final now = tenantNow();
       final startOfMonth = DateTime(now.year, now.month, 1);
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      // Lunes a las 00:00 (no a la hora actual del lunes).
+      final startOfWeek =
+          DateTime(now.year, now.month, now.day - (now.weekday - 1));
       final startOfDay = DateTime(now.year, now.month, now.day);
 
       double totalAmount = 0;
