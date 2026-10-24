@@ -95,6 +95,7 @@ import '../../../features/settings/presentation/controllers/user_preferences_con
 // Invoices
 import '../../../features/invoices/data/datasources/invoice_remote_datasource.dart';
 import '../../../features/invoices/data/models/add_payment_request_model.dart';
+import '../../../features/invoices/data/models/invoice_model.dart';
 import '../../../features/invoices/data/models/create_invoice_request_model.dart';
 import '../../../features/invoices/data/models/update_invoice_request_model.dart';
 import '../../../features/invoices/data/models/invoice_item_model.dart';
@@ -220,6 +221,30 @@ class SyncService extends GetxService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('$_tempIdMapPrefix$tempId', realId);
     } catch (_) {}
+  }
+
+  /// Id real (del servidor) de una factura para una operación encolada. Si
+  /// la factura se creó sin conexión y aún no ha subido, lanza una excepción
+  /// para que la operación se reintente después (misma regla que addPayment).
+  Future<String> _resolveSyncedInvoiceId(String invoiceId) async {
+    if (!invoiceId.startsWith('invoice_offline_') && !invoiceId.startsWith('inv_')) {
+      return invoiceId;
+    }
+    final isar = IsarDatabase.instance.database;
+    final isarInv = await isar.isarInvoices
+        .filter()
+        .serverIdEqualTo(invoiceId)
+        .findFirst();
+    if (isarInv != null &&
+        !isarInv.serverId.startsWith('invoice_offline_') &&
+        !isarInv.serverId.startsWith('inv_')) {
+      return isarInv.serverId;
+    }
+    final mapped = await lookupTempIdMapping(invoiceId);
+    if (mapped != null && mapped.isNotEmpty) return mapped;
+    throw Exception(
+      'Invoice $invoiceId aún no sincronizada - reintentando después',
+    );
   }
 
   /// Buscar ID real para un temp ID (en memoria primero, luego SharedPreferences)
@@ -5670,8 +5695,26 @@ class SyncService extends GetxService {
                   // distinción, el sync retry mandaba `productId: temp_xxx`
                   // y backend respondía 400 → operación quedaba en failed
                   // → FullSync la borraba como huérfana → factura perdida.
+                  // Ventas guardadas antes de que el equipo conservara la
+                  // presentación (caja, paca...): se toma de los datos
+                  // originales de la venta en la cola, o el servidor
+                  // descontaría unidades sueltas en vez de cajas.
+                  final payloadItems = data['items'] is List
+                      ? (data['items'] as List).whereType<Map>().toList()
+                      : const <Map>[];
+                  String? payloadPresentationId(int index, String? productId) {
+                    if (index >= payloadItems.length) return null;
+                    final p = payloadItems[index];
+                    if (p['productId'] != productId) return null;
+                    return p['presentationId']?.toString();
+                  }
+
+                  var itemIndex = 0;
                   final itemsToUse = hasItemsInIsar
                       ? invoice.items.map((item) {
+                          final index = itemIndex++;
+                          final presentationId = item.presentationId ??
+                              payloadPresentationId(index, item.productId);
                           final isTemp =
                               item.productId?.startsWith('temp_') ?? false;
                           return {
@@ -5686,8 +5729,8 @@ class SyncService extends GetxService {
                             'discountAmount': item.discountAmount,
                             'notes': item.notes,
                             // Presentación de venta (Fase 3) — se omite si null
-                            if (item.presentationId != null)
-                              'presentationId': item.presentationId,
+                            if (presentationId != null && !isTemp)
+                              'presentationId': presentationId,
                           };
                         }).toList()
                       : data['items']; // Mantener items del payload original
@@ -6271,7 +6314,79 @@ class SyncService extends GetxService {
         case SyncOperationType.update:
           final invoiceAction = data['action'] as String?;
 
-          if (invoiceAction == 'addPayment') {
+          if (invoiceAction == 'addMultiplePayments' ||
+              invoiceAction == 'cancel') {
+            // Pagos con varios métodos / anulación hechos sin conexión.
+            // Ambos son seguros de reintentar: cada pago lleva su clave de
+            // idempotencia y anular una factura ya anulada no repite nada.
+            final invoiceId = await _resolveSyncedInvoiceId(operation.entityId);
+
+            final InvoiceModel serverInvoice;
+            if (invoiceAction == 'cancel') {
+              serverInvoice = await remoteDataSource.cancelInvoice(invoiceId);
+            } else {
+              final paymentItems = [
+                for (final p in (data['payments'] as List? ?? const []))
+                  PaymentItemModel(
+                    amount: (p['amount'] as num).toDouble(),
+                    paymentMethod: p['paymentMethod'] ?? 'cash',
+                    bankAccountId: p['bankAccountId'],
+                    reference: p['reference'],
+                    notes: p['notes'],
+                    paymentCurrency: p['paymentCurrency'],
+                    paymentCurrencyAmount: p['paymentCurrencyAmount'] != null
+                        ? (p['paymentCurrencyAmount'] as num).toDouble()
+                        : null,
+                    exchangeRate: p['exchangeRate'] != null
+                        ? (p['exchangeRate'] as num).toDouble()
+                        : null,
+                    idempotencyKey: p['idempotencyKey'] as String?,
+                  ),
+              ];
+              final result = await remoteDataSource.addMultiplePayments(
+                invoiceId,
+                AddMultiplePaymentsRequestModel(
+                  payments: paymentItems,
+                  paymentDate: data['paymentDate'] as String?,
+                  createCreditForRemaining:
+                      data['createCreditForRemaining'] == true,
+                  generalNotes: data['generalNotes'] as String?,
+                ),
+              );
+              serverInvoice = result.invoice;
+            }
+            AppLogger.i(
+              'Factura $invoiceId sincronizada ($invoiceAction): status=${serverInvoice.status.value}',
+              tag: 'SYNC',
+            );
+
+            // Dejar la copia local igual a la del servidor.
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarInv = await isar.isarInvoices
+                      .filter()
+                      .serverIdEqualTo(operation.entityId)
+                      .findFirst() ??
+                  await isar.isarInvoices
+                      .filter()
+                      .serverIdEqualTo(invoiceId)
+                      .findFirst();
+              if (isarInv != null) {
+                isarInv.paidAmount = serverInvoice.paidAmount;
+                isarInv.balanceDue = serverInvoice.balanceDue;
+                isarInv.status = _mapInvoiceStatusToIsar(serverInvoice.status);
+                isarInv.paymentsJson =
+                    IsarInvoice.encodePayments(serverInvoice.payments);
+                isarInv.isSynced = true;
+                isarInv.lastSyncAt = DateTime.now();
+                await isar.writeTxn(() async {
+                  await isar.isarInvoices.put(isarInv);
+                });
+              }
+            } catch (e) {
+              AppLogger.w('Error actualizando factura en ISAR tras $invoiceAction: $e', tag: 'SYNC');
+            }
+          } else if (invoiceAction == 'addPayment') {
             // ✅ Sync de pago offline a factura
             AppLogger.d(
               'Sincronizando addPayment para factura: ${operation.entityId}',

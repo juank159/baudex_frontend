@@ -383,6 +383,17 @@ class CashRegisterRepositoryImpl implements CashRegisterRepository {
             isCash &&
             !createdInvoiceIds.contains(op.entityId)) {
           result.addSale(amount);
+        } else if (_isInvoice(op) &&
+            op.operationType == SyncOperationType.update &&
+            data['action'] == 'addMultiplePayments' &&
+            !createdInvoiceIds.contains(op.entityId)) {
+          // Pagos con varios métodos: solo cuenta la parte en efectivo.
+          final cash = (data['payments'] as List? ?? const [])
+              .whereType<Map>()
+              .where((p) => (p['paymentMethod'] ?? '').toString() == 'cash')
+              .fold<double>(
+                  0, (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0));
+          if (cash > 0) result.addSale(cash);
         } else if ((op.entityType == 'CustomerCredit' ||
                 op.entityType == 'customer_credit') &&
             data['action'] == 'addPayment' &&

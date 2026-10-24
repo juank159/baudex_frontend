@@ -358,6 +358,9 @@ class IsarInvoice {
         'notes': item.notes,
         'invoiceId': item.invoiceId,
         'productId': item.productId,
+        if (item.presentationId != null) 'presentationId': item.presentationId,
+        if (item.presentationFactor != null)
+          'presentationFactor': item.presentationFactor,
         'createdAt': item.createdAt.toIso8601String(),
         'updatedAt': item.updatedAt.toIso8601String(),
       }).toList();
@@ -388,6 +391,9 @@ class IsarInvoice {
             'notes': item.notes,
             'invoiceId': item.invoiceId,
             'productId': item.productId,
+            if (item.presentationId != null) 'presentationId': item.presentationId,
+            if (item.presentationFactor != null)
+              'presentationFactor': item.presentationFactor,
             'createdAt': item.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
             'updatedAt': item.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
           };
@@ -423,6 +429,12 @@ class IsarInvoice {
             notes: map['notes'],
             invoiceId: map['invoiceId'] ?? '',
             productId: map['productId'],
+            presentationId: map['presentationId']?.toString(),
+            presentationFactor: map['presentationFactor'] == null
+                ? null
+                : (map['presentationFactor'] is num
+                    ? (map['presentationFactor'] as num).toDouble()
+                    : double.tryParse(map['presentationFactor'].toString())),
             createdAt: map['createdAt'] != null
                 ? DateTime.parse(map['createdAt'])
                 : DateTime.now(),

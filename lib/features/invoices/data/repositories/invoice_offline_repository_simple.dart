@@ -32,6 +32,9 @@ import '../../../inventory/domain/entities/inventory_movement.dart';
 import '../../../inventory/domain/repositories/inventory_repository.dart';
 import '../../../products/data/models/isar/isar_product.dart';
 import '../../../settings/presentation/controllers/user_preferences_controller.dart';
+import '../../../customer_credits/data/credit_limit_guard.dart';
+import '../../../customers/data/final_consumer_resolver.dart';
+import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 
 /// Implementación offline simplificada del repositorio de facturas usando ISAR
 ///
@@ -711,6 +714,10 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
 
         final syncItems = items.map((item) {
           final dynamic itemData = item;
+          String? presentationId;
+          try {
+            presentationId = itemData.presentationId?.toString();
+          } catch (_) {}
           return {
             'description': itemData.description,
             'quantity': itemData.quantity,
@@ -720,6 +727,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
             'unit': itemData.unit,
             'notes': itemData.notes,
             'productId': itemData.productId,
+            // Presentación vendida (caja, paca...): sin ella el servidor
+            // descuenta unidades sueltas en vez de la presentación.
+            if (presentationId != null) 'presentationId': presentationId,
           };
         }).toList();
 
@@ -890,9 +900,187 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     return Left(ServerFailure('Confirm invoice not available offline'));
   }
 
+  /// Anular sin conexión, con las mismas reglas del servidor
+  /// (`InvoicesService.cancel`):
+  /// - No se anula una factura pagada (ni una ya anulada).
+  /// - Si estaba pendiente o con abono, sus productos vuelven al inventario.
+  /// - El crédito asociado queda anulado.
+  /// - Los pagos recibidos se conservan (el dinero sigue en caja).
+  /// La anulación se encola y el servidor la aplica al sincronizar (es
+  /// segura de reintentar: una factura ya anulada no devuelve stock de nuevo).
   @override
   Future<Either<Failure, Invoice>> cancelInvoice(String id) async {
-    return Left(ServerFailure('Cancel invoice not available offline'));
+    try {
+      final isarInvoice = await _isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarInvoice == null) {
+        return Left(CacheFailure('Factura no encontrada en el equipo: $id'));
+      }
+      if (isarInvoice.status == IsarInvoiceStatus.paid) {
+        return Left(ServerFailure('No se puede cancelar una factura pagada'));
+      }
+      if (isarInvoice.status == IsarInvoiceStatus.cancelled) {
+        return Left(ServerFailure('La factura ya está cancelada'));
+      }
+
+      final previousStatus = isarInvoice.status;
+      final previousUpdatedAt = isarInvoice.updatedAt;
+      final previousIsSynced = isarInvoice.isSynced;
+      final restoresInventory = previousStatus == IsarInvoiceStatus.pending ||
+          previousStatus == IsarInvoiceStatus.partiallyPaid;
+      final invoice = isarInvoice.toEntity();
+
+      String organizationId = '';
+      try {
+        final authController = Get.find<AuthController>();
+        organizationId = authController.currentUser?.organizationId ?? '';
+      } catch (_) {}
+
+      // 1. Marcar anulada en el equipo.
+      isarInvoice.status = IsarInvoiceStatus.cancelled;
+      isarInvoice.updatedAt = DateTime.now();
+      isarInvoice.isSynced = false;
+      await _isar.writeTxn(() async {
+        await _isar.isarInvoices.put(isarInvoice);
+      });
+
+      // 2. Encolar. Los items van en la operación para que la descarga
+      //    automática no pise el stock devuelto hasta que el servidor anule.
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperation(
+          entityType: 'Invoice',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'action': 'cancel',
+            'items': [
+              for (final item in invoice.items)
+                if (item.productId != null && item.productId!.isNotEmpty)
+                  {
+                    'productId': item.productId,
+                    'quantity': item.quantity,
+                    'presentationFactor': item.presentationFactor,
+                  },
+            ],
+          },
+          organizationId: organizationId,
+        );
+      } catch (e) {
+        // Sin la operación en la cola el servidor nunca se enteraría:
+        // deshacer y avisar.
+        isarInvoice.status = previousStatus;
+        isarInvoice.updatedAt = previousUpdatedAt;
+        isarInvoice.isSynced = previousIsSynced;
+        await _isar.writeTxn(() async {
+          await _isar.isarInvoices.put(isarInvoice);
+        });
+        return Left(CacheFailure(
+          'No se pudo guardar la anulación para sincronizar. No se anuló: $e',
+        ));
+      }
+
+      // 3. Devolver productos al inventario del equipo (igual que el servidor).
+      if (restoresInventory) {
+        await _restoreInventoryForCancelledInvoice(invoice);
+      }
+
+      // 4. Anular el crédito asociado en el equipo.
+      try {
+        final credits = await _isar.isarCustomerCredits
+            .filter()
+            .invoiceIdEqualTo(id)
+            .and()
+            .deletedAtIsNull()
+            .findAll();
+        final toCancel = credits
+            .where((c) => c.status != IsarCreditStatus.cancelled)
+            .toList();
+        if (toCancel.isNotEmpty) {
+          for (final c in toCancel) {
+            c.status = IsarCreditStatus.cancelled;
+            c.updatedAt = DateTime.now();
+          }
+          await _isar.writeTxn(() async {
+            await _isar.isarCustomerCredits.putAll(toCancel);
+          });
+        }
+      } catch (e) {
+        AppLogger.w('InvoiceOfflineRepository: no se pudo anular el crédito local: $e');
+      }
+
+      AppLogger.i('InvoiceOfflineRepository: factura ${invoice.number} anulada sin conexión');
+      final resolvedInvoice =
+          await _resolveCustomerForInvoice(isarInvoice.toEntity());
+      return Right(resolvedInvoice);
+    } catch (e) {
+      AppLogger.e('InvoiceOfflineRepository: Error anulando factura offline: $e');
+      return Left(CacheFailure('Error al anular la factura sin conexión: $e'));
+    }
+  }
+
+  /// Devuelve al inventario del equipo lo que la venta descontó: mismas
+  /// unidades base que `_processInventoryForOfflineInvoice` (cantidad ×
+  /// factor de presentación) y al lote más reciente primero, como el servidor.
+  /// Los productos quedan marcados sin sincronizar para que la descarga
+  /// automática no pise el stock hasta que la anulación suba.
+  Future<void> _restoreInventoryForCancelledInvoice(Invoice invoice) async {
+    try {
+      final restorations = <String, int>{};
+      for (final item in invoice.items) {
+        final productId = item.productId;
+        if (productId == null || productId.isEmpty) continue;
+        final qty = (item.quantity * (item.presentationFactor ?? 1.0)).round();
+        if (qty <= 0) continue;
+        restorations[productId] = (restorations[productId] ?? 0) + qty;
+      }
+      if (restorations.isEmpty) return;
+
+      final updatedBatches = <IsarInventoryBatch>[];
+      final updatedProducts = <IsarProduct>[];
+      for (final entry in restorations.entries) {
+        final batches = await _isar.isarInventoryBatchs
+            .filter()
+            .deletedAtIsNull()
+            .and()
+            .productIdEqualTo(entry.key)
+            .findAll();
+        batches.sort((a, b) => b.entryDate.compareTo(a.entryDate));
+        var remaining = entry.value;
+        for (final batch in batches) {
+          if (remaining <= 0) break;
+          final headroom = batch.originalQuantity - batch.currentQuantity;
+          if (headroom <= 0) continue;
+          final toRestore = remaining > headroom ? headroom : remaining;
+          batch.addQuantity(toRestore, modifiedBy: 'offline_invoice_cancel');
+          updatedBatches.add(batch);
+          remaining -= toRestore;
+        }
+
+        final product = await _isar.isarProducts
+            .filter()
+            .serverIdEqualTo(entry.key)
+            .findFirst();
+        if (product != null) {
+          product.stock = (product.stock + entry.value).toDouble();
+          product.markAsUnsynced();
+          updatedProducts.add(product);
+        }
+      }
+
+      await _isar.writeTxn(() async {
+        if (updatedBatches.isNotEmpty) {
+          await _isar.isarInventoryBatchs.putAll(updatedBatches);
+        }
+        if (updatedProducts.isNotEmpty) {
+          await _isar.isarProducts.putAll(updatedProducts);
+        }
+      });
+    } catch (e) {
+      AppLogger.e('InvoiceOfflineRepository: Error devolviendo inventario de factura anulada: $e');
+    }
   }
 
   @override
@@ -907,6 +1095,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     String? paymentCurrency,
     double? paymentCurrencyAmount,
     double? exchangeRate,
+    // Clave ya usada en el intento con internet (si lo hubo): reutilizarla
+    // evita que el servidor registre el pago dos veces.
+    String? idempotencyKey,
   }) async {
     AppLogger.d('InvoiceOfflineRepository: addPayment offline invoiceId=$invoiceId amount=$amount');
     try {
@@ -941,7 +1132,8 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       }
 
       // 4. Crear InvoicePayment con ID temporal
-      final paymentTempId = 'payment_offline_${now.millisecondsSinceEpoch}_${invoiceId.hashCode}';
+      final paymentTempId = idempotencyKey ??
+          'payment_offline_${now.millisecondsSinceEpoch}_${invoiceId.hashCode}';
       String createdById = '';
       String organizationId = '';
       try {
@@ -1060,6 +1252,10 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     }
   }
 
+  /// Pagos con varios métodos sin conexión, con las mismas reglas del
+  /// servidor (`InvoicesService.addMultiplePayments`). Se encola UNA operación
+  /// con todos los pagos; cada pago lleva su clave de idempotencia, así el
+  /// servidor nunca los duplica aunque la sincronización se reintente.
   @override
   Future<Either<Failure, MultiplePaymentsResult>> addMultiplePayments({
     required String invoiceId,
@@ -1067,8 +1263,205 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     DateTime? paymentDate,
     bool createCreditForRemaining = false,
     String? generalNotes,
+    // Claves ya usadas en el intento con internet (una por pago).
+    List<String>? idempotencyKeys,
   }) async {
-    return Left(ServerFailure('Add multiple payments not available offline'));
+    try {
+      final isarInvoice = await _isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(invoiceId)
+          .findFirst();
+      if (isarInvoice == null) {
+        return Left(CacheFailure('Factura no encontrada en el equipo: $invoiceId'));
+      }
+      if (isarInvoice.status == IsarInvoiceStatus.paid) {
+        return Left(ServerFailure('La factura ya está pagada completamente'));
+      }
+      if (isarInvoice.status == IsarInvoiceStatus.cancelled) {
+        return Left(ServerFailure('No se puede agregar pago a una factura cancelada'));
+      }
+      if (payments.isEmpty) {
+        return Left(ServerFailure('Debes agregar al menos un pago'));
+      }
+
+      double round(double v) => (v * 100).roundToDouble() / 100;
+      final totalPayment = round(payments.fold(0.0, (sum, p) => sum + p.amount));
+      final remainingBalance = isarInvoice.balanceDue;
+      if (totalPayment > remainingBalance && !createCreditForRemaining) {
+        return Left(ServerFailure('El total de pagos excede el saldo pendiente. Ajuste los montos.'));
+      }
+
+      final effective = totalPayment < remainingBalance ? totalPayment : remainingBalance;
+      final newPaidAmount = round(isarInvoice.paidAmount + effective);
+      final newBalanceDue = round(
+        (isarInvoice.total - newPaidAmount).clamp(0.0, double.infinity),
+      );
+
+      // Crédito por el saldo: deuda nueva, mismas reglas que el servidor.
+      final existingCredit = await _isar.isarCustomerCredits
+          .filter()
+          .invoiceIdEqualTo(invoiceId)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      final createsNewCredit =
+          createCreditForRemaining && newBalanceDue > 0 && existingCredit == null;
+      if (createsNewCredit) {
+        final customer = await _isar.isarCustomers
+            .filter()
+            .serverIdEqualTo(isarInvoice.customerId)
+            .findFirst();
+        if (FinalConsumerResolver.isPlaceholderId(isarInvoice.customerId) ||
+            (customer != null &&
+                FinalConsumerResolver.isFinalConsumer(customer.toEntity()))) {
+          return Left(ServerFailure('El Consumidor Final no puede comprar a crédito ni tener deudas.'));
+        }
+        final check = await CreditLimitGuard.check(
+          customerId: isarInvoice.customerId,
+          amount: newBalanceDue,
+        );
+        if (check != null && !check.allowed) {
+          return Left(ServerFailure(check.message));
+        }
+      }
+
+      final now = DateTime.now();
+      final date = paymentDate ?? now;
+      String createdById = '';
+      String organizationId = '';
+      try {
+        final authController = Get.find<AuthController>();
+        createdById = authController.currentUser?.id ?? '';
+        organizationId = authController.currentUser?.organizationId ?? '';
+      } catch (_) {}
+
+      final newPayments = <InvoicePayment>[];
+      for (var i = 0; i < payments.length; i++) {
+        final p = payments[i];
+        newPayments.add(InvoicePayment(
+          id: (idempotencyKeys != null && i < idempotencyKeys.length)
+              ? idempotencyKeys[i]
+              : 'payment_offline_${now.millisecondsSinceEpoch}_${i}_${invoiceId.hashCode}',
+          amount: p.amount,
+          paymentMethod: p.paymentMethod,
+          paymentDate: date,
+          reference: p.reference,
+          notes: p.notes ?? generalNotes,
+          invoiceId: invoiceId,
+          createdById: createdById,
+          organizationId: organizationId,
+          bankAccountId: p.bankAccountId,
+          paymentCurrency: p.paymentCurrency,
+          paymentCurrencyAmount: p.paymentCurrencyAmount,
+          exchangeRate: p.exchangeRate,
+          createdAt: now,
+          updatedAt: now,
+        ));
+      }
+
+      final previousPaidAmount = isarInvoice.paidAmount;
+      final previousBalanceDue = isarInvoice.balanceDue;
+      final previousStatus = isarInvoice.status;
+      final previousPaymentsJson = isarInvoice.paymentsJson;
+      final previousUpdatedAt = isarInvoice.updatedAt;
+      final previousIsSynced = isarInvoice.isSynced;
+
+      final allPayments = IsarInvoice.decodePayments(isarInvoice.paymentsJson)
+        ..addAll(newPayments);
+      isarInvoice.paidAmount = newPaidAmount;
+      isarInvoice.balanceDue = newBalanceDue;
+      isarInvoice.status = newBalanceDue <= 0
+          ? IsarInvoiceStatus.paid
+          : IsarInvoiceStatus.partiallyPaid;
+      isarInvoice.paymentsJson = IsarInvoice.encodePayments(allPayments);
+      isarInvoice.updatedAt = now;
+      isarInvoice.isSynced = false;
+      await _isar.writeTxn(() async {
+        await _isar.isarInvoices.put(isarInvoice);
+      });
+
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperation(
+          entityType: 'Invoice',
+          entityId: invoiceId,
+          operationType: SyncOperationType.update,
+          data: {
+            'action': 'addMultiplePayments',
+            'paymentDate': date.toIso8601String(),
+            'createCreditForRemaining': createCreditForRemaining,
+            if (generalNotes != null) 'generalNotes': generalNotes,
+            'payments': [
+              for (final p in newPayments)
+                {
+                  'idempotencyKey': p.id,
+                  'amount': p.amount,
+                  'paymentMethod': p.paymentMethod.value,
+                  'bankAccountId': p.bankAccountId,
+                  'reference': p.reference,
+                  'notes': p.notes,
+                  if (p.paymentCurrency != null) 'paymentCurrency': p.paymentCurrency,
+                  if (p.paymentCurrencyAmount != null)
+                    'paymentCurrencyAmount': p.paymentCurrencyAmount,
+                  if (p.exchangeRate != null) 'exchangeRate': p.exchangeRate,
+                },
+            ],
+          },
+          organizationId: organizationId,
+        );
+      } catch (e) {
+        // Sin la operación en la cola los pagos nunca llegarían al servidor.
+        isarInvoice.paidAmount = previousPaidAmount;
+        isarInvoice.balanceDue = previousBalanceDue;
+        isarInvoice.status = previousStatus;
+        isarInvoice.paymentsJson = previousPaymentsJson;
+        isarInvoice.updatedAt = previousUpdatedAt;
+        isarInvoice.isSynced = previousIsSynced;
+        await _isar.writeTxn(() async {
+          await _isar.isarInvoices.put(isarInvoice);
+        });
+        return Left(CacheFailure(
+          'No se pudieron guardar los pagos para sincronizar. No se registraron: $e',
+        ));
+      }
+
+      // Crédito existente de la factura: baja con lo pagado (como el servidor).
+      if (effective > 0) {
+        await crossUpdateCreditFromInvoicePayment(
+          invoiceId: invoiceId,
+          paymentAmount: effective,
+        );
+      }
+
+      // Crédito nuevo por el saldo: provisional en el equipo; el servidor crea
+      // el real al sincronizar y el provisional se reemplaza solo.
+      if (createsNewCredit) {
+        await _generateCreditForRemainingIfNeeded(
+          metadata: {
+            'createCreditForRemaining': true,
+            'remainingBalance': newBalanceDue,
+          },
+          invoiceId: invoiceId,
+          invoiceNumber: isarInvoice.number,
+          customerId: isarInvoice.customerId,
+          createdById: createdById,
+          dueDate: now.add(const Duration(days: 30)),
+          now: now,
+        );
+      }
+
+      final resolvedInvoice =
+          await _resolveCustomerForInvoice(isarInvoice.toEntity());
+      return Right(MultiplePaymentsResult(
+        invoice: resolvedInvoice,
+        paymentsCreated: newPayments.length,
+        remainingBalance: newBalanceDue,
+        creditCreated: createsNewCredit,
+      ));
+    } catch (e) {
+      AppLogger.e('InvoiceOfflineRepository: Error en pagos múltiples offline: $e');
+      return Left(CacheFailure('Error al registrar los pagos sin conexión: $e'));
+    }
   }
 
   @override
@@ -1169,6 +1562,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         'notes': item.notes,
         'invoiceId': item.invoiceId,
         'productId': item.productId,
+        if (item.presentationId != null) 'presentationId': item.presentationId,
+        if (item.presentationFactor != null)
+          'presentationFactor': item.presentationFactor,
         'createdAt': item.createdAt.toIso8601String(),
         'updatedAt': item.updatedAt.toIso8601String(),
       }).toList();

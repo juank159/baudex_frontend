@@ -921,6 +921,10 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   @override
   Future<Either<Failure, Invoice>> cancelInvoice(String id) async {
     if (!(await networkInfo.isConnected)) {
+      if (offlineRepository != null) {
+        networkInfo.markServerUnreachable();
+        return offlineRepository!.cancelInvoice(id);
+      }
       return const Left(
         ConnectionFailure(
           'Se requiere conexión a internet para cancelar facturas',
@@ -939,6 +943,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
       return Right(cancelledInvoice);
     } catch (e) {
+      // Se cayó la conexión a mitad: anular sin internet. Es seguro aunque el
+      // servidor la haya anulado: anular dos veces no devuelve stock dos veces.
+      if (_isTimeoutError(e) && offlineRepository != null) {
+        networkInfo.markServerUnreachable();
+        return offlineRepository!.cancelInvoice(id);
+      }
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -956,6 +966,10 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     double? paymentCurrencyAmount,
     double? exchangeRate,
   }) async {
+    // Una sola clave para este pago, con o sin internet: si el servidor
+    // alcanzó a guardarlo y la respuesta se perdió, el reintento no lo duplica.
+    final onlineIdempotencyKey =
+        'payment_offline_${DateTime.now().millisecondsSinceEpoch}_${invoiceId.hashCode}';
     if (!(await networkInfo.isConnected)) {
       if (offlineRepository != null) {
         networkInfo.markServerUnreachable();
@@ -970,6 +984,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           paymentCurrency: paymentCurrency,
           paymentCurrencyAmount: paymentCurrencyAmount,
           exchangeRate: exchangeRate,
+          idempotencyKey: onlineIdempotencyKey,
         );
       }
       return const Left(
@@ -978,8 +993,6 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     }
 
     try {
-      // idempotencyKey protege contra double-clicks/double-submits en el path online.
-      final onlineIdempotencyKey = 'payment_online_${DateTime.now().millisecondsSinceEpoch}_${invoiceId.hashCode}';
       final request = AddPaymentRequestModel(
         amount: amount,
         paymentMethod: paymentMethod.value,
@@ -1025,6 +1038,10 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           paymentDate: paymentDate,
           reference: reference,
           notes: notes,
+          paymentCurrency: paymentCurrency,
+          paymentCurrencyAmount: paymentCurrencyAmount,
+          exchangeRate: exchangeRate,
+          idempotencyKey: onlineIdempotencyKey,
         );
       }
       return Left(_mapExceptionToFailure(e));
@@ -1039,7 +1056,28 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     bool createCreditForRemaining = false,
     String? generalNotes,
   }) async {
+    // Una clave por pago, la misma con o sin internet: el servidor nunca los
+    // duplica aunque la respuesta se pierda y se reintente sin conexión.
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final idempotencyKeys = [
+      for (var i = 0; i < payments.length; i++)
+        'payment_offline_${stamp}_${i}_${invoiceId.hashCode}',
+    ];
+    Future<Either<Failure, MultiplePaymentsResult>> offline() =>
+        offlineRepository!.addMultiplePayments(
+          invoiceId: invoiceId,
+          payments: payments,
+          paymentDate: paymentDate,
+          createCreditForRemaining: createCreditForRemaining,
+          generalNotes: generalNotes,
+          idempotencyKeys: idempotencyKeys,
+        );
+
     if (!(await networkInfo.isConnected)) {
+      if (offlineRepository != null) {
+        networkInfo.markServerUnreachable();
+        return offline();
+      }
       return const Left(
         ConnectionFailure('Se requiere conexión a internet para agregar pagos'),
       );
@@ -1048,16 +1086,20 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     try {
 
       // Convertir PaymentItemData a PaymentItemModel
-      final paymentModels = payments.map((p) => PaymentItemModel(
-        amount: p.amount,
-        paymentMethod: p.paymentMethod.value,
-        bankAccountId: p.bankAccountId,
-        reference: p.reference,
-        notes: p.notes,
-        paymentCurrency: p.paymentCurrency,
-        paymentCurrencyAmount: p.paymentCurrencyAmount,
-        exchangeRate: p.exchangeRate,
-      )).toList();
+      final paymentModels = [
+        for (var i = 0; i < payments.length; i++)
+          PaymentItemModel(
+            amount: payments[i].amount,
+            paymentMethod: payments[i].paymentMethod.value,
+            bankAccountId: payments[i].bankAccountId,
+            reference: payments[i].reference,
+            notes: payments[i].notes,
+            paymentCurrency: payments[i].paymentCurrency,
+            paymentCurrencyAmount: payments[i].paymentCurrencyAmount,
+            exchangeRate: payments[i].exchangeRate,
+            idempotencyKey: idempotencyKeys[i],
+          ),
+      ];
 
       final request = AddMultiplePaymentsRequestModel(
         payments: paymentModels,
@@ -1081,6 +1123,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         creditCreated: result.creditCreated,
       ));
     } catch (e) {
+      // Se cayó la conexión a mitad: registrar sin internet con las mismas
+      // claves (si el servidor alcanzó a guardarlos, no se duplican).
+      if (_isTimeoutError(e) && offlineRepository != null) {
+        networkInfo.markServerUnreachable();
+        return offline();
+      }
       return Left(_mapExceptionToFailure(e));
     }
   }

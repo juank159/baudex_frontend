@@ -18,6 +18,8 @@ class InvoiceItemModel extends InvoiceItem {
     required super.invoiceId,
     super.productId,
     super.product,
+    super.presentationId,
+    super.presentationFactor,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -100,6 +102,13 @@ class InvoiceItemModel extends InvoiceItem {
                 ).toEntity()
                 : null,
 
+        // Presentación vendida (ej. caja x12): el inventario se mueve en
+        // cantidad × factor. Sin esto se perdía al guardar en el equipo.
+        presentationId: json['presentationId']?.toString(),
+        presentationFactor: json['presentationFactor'] != null
+            ? _parseToDouble(json['presentationFactor'])
+            : null,
+
         // Timestamps
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: _parseDateTime(json['updatedAt']),
@@ -124,6 +133,8 @@ class InvoiceItemModel extends InvoiceItem {
       if (productId != null) 'productId': productId,
       if (product != null)
         'product': ProductModel.fromEntity(product!).toJson(),
+      if (presentationId != null) 'presentationId': presentationId,
+      if (presentationFactor != null) 'presentationFactor': presentationFactor,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -143,6 +154,8 @@ class InvoiceItemModel extends InvoiceItem {
       invoiceId: item.invoiceId,
       productId: item.productId,
       product: item.product,
+      presentationId: item.presentationId,
+      presentationFactor: item.presentationFactor,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     );
