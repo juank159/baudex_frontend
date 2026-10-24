@@ -58,6 +58,7 @@ import '../../../features/categories/data/repositories/category_offline_reposito
 
 // Customers
 import '../../../features/customers/data/datasources/customer_remote_datasource.dart';
+import '../../../features/customers/data/final_consumer_resolver.dart';
 import '../../../features/customers/data/models/create_customer_request_model.dart';
 import '../../../features/customers/data/models/update_customer_request_model.dart';
 import '../../../features/customers/data/models/isar/isar_customer.dart';
@@ -5725,6 +5726,32 @@ class SyncService extends GetxService {
 
           // ✅ CRÍTICO: Resolver customerId temporal antes de enviar al servidor
           String resolvedCustomerId = finalData['customerId'] ?? '';
+
+          // Venta sin internet a "Consumidor Final" sin tenerlo guardado en
+          // el equipo: se cambia el marcador por el Consumidor Final real del
+          // tenant (el servidor lo crea si falta). Si aún no se puede, se
+          // reintenta en la próxima sincronización.
+          if (FinalConsumerResolver.isPlaceholderId(resolvedCustomerId)) {
+            final finalConsumer = await FinalConsumerResolver.resolve();
+            if (finalConsumer == null) {
+              throw Exception(
+                'Consumidor Final aún no disponible - se reintentará',
+              );
+            }
+            resolvedCustomerId = finalConsumer.id;
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarInvoice = await isar.isarInvoices
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+              if (isarInvoice != null &&
+                  FinalConsumerResolver.isPlaceholderId(isarInvoice.customerId)) {
+                isarInvoice.customerId = finalConsumer.id;
+                await isar.writeTxn(() => isar.isarInvoices.put(isarInvoice));
+              }
+            } catch (_) {}
+          }
           if (resolvedCustomerId.startsWith('customer_offline_') ||
               (resolvedCustomerId.startsWith('customer_') && !RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').hasMatch(resolvedCustomerId))) {
             // El customerId es temporal - buscar si ya fue sincronizado

@@ -15,6 +15,9 @@ import '../models/api_error_model.dart';
 abstract class CustomerRemoteDataSource {
   Future<CustomerResponseModel> getCustomers(CustomerQueryModel query);
   Future<CustomerModel> getCustomerById(String id);
+
+  /// Consumidor Final del tenant (el servidor lo crea si no existe).
+  Future<CustomerModel> getFinalConsumer();
   Future<CustomerModel> getCustomerByDocument(
     String documentType,
     String documentNumber,
@@ -92,6 +95,30 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
       throw _handleDioException(e);
     } catch (e) {
       throw ServerException('Error inesperado al obtener cliente: $e');
+    }
+  }
+
+  @override
+  Future<CustomerModel> getFinalConsumer() async {
+    try {
+      final response = await dioClient.get(
+        '${ApiConstants.customers}/final-consumer',
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return CustomerModel.fromJson(responseData['data']);
+        } else {
+          throw ServerException('Respuesta inválida del servidor');
+        }
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      throw ServerException('Error inesperado al obtener Consumidor Final: $e');
     }
   }
 

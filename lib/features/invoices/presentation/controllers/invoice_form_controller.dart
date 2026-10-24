@@ -41,6 +41,7 @@ import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customer_credits/data/credit_limit_guard.dart';
 import '../../../customers/data/repositories/customer_offline_repository.dart';
+import '../../../customers/data/final_consumer_resolver.dart';
 import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
@@ -470,55 +471,27 @@ class InvoiceFormController extends GetxController {
       // ✅ ESTABLECER CLIENTE FALLBACK INMEDIATAMENTE
       _setFallbackDefaultCustomer();
 
-      if (_searchCustomersUseCase != null) {
+      // Resolver el Consumidor Final real del tenant en segundo plano
+      // (equipo primero, luego servidor) sin bloquear la pantalla.
+      FinalConsumerResolver.resolve()
+          .timeout(const Duration(seconds: 12))
+          .then((defaultCustomer) {
+            if (defaultCustomer == null) return; // queda el marcador
 
-        // ✅ BUSCAR CLIENTE "Consumidor Final" EN BACKGROUND SIN BLOQUEAR
-        _searchCustomersUseCase!(
-              SearchCustomersParams(
-                searchTerm: DEFAULT_CUSTOMER_NAME,
-                limit: 5,
-              ),
-            )
-            .timeout(const Duration(seconds: 5))
-            .then((result) {
-              result.fold(
-                (failure) {
-                  // Mantener cliente fallback
-                },
-                (customers) {
-                  // Buscar cliente que coincida exactamente con "Consumidor Final"
-                  Customer? defaultCustomer;
-                  try {
-                    defaultCustomer = customers.firstWhere((customer) {
-                      final fullName =
-                          '${customer.firstName} ${customer.lastName}'.trim();
-                      return fullName.toLowerCase() ==
-                          DEFAULT_CUSTOMER_NAME.toLowerCase();
-                    });
-                  } catch (e) {
-                    // No se encontró el cliente
-                    defaultCustomer = null;
-                  }
+            _cachedDefaultCustomer = defaultCustomer;
+            _customerCacheTime = DateTime.now();
 
-                  if (defaultCustomer != null) {
-                    _selectedCustomer.value = defaultCustomer;
-
-                    // ⚡ GUARDAR EN CACHE
-                    _cachedDefaultCustomer = defaultCustomer;
-                    _customerCacheTime = DateTime.now();
-
-                  } else {
-                  }
-                },
-              );
-            })
-            .catchError((e) {
-
-              // Mantener cliente fallback
-            });
-      } else {
-
-      }
+            // Solo reemplazar el marcador: si el cajero ya eligió otro
+            // cliente (o se cargó una factura para editar), no tocarlo.
+            final current = _selectedCustomer.value;
+            if (current == null ||
+                FinalConsumerResolver.isPlaceholderId(current.id)) {
+              _selectedCustomer.value = defaultCustomer;
+            }
+          })
+          .catchError((_) {
+            // Mantener el marcador; al facturar se vuelve a intentar.
+          });
     } catch (e) {
 
       _setFallbackDefaultCustomer();
@@ -606,164 +579,35 @@ class InvoiceFormController extends GetxController {
   }
 
   /// Verificar si un cliente es el cliente por defecto
-  bool _isDefaultCustomer(Customer customer) {
-    final fullName = '${customer.firstName} ${customer.lastName}'.trim();
-    return fullName.toLowerCase() == DEFAULT_CUSTOMER_NAME.toLowerCase() ||
-        customer.id.startsWith('fallback_consumidor_final');
-  }
+  bool _isDefaultCustomer(Customer customer) =>
+      FinalConsumerResolver.isFinalConsumer(customer);
 
-  /// ⚡ OPTIMIZADO: Buscar o crear el cliente "Consumidor Final" con cache
+  /// Consumidor Final real del tenant (con cache). La app NO lo crea: lo
+  /// crea el servidor, así nunca hay duplicados.
   Future<Customer?> _findOrCreateDefaultCustomer() async {
-    try {
-      // Verificar cache primero
-      if (_cachedDefaultCustomer != null && _customerCacheTime != null) {
-        final timeSinceCache = DateTime.now().difference(_customerCacheTime!);
-        if (timeSinceCache < _customerCacheExpiry) {
-          return _cachedDefaultCustomer;
-        } else {
-
-        }
+    if (_cachedDefaultCustomer != null && _customerCacheTime != null) {
+      final timeSinceCache = DateTime.now().difference(_customerCacheTime!);
+      if (timeSinceCache < _customerCacheExpiry) {
+        return _cachedDefaultCustomer;
       }
-
-      if (_searchCustomersUseCase != null) {
-        // Buscar primero por nombre
-        final nameResult = await _searchCustomersUseCase!(
-              SearchCustomersParams(
-                searchTerm: DEFAULT_CUSTOMER_NAME,
-                limit: 5,
-              ),
-            )
-            .timeout(const Duration(seconds: 5));
-
-        Customer? foundCustomer = nameResult.fold(
-          (failure) {
-
-            return null;
-          },
-          (customers) {
-            // Buscar cliente que coincida exactamente por nombre
-            try {
-              return customers.firstWhere((customer) {
-                final fullName =
-                    '${customer.firstName} ${customer.lastName}'.trim();
-                return fullName.toLowerCase() ==
-                    DEFAULT_CUSTOMER_NAME.toLowerCase();
-              });
-            } catch (e) {
-              return null;
-            }
-          },
-        );
-
-        // Si no se encontró por nombre, buscar por documento
-        if (foundCustomer == null) {
-          final documentResult = await _searchCustomersUseCase!(
-                SearchCustomersParams(searchTerm: '222222222222', limit: 5),
-              )
-              .timeout(const Duration(seconds: 5));
-
-          foundCustomer = documentResult.fold(
-            (failure) {
-              return null;
-            },
-            (customers) {
-              // Buscar cliente que coincida por documento
-              try {
-                return customers.firstWhere((customer) {
-                  return customer.documentNumber == '222222222222';
-                });
-              } catch (e) {
-                return null;
-              }
-            },
-          );
-        }
-
-        if (foundCustomer != null) {
-
-          // ⚡ GUARDAR EN CACHE
-          _cachedDefaultCustomer = foundCustomer;
-          _customerCacheTime = DateTime.now();
-
-          return foundCustomer;
-        } else {
-          return await _createDefaultCustomer();
-        }
-      } else {
-
-        return null;
-      }
-    } catch (e) {
-
-      return null;
     }
-  }
 
-  /// Crear automáticamente el cliente "Consumidor Final"
-  Future<Customer?> _createDefaultCustomer() async {
-    try {
-      // Intentar obtener CreateCustomerUseCase si no está disponible
-      if (_createCustomerUseCase == null) {
-        if (Get.isRegistered<CreateCustomerUseCase>()) {
-          _createCustomerUseCase = Get.find<CreateCustomerUseCase>();
-
-        } else {
-          return null;
-        }
-      }
-
-      final createResult = await _createCustomerUseCase!(
-            CreateCustomerParams(
-              firstName: 'Consumidor',
-              lastName: 'Final',
-              email: 'consumidor.final@empresa.com',
-              documentType: DocumentType.cc,
-              documentNumber: '222222222222',
-              address: 'Venta de mostrador',
-              city: 'Cúcuta',
-              state: 'Norte de Santander',
-              country: 'Colombia',
-              status: CustomerStatus.active,
-              paymentTerms: 1,
-              creditLimit: 0.0,
-              notes: 'Cliente creado automáticamente para ventas de mostrador',
-              metadata: {
-                'isDefaultCustomer': true,
-                'autoCreated': true,
-                'createdAt': DateTime.now().toIso8601String(),
-              },
-            ),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      return createResult.fold(
-        (failure) {
-
-          return null;
-        },
-        (customer) {
-
-          // ⚡ GUARDAR EN CACHE
-          _cachedDefaultCustomer = customer;
-          _customerCacheTime = DateTime.now();
-
-          return customer;
-        },
-      );
-    } catch (e) {
-
-      return null;
+    final customer = await FinalConsumerResolver.resolve();
+    if (customer != null) {
+      _cachedDefaultCustomer = customer;
+      _customerCacheTime = DateTime.now();
     }
+    return customer;
   }
 
   void _setFallbackDefaultCustomer() {
     final fallbackCustomer = Customer(
-      id: 'fallback_consumidor_final_${DateTime.now().millisecondsSinceEpoch}',
+      id: '${FinalConsumerResolver.placeholderPrefix}_${DateTime.now().millisecondsSinceEpoch}',
       firstName: 'Consumidor',
       lastName: 'Final',
       email: 'ventas@empresa.com',
       documentType: DocumentType.cc,
-      documentNumber: '222222222222',
+      documentNumber: FinalConsumerResolver.documentNumber,
       address: 'Venta mostrador',
       city: 'Cúcuta',
       state: 'Norte de Santander',
@@ -2103,8 +1947,8 @@ class InvoiceFormController extends GetxController {
     if (validCustomer == null) {
 
       _showError(
-        'Cliente "Consumidor Final" requerido',
-        'Crea un cliente "Consumidor Final" con documento "222222222222" en la sección de clientes antes de crear facturas.',
+        'No se pudo cargar el Consumidor Final',
+        'Revise la conexión con el servidor e intente de nuevo, o seleccione un cliente.',
       );
       return null;
     }
@@ -2274,8 +2118,8 @@ class InvoiceFormController extends GetxController {
     final validCustomer = await _ensureValidCustomer();
     if (validCustomer == null) {
       _showError(
-        'Cliente "Consumidor Final" requerido',
-        'Crea un cliente "Consumidor Final" con documento "222222222222" en la sección de clientes antes de actualizar facturas.',
+        'No se pudo cargar el Consumidor Final',
+        'Revise la conexión con el servidor e intente de nuevo, o seleccione un cliente.',
       );
       return null;
     }
