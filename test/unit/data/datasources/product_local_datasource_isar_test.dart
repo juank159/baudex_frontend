@@ -7,24 +7,22 @@ import 'package:baudex_desktop/features/products/data/models/isar/isar_product.d
 import 'package:baudex_desktop/features/products/data/models/product_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../mocks/mock_isar.dart';
+import '../../../helpers/test_isar.dart';
+import 'package:isar/isar.dart';
 import '../../../fixtures/product_fixtures.dart';
 
 void main() {
   late ProductLocalDataSourceIsar dataSource;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     dataSource = ProductLocalDataSourceIsar(mockIsarDatabase);
   });
 
-  tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
-  });
+  tearDown(() => closeTestIsar(mockIsar));
 
   group('ProductLocalDataSourceIsar - cacheProducts', () {
     test(

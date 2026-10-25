@@ -13,6 +13,9 @@ void main() {
 
   setUp(() {
     mockConnectivity = MockConnectivity();
+    // NetworkInfoImpl escucha los cambios de conexión al crearse.
+    when(() => mockConnectivity.onConnectivityChanged)
+        .thenAnswer((_) => const Stream<List<ConnectivityResult>>.empty());
     networkInfo = NetworkInfoImpl(mockConnectivity);
   });
 
@@ -173,7 +176,7 @@ void main() {
         final result = await networkInfo.isConnected;
 
         // Assert
-        expect(result, false); // VPN is not checked in the implementation
+        expect(result, true); // Con VPN sí hay internet
         verify(() => mockConnectivity.checkConnectivity()).called(1);
       });
     });

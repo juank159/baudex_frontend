@@ -596,7 +596,8 @@ void main() {
         final result = await repository.searchProducts(tSearchTerm);
 
         // Assert
-        verify(() => mockRemoteDataSource.searchProducts(tSearchTerm, 10));
+        // Sin límite pedido se usa el tope alto del servidor (100).
+        verify(() => mockRemoteDataSource.searchProducts(tSearchTerm, 100));
         expect(result.isRight(), true);
         result.fold(
           (failure) => fail('Should return Right'),

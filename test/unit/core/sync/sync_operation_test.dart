@@ -250,9 +250,9 @@ void main() {
           await isar.syncOperations.put(operation);
         });
 
-        // Act - Set retry count to max
+        // Act - Set retry count to max (SyncConfig.maxRetries = 10)
         await isar.writeTxn(() async {
-          operation.retryCount = 5;
+          operation.retryCount = 10;
           operation.status = SyncStatus.failed;
           operation.error = 'Max retries exceeded';
           await isar.syncOperations.put(operation);
@@ -261,7 +261,7 @@ void main() {
         // Assert
         final result = await isar.syncOperations.get(operation.id);
         expect(result, isNotNull);
-        expect(result!.retryCount, 5);
+        expect(result!.retryCount, 10);
         expect(result.canRetry, false);
         expect(result.isFailed, true);
       });

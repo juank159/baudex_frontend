@@ -12,7 +12,11 @@ import 'package:baudex_desktop/features/categories/domain/entities/category.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../mocks/mock_isar.dart';
+import '../../helpers/test_isar.dart';
+import '../../helpers/fake_sync_service.dart';
+import 'package:isar/isar.dart';
+import 'package:get/get.dart';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import '../../fixtures/category_fixtures.dart';
 
 // Mocks
@@ -41,12 +45,14 @@ void main() {
   late MockCategoryLocalDataSource mockLocalDataSource;
   late MockCategoryRemoteDataSource mockRemoteDataSource;
   late MockNetworkInfo mockNetworkInfo;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    Get.testMode = true;
+    Get.put<SyncService>(FakeSyncService());
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     mockLocalDataSource = MockCategoryLocalDataSource();
     mockRemoteDataSource = MockCategoryRemoteDataSource();
     mockNetworkInfo = MockNetworkInfo();
@@ -60,8 +66,8 @@ void main() {
   });
 
   tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
+    Get.reset();
+    await closeTestIsar(mockIsar);
   });
 
   group('Category E2E: Online → Offline → Online', () {

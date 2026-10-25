@@ -199,11 +199,11 @@ class IsarInvoice {
     createdAt = model.createdAt;
     updatedAt = model.updatedAt;
     deletedAt = model.deletedAt;
+    // Versión nueva por el cambio del servidor; queda SINCRONIZADO (antes
+    // incrementVersion lo dejaba como pendiente de subir).
+    incrementVersion(modifiedBy: 'server');
     isSynced = true;
     lastSyncAt = DateTime.now();
-
-    // Incrementar versión al actualizar desde servidor
-    incrementVersion(modifiedBy: 'server');
   }
 
   Invoice toEntity() {

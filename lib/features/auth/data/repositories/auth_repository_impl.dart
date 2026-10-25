@@ -399,10 +399,8 @@ class AuthRepositoryImpl implements AuthRepository {
           avatar: avatar ?? localUser.avatar,
         );
 
-        // Guardar usuario actualizado
-        await localDataSource.saveUser(updatedUserModel);
-
-        // Agregar a cola de sincronización
+        // Primero a la cola: si no se puede, el cambio nunca llegaría al
+        // servidor, así que no se aplica y se avisa.
         try {
           final syncService = Get.find<SyncService>();
           await syncService.addOperationForCurrentUser(
@@ -417,7 +415,13 @@ class AuthRepositoryImpl implements AuthRepository {
             },
           );
         } catch (e) {
+          return Left(CacheFailure(
+            'No se pudo guardar el cambio para sincronizar. No se aplicó: $e',
+          ));
         }
+
+        // Guardar usuario actualizado
+        await localDataSource.saveUser(updatedUserModel);
 
         return Right(updatedUserModel.toEntity());
       } on CacheException catch (e) {

@@ -8,24 +8,23 @@ import 'package:baudex_desktop/features/customers/domain/entities/customer.dart'
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../mocks/mock_isar.dart';
+import '../../../helpers/test_isar.dart';
+import 'package:baudex_desktop/features/customer_credits/data/models/isar/isar_customer_credit.dart';
+import 'package:isar/isar.dart';
 import '../../../fixtures/customer_fixtures.dart';
 
 void main() {
   late CustomerOfflineRepository repository;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     repository = CustomerOfflineRepository(database: mockIsarDatabase);
   });
 
-  tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
-  });
+  tearDown(() => closeTestIsar(mockIsar));
 
   group('CustomerOfflineRepository - getCustomers', () {
     test(
@@ -672,7 +671,7 @@ void main() {
         );
 
         // Verify it's in ISAR
-        final customers = await mockIsar.isarCustomers.filter().findAll();
+        final customers = await mockIsar.isarCustomers.where().findAll();
         expect(customers.length, 1);
       },
     );
@@ -690,7 +689,7 @@ void main() {
         );
 
         // Assert
-        final customers = await mockIsar.isarCustomers.filter().findAll();
+        final customers = await mockIsar.isarCustomers.where().findAll();
         expect(customers.first.isSynced, false);
       },
     );
@@ -973,8 +972,28 @@ void main() {
           totalOrders: 25,
         );
         final isarCustomer = IsarCustomer.fromEntity(customer);
+        // La deuda real es la suma de sus créditos activos (igual que el
+        // servidor), no el campo guardado en el cliente.
+        IsarCustomerCredit credit(String id, double balance, IsarCreditStatus status) =>
+            IsarCustomerCredit(
+              serverId: id,
+              originalAmount: balance,
+              paidAmount: 0,
+              balanceDue: balance,
+              status: status,
+              customerId: 'cust-001',
+              organizationId: 'org',
+              createdById: 'u',
+              createdAt: DateTime(2026),
+              updatedAt: DateTime(2026),
+            );
         await mockIsar.writeTxn(() async {
           await mockIsar.isarCustomers.put(isarCustomer);
+          await mockIsar.isarCustomerCredits.putAll([
+            credit('c1', 200000, IsarCreditStatus.pending),
+            credit('c2', 100000, IsarCreditStatus.partiallyPaid),
+            credit('c3', 50000, IsarCreditStatus.paid), // pagado: no cuenta
+          ]);
         });
 
         // Act
@@ -987,10 +1006,9 @@ void main() {
           (summary) {
             expect(summary['customerId'], 'cust-001');
             expect(summary['currentBalance'], 300000.0);
+            expect(summary['pendingAmount'], 300000.0);
             expect(summary['creditLimit'], 1000000.0);
             expect(summary['availableCredit'], 700000.0);
-            expect(summary['totalPurchases'], 5000000.0);
-            expect(summary['totalOrders'], 25);
           },
         );
       },

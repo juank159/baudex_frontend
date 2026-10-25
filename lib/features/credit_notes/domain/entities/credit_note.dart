@@ -16,7 +16,7 @@ enum CreditNoteType {
 
   static CreditNoteType fromString(String value) {
     return CreditNoteType.values.firstWhere(
-      (type) => type.value == value,
+      (type) => type.value == value.trim().toLowerCase(),
       orElse: () => CreditNoteType.partial,
     );
   }
@@ -40,7 +40,7 @@ enum CreditNoteReason {
 
   static CreditNoteReason fromString(String value) {
     return CreditNoteReason.values.firstWhere(
-      (reason) => reason.value == value,
+      (reason) => reason.value == value.trim().toLowerCase(),
       orElse: () => CreditNoteReason.other,
     );
   }
@@ -58,7 +58,7 @@ enum CreditNoteStatus {
 
   static CreditNoteStatus fromString(String value) {
     return CreditNoteStatus.values.firstWhere(
-      (status) => status.value == value,
+      (status) => status.value == value.trim().toLowerCase(),
       orElse: () => CreditNoteStatus.draft,
     );
   }

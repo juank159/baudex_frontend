@@ -18,7 +18,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../fixtures/customer_fixtures.dart';
-import '../../../mocks/mock_isar.dart';
+import 'package:baudex_desktop/features/customers/data/models/isar/isar_customer.dart';
+import '../../../helpers/test_isar.dart';
+import 'package:isar/isar.dart';
+import 'package:get/get.dart';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
+import '../../../helpers/fake_sync_service.dart';
 
 // Mocks
 class MockCustomerRemoteDataSource extends Mock
@@ -48,15 +53,17 @@ void main() {
   late MockCustomerRemoteDataSource mockRemoteDataSource;
   late MockCustomerLocalDataSource mockLocalDataSource;
   late MockNetworkInfo mockNetworkInfo;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
+  setUp(() async {
     mockRemoteDataSource = MockCustomerRemoteDataSource();
     mockLocalDataSource = MockCustomerLocalDataSource();
     mockNetworkInfo = MockNetworkInfo();
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+    mockIsar = await openTestIsar();
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
+    Get.testMode = true;
+    Get.put<SyncService>(FakeSyncService());
     repository = CustomerRepositoryImpl(
       remoteDataSource: mockRemoteDataSource,
       localDataSource: mockLocalDataSource,
@@ -90,8 +97,8 @@ void main() {
   });
 
   tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
+    Get.reset();
+    await closeTestIsar(mockIsar);
   });
 
   group('CustomerRepositoryImpl - getCustomers', () {
@@ -700,7 +707,8 @@ void main() {
         final result = await repository.searchCustomers('john');
 
         // Assert
-        verify(() => mockRemoteDataSource.searchCustomers('john', 10)).called(1);
+        // Sin límite pedido se usa el tope alto del servidor (100).
+        verify(() => mockRemoteDataSource.searchCustomers('john', 100)).called(1);
         expect(result.isRight(), true);
         result.fold(
           (failure) => fail('Should return Right'),
@@ -710,19 +718,23 @@ void main() {
     );
 
     test(
-      'should return ConnectionFailure when device is offline',
+      'should search in the device when offline (no server call)',
       () async {
         // Arrange
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        await mockIsar.writeTxn(() => mockIsar.isarCustomers.put(
+            IsarCustomer.fromEntity(CustomerFixtures.createCustomerEntity(
+                id: 'c-john', firstName: 'John', lastName: 'Doe'))));
 
         // Act
         final result = await repository.searchCustomers('john');
 
-        // Assert
-        expect(result.isLeft(), true);
+        // Assert: sin internet se busca en el equipo (antes: "sin conexión").
+        verifyNever(() => mockRemoteDataSource.searchCustomers(any(), any()));
+        expect(result.isRight(), true);
         result.fold(
-          (failure) => expect(failure, isA<ConnectionFailure>()),
-          (_) => fail('Should return Left'),
+          (_) => fail('Should return Right'),
+          (customers) => expect(customers.map((c) => c.id), ['c-john']),
         );
       },
     );

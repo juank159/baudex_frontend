@@ -41,38 +41,27 @@ class CategoryOfflineRepository implements CategoryRepository {
     String? sortOrder,
   }) async {
     try {
-      final collection = _isar.isarCategorys;
-
-      // Build base query builder for filtering
-      // Using dynamic to support both production ISAR and MockIsar in tests
-      dynamic filterQuery;
-
-      // Start with a base filter (soft delete filter)
-      filterQuery = collection.filter().deletedAtIsNull();
-
-      // Apply search filter
-      if (search != null && search.isNotEmpty) {
-        filterQuery = filterQuery.and().nameContains(search, caseSensitive: false);
-      }
-
-      // Apply status filter
-      if (status != null) {
-        final isarStatus =
-            status == CategoryStatus.active
-                ? IsarCategoryStatus.active
-                : IsarCategoryStatus.inactive;
-        filterQuery = filterQuery.and().statusEqualTo(isarStatus);
-      }
-
-      // Apply parent filter
-      if (parentId != null) {
-        filterQuery = filterQuery.and().parentIdEqualTo(parentId);
-      } else if (onlyParents == true) {
-        filterQuery = filterQuery.and().parentIdIsNull();
-      }
-
-      // Obtener todos los resultados (ordenar y paginar en Dart)
-      final allResults = await filterQuery.findAll() as List<IsarCategory>;
+      // Consulta con tipo y filtros en Dart (las categorías son pocas). Antes
+      // la consulta se armaba como `dynamic` y `findAll()` (una extensión de
+      // Isar) no existe así en ejecución: la lista sin internet siempre
+      // fallaba.
+      final isarStatus = status == null
+          ? null
+          : (status == CategoryStatus.active
+              ? IsarCategoryStatus.active
+              : IsarCategoryStatus.inactive);
+      final term = search?.trim().toLowerCase() ?? '';
+      final allResults = (await _isar.isarCategorys
+              .filter()
+              .deletedAtIsNull()
+              .findAll())
+          .where((c) {
+        if (term.isNotEmpty && !c.name.toLowerCase().contains(term)) return false;
+        if (isarStatus != null && c.status != isarStatus) return false;
+        if (parentId != null) return c.parentId == parentId;
+        if (onlyParents == true) return c.parentId == null;
+        return true;
+      }).toList();
       final totalItems = allResults.length;
 
       // Ordenar en Dart

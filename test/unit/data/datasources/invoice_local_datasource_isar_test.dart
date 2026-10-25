@@ -7,25 +7,23 @@ import 'package:baudex_desktop/features/invoices/data/models/isar/isar_invoice.d
 import 'package:baudex_desktop/features/invoices/data/models/invoice_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../mocks/mock_isar.dart';
+import '../../../helpers/test_isar.dart';
+import 'package:isar/isar.dart';
 import '../../../fixtures/invoice_fixtures.dart';
 
 void main() {
   late InvoiceLocalDataSourceImpl dataSource;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     // Note: InvoiceLocalDataSourceImpl uses SecureStorage, not direct ISAR
     // This test focuses on the ISAR caching behavior within the datasource
   });
 
-  tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
-  });
+  tearDown(() => closeTestIsar(mockIsar));
 
   group('InvoiceLocalDataSource - ISAR caching in cacheInvoice', () {
     test(
@@ -149,7 +147,8 @@ void main() {
           () => mockIsar.writeTxn(() async {
             await mockIsar.isarInvoices.put(isarInvoice);
           }),
-          throwsA(isA<Exception>()),
+          // La base real lanza IsarError (no Exception) al escribir cerrada.
+          throwsA(isA<IsarError>()),
         );
       },
     );

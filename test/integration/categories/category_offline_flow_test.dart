@@ -5,24 +5,30 @@ import 'package:baudex_desktop/features/categories/data/repositories/category_of
 import 'package:baudex_desktop/features/categories/domain/entities/category.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../mocks/mock_isar.dart';
+import '../../helpers/test_isar.dart';
+import '../../helpers/fake_sync_service.dart';
+import 'package:isar/isar.dart';
+import 'package:get/get.dart';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import '../../fixtures/category_fixtures.dart';
 
 void main() {
   late CategoryOfflineRepository repository;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    Get.testMode = true;
+    Get.put<SyncService>(FakeSyncService());
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     final dynamic db = mockIsarDatabase;
     repository = CategoryOfflineRepository(database: db);
   });
 
   tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
+    Get.reset();
+    await closeTestIsar(mockIsar);
   });
 
   group('Category Offline Flow Integration', () {
@@ -116,7 +122,8 @@ void main() {
           ..sortOrder = 0
           ..createdAt = DateTime.now()
           ..updatedAt = DateTime.now()
-          ..isSynced = false;
+
+          ..version = 0          ..isSynced = false;
 
         await mockIsar.writeTxn(() async {
           await mockIsar.isarCategorys.put(inactiveCategory);
@@ -362,7 +369,8 @@ void main() {
           ..sortOrder = 0
           ..createdAt = DateTime.now()
           ..updatedAt = DateTime.now()
-          ..isSynced = false;
+
+          ..version = 0          ..isSynced = false;
 
         await mockIsar.writeTxn(() async {
           await mockIsar.isarCategorys.put(inactiveCategory);

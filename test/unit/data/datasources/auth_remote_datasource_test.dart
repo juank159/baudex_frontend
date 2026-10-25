@@ -17,6 +17,11 @@ import '../../../fixtures/auth_fixtures.dart';
 class MockDioClient extends Mock implements DioClient {}
 
 void main() {
+  setUpAll(() {
+    // Login/registro envían Options (petición pública, sin token).
+    registerFallbackValue(Options());
+  });
+
   late AuthRemoteDataSourceImpl dataSource;
   late MockDioClient mockDioClient;
 
@@ -34,7 +39,7 @@ void main() {
       'should perform POST request to /auth/login',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tResponseData,
             statusCode: 200,
@@ -46,7 +51,7 @@ void main() {
         await dataSource.login(tLoginRequest);
 
         // Assert
-        verify(() => mockDioClient.post(ApiConstants.login, data: tLoginRequest.toJson())).called(1);
+        verify(() => mockDioClient.post(ApiConstants.login, data: tLoginRequest.toJson(), options: any(named: 'options'))).called(1);
       },
     );
 
@@ -54,7 +59,7 @@ void main() {
       'should return AuthResponseModel when status code is 200',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tResponseData,
             statusCode: 200,
@@ -76,7 +81,7 @@ void main() {
       'should return AuthResponseModel when status code is 201',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tResponseData,
             statusCode: 201,
@@ -96,7 +101,7 @@ void main() {
       'should throw ServerException when status code is 401',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: AuthFixtures.createErrorApiResponseJson(
               message: 'Invalid credentials',
@@ -119,7 +124,7 @@ void main() {
       'should throw ServerException when success is false',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: {
               'success': false,
@@ -142,7 +147,7 @@ void main() {
       'should throw ConnectionException on DioException with connection timeout',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenThrow(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenThrow(
           DioException(
             requestOptions: RequestOptions(path: ApiConstants.login),
             type: DioExceptionType.connectionTimeout,
@@ -161,7 +166,7 @@ void main() {
       'should throw ConnectionException on DioException with receive timeout',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenThrow(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenThrow(
           DioException(
             requestOptions: RequestOptions(path: ApiConstants.login),
             type: DioExceptionType.receiveTimeout,
@@ -180,7 +185,7 @@ void main() {
       'should throw ConnectionException on socket exception',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenThrow(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenThrow(
           DioException(
             requestOptions: RequestOptions(path: ApiConstants.login),
             type: DioExceptionType.unknown,
@@ -206,7 +211,7 @@ void main() {
       'should perform POST request to /auth/register',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tResponseData,
             statusCode: 201,
@@ -218,7 +223,7 @@ void main() {
         await dataSource.register(tRegisterRequest);
 
         // Assert
-        verify(() => mockDioClient.post(ApiConstants.register, data: tRegisterRequest.toJson())).called(1);
+        verify(() => mockDioClient.post(ApiConstants.register, data: tRegisterRequest.toJson(), options: any(named: 'options'))).called(1);
       },
     );
 
@@ -226,7 +231,7 @@ void main() {
       'should return AuthResponseModel when registration is successful',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tResponseData,
             statusCode: 201,
@@ -248,7 +253,7 @@ void main() {
       'should throw ServerException when email already exists',
       () async {
         // Arrange
-        when(() => mockDioClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(any(), data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: AuthFixtures.createErrorApiResponseJson(
               message: 'Email already exists',
@@ -278,7 +283,7 @@ void main() {
       'should successfully register user and create warehouse',
       () async {
         // Arrange
-        when(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tRegisterResponseData,
             statusCode: 201,
@@ -299,8 +304,9 @@ void main() {
 
         // Assert
         expect(result, isA<AuthResponseModel>());
-        verify(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'))).called(1);
-        verify(() => mockDioClient.post('/warehouses', data: any(named: 'data'))).called(1);
+        verify(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'), options: any(named: 'options'))).called(1);
+        // El almacén principal lo crea el SERVIDOR al registrar el negocio.
+        verifyNever(() => mockDioClient.post('/warehouses', data: any(named: 'data')));
       },
     );
 
@@ -308,7 +314,7 @@ void main() {
       'should complete registration even if warehouse creation fails',
       () async {
         // Arrange
-        when(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'))).thenAnswer(
+        when(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'), options: any(named: 'options'))).thenAnswer(
           (_) async => Response(
             data: tRegisterResponseData,
             statusCode: 201,
@@ -336,7 +342,7 @@ void main() {
       'should throw exception if registration fails',
       () async {
         // Arrange
-        when(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'))).thenThrow(
+        when(() => mockDioClient.post(ApiConstants.register, data: any(named: 'data'), options: any(named: 'options'))).thenThrow(
           DioException(
             requestOptions: RequestOptions(path: ApiConstants.register),
             type: DioExceptionType.badResponse,

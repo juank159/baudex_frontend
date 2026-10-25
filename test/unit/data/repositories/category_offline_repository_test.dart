@@ -9,24 +9,22 @@ import 'package:baudex_desktop/features/categories/domain/entities/category.dart
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../mocks/mock_isar.dart';
+import '../../../helpers/test_isar.dart';
+import 'package:isar/isar.dart';
 import '../../../fixtures/category_fixtures.dart';
 
 void main() {
   late CategoryOfflineRepository repository;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     repository = CategoryOfflineRepository(database: mockIsarDatabase);
   });
 
-  tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
-  });
+  tearDown(() => closeTestIsar(mockIsar));
 
   group('CategoryOfflineRepository - getCategories', () {
     test(

@@ -12,7 +12,11 @@ import 'package:baudex_desktop/features/products/domain/entities/product.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../mocks/mock_isar.dart';
+import '../../helpers/test_isar.dart';
+import '../../helpers/fake_sync_service.dart';
+import 'package:isar/isar.dart';
+import 'package:get/get.dart';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import '../../fixtures/product_fixtures.dart';
 
 // Mocks
@@ -34,12 +38,14 @@ void main() {
   late ProductLocalDataSourceIsar localDataSource;
   late MockProductRemoteDataSource mockRemoteDataSource;
   late MockNetworkInfo mockNetworkInfo;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    Get.testMode = true;
+    Get.put<SyncService>(FakeSyncService());
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     final dynamic db = mockIsarDatabase;
     localDataSource = ProductLocalDataSourceIsar(db);
     mockRemoteDataSource = MockProductRemoteDataSource();
@@ -54,8 +60,8 @@ void main() {
   });
 
   tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
+    Get.reset();
+    await closeTestIsar(mockIsar);
   });
 
   group('Product E2E: Online → Offline → Online', () {
@@ -176,7 +182,12 @@ void main() {
           ..createdById = 'user-001'
           ..createdAt = DateTime.now()
           ..updatedAt = DateTime.now()
-          ..isSynced = false;
+
+          ..version = 0
+          ..taxCategory = IsarTaxCategory.noGravado
+          ..taxRate = 0
+          ..isTaxable = false
+          ..hasRetention = false          ..isSynced = false;
 
         await mockIsar.writeTxn(() async {
           await mockIsar.isarProducts.put(offlineProduct);

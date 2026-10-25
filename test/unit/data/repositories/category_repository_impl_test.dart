@@ -17,7 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../fixtures/category_fixtures.dart';
-import '../../../mocks/mock_isar.dart';
+import '../../../helpers/test_isar.dart';
+import 'package:isar/isar.dart';
 
 // Mocks
 class MockCategoryRemoteDataSource extends Mock
@@ -33,12 +34,12 @@ void main() {
   late MockCategoryRemoteDataSource mockRemoteDataSource;
   late MockCategoryLocalDataSource mockLocalDataSource;
   late MockNetworkInfo mockNetworkInfo;
-  late MockIsar mockIsar;
-  late MockIsarDatabase mockIsarDatabase;
+  late Isar mockIsar;
+  late TestIsarDatabase mockIsarDatabase;
 
-  setUp(() {
-    mockIsar = MockIsar();
-    mockIsarDatabase = MockIsarDatabase(mockIsar);
+  setUp(() async {
+    mockIsar = await openTestIsar();
+    mockIsarDatabase = TestIsarDatabase(mockIsar);
     mockRemoteDataSource = MockCategoryRemoteDataSource();
     mockLocalDataSource = MockCategoryLocalDataSource();
     mockNetworkInfo = MockNetworkInfo();
@@ -69,10 +70,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await mockIsar.clear();
-    await mockIsar.close();
-  });
+  tearDown(() => closeTestIsar(mockIsar));
 
   group('CategoryRepositoryImpl - getCategories', () {
     final tCategories = CategoryFixtures.createCategoryEntityList(5);

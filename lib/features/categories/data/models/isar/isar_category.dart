@@ -189,11 +189,11 @@ class IsarCategory {
     createdAt = model.createdAt;
     updatedAt = model.updatedAt;
     deletedAt = model.deletedAt;
-    isSynced = true; // Updated from server means it's synced
-    lastSyncAt = DateTime.now();
-
-    // ⭐ FASE 1: Incrementar versión al actualizar desde servidor
+    // Versión nueva por el cambio del servidor; queda SINCRONIZADO (antes
+    // incrementVersion lo dejaba como pendiente de subir).
     incrementVersion(modifiedBy: 'server');
+    isSynced = true;
+    lastSyncAt = DateTime.now();
   }
 
   // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos

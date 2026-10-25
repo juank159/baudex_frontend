@@ -76,6 +76,19 @@ void main() {
         when(() => mockSecureStorage.saveToken(any())).thenAnswer((_) async => {});
         when(() => mockSecureStorage.saveRefreshToken(any())).thenAnswer((_) async => {});
         when(() => mockSecureStorage.saveUserData(any())).thenAnswer((_) async => {});
+        // La sesión se guarda de una vez y se guardan las credenciales para
+        // poder entrar sin internet la próxima vez.
+        when(() => mockSecureStorage.saveAuthData(
+              token: any(named: 'token'),
+              refreshToken: any(named: 'refreshToken'),
+              userData: any(named: 'userData'),
+              tenantSlug: any(named: 'tenantSlug'),
+              organization: any(named: 'organization'),
+            )).thenAnswer((_) async {});
+        when(() => mockSecureStorage.saveOfflineCredentials(
+              email: any(named: 'email'),
+              passwordHash: any(named: 'passwordHash'),
+            )).thenAnswer((_) async {});
         when(() => mockSecureStorage.isAuthenticated()).thenAnswer((_) async => true);
 
         // Act - Login
@@ -149,6 +162,19 @@ void main() {
         when(() => mockSecureStorage.saveToken(any())).thenAnswer((_) async => {});
         when(() => mockSecureStorage.saveRefreshToken(any())).thenAnswer((_) async => {});
         when(() => mockSecureStorage.saveUserData(any())).thenAnswer((_) async => {});
+        // La sesión se guarda de una vez y se guardan las credenciales para
+        // poder entrar sin internet la próxima vez.
+        when(() => mockSecureStorage.saveAuthData(
+              token: any(named: 'token'),
+              refreshToken: any(named: 'refreshToken'),
+              userData: any(named: 'userData'),
+              tenantSlug: any(named: 'tenantSlug'),
+              organization: any(named: 'organization'),
+            )).thenAnswer((_) async {});
+        when(() => mockSecureStorage.saveOfflineCredentials(
+              email: any(named: 'email'),
+              passwordHash: any(named: 'passwordHash'),
+            )).thenAnswer((_) async {});
         when(() => mockSecureStorage.isAuthenticated()).thenAnswer((_) async => true);
 
         // Act - Register
@@ -253,6 +279,19 @@ void main() {
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
         when(() => mockRemoteDataSource.getProfile()).thenAnswer((_) async => tProfileResponse);
         when(() => mockSecureStorage.saveUserData(any())).thenAnswer((_) async => {});
+        // La sesión se guarda de una vez y se guardan las credenciales para
+        // poder entrar sin internet la próxima vez.
+        when(() => mockSecureStorage.saveAuthData(
+              token: any(named: 'token'),
+              refreshToken: any(named: 'refreshToken'),
+              userData: any(named: 'userData'),
+              tenantSlug: any(named: 'tenantSlug'),
+              organization: any(named: 'organization'),
+            )).thenAnswer((_) async {});
+        when(() => mockSecureStorage.saveOfflineCredentials(
+              email: any(named: 'email'),
+              passwordHash: any(named: 'passwordHash'),
+            )).thenAnswer((_) async {});
 
         // Act
         final result = await getProfileUseCase(NoParams());
@@ -347,6 +386,19 @@ void main() {
         when(() => mockSecureStorage.saveToken(any())).thenAnswer((_) async => {});
         when(() => mockSecureStorage.saveRefreshToken(any())).thenAnswer((_) async => {});
         when(() => mockSecureStorage.saveUserData(any())).thenAnswer((_) async => {});
+        // La sesión se guarda de una vez y se guardan las credenciales para
+        // poder entrar sin internet la próxima vez.
+        when(() => mockSecureStorage.saveAuthData(
+              token: any(named: 'token'),
+              refreshToken: any(named: 'refreshToken'),
+              userData: any(named: 'userData'),
+              tenantSlug: any(named: 'tenantSlug'),
+              organization: any(named: 'organization'),
+            )).thenAnswer((_) async {});
+        when(() => mockSecureStorage.saveOfflineCredentials(
+              email: any(named: 'email'),
+              passwordHash: any(named: 'passwordHash'),
+            )).thenAnswer((_) async {});
 
         final loginResult = await loginUseCase(const LoginParams(
           email: tEmail,

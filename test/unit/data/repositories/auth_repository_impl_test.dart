@@ -18,6 +18,9 @@ import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:get/get.dart';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
+import '../../../helpers/fake_sync_service.dart';
 
 import '../../../fixtures/auth_fixtures.dart';
 
@@ -59,6 +62,10 @@ void main() {
       localDataSource: mockLocalDataSource,
       networkInfo: mockNetworkInfo,
     );
+    // Tras un login exitoso se guardan las credenciales para entrar sin
+    // internet la próxima vez.
+    when(() => mockLocalDataSource.saveOfflineCredentials(any(), any()))
+        .thenAnswer((_) async {});
   });
 
   group('AuthRepositoryImpl - login', () {
@@ -67,18 +74,19 @@ void main() {
     final tAuthResponse = AuthFixtures.createAuthResponseModel();
 
     test(
-      'should check if device is online',
+      'should go straight to the server (no network pre-check) and save offline credentials',
       () async {
         // Arrange
-        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
         when(() => mockRemoteDataSource.login(any())).thenAnswer((_) async => tAuthResponse);
         when(() => mockLocalDataSource.saveAuthData(any())).thenAnswer((_) async => {});
 
         // Act
         await repository.login(email: tEmail, password: tPassword);
 
-        // Assert
-        verify(() => mockNetworkInfo.isConnected).called(1);
+        // Assert: la consulta previa de red fallaba con internet lento.
+        verifyNever(() => mockNetworkInfo.isConnected);
+        verify(() => mockRemoteDataSource.login(any())).called(1);
+        verify(() => mockLocalDataSource.saveOfflineCredentials(any(), any())).called(1);
       },
     );
 
@@ -139,10 +147,14 @@ void main() {
     );
 
     test(
-      'should return ConnectionFailure when device is offline',
+      'without internet and without a previous session: explains internet is needed',
       () async {
         // Arrange
-        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockRemoteDataSource.login(any())).thenThrow(
+          const ConnectionException('No internet'),
+        );
+        when(() => mockLocalDataSource.hasOfflineCredentials())
+            .thenAnswer((_) async => false);
 
         // Act
         final result = await repository.login(email: tEmail, password: tPassword);
@@ -150,7 +162,7 @@ void main() {
         // Assert
         expect(result.isLeft(), true);
         result.fold(
-          (failure) => expect(failure, isA<ConnectionFailure>()),
+          (failure) => expect(failure.message, contains('primer login')),
           (_) => fail('Should return Left'),
         );
       },
@@ -178,22 +190,31 @@ void main() {
     );
 
     test(
-      'should return ConnectionFailure on connection exception',
+      'without internet but with a previous session: logs in offline',
       () async {
         // Arrange
-        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+        final user = AuthFixtures.createUserModel();
         when(() => mockRemoteDataSource.login(any())).thenThrow(
           const ConnectionException('No internet'),
         );
+        when(() => mockLocalDataSource.hasOfflineCredentials())
+            .thenAnswer((_) async => true);
+        when(() => mockLocalDataSource.verifyOfflineCredentials(any(), any()))
+            .thenAnswer((_) async => true);
+        when(() => mockLocalDataSource.isAuthenticated()).thenAnswer((_) async => true);
+        when(() => mockLocalDataSource.getUser()).thenAnswer((_) async => user);
+        when(() => mockLocalDataSource.getToken())
+            .thenAnswer((_) async => AuthFixtures.testToken);
+        when(() => mockLocalDataSource.getRefreshToken()).thenAnswer((_) async => null);
 
         // Act
         final result = await repository.login(email: tEmail, password: tPassword);
 
         // Assert
-        expect(result.isLeft(), true);
+        expect(result.isRight(), true);
         result.fold(
-          (failure) => expect(failure, isA<ConnectionFailure>()),
-          (_) => fail('Should return Left'),
+          (_) => fail('Should log in offline'),
+          (auth) => expect(auth.user.id, user.id),
         );
       },
     );
@@ -644,10 +665,11 @@ void main() {
     );
 
     test(
-      'should return CacheFailure when clearing local data fails',
+      'should fail (not leave the token alive) when credentials cannot be cleared',
       () async {
-        // Arrange
+        // Arrange: falla limpiar y tampoco hay almacenamiento para el respaldo.
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.getUser()).thenAnswer((_) async => null);
         when(() => mockLocalDataSource.clearAuthData()).thenThrow(
           const CacheException('Clear failed'),
         );
@@ -658,7 +680,7 @@ void main() {
         // Assert
         expect(result.isLeft(), true);
         result.fold(
-          (failure) => expect(failure, isA<CacheFailure>()),
+          (failure) => expect(failure.message, contains('No se pudo limpiar credenciales')),
           (_) => fail('Should return Left'),
         );
       },
@@ -732,20 +754,27 @@ void main() {
     );
 
     test(
-      'should return ConnectionFailure when device is offline',
+      'offline: saves locally and queues the change for the server',
       () async {
         // Arrange
+        final sync = FakeSyncService();
+        Get.testMode = true;
+        Get.put<SyncService>(sync);
+        addTearDown(Get.reset);
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.getUser())
+            .thenAnswer((_) async => AuthFixtures.createUserModel());
+        when(() => mockLocalDataSource.saveUser(any())).thenAnswer((_) async {});
 
         // Act
         final result = await repository.updateProfile(firstName: 'Updated');
 
         // Assert
-        expect(result.isLeft(), true);
-        result.fold(
-          (failure) => expect(failure, isA<ConnectionFailure>()),
-          (_) => fail('Should return Left'),
-        );
+        expect(result.isRight(), true);
+        result.fold((_) => fail('Should return Right'),
+            (user) => expect(user.firstName, 'Updated'));
+        expect(sync.ops.single['entityType'], 'user_profile');
+        expect(sync.ops.single['firstName'], 'Updated');
       },
     );
   });

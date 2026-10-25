@@ -57,6 +57,35 @@ class IsarDatabase implements IIsarDatabase {
 
   /// Getter para la instancia de ISAR
   @override
+  /// Todas las colecciones de la base del equipo (la app y las pruebas
+  /// abren la base con esta misma lista).
+  static const List<CollectionSchema<dynamic>> schemas = [
+    SyncOperationSchema,
+    IsarSyncEventLogSchema, // Diagnóstico: log persistente de eventos de sync
+    IsarIdempotencyRecordSchema, // ⭐ FASE 1: Idempotencia
+    IsarCategorySchema,
+    IsarCustomerSchema,
+    IsarCustomerCreditSchema,
+    IsarProductSchema,
+    IsarProductPresentationSchema,
+    IsarExpenseSchema,
+    IsarInvoiceSchema,
+    IsarCreditNoteSchema,
+    IsarNotificationSchema,
+    IsarBankAccountSchema,
+    IsarBankAccountMovementSchema,
+    IsarSupplierSchema,
+    IsarPurchaseOrderSchema,
+    IsarPurchaseOrderItemSchema,
+    IsarInventoryMovementSchema,
+    IsarInventoryBatchSchema,
+    IsarInventoryBatchMovementSchema,
+    IsarOrganizationSchema,
+    IsarUserPreferencesSchema,
+    IsarSubscriptionSchema,
+    PrinterSettingsModelSchema,
+  ];
+
   Isar get database {
     if (_isar == null) {
       throw Exception(
@@ -79,32 +108,7 @@ class IsarDatabase implements IIsarDatabase {
 
       // Inicializar ISAR con todas las colecciones
       _isar = await Isar.open(
-        [
-          SyncOperationSchema,
-          IsarSyncEventLogSchema, // Diagnóstico: log persistente de eventos de sync
-          IsarIdempotencyRecordSchema, // ⭐ FASE 1: Idempotencia
-          IsarCategorySchema,
-          IsarCustomerSchema,
-          IsarCustomerCreditSchema,
-          IsarProductSchema,
-          IsarProductPresentationSchema,
-          IsarExpenseSchema,
-          IsarInvoiceSchema,
-          IsarCreditNoteSchema,
-          IsarNotificationSchema,
-          IsarBankAccountSchema,
-          IsarBankAccountMovementSchema,
-          IsarSupplierSchema,
-          IsarPurchaseOrderSchema,
-          IsarPurchaseOrderItemSchema,
-          IsarInventoryMovementSchema,
-          IsarInventoryBatchSchema,
-          IsarInventoryBatchMovementSchema,
-          IsarOrganizationSchema,
-          IsarUserPreferencesSchema,
-          IsarSubscriptionSchema,
-          PrinterSettingsModelSchema,
-        ],
+        schemas,
         directory: dir.path,
         name: 'baudex_offline',
       );
