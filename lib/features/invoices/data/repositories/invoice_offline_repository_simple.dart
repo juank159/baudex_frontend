@@ -35,6 +35,7 @@ import '../../../settings/presentation/controllers/user_preferences_controller.d
 import '../../../customer_credits/data/credit_limit_guard.dart';
 import '../../../customers/data/final_consumer_resolver.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import '../presentation_units.dart';
 
 /// Implementación offline simplificada del repositorio de facturas usando ISAR
 ///
@@ -896,8 +897,73 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
   }
 
   @override
+  /// Confirmar un borrador sin conexión, igual que el servidor
+  /// (`InvoicesService.confirm`): pasa a pendiente y descuenta el inventario
+  /// (unidades base, según la preferencia de descuento automático). Se encola
+  /// primero; si no se puede, no se cambia nada.
+  @override
   Future<Either<Failure, Invoice>> confirmInvoice(String id) async {
-    return Left(ServerFailure('Confirm invoice not available offline'));
+    try {
+      final isarInvoice = await _isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarInvoice == null) {
+        return Left(CacheFailure('Factura no encontrada en el equipo: $id'));
+      }
+      if (isarInvoice.status != IsarInvoiceStatus.draft) {
+        return const Left(
+          ServerFailure('Solo se pueden confirmar facturas en borrador'),
+        );
+      }
+      final invoice = isarInvoice.toEntity();
+
+      String createdById = '';
+      String organizationId = '';
+      try {
+        final authController = Get.find<AuthController>();
+        createdById = authController.currentUser?.id ?? '';
+        organizationId = authController.currentUser?.organizationId ?? '';
+      } catch (_) {}
+
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperation(
+          entityType: 'Invoice',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'action': 'confirm',
+            // Productos que descuenta: la descarga no los pisa hasta que el
+            // servidor confirme.
+            'items': [
+              for (final item in invoice.items)
+                if (item.productId != null && item.productId!.isNotEmpty)
+                  {'productId': item.productId, 'quantity': item.quantity},
+            ],
+          },
+          organizationId: organizationId,
+        );
+      } catch (e) {
+        return Left(CacheFailure(
+          'No se pudo guardar la confirmación para sincronizar. No se confirmó: $e',
+        ));
+      }
+
+      isarInvoice.status = IsarInvoiceStatus.pending;
+      isarInvoice.updatedAt = DateTime.now();
+      isarInvoice.isSynced = false;
+      await _isar.writeTxn(() => _isar.isarInvoices.put(isarInvoice));
+
+      await _processInventoryForOfflineInvoice(
+        invoice: invoice,
+        createdById: createdById,
+      );
+
+      return Right(await _resolveCustomerForInvoice(isarInvoice.toEntity()));
+    } catch (e) {
+      return Left(CacheFailure('Error al confirmar la factura sin conexión: $e'));
+    }
   }
 
   /// Anular sin conexión, con las mismas reglas del servidor
@@ -931,6 +997,10 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       final restoresInventory = previousStatus == IsarInvoiceStatus.pending ||
           previousStatus == IsarInvoiceStatus.partiallyPaid;
       final invoice = isarInvoice.toEntity();
+      final factors = <String, double>{
+        for (final item in invoice.items)
+          item.id: await PresentationUnits.factorFor(_isar, item),
+      };
 
       String organizationId = '';
       try {
@@ -964,7 +1034,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
                   {
                     'productId': item.productId,
                     'quantity': item.quantity,
-                    'presentationFactor': item.presentationFactor,
+                    'presentationFactor': factors[item.id] ?? 1,
                   },
             ],
           },
@@ -1034,7 +1104,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       for (final item in invoice.items) {
         final productId = item.productId;
         if (productId == null || productId.isEmpty) continue;
-        final qty = (item.quantity * (item.presentationFactor ?? 1.0)).round();
+        final qty = await PresentationUnits.baseUnits(_isar, item, item.quantity);
         if (qty <= 0) continue;
         restorations[productId] = (restorations[productId] ?? 0) + qty;
       }
@@ -1836,8 +1906,8 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         // conversión indica cuántas unidades base equivale 1 unidad de venta.
         // Debemos descontar las unidades base del inventario, no las unidades
         // de presentación — de lo contrario vendemos 1 caja y solo descontamos 1.
-        final factor = item.presentationFactor ?? 1.0;
-        final quantityToDeduct = (item.quantity * factor).round();
+        final quantityToDeduct =
+            await PresentationUnits.baseUnits(_isar, item, item.quantity);
         if (quantityToDeduct <= 0) continue;
 
         final params = ProcessFifoMovementParams(

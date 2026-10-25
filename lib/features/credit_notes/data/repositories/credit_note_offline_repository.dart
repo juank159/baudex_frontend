@@ -12,9 +12,7 @@ import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/repositories/credit_note_repository.dart';
 import '../models/isar/isar_credit_note.dart';
-import '../../../../app/core/utils/app_logger.dart';
-import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
-import '../../../products/data/models/isar/isar_product.dart';
+import '../credit_note_local_effects.dart';
 import '../../../invoices/data/models/isar/isar_invoice.dart';
 
 /// Implementación offline del repositorio de notas de crédito usando ISAR
@@ -234,17 +232,23 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
       final serverId = 'creditnote_offline_${now.millisecondsSinceEpoch}_${params.invoiceId.hashCode}';
       final number = 'NC-OFFLINE-${now.millisecondsSinceEpoch.toString().substring(7)}';
 
-      // Calcular totales
-      double subtotal = 0;
+      // Totales igual que el servidor: el precio ya incluye el IVA de la
+      // factura; total = Σ(cantidad × precio − descuento) y de ahí se separa
+      // el IVA. (Antes se sumaba un 19% encima y el total no cuadraba.)
+      final invoiceForTax = await _isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(params.invoiceId)
+          .findFirst();
+      final taxPercentage =
+          invoiceForTax?.taxPercentage ?? params.taxPercentage ?? 0;
+      double total = 0;
       for (final item in params.items) {
-        final itemSubtotal = item.quantity * item.unitPrice;
-        final itemDiscount = item.discountAmount + (itemSubtotal * item.discountPercentage / 100);
-        subtotal += itemSubtotal - itemDiscount;
+        total += item.quantity * item.unitPrice - item.discountAmount;
       }
-
-      final taxPercentage = params.taxPercentage ?? 19.0;
-      final taxAmount = subtotal * taxPercentage / 100;
-      final total = subtotal + taxAmount;
+      total = (total * 100).roundToDouble() / 100;
+      final subtotal =
+          ((total / (1 + taxPercentage / 100)) * 100).roundToDouble() / 100;
+      final taxAmount = ((total - subtotal) * 100).roundToDouble() / 100;
 
       // Serializar items a JSON
       final itemsJson = jsonEncode(params.items.map((item) => {
@@ -254,7 +258,7 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
         'unitPrice': item.unitPrice,
         'discountPercentage': item.discountPercentage,
         'discountAmount': item.discountAmount,
-        'subtotal': item.quantity * item.unitPrice - item.discountAmount - (item.quantity * item.unitPrice * item.discountPercentage / 100),
+        'subtotal': item.quantity * item.unitPrice - item.discountAmount,
         'unit': item.unit,
         'notes': item.notes,
         'creditNoteId': serverId,
@@ -294,18 +298,6 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
         await _isar.isarCreditNotes.put(isarCreditNote);
       });
 
-      // ✅ Restaurar inventario localmente si la nota lo requiere.
-      // Espejo offline de lo que el backend hace en confirm() →
-      // restoreToBatchesIntelligent. Solo se ejecuta si el flag es true.
-      // Backend al confirmar verifica `inventoryRestored=false` antes de
-      // procesar otra vez, por eso no hay doble restauración.
-      if (params.restoreInventory) {
-        await _restoreInventoryForOfflineCreditNote(
-          itemsPayload: params.items,
-          creditNoteNumber: number,
-        );
-      }
-
       // Add to sync queue
       try {
         final syncService = Get.find<SyncService>();
@@ -318,12 +310,17 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
             'type': params.type.value,
             'reason': params.reason.value,
             'reasonDescription': params.reasonDescription,
+            'date': params.date?.toIso8601String(),
             'items': params.items.map((item) => {
               'invoiceItemId': item.invoiceItemId,
               'productId': item.productId,
               'quantity': item.quantity,
               'unitPrice': item.unitPrice,
               'description': item.description,
+              'discountPercentage': item.discountPercentage,
+              'discountAmount': item.discountAmount,
+              'unit': item.unit,
+              'unitCost': item.unitCost,
               'notes': item.notes,
             }).toList(),
             'restoreInventory': params.restoreInventory,
@@ -332,7 +329,46 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
           },
         );
       } catch (e) {
-        // Log pero no fallar la operación local
+        // Sin la operación en la cola la nota nunca llegaría al servidor:
+        // se quita del equipo y se avisa (no se devolvió inventario aún).
+        await _isar.writeTxn(() async {
+          await _isar.isarCreditNotes.delete(isarCreditNote.id);
+        });
+        return Left(CacheFailure(
+          'No se pudo guardar la nota crédito para sincronizar. No se creó: $e',
+        ));
+      }
+
+      // Con devolución de inventario la nota se aplica de una vez (igual que
+      // con internet, donde se confirma al crearla; al sincronizar el
+      // servidor la confirma). Sin devolución queda en borrador.
+      if (params.restoreInventory) {
+        final units = await CreditNoteLocalEffects.baseUnitsByProduct(
+          _isar,
+          params.invoiceId,
+          [
+            for (final item in params.items)
+              CreditNoteLine(
+                productId: item.productId,
+                invoiceItemId: item.invoiceItemId,
+                quantity: item.quantity,
+              ),
+          ],
+        );
+        await CreditNoteLocalEffects.restoreInventory(
+          _isar,
+          units,
+          markUnsynced: true,
+          modifiedBy: 'offline_credit_note',
+        );
+        isarCreditNote.status = IsarCreditNoteStatus.confirmed;
+        isarCreditNote.inventoryRestored = true;
+        isarCreditNote.inventoryRestoredAt = now;
+        isarCreditNote.appliedAt = now;
+        await _isar.writeTxn(() async {
+          await _isar.isarCreditNotes.put(isarCreditNote);
+        });
+        await CreditNoteLocalEffects.applyInvoiceStatus(_isar, params.invoiceId);
       }
 
       return Right(isarCreditNote.toEntity());
@@ -421,22 +457,77 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
           .findFirst();
 
       if (isarCreditNote == null) {
-        return Left(CacheFailure('Credit note not found'));
+        return Left(CacheFailure('Nota crédito no encontrada en el equipo'));
+      }
+      if (isarCreditNote.status != IsarCreditNoteStatus.draft) {
+        return Left(ServerFailure(
+          'Solo se pueden confirmar notas de crédito en borrador',
+        ));
       }
 
+      final lines = [
+        for (final item in isarCreditNote.toEntity().items)
+          CreditNoteLine(
+            productId: item.productId,
+            invoiceItemId: item.invoiceItemId,
+            quantity: item.quantity,
+          ),
+      ];
+      final restores =
+          isarCreditNote.restoreInventory && !isarCreditNote.inventoryRestored;
+
+      // Primero a la cola: si no se puede, no se toca nada.
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'CreditNote',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'action': 'confirm',
+            // Productos que esta nota devuelve: la descarga no los pisa
+            // hasta que el servidor la confirme.
+            'items': [
+              for (final l in lines)
+                if (l.productId != null) {'productId': l.productId},
+            ],
+          },
+        );
+      } catch (e) {
+        return Left(CacheFailure(
+          'No se pudo guardar la confirmación para sincronizar. No se confirmó: $e',
+        ));
+      }
+
+      final now = DateTime.now();
+      if (restores) {
+        final units = await CreditNoteLocalEffects.baseUnitsByProduct(
+          _isar,
+          isarCreditNote.invoiceId,
+          lines,
+        );
+        await CreditNoteLocalEffects.restoreInventory(
+          _isar,
+          units,
+          markUnsynced: true,
+          modifiedBy: 'offline_credit_note',
+        );
+        isarCreditNote.inventoryRestored = true;
+        isarCreditNote.inventoryRestoredAt = now;
+      }
       isarCreditNote.status = IsarCreditNoteStatus.confirmed;
-      isarCreditNote.appliedAt = DateTime.now();
-      isarCreditNote.updatedAt = DateTime.now();
+      isarCreditNote.appliedAt = now;
+      isarCreditNote.updatedAt = now;
       isarCreditNote.isSynced = false;
       isarCreditNote.incrementVersion();
-
       await _isar.writeTxn(() async {
         await _isar.isarCreditNotes.put(isarCreditNote);
       });
+      await CreditNoteLocalEffects.applyInvoiceStatus(_isar, isarCreditNote.invoiceId);
 
       return Right(isarCreditNote.toEntity());
     } catch (e) {
-      return Left(CacheFailure('Error confirming credit note: ${e.toString()}'));
+      return Left(CacheFailure('Error al confirmar la nota crédito sin conexión: $e'));
     }
   }
 
@@ -449,7 +540,26 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
           .findFirst();
 
       if (isarCreditNote == null) {
-        return Left(CacheFailure('Credit note not found'));
+        return Left(CacheFailure('Nota crédito no encontrada en el equipo'));
+      }
+      if (isarCreditNote.status != IsarCreditNoteStatus.draft) {
+        return Left(ServerFailure(
+          'Solo se pueden cancelar notas de crédito en borrador',
+        ));
+      }
+
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'CreditNote',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {'action': 'cancel'},
+        );
+      } catch (e) {
+        return Left(CacheFailure(
+          'No se pudo guardar la cancelación para sincronizar. No se canceló: $e',
+        ));
       }
 
       isarCreditNote.status = IsarCreditNoteStatus.cancelled;
@@ -463,7 +573,7 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
 
       return Right(isarCreditNote.toEntity());
     } catch (e) {
-      return Left(CacheFailure('Error cancelling credit note: ${e.toString()}'));
+      return Left(CacheFailure('Error al cancelar la nota crédito sin conexión: $e'));
     }
   }
 
@@ -637,109 +747,6 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
         return IsarCreditNoteReason.discountGranted;
       case CreditNoteReason.other:
         return IsarCreditNoteReason.other;
-    }
-  }
-
-  // ==================== INVENTARIO OFFLINE ====================
-
-  /// Restaura inventario localmente para una nota de crédito creada offline.
-  ///
-  /// Estrategia espejo de `_processInventoryForOfflineInvoice` pero al revés:
-  ///   * Suma cantidades a `IsarInventoryBatch` con `addQuantity()` (LIFO inverso:
-  ///     devuelve primero al batch más reciente, simulando lo que hace el
-  ///     backend en `restoreToBatchesIntelligent`).
-  ///   * Aumenta `IsarProduct.stock` en una transacción única.
-  ///   * Marca productos como `unsynced` para que el FullSync los proteja
-  ///     hasta que el push de la nota termine y resetee el flag.
-  ///
-  /// NO encola operaciones de movement separadas: el backend al recibir la
-  /// nota de crédito (en `confirm()`) ejecuta `restoreToBatchesIntelligent()`
-  /// y marca `inventoryRestored=true`. El backend no duplica porque verifica
-  /// el flag `inventoryRestored=false` antes de procesar.
-  Future<void> _restoreInventoryForOfflineCreditNote({
-    required List<CreateCreditNoteItemParams> itemsPayload,
-    required String creditNoteNumber,
-  }) async {
-    try {
-      final stockRestorations = <String, int>{}; // productId -> qty acumulada
-      int processedItems = 0;
-
-      for (final item in itemsPayload) {
-        final productId = item.productId;
-        if (productId == null || productId.isEmpty) continue;
-        final qty = item.quantity.toInt();
-        if (qty <= 0) continue;
-
-        // 1) Restaurar a batches (LIFO inverso: más recientes primero).
-        final batches = await _isar.isarInventoryBatchs
-            .filter()
-            .deletedAtIsNull()
-            .and()
-            .productIdEqualTo(productId)
-            .findAll();
-        // Más reciente primero — opuesto a FIFO de consume()
-        batches.sort((a, b) => b.entryDate.compareTo(a.entryDate));
-
-        int remaining = qty;
-        final updatedBatches = <IsarInventoryBatch>[];
-        for (final batch in batches) {
-          if (remaining <= 0) break;
-          final headroom = batch.originalQuantity - batch.currentQuantity;
-          if (headroom <= 0) continue;
-          final toRestore = remaining > headroom ? headroom : remaining;
-          batch.addQuantity(toRestore, modifiedBy: 'offline_credit_note');
-          updatedBatches.add(batch);
-          remaining -= toRestore;
-        }
-        if (updatedBatches.isNotEmpty) {
-          await _isar.writeTxn(() async {
-            await _isar.isarInventoryBatchs.putAll(updatedBatches);
-          });
-        }
-        if (remaining > 0) {
-          AppLogger.w(
-            'CreditNote $creditNoteNumber: $remaining unidades de $productId no se pudieron restaurar a ningún batch (sin headroom). Stock del producto se incrementa de todos modos.',
-            tag: 'CREDIT_NOTE',
-          );
-        }
-
-        stockRestorations[productId] =
-            (stockRestorations[productId] ?? 0) + qty;
-        processedItems++;
-      }
-
-      // 2) Aumentar IsarProduct.stock en una sola transacción.
-      if (stockRestorations.isNotEmpty) {
-        final productsToSave = <IsarProduct>[];
-        for (final entry in stockRestorations.entries) {
-          final p = await _isar.isarProducts
-              .filter()
-              .serverIdEqualTo(entry.key)
-              .findFirst();
-          if (p == null) continue;
-          p.stock = (p.stock + entry.value).toDouble();
-          p.markAsUnsynced();
-          productsToSave.add(p);
-        }
-        if (productsToSave.isNotEmpty) {
-          await _isar.writeTxn(() async {
-            await _isar.isarProducts.putAll(productsToSave);
-          });
-        }
-      }
-
-      if (processedItems > 0) {
-        AppLogger.i(
-          'CreditNote $creditNoteNumber: inventario restaurado offline en $processedItems items',
-          tag: 'CREDIT_NOTE',
-        );
-      }
-    } catch (e) {
-      AppLogger.e(
-        'Error restaurando inventario offline (nota $creditNoteNumber): $e',
-        tag: 'CREDIT_NOTE',
-      );
-      // NO propagar — la nota ya está guardada en ISAR, no fallar por esto.
     }
   }
 }

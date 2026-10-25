@@ -19,11 +19,11 @@ import '../datasources/credit_note_remote_datasource.dart';
 import '../models/credit_note_model.dart';
 import '../models/isar/isar_credit_note.dart';
 import '../../../products/data/models/isar/isar_product.dart';
-import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../invoices/data/models/isar/isar_invoice.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../../../app/data/local/local_first.dart';
 import 'credit_note_offline_repository.dart';
+import '../credit_note_local_effects.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -98,6 +98,12 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
         return Right(creditNote);
       } on ServerException catch (e) {
+        // Rechazo del servidor (regla de negocio): se muestra. Guardarla
+        // "sin conexión" la haría fallar después sin que nadie lo vea.
+        final code = e.statusCode ?? 0;
+        if (code >= 400 && code < 500) {
+          return Left(ServerFailure(e.message, code: code));
+        }
         AppLogger.w('[CN_REPO] ServerException en create: ${e.message} - Fallback offline...');
         return _createCreditNoteOffline(params);
       } on ConnectionException catch (e) {
@@ -356,12 +362,10 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
   @override
   Future<Either<Failure, CreditNote>> confirmCreditNote(String id) async {
-    if (!(await networkInfo.isConnected)) {
-      return const Left(
-        ConnectionFailure(
-          'Se requiere conexión a internet para confirmar notas de crédito',
-        ),
-      );
+    // Sin conexión (o nota aún no subida): se confirma en el equipo y se
+    // encola; el servidor la confirma al sincronizar.
+    if (!(await networkInfo.isConnected) || _isLocalId(id)) {
+      return _localCreditNotes.confirmCreditNote(id);
     }
 
     try {
@@ -377,8 +381,15 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       // PASO 2: resetear isSynced=true para que el próximo FullSync pueda
       //         traer datos frescos del backend si hay otras actualizaciones.
       try {
-        await _applyLocalInventoryRestoreAfterOnlineConfirm(
-          items: creditNote.items,
+        if (creditNote.restoreInventory) {
+          await _applyLocalInventoryRestoreAfterOnlineConfirm(
+            invoiceId: creditNote.invoiceId,
+            items: creditNote.items,
+          );
+        }
+        await CreditNoteLocalEffects.applyInvoiceStatus(
+          IsarDatabase.instance.database,
+          creditNote.invoiceId,
         );
       } catch (e) {
         AppLogger.w(
@@ -427,6 +438,10 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
       return Right(creditNote);
     } catch (e) {
+      if (e is ConnectionException) {
+        networkInfo.markServerUnreachable();
+        return _localCreditNotes.confirmCreditNote(id);
+      }
       AppLogger.e('Error al confirmar nota de crédito: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
     }
@@ -434,12 +449,8 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
   @override
   Future<Either<Failure, CreditNote>> cancelCreditNote(String id) async {
-    if (!(await networkInfo.isConnected)) {
-      return const Left(
-        ConnectionFailure(
-          'Se requiere conexión a internet para cancelar notas de crédito',
-        ),
-      );
+    if (!(await networkInfo.isConnected) || _isLocalId(id)) {
+      return _localCreditNotes.cancelCreditNote(id);
     }
 
     try {
@@ -448,6 +459,10 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       AppLogger.i('Nota de crédito cancelada exitosamente', tag: 'CREDIT_NOTE');
       return Right(creditNote);
     } catch (e) {
+      if (e is ConnectionException) {
+        networkInfo.markServerUnreachable();
+        return _localCreditNotes.cancelCreditNote(id);
+      }
       AppLogger.e('Error al cancelar nota de crédito: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
     }
@@ -733,122 +748,14 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   // ==================== OFFLINE OPERATIONS ====================
 
   /// Create credit note offline (used as fallback when server fails or no connection)
+  /// Una sola forma de crear la nota sin conexión: la del repositorio
+  /// offline (encola, devuelve inventario con presentación y aplica la nota
+  /// en el equipo). Antes había otra copia aquí con id `cn_offline_` que la
+  /// sincronización no reconocía y la nota quedaba duplicada.
   Future<Either<Failure, CreditNote>> _createCreditNoteOffline(
     CreateCreditNoteParams params,
-  ) async {
-    AppLogger.d('CreditNoteRepository: Creating credit note offline');
-    try {
-      final now = DateTime.now();
-      final tempId = 'cn_offline_${now.millisecondsSinceEpoch}_${params.invoiceId.hashCode}';
-
-      // Calculate totals from items
-      double subtotal = 0;
-      double taxAmount = 0;
-      final taxPercentage = params.taxPercentage ?? 0;
-
-      final List<CreditNoteItem> creditNoteItems = params.items.map((item) {
-        final itemSubtotal = (item.quantity * item.unitPrice) - item.discountAmount;
-        final itemTaxAmount = itemSubtotal * (taxPercentage / 100);
-
-        subtotal += itemSubtotal;
-        taxAmount += itemTaxAmount;
-
-        // CreditNoteItem doesn't have taxPercentage, taxAmount, total, or unitCost
-        // Tax is calculated at credit note level, not item level
-        return CreditNoteItem(
-          id: '',
-          productId: item.productId,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discountPercentage: item.discountPercentage,
-          discountAmount: item.discountAmount,
-          subtotal: itemSubtotal,
-          unit: item.unit,
-          notes: item.notes,
-          creditNoteId: tempId,  // Required field
-          invoiceItemId: item.invoiceItemId,
-          createdAt: now,  // Required field
-          updatedAt: now,  // Required field
-        );
-      }).toList();
-
-      final total = subtotal + taxAmount;
-
-      // Create temporary credit note entity
-      final tempCreditNote = CreditNote(
-        id: tempId,
-        number: 'TEMP-CN-${now.millisecondsSinceEpoch}',
-        date: params.date ?? now,
-        type: params.type,
-        reason: params.reason,
-        reasonDescription: params.reasonDescription,
-        status: CreditNoteStatus.draft,
-        subtotal: subtotal,
-        taxPercentage: taxPercentage,
-        taxAmount: taxAmount,
-        total: total,
-        notes: params.notes,
-        terms: params.terms,
-        metadata: params.metadata,
-        restoreInventory: params.restoreInventory,
-        inventoryRestored: false,
-        invoiceId: params.invoiceId,
-        customerId: '',  // Will be filled from invoice when synced
-        createdById: '',  // Will be filled from current user when synced
-        items: creditNoteItems,
-        createdAt: now,
-        updatedAt: now,
-      );
-
-      // Cache locally
-      await localDataSource.cacheCreditNote(
-        CreditNoteModel.fromEntity(tempCreditNote),
-      );
-
-      // Add to sync queue
-      try {
-        final syncService = Get.find<SyncService>();
-        await syncService.addOperationForCurrentUser(
-          entityType: 'CreditNote',
-          entityId: tempId,
-          operationType: SyncOperationType.create,
-          data: {
-            'invoiceId': params.invoiceId,
-            'type': params.type.value,
-            'reason': params.reason.value,
-            'reasonDescription': params.reasonDescription,
-            'date': params.date?.toIso8601String(),
-            'notes': params.notes,
-            'terms': params.terms,
-            'restoreInventory': params.restoreInventory,
-            'items': params.items.map((item) => {
-              'productId': item.productId,
-              'invoiceItemId': item.invoiceItemId,
-              'description': item.description,
-              'quantity': item.quantity,
-              'unitPrice': item.unitPrice,
-              'discountPercentage': item.discountPercentage,
-              'discountAmount': item.discountAmount,
-              'unit': item.unit,
-              'notes': item.notes,
-              'unitCost': item.unitCost,
-            }).toList(),
-          },
-          priority: 1,
-        );
-        AppLogger.d('CreditNoteRepository: Operation added to sync queue');
-      } catch (e) {
-        AppLogger.w('Error adding to sync queue: $e');
-      }
-
-      AppLogger.i('Credit note created offline successfully', tag: 'CREDIT_NOTE');
-      return Right(tempCreditNote);
-    } catch (e) {
-      AppLogger.e('Error creating credit note offline: $e', tag: 'CREDIT_NOTE');
-      return Left(CacheFailure('Error al crear nota de crédito offline: $e'));
-    }
-  }
+  ) =>
+      _localCreditNotes.createCreditNote(params);
 
   /// Update credit note offline (used as fallback when server fails or no connection)
   Future<Either<Failure, CreditNote>> _updateCreditNoteOffline(
@@ -973,64 +880,36 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   ///
   /// NO marca productos como `isSynced=false` — el backend ya tiene la verdad.
   /// Si falla, NO afecta la confirmación remota (que ya completó).
+  /// El servidor ya devolvió el inventario al confirmar: el mismo efecto en
+  /// el equipo para que se vea al instante (unidades base: cantidad ×
+  /// presentación). Sin marcar productos: el servidor ya tiene la verdad.
   Future<void> _applyLocalInventoryRestoreAfterOnlineConfirm({
-    required List<dynamic> items,
+    required String invoiceId,
+    required List<CreditNoteItem> items,
   }) async {
     final isar = IsarDatabase.instance.database;
-    final stockRestorations = <String, double>{};
-
-    for (final item in items) {
-      final productId = item.productId as String?;
-      if (productId == null || productId.isEmpty) continue;
-      final qty = (item.quantity as num).toDouble();
-      if (qty <= 0) continue;
-
-      // Restaurar a batches (LIFO inverso: más reciente primero)
-      final batches = await isar.isarInventoryBatchs
-          .filter()
-          .deletedAtIsNull()
-          .and()
-          .productIdEqualTo(productId)
-          .findAll();
-      batches.sort((a, b) => b.entryDate.compareTo(a.entryDate));
-
-      int remaining = qty.toInt();
-      final updatedBatches = <IsarInventoryBatch>[];
-      for (final batch in batches) {
-        if (remaining <= 0) break;
-        final headroom = batch.originalQuantity - batch.currentQuantity;
-        if (headroom <= 0) continue;
-        final toRestore = remaining > headroom ? headroom : remaining;
-        batch.addQuantity(toRestore, modifiedBy: 'online_credit_confirm');
-        updatedBatches.add(batch);
-        remaining -= toRestore;
-      }
-      if (updatedBatches.isNotEmpty) {
-        await isar.writeTxn(() async {
-          await isar.isarInventoryBatchs.putAll(updatedBatches);
-        });
-      }
-
-      stockRestorations[productId] = (stockRestorations[productId] ?? 0) + qty;
-    }
-
-    if (stockRestorations.isNotEmpty) {
-      final productsToUpdate = <IsarProduct>[];
-      for (final entry in stockRestorations.entries) {
-        final p = await isar.isarProducts
-            .filter()
-            .serverIdEqualTo(entry.key)
-            .findFirst();
-        if (p == null) continue;
-        p.stock = (p.stock + entry.value).toDouble();
-        // NO p.markAsUnsynced() — backend ya tiene la verdad.
-        productsToUpdate.add(p);
-      }
-      if (productsToUpdate.isNotEmpty) {
-        await isar.writeTxn(() async {
-          await isar.isarProducts.putAll(productsToUpdate);
-        });
-      }
-    }
+    final units = await CreditNoteLocalEffects.baseUnitsByProduct(
+      isar,
+      invoiceId,
+      [
+        for (final item in items)
+          CreditNoteLine(
+            productId: item.productId,
+            invoiceItemId: item.invoiceItemId,
+            quantity: item.quantity,
+          ),
+      ],
+    );
+    await CreditNoteLocalEffects.restoreInventory(
+      isar,
+      units,
+      markUnsynced: false,
+      modifiedBy: 'online_credit_confirm',
+    );
   }
+
+  /// Nota creada sin conexión que aún no tiene id del servidor.
+  bool _isLocalId(String id) =>
+      id.startsWith('creditnote_offline_') || id.startsWith('cn_offline_');
+
 }

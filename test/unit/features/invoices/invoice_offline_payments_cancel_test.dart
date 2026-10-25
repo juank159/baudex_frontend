@@ -10,6 +10,9 @@ import 'package:baudex_desktop/features/bank_accounts/data/models/isar/isar_bank
 import 'package:baudex_desktop/features/customer_credits/data/models/isar/isar_customer_credit.dart';
 import 'package:baudex_desktop/features/customers/data/models/isar/isar_customer.dart';
 import 'package:baudex_desktop/features/inventory/data/models/isar/isar_inventory_batch.dart';
+import 'package:baudex_desktop/features/inventory/data/models/isar/isar_inventory_movement.dart';
+import 'package:baudex_desktop/features/inventory/data/models/isar/isar_inventory_batch_movement.dart';
+import 'package:baudex_desktop/features/products/data/models/isar/isar_product_presentation.dart';
 import 'package:baudex_desktop/features/invoices/data/models/invoice_item_model.dart';
 import 'package:baudex_desktop/features/invoices/data/models/isar/isar_invoice.dart';
 import 'package:baudex_desktop/features/invoices/data/repositories/invoice_offline_repository_simple.dart';
@@ -175,6 +178,9 @@ void main() {
         IsarCustomerCreditSchema,
         IsarProductSchema,
         IsarInventoryBatchSchema,
+        IsarInventoryMovementSchema,
+        IsarInventoryBatchMovementSchema,
+        IsarProductPresentationSchema,
       ],
       directory: dir.path,
     );
@@ -424,6 +430,52 @@ void main() {
       final inv = await reload('f11');
       expect(inv.paidAmount, 0);
       expect(IsarInvoice.decodePayments(inv.paymentsJson), isEmpty);
+    });
+  });
+
+  group('Confirmar borrador sin internet', () {
+    test('pasa a pendiente, descuenta cantidad × presentación y queda en cola', () async {
+      await isar.writeTxn(() async {
+        await isar.isarInvoices.put(invoice('b1',
+            customerId: 'juan',
+            status: IsarInvoiceStatus.draft,
+            items: [
+              {
+                'id': 'i1',
+                'description': 'Huevos caja x12',
+                'quantity': 1,
+                'unitPrice': 5000,
+                'subtotal': 5000,
+                'unit': 'Caja x12',
+                'invoiceId': 'b1',
+                'productId': 'huevo',
+                'presentationId': 'caja12',
+                'presentationFactor': 12,
+              },
+            ]));
+        await isar.isarProducts.put(product('huevo', 30));
+        await isar.isarInventoryBatchs
+            .put(batch('lote1', 'huevo', original: 30, current: 30));
+      });
+
+      final result = await repo.confirmInvoice('b1');
+
+      expect(result.isRight(), isTrue);
+      expect((await reload('b1')).status, IsarInvoiceStatus.pending);
+      final p = await isar.isarProducts.filter().serverIdEqualTo('huevo').findFirst();
+      expect(p!.stock, 18); // 30 − 12
+      expect(sync.ops.single['action'], 'confirm');
+    });
+
+    test('una factura que no es borrador no se confirma', () async {
+      await isar.writeTxn(() async {
+        await isar.isarInvoices.put(invoice('b2', customerId: 'juan'));
+      });
+
+      final result = await repo.confirmInvoice('b2');
+
+      expect(result.isLeft(), isTrue);
+      expect(sync.ops, isEmpty);
     });
   });
 

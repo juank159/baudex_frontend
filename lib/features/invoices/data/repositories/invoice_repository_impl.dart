@@ -37,6 +37,7 @@ import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../../../customer_credits/domain/entities/customer_credit.dart' show CreditStatus;
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/data/local/isar_rekey.dart';
+import '../../../../app/data/local/enums/isar_enums.dart';
 
 class InvoiceRepositoryImpl implements InvoiceRepository {
   final InvoiceRemoteDataSource remoteDataSource;
@@ -896,7 +897,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<Either<Failure, Invoice>> confirmInvoice(String id) async {
-    if (!(await networkInfo.isConnected)) {
+    if (!(await networkInfo.isConnected) ||
+        id.startsWith('inv_') ||
+        id.startsWith('invoice_offline_')) {
+      if (offlineRepository != null) {
+        return offlineRepository!.confirmInvoice(id);
+      }
       return const Left(
         ConnectionFailure(
           'Se requiere conexión a internet para confirmar facturas',
@@ -913,8 +919,27 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       } catch (e) {
       }
 
+      // El servidor descontó el inventario al confirmar: el mismo efecto en
+      // el equipo para verlo al instante (si el descuento automático está
+      // activo, igual que en el servidor).
+      try {
+        var autoDeduct = true;
+        try {
+          autoDeduct = Get.find<UserPreferencesController>().autoDeductInventory;
+        } catch (_) {}
+        if (autoDeduct) {
+          await _applyLocalInventoryDeductionAfterOnlineSale(
+            items: confirmedInvoice.items,
+          );
+        }
+      } catch (_) {}
+
       return Right(confirmedInvoice);
     } catch (e) {
+      if (_isTimeoutError(e) && offlineRepository != null) {
+        networkInfo.markServerUnreachable();
+        return offlineRepository!.confirmInvoice(id);
+      }
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -1165,6 +1190,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
         return const Right(null);
       } on ServerException catch (e) {
+        // Rechazo del servidor (p. ej. no es borrador ni anulada): se
+        // muestra. Antes se borraba igual en el equipo y quedaba fallando.
+        final code = e.statusCode ?? 0;
+        if (code >= 400 && code < 500) {
+          return Left(ServerFailure(e.message, code: code));
+        }
         return _deleteInvoiceOffline(id);
       } catch (e) {
         return _deleteInvoiceOffline(id);
@@ -1184,6 +1215,31 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
             .serverIdEqualTo(id)
             .findFirst();
 
+        // Misma regla que el servidor: solo borradores o anuladas.
+        if (isarInvoice != null &&
+            isarInvoice.status != IsarInvoiceStatus.draft &&
+            isarInvoice.status != IsarInvoiceStatus.cancelled) {
+          return const Left(ServerFailure(
+            'Solo se pueden eliminar facturas en borrador o anuladas. Para una venta, anúlela o haga una nota crédito.',
+          ));
+        }
+
+        // Primero a la cola: si no se puede, no se borra nada.
+        try {
+          final syncService = Get.find<SyncService>();
+          await syncService.addOperationForCurrentUser(
+            entityType: 'Invoice',
+            entityId: id,
+            operationType: SyncOperationType.delete,
+            data: {'id': id},
+            priority: 1,
+          );
+        } catch (e) {
+          return Left(CacheFailure(
+            'No se pudo guardar la eliminación para sincronizar. No se eliminó: $e',
+          ));
+        }
+
         if (isarInvoice != null) {
           isarInvoice.softDelete();
           await isar.writeTxn(() async {
@@ -1194,19 +1250,6 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         // Remover del cache (no crítico)
         try {
           await localDataSource.removeCachedInvoice(id);
-        } catch (e) {
-        }
-
-        // Agregar a la cola de sincronización
-        try {
-          final syncService = Get.find<SyncService>();
-          await syncService.addOperationForCurrentUser(
-            entityType: 'Invoice',
-            entityId: id,
-            operationType: SyncOperationType.delete,
-            data: {'id': id},
-            priority: 1,
-          );
         } catch (e) {
         }
 

@@ -6513,14 +6513,27 @@ class SyncService extends GetxService {
           final invoiceAction = data['action'] as String?;
 
           if (invoiceAction == 'addMultiplePayments' ||
-              invoiceAction == 'cancel') {
+              invoiceAction == 'cancel' ||
+              invoiceAction == 'confirm') {
             // Pagos con varios métodos / anulación hechos sin conexión.
             // Ambos son seguros de reintentar: cada pago lleva su clave de
             // idempotencia y anular una factura ya anulada no repite nada.
             final invoiceId = await _resolveSyncedInvoiceId(operation.entityId);
 
-            final InvoiceModel serverInvoice;
-            if (invoiceAction == 'cancel') {
+            InvoiceModel serverInvoice;
+            if (invoiceAction == 'confirm') {
+              try {
+                serverInvoice = await remoteDataSource.confirmInvoice(invoiceId);
+              } on ServerException catch (e) {
+                // Ya no era borrador (otro equipo la confirmó): quedó hecho.
+                if (e.statusCode == 400 &&
+                    e.message.toLowerCase().contains('borrador')) {
+                  serverInvoice = await remoteDataSource.getInvoiceById(invoiceId);
+                } else {
+                  rethrow;
+                }
+              }
+            } else if (invoiceAction == 'cancel') {
               try {
                 serverInvoice = await remoteDataSource.cancelInvoice(invoiceId);
               } on ServerException catch (e) {
@@ -6761,7 +6774,13 @@ class SyncService extends GetxService {
             'Eliminando factura en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
-          await remoteDataSource.deleteInvoice(operation.entityId);
+          final deleteId = await _resolveSyncedInvoiceId(operation.entityId);
+          try {
+            await remoteDataSource.deleteInvoice(deleteId);
+          } on ServerException catch (e) {
+            // Ya no existe en el servidor: no hay nada que eliminar.
+            if (e.statusCode != 404) rethrow;
+          }
           AppLogger.i('Factura eliminada en servidor', tag: 'SYNC');
           break;
       }
@@ -8009,7 +8028,8 @@ class SyncService extends GetxService {
           // ✅ FASE 1 - PROBLEMA 3: Leer datos frescos de ISAR para notas de crédito offline
           Map<String, dynamic> finalData = data;
 
-          if (operation.entityId.startsWith('creditnote_offline_')) {
+          if (operation.entityId.startsWith('creditnote_offline_') ||
+              operation.entityId.startsWith('cn_offline_')) {
             AppLogger.d(
               'Nota de crédito offline detectada - leyendo datos actuales de ISAR',
               tag: 'SYNC',
@@ -8041,6 +8061,7 @@ class SyncService extends GetxService {
                             .map(
                               (item) => {
                                 'invoiceItemId': item.invoiceItemId,
+                                'productId': item.productId,
                                 'quantity': item.quantity,
                                 'unitPrice': item.unitPrice,
                                 'description': item.description,
@@ -8063,12 +8084,57 @@ class SyncService extends GetxService {
             }
           }
 
+          // Nota sobre una venta hecha sin conexión: la factura y sus líneas
+          // tienen ids del equipo. Se pasan a los del servidor (si la venta
+          // aún no sube, se reintenta después).
+          final creditInvoiceId = await _resolveSyncedInvoiceId(
+            finalData['invoiceId'] as String,
+          );
+          finalData = {...finalData, 'invoiceId': creditInvoiceId};
+          final rawItems = (finalData['items'] as List).cast<Map>();
+          final uuidRe = RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+          );
+          final needsItemIds = rawItems.any((i) =>
+              i['invoiceItemId'] != null &&
+              !uuidRe.hasMatch(i['invoiceItemId'].toString()));
+          final Map<String, String> itemIdMap = {};
+          if (needsItemIds) {
+            final InvoiceRemoteDataSource invoiceRemote =
+                Get.isRegistered<InvoiceRemoteDataSource>()
+                    ? Get.find<InvoiceRemoteDataSource>()
+                    : InvoiceRemoteDataSourceImpl(dioClient: Get.find<DioClient>());
+            final serverInvoice = await invoiceRemote.getInvoiceById(creditInvoiceId);
+            final localInvoice = await IsarDatabase.instance.database.isarInvoices
+                .filter()
+                .serverIdEqualTo(creditInvoiceId)
+                .findFirst();
+            final localItems = localInvoice?.toEntity().items ?? const [];
+            final used = <String>{};
+            for (var i = 0; i < localItems.length; i++) {
+              final local = localItems[i];
+              // Misma posición y producto; si no, el primer libre del producto.
+              var match = i < serverInvoice.items.length &&
+                      serverInvoice.items[i].productId == local.productId &&
+                      !used.contains(serverInvoice.items[i].id)
+                  ? serverInvoice.items[i]
+                  : null;
+              match ??= serverInvoice.items
+                  .where((s) => s.productId == local.productId && !used.contains(s.id))
+                  .firstOrNull;
+              if (match != null) {
+                used.add(match.id);
+                itemIdMap[local.id] = match.id;
+              }
+            }
+          }
+
           // Parsear items
           final items =
-              (finalData['items'] as List)
+              rawItems
                   .map(
                     (item) => CreateCreditNoteItemRequestModel(
-                      invoiceItemId: item['invoiceItemId'],
+                      invoiceItemId: itemIdMap[item['invoiceItemId']] ?? item['invoiceItemId'],
                       quantity: (item['quantity'] as num).toDouble(),
                       unitPrice: (item['unitPrice'] as num).toDouble(),
                       description: item['description'] ?? '',
@@ -8093,6 +8159,11 @@ class SyncService extends GetxService {
             'Nota de crédito creada en servidor con ID: ${createdCreditNote.id}',
             tag: 'SYNC',
           );
+          // Confirmar/anular hechos sin conexión sobre esta nota usan su id
+          // temporal: con este mapeo encuentran el real.
+          if (operation.entityId != createdCreditNote.id) {
+            await registerTempIdMapping(operation.entityId, createdCreditNote.id);
+          }
 
           // ✅ AUTO-CONFIRMAR si restoreInventory=true (mismo comportamiento
           // que el repository online — el backend crea en DRAFT y solo
@@ -8115,7 +8186,8 @@ class SyncService extends GetxService {
           }
 
           // ✅ Actualizar ISAR con el ID real del servidor
-          if (operation.entityId.startsWith('creditnote_offline_')) {
+          if (operation.entityId.startsWith('creditnote_offline_') ||
+              operation.entityId.startsWith('cn_offline_')) {
             try {
               final isar = IsarDatabase.instance.database;
               final isarCN = await isar.isarCreditNotes
@@ -8159,6 +8231,44 @@ class SyncService extends GetxService {
           break;
 
         case SyncOperationType.update:
+          // Id real (la nota pudo crearse sin conexión).
+          String creditNoteId = operation.entityId;
+          if (!RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-').hasMatch(creditNoteId)) {
+            final mapped = await lookupTempIdMapping(creditNoteId);
+            if (mapped == null || mapped.isEmpty) {
+              throw Exception(
+                'Nota de crédito $creditNoteId aún no sincronizada - reintentando después',
+              );
+            }
+            creditNoteId = mapped;
+          }
+
+          final creditNoteAction = data['action'] as String?;
+          if (creditNoteAction == 'confirm' || creditNoteAction == 'cancel') {
+            try {
+              if (creditNoteAction == 'confirm') {
+                await remoteDataSource.confirmCreditNote(creditNoteId);
+              } else {
+                await remoteDataSource.cancelCreditNote(creditNoteId);
+              }
+            } on ServerException catch (e) {
+              // Ya no está en borrador (p. ej. el servidor la confirmó al
+              // crearla): no hay nada más que hacer.
+              final msg = e.message.toLowerCase();
+              if (e.statusCode == 400 &&
+                  (msg.contains('draft') || msg.contains('borrador'))) {
+                AppLogger.i(
+                  'Nota $creditNoteId ya no estaba en borrador — $creditNoteAction ya aplicado',
+                  tag: 'SYNC',
+                );
+                break;
+              }
+              rethrow;
+            }
+            AppLogger.i('Nota de crédito $creditNoteId: $creditNoteAction sincronizado', tag: 'SYNC');
+            break;
+          }
+
           AppLogger.d(
             'Actualizando nota de crédito en servidor: ${operation.entityId}',
             tag: 'SYNC',
@@ -8171,7 +8281,7 @@ class SyncService extends GetxService {
             terms: data['terms'],
           );
           await remoteDataSource.updateCreditNote(
-            operation.entityId,
+            creditNoteId,
             updateRequest,
           );
           AppLogger.i('Nota de crédito actualizada en servidor', tag: 'SYNC');

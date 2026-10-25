@@ -368,21 +368,26 @@ class IsarCreditNote {
     try {
       final List<dynamic> itemsList = jsonDecode(itemsJson);
       return itemsList.map((itemData) {
+        // Tolerante a campos faltantes: antes, si faltaba uno solo, se
+        // perdían TODAS las líneas y la nota no devolvía inventario.
+        double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+        DateTime d(dynamic v) =>
+            (v is String ? DateTime.tryParse(v) : null) ?? DateTime.now();
         return CreditNoteItem(
-          id: itemData['id'] as String,
-          description: itemData['description'] as String,
-          quantity: (itemData['quantity'] as num).toDouble(),
-          unitPrice: (itemData['unitPrice'] as num).toDouble(),
-          discountPercentage: (itemData['discountPercentage'] as num).toDouble(),
-          discountAmount: (itemData['discountAmount'] as num).toDouble(),
-          subtotal: (itemData['subtotal'] as num).toDouble(),
+          id: itemData['id']?.toString() ?? '',
+          description: itemData['description']?.toString() ?? '',
+          quantity: n(itemData['quantity']),
+          unitPrice: n(itemData['unitPrice']),
+          discountPercentage: n(itemData['discountPercentage']),
+          discountAmount: n(itemData['discountAmount']),
+          subtotal: n(itemData['subtotal']),
           unit: itemData['unit'] as String?,
           notes: itemData['notes'] as String?,
-          creditNoteId: itemData['creditNoteId'] as String,
+          creditNoteId: itemData['creditNoteId']?.toString() ?? '',
           productId: itemData['productId'] as String?,
           invoiceItemId: itemData['invoiceItemId'] as String?,
-          createdAt: DateTime.parse(itemData['createdAt'] as String),
-          updatedAt: DateTime.parse(itemData['updatedAt'] as String),
+          createdAt: d(itemData['createdAt']),
+          updatedAt: d(itemData['updatedAt']),
         );
       }).toList();
     } catch (e) {
