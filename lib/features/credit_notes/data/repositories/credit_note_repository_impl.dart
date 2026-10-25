@@ -24,6 +24,7 @@ import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../../../app/data/local/local_first.dart';
 import 'credit_note_offline_repository.dart';
 import '../credit_note_local_effects.dart';
+import '../credit_note_pdf_builder.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -497,10 +498,8 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
   @override
   Future<Either<Failure, List<int>>> downloadCreditNotePdf(String id) async {
-    if (!(await networkInfo.isConnected)) {
-      return const Left(
-        ConnectionFailure('Se requiere conexión a internet para descargar PDF'),
-      );
+    if (!(await networkInfo.isConnected) || _isLocalId(id)) {
+      return _buildLocalPdf(id);
     }
 
     try {
@@ -509,9 +508,25 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       AppLogger.i('PDF descargado: ${pdfBytes.length} bytes', tag: 'CREDIT_NOTE');
       return Right(pdfBytes);
     } catch (e) {
+      if (e is ConnectionException) return _buildLocalPdf(id);
       AppLogger.e('Error al descargar PDF: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
     }
+  }
+
+  /// PDF armado en el equipo con la nota guardada (sin conexión).
+  Future<Either<Failure, List<int>>> _buildLocalPdf(String id) async {
+    final local = await _localCreditNotes.getCreditNoteById(id);
+    return local.fold(
+      (failure) => Left(failure),
+      (note) async {
+        try {
+          return Right(await CreditNotePdfBuilder.build(note));
+        } catch (e) {
+          return Left(CacheFailure('No se pudo generar el PDF: $e'));
+        }
+      },
+    );
   }
 
   @override

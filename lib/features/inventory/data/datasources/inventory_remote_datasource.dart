@@ -762,6 +762,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
         // Mapear los parámetros al formato esperado por /inventory/adjustments/relative
         final adjustmentData = {
+          if (request['idempotencyKey'] != null)
+            'idempotencyKey': request['idempotencyKey'],
           'productId': request['productId'],
           'adjustmentQuantity': request['adjustmentQuantity'],
           'warehouseId': request['warehouseId'],
@@ -813,11 +815,13 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       for (int i = 0; i < items.length; i++) {
         final item = items[i];
 
+        final keys = request['idempotencyKeys'] as List?;
         final transferRequest = {
           'productId': item['productId'],
           'quantity': item['quantity'],
           'fromWarehouseId': request['fromWarehouseId'],
           'toWarehouseId': request['toWarehouseId'],
+          if (keys != null && i < keys.length) 'idempotencyKey': keys[i],
           'notes':
               items.length > 1
                   ? 'Transfer between warehouses (${i + 1}/${items.length})'

@@ -1,3 +1,4 @@
+import 'dart:convert';
 // lib/features/inventory/data/repositories/inventory_repository_impl.dart
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
@@ -1060,12 +1061,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryMovement>> createStockAdjustment(
     Map<String, dynamic> request,
   ) async {
+    // Una clave para este ajuste, con o sin internet: el servidor nunca lo
+    // aplica dos veces aunque la respuesta se pierda y se reintente.
+    final keyed = {
+      ...request,
+      'idempotencyKey': request['idempotencyKey'] ??
+          'adjustment_offline_${DateTime.now().microsecondsSinceEpoch}_${request['productId'].hashCode}',
+    };
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para crear ajustes'));
+      return _localInventory.createStockAdjustment(keyed);
     }
 
     try {
-      final movement = await remoteDataSource.createStockAdjustment(request);
+      final movement = await remoteDataSource.createStockAdjustment(keyed);
 
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
@@ -1073,8 +1081,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       return Right(movement.toEntity());
     } catch (e) {
+      if (_isConnectionProblem(e)) {
+        networkInfo.markServerUnreachable();
+        return _localInventory.createStockAdjustment(keyed);
+      }
       return Left(
-        ServerFailure('Error al crear ajuste de stock: ${e.toString()}'),
+        ServerFailure('Error al crear ajuste de stock: ${_errorMessage(e)}'),
       );
     }
   }
@@ -1083,15 +1095,25 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryMovement>>> createBulkStockAdjustments(
     List<CreateStockAdjustmentParams> adjustmentsList,
   ) async {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final keys = [
+      for (var i = 0; i < adjustmentsList.length; i++)
+        'adjustment_offline_${stamp}_${i}_${adjustmentsList[i].productId.hashCode}',
+    ];
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para crear ajustes'));
+      return _localInventory.createBulkStockAdjustments(
+        adjustmentsList,
+        idempotencyKeys: keys,
+      );
     }
 
     try {
+      var index = 0;
       final requestsList =
           adjustmentsList
               .map(
                 (params) => {
+                  'idempotencyKey': keys[index++],
                   'productId': params.productId,
                   'adjustmentQuantity': params.adjustmentQuantity,
                   'reason': params.reason.name,
@@ -1113,8 +1135,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       return Right(movements.map((model) => model.toEntity()).toList());
     } catch (e) {
+      if (_isConnectionProblem(e)) {
+        networkInfo.markServerUnreachable();
+        return _localInventory.createBulkStockAdjustments(
+          adjustmentsList,
+          idempotencyKeys: keys,
+        );
+      }
       return Left(
-        ServerFailure('Error al crear ajustes masivos: ${e.toString()}'),
+        ServerFailure('Error al crear ajustes masivos: ${_errorMessage(e)}'),
       );
     }
   }
@@ -1123,14 +1152,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryMovement>> createTransfer(
     CreateInventoryTransferParams params,
   ) async {
+    // Una clave por producto, la misma con o sin internet.
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final keys = [
+      for (var i = 0; i < params.items.length; i++)
+        'transfer_offline_${stamp}_${i}_${params.items[i].productId.hashCode}',
+    ];
     if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para crear transferencias'),
-      );
+      return _localInventory.createTransfer(params, idempotencyKeys: keys);
     }
 
     try {
       final request = {
+        'idempotencyKeys': keys,
         'items':
             params.items
                 .map(
@@ -1155,36 +1189,38 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       return Right(movement.toEntity());
     } catch (e) {
+      // Se cayó la conexión a mitad: lo que ya se aplicó no se repite
+      // (misma clave), lo demás queda en cola.
+      if (_isConnectionProblem(e)) {
+        networkInfo.markServerUnreachable();
+        return _localInventory.createTransfer(params, idempotencyKeys: keys);
+      }
       return Left(
-        ServerFailure('Error al crear transferencia: ${e.toString()}'),
+        ServerFailure('Error al crear transferencia: ${_errorMessage(e)}'),
       );
     }
   }
+
+  bool _isConnectionProblem(Object e) {
+    if (e is ConnectionException) return true;
+    final msg = e.toString().toLowerCase();
+    return msg.contains('timeout') ||
+        msg.contains('socketexception') ||
+        msg.contains('connection') ||
+        msg.contains('conexión') ||
+        msg.contains('tiempo de espera');
+  }
+
+  String _errorMessage(Object e) =>
+      e is ServerException ? e.message : e.toString();
 
   @override
   Future<Either<Failure, InventoryMovement>> confirmTransfer(
     String transferId,
-  ) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para confirmar transferencias'),
-      );
-    }
-
-    try {
-      final movement = await remoteDataSource.confirmTransfer(transferId);
-
-      // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
-      await localDataSource.clearBalancesCache();
-
-      return Right(movement.toEntity());
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al confirmar transferencia: ${e.toString()}'),
-      );
-    }
-  }
+  ) =>
+      // El servidor aplica los traslados al crearlos (no tiene endpoint de
+      // confirmación): no hay nada que confirmar, con o sin internet.
+      _localInventory.confirmTransfer(transferId);
 
   @override
   Future<Either<Failure, Map<String, double>>> getInventoryValuation({
@@ -1619,7 +1655,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<Warehouse>>> _fetchWarehouses() async {
     try {
       if (await networkInfo.isConnected) {
-        final warehouseModels = await remoteDataSource.getWarehouses();
+        final warehouseModels = await _withPendingWarehouseChanges(
+          await remoteDataSource.getWarehouses(),
+        );
         final warehouses =
             warehouseModels.map((model) => model.toEntity()).toList();
 
@@ -1647,19 +1685,180 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
   }
 
+  // ==================== ALMACENES (con o sin internet) ====================
+  //
+  // Sin conexión se guardan en el equipo (id temporal `warehouse_offline_`)
+  // y se encolan; el servidor los aplica al sincronizar. Mismas reglas que el
+  // servidor: código único, no eliminar el principal ni uno con unidades.
+
+  static const String _tempWarehousePrefix = 'warehouse_offline_';
+
+  /// La lista del servidor + lo hecho sin conexión que aún no ha subido
+  /// (si no, al refrescar con internet los almacenes nuevos desaparecían).
+  Future<List<WarehouseModel>> _withPendingWarehouseChanges(
+    List<WarehouseModel> server,
+  ) async {
+    try {
+      final db = IsarDatabase.instance;
+      final ops = [
+        ...await db.getPendingSyncOperations(),
+        ...await db.getFailedSyncOperations(),
+      ].where((op) => op.entityType == 'Warehouse').toList();
+      if (ops.isEmpty) return server;
+      final cached = await localDataSource.getCachedWarehouses();
+      final result = [...server];
+      for (final op in ops) {
+        final data = jsonDecode(op.payload) as Map<String, dynamic>;
+        if (op.operationType == SyncOperationType.create) {
+          final local = cached.where((w) => w.id == op.entityId).firstOrNull;
+          if (local != null && !result.any((w) => w.id == local.id)) {
+            result.add(local);
+          }
+        } else if (op.operationType == SyncOperationType.update) {
+          final i = result.indexWhere((w) => w.id == op.entityId);
+          if (i >= 0) {
+            final w = result[i];
+            result[i] = WarehouseModel(
+              id: w.id,
+              name: data['name'] as String? ?? w.name,
+              code: data['code'] as String? ?? w.code,
+              description: data['description'] as String? ?? w.description,
+              address: data['address'] as String? ?? w.address,
+              isActive: data['isActive'] as bool? ?? w.isActive,
+              isMainWarehouse: w.isMainWarehouse,
+              createdAt: w.createdAt,
+              updatedAt: w.updatedAt,
+            );
+          }
+        } else if (op.operationType == SyncOperationType.delete) {
+          result.removeWhere((w) => w.id == op.entityId);
+        }
+      }
+      return result;
+    } catch (_) {
+      return server;
+    }
+  }
+
+  Future<String?> _duplicateWarehouseCode(String code, {String? exceptId}) async {
+    final cached = await localDataSource.getCachedWarehouses();
+    final clash = cached.where((w) =>
+        w.id != exceptId && w.code.trim().toLowerCase() == code.trim().toLowerCase());
+    return clash.isEmpty ? null : 'Ya existe un almacén con este código';
+  }
+
+  Future<Either<Failure, T>> _enqueueWarehouse<T>(
+    String id,
+    SyncOperationType type,
+    Map<String, dynamic> data,
+    Future<T> Function() applyLocally,
+  ) async {
+    try {
+      await Get.find<SyncService>().addOperationForCurrentUser(
+        entityType: 'Warehouse',
+        entityId: id,
+        operationType: type,
+        data: data,
+        priority: 1,
+      );
+    } catch (e) {
+      return Left(CacheFailure(
+        'No se pudo guardar el cambio del almacén para sincronizar. No se aplicó: $e',
+      ));
+    }
+    return Right(await applyLocally());
+  }
+
+  Future<Either<Failure, Warehouse>> _createWarehouseOffline(
+    CreateWarehouseParams params,
+  ) async {
+    final duplicate = await _duplicateWarehouseCode(params.code);
+    if (duplicate != null) return Left(ServerFailure(duplicate));
+    final now = DateTime.now();
+    final model = WarehouseModel(
+      id: '$_tempWarehousePrefix${now.microsecondsSinceEpoch}',
+      name: params.name,
+      code: params.code,
+      description: params.description,
+      address: params.address,
+      isActive: params.isActive,
+      createdAt: now,
+      updatedAt: now,
+    );
+    return _enqueueWarehouse(model.id, SyncOperationType.create, params.toJson(), () async {
+      final cached = await localDataSource.getCachedWarehouses();
+      await localDataSource.cacheWarehouses([...cached, model]);
+      return model.toEntity();
+    });
+  }
+
+  Future<Either<Failure, Warehouse>> _updateWarehouseOffline(
+    String id,
+    UpdateWarehouseParams params,
+  ) async {
+    if (params.code != null) {
+      final duplicate = await _duplicateWarehouseCode(params.code!, exceptId: id);
+      if (duplicate != null) return Left(ServerFailure(duplicate));
+    }
+    final cached = await localDataSource.getCachedWarehouses();
+    final current = cached.where((w) => w.id == id).firstOrNull;
+    if (current == null) return Left(CacheFailure('Almacén no encontrado en el equipo'));
+    final updated = WarehouseModel(
+      id: current.id,
+      name: params.name ?? current.name,
+      code: params.code ?? current.code,
+      description: params.description ?? current.description,
+      address: params.address ?? current.address,
+      isActive: params.isActive ?? current.isActive,
+      isMainWarehouse: current.isMainWarehouse,
+      createdAt: current.createdAt,
+      updatedAt: DateTime.now(),
+    );
+    return _enqueueWarehouse(id, SyncOperationType.update, params.toJson(), () async {
+      await localDataSource.cacheWarehouses(
+        [for (final w in cached) w.id == id ? updated : w],
+      );
+      return updated.toEntity();
+    });
+  }
+
+  Future<Either<Failure, bool>> _deleteWarehouseOffline(String id) async {
+    final cached = await localDataSource.getCachedWarehouses();
+    final current = cached.where((w) => w.id == id).firstOrNull;
+    if (current?.isMainWarehouse == true) {
+      return Left(ServerFailure('No se puede eliminar el almacén principal'));
+    }
+    final units = (await IsarDatabase.instance.database.isarInventoryBatchs
+            .filter()
+            .deletedAtIsNull()
+            .and()
+            .warehouseIdEqualTo(id)
+            .findAll())
+        .fold<int>(0, (sum, b) => sum + b.currentQuantity);
+    if (units > 0) {
+      return Left(ServerFailure(
+        'El almacén todavía tiene $units unidades. Trasládelas a otro almacén antes de eliminarlo.',
+      ));
+    }
+    return _enqueueWarehouse(id, SyncOperationType.delete, {'id': id}, () async {
+      await localDataSource.cacheWarehouses(cached.where((w) => w.id != id).toList());
+      return true;
+    });
+  }
+
   @override
   Future<Either<Failure, Warehouse>> createWarehouse(
     CreateWarehouseParams params,
   ) async {
+    if (!await networkInfo.isConnected) return _createWarehouseOffline(params);
     try {
-      if (await networkInfo.isConnected) {
-        final warehouseModel = await remoteDataSource.createWarehouse(params);
-        return Right(warehouseModel.toEntity());
-      } else {
-        return Left(NetworkFailure('Se requiere conexión para crear almacén'));
-      }
+      final warehouseModel = await remoteDataSource.createWarehouse(params);
+      final cached = await localDataSource.getCachedWarehouses();
+      await localDataSource.cacheWarehouses([...cached, warehouseModel]);
+      return Right(warehouseModel.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al crear almacén: ${e.toString()}'));
+      if (_isConnectionProblem(e)) return _createWarehouseOffline(params);
+      return Left(ServerFailure('Error al crear almacén: ${_errorMessage(e)}'));
     }
   }
 
@@ -1668,38 +1867,35 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String id,
     UpdateWarehouseParams params,
   ) async {
+    if (!await networkInfo.isConnected || id.startsWith(_tempWarehousePrefix)) {
+      return _updateWarehouseOffline(id, params);
+    }
     try {
-      if (await networkInfo.isConnected) {
-        final warehouseModel = await remoteDataSource.updateWarehouse(
-          id,
-          params,
-        );
-        return Right(warehouseModel.toEntity());
-      } else {
-        return Left(
-          NetworkFailure('Se requiere conexión para actualizar almacén'),
-        );
-      }
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al actualizar almacén: ${e.toString()}'),
+      final warehouseModel = await remoteDataSource.updateWarehouse(id, params);
+      final cached = await localDataSource.getCachedWarehouses();
+      await localDataSource.cacheWarehouses(
+        [for (final w in cached) w.id == id ? warehouseModel : w],
       );
+      return Right(warehouseModel.toEntity());
+    } catch (e) {
+      if (_isConnectionProblem(e)) return _updateWarehouseOffline(id, params);
+      return Left(ServerFailure('Error al actualizar almacén: ${_errorMessage(e)}'));
     }
   }
 
   @override
   Future<Either<Failure, bool>> deleteWarehouse(String id) async {
+    if (!await networkInfo.isConnected || id.startsWith(_tempWarehousePrefix)) {
+      return _deleteWarehouseOffline(id);
+    }
     try {
-      if (await networkInfo.isConnected) {
-        final result = await remoteDataSource.deleteWarehouse(id);
-        return Right(result);
-      } else {
-        return Left(
-          NetworkFailure('Se requiere conexión para eliminar almacén'),
-        );
-      }
+      final result = await remoteDataSource.deleteWarehouse(id);
+      final cached = await localDataSource.getCachedWarehouses();
+      await localDataSource.cacheWarehouses(cached.where((w) => w.id != id).toList());
+      return Right(result);
     } catch (e) {
-      return Left(ServerFailure('Error al eliminar almacén: ${e.toString()}'));
+      if (_isConnectionProblem(e)) return _deleteWarehouseOffline(id);
+      return Left(ServerFailure('Error al eliminar almacén: ${_errorMessage(e)}'));
     }
   }
 

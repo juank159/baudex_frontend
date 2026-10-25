@@ -992,32 +992,341 @@ class InventoryOfflineRepository implements InventoryRepository {
 
   // ==================== ADJUSTMENTS ====================
 
+  /// Ajuste de inventario sin conexión, con las mismas reglas del servidor
+  /// (`POST /inventory/adjustments/relative`):
+  /// - negativo: no puede dejar el stock en negativo; descuenta lotes PEPS;
+  /// - positivo: requiere costo unitario; entra como un lote nuevo.
+  /// Se encola PRIMERO (si no se puede, no se toca nada) con una clave única
+  /// para que el servidor nunca lo aplique dos veces.
   @override
   Future<Either<Failure, InventoryMovement>> createStockAdjustment(
     Map<String, dynamic> request,
   ) async {
-    return Left(ServerFailure('Stock adjustment not implemented offline'));
+    try {
+      final productId = request['productId']?.toString() ?? '';
+      final qty = (request['adjustmentQuantity'] as num?)?.round() ?? 0;
+      final warehouseId = request['warehouseId']?.toString();
+      final unitCost = (request['unitCost'] as num?)?.toDouble() ?? 0;
+      if (productId.isEmpty) return Left(ServerFailure('Producto requerido'));
+      if (qty == 0) {
+        return Left(ServerFailure('La cantidad del ajuste no puede ser cero'));
+      }
+      if (qty > 0 && unitCost <= 0) {
+        return Left(ServerFailure(
+          'El costo unitario es obligatorio para ajustes que aumentan el inventario',
+        ));
+      }
+
+      final product = await _isar.isarProducts
+          .filter()
+          .serverIdEqualTo(productId)
+          .findFirst();
+      if (product == null) {
+        return Left(CacheFailure('Producto no encontrado en el equipo'));
+      }
+      if (qty < 0 && product.stock + qty < 0) {
+        return Left(ServerFailure(
+          'El ajuste dejaría el stock en negativo. Stock actual: '
+          '${product.stock.toStringAsFixed(0)}, ajuste: $qty',
+        ));
+      }
+
+      final now = DateTime.now();
+      // La clave puede venir del intento con internet: misma clave = el
+      // servidor no lo aplica dos veces.
+      final key = request['idempotencyKey']?.toString() ??
+          'adjustment_offline_${now.microsecondsSinceEpoch}_${productId.hashCode}';
+      try {
+        await Get.find<SyncService>().addOperationForCurrentUser(
+          entityType: 'InventoryAdjustment',
+          entityId: key,
+          operationType: SyncOperationType.create,
+          data: {...request, 'adjustmentQuantity': qty, 'idempotencyKey': key},
+        );
+      } catch (e) {
+        return Left(CacheFailure(
+          'No se pudo guardar el ajuste para sincronizar. No se aplicó: $e',
+        ));
+      }
+
+      final movement = await _applyLocalStockChange(
+        movementId: key,
+        productId: productId,
+        product: product,
+        quantity: qty,
+        unitCost: unitCost,
+        warehouseId: warehouseId,
+        type: IsarInventoryMovementType.adjustment,
+        notes: request['notes']?.toString() ?? 'Ajuste de inventario sin conexión',
+        now: now,
+      );
+      return Right(movement.toEntity());
+    } catch (e) {
+      return Left(CacheFailure('Error al crear el ajuste sin conexión: $e'));
+    }
   }
 
   @override
   Future<Either<Failure, List<InventoryMovement>>> createBulkStockAdjustments(
-    List<CreateStockAdjustmentParams> adjustmentsList,
-  ) async {
-    return Left(ServerFailure('Bulk adjustments not supported offline'));
+    List<CreateStockAdjustmentParams> adjustmentsList, {
+    List<String>? idempotencyKeys,
+  }) async {
+    final movements = <InventoryMovement>[];
+    for (var i = 0; i < adjustmentsList.length; i++) {
+      final params = adjustmentsList[i];
+      final result = await createStockAdjustment({
+        if (idempotencyKeys != null && i < idempotencyKeys.length)
+          'idempotencyKey': idempotencyKeys[i],
+        'productId': params.productId,
+        'adjustmentQuantity': params.adjustmentQuantity,
+        'reason': params.reason.name,
+        'warehouseId': params.warehouseId,
+        'notes': params.notes,
+        'movementDate': params.movementDate?.toIso8601String(),
+        'unitCost': params.unitCost ?? 0.0,
+      });
+      final failure = result.fold((f) => f, (m) {
+        movements.add(m);
+        return null;
+      });
+      if (failure != null) {
+        // Los anteriores ya quedaron guardados y en cola: se informa cuál falló.
+        return Left(ServerFailure(
+          '${movements.length} ajuste(s) aplicados; falló el producto '
+          '${params.productId}: ${failure.message}',
+        ));
+      }
+    }
+    return Right(movements);
+  }
+
+  /// Aplica en el equipo un cambio de stock (ajuste o una pata de traslado):
+  /// negativo descuenta lotes del más antiguo al más nuevo; positivo crea un
+  /// lote temporal (se reemplaza por el del servidor al sincronizar).
+  Future<IsarInventoryMovement> _applyLocalStockChange({
+    required String movementId,
+    required String productId,
+    required IsarProduct product,
+    required int quantity,
+    required double unitCost,
+    required String? warehouseId,
+    required IsarInventoryMovementType type,
+    required String notes,
+    required DateTime now,
+    bool changesProductStock = true,
+  }) async {
+    final updatedBatches = <IsarInventoryBatch>[];
+    var movementUnitCost = unitCost;
+    if (quantity < 0) {
+      final batches = await _isar.isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .productIdEqualTo(productId)
+          .findAll();
+      final inWarehouse = batches
+          .where((b) =>
+              b.currentQuantity > 0 &&
+              (warehouseId == null || b.warehouseId == null || b.warehouseId == warehouseId))
+          .toList()
+        ..sort((a, b) => a.entryDate.compareTo(b.entryDate));
+      var remaining = -quantity;
+      double cost = 0;
+      for (final batch in inWarehouse) {
+        if (remaining <= 0) break;
+        final take = remaining > batch.currentQuantity ? batch.currentQuantity : remaining;
+        batch.consume(take, modifiedBy: 'offline_adjustment');
+        cost += take * batch.unitCost;
+        updatedBatches.add(batch);
+        remaining -= take;
+      }
+      final consumed = -quantity - remaining;
+      if (consumed > 0) movementUnitCost = cost / consumed;
+    } else {
+      updatedBatches.add(IsarInventoryBatch.create(
+        serverId: 'batch_offline_$movementId',
+        productId: productId,
+        productName: product.name,
+        productSku: product.sku,
+        batchNumber: 'OFFLINE-${now.millisecondsSinceEpoch}',
+        originalQuantity: quantity,
+        currentQuantity: quantity,
+        consumedQuantity: 0,
+        unitCost: unitCost,
+        totalCost: quantity * unitCost,
+        entryDate: now,
+        status: IsarInventoryBatchStatus.active,
+        warehouseId: warehouseId,
+        createdAt: now,
+        updatedAt: now,
+        isSynced: false,
+      ));
+    }
+
+    final movement = IsarInventoryMovement.create(
+      serverId: movementId,
+      productId: productId,
+      productName: product.name,
+      productSku: product.sku,
+      type: type,
+      status: IsarInventoryMovementStatus.confirmed,
+      reason: IsarInventoryMovementReason.adjustment,
+      quantity: quantity.abs(),
+      unitCost: movementUnitCost,
+      totalCost: quantity.abs() * movementUnitCost,
+      unitPrice: null,
+      totalPrice: null,
+      lotNumber: null,
+      expiryDate: null,
+      warehouseId: warehouseId,
+      warehouseName: null,
+      referenceId: null,
+      referenceType: null,
+      notes: notes,
+      userId: 'offline',
+      userName: null,
+      metadataJson: null,
+      movementDate: now,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      isSynced: false,
+      lastSyncAt: null,
+    );
+
+    if (changesProductStock) {
+      final newStock = product.stock + quantity;
+      product.stock = newStock < 0 ? 0 : newStock.toDouble();
+    }
+    // Protegido de la descarga hasta que el servidor aplique la operación.
+    product.markAsUnsynced();
+
+    await _isar.writeTxn(() async {
+      await _isar.isarInventoryBatchs.putAll(updatedBatches);
+      await _isar.isarInventoryMovements.put(movement);
+      await _isar.isarProducts.put(product);
+    });
+    return movement;
   }
 
   // ==================== TRANSFERS ====================
 
+  /// Traslado entre almacenes sin conexión. El servidor lo aplica de una vez
+  /// al crearlo (un producto por operación), así que aquí también: sale de
+  /// los lotes del origen y entra como lote del destino; el stock total del
+  /// producto no cambia. Una operación en cola por producto, con clave única.
   @override
   Future<Either<Failure, InventoryMovement>> createTransfer(
-    CreateInventoryTransferParams params,
-  ) async {
-    return Left(ServerFailure('Transfer operations not supported offline'));
+    CreateInventoryTransferParams params, {
+    List<String>? idempotencyKeys,
+  }) async {
+    try {
+      if (params.fromWarehouseId == params.toWarehouseId) {
+        return Left(ServerFailure('El almacén de origen y destino deben ser diferentes'));
+      }
+      if (params.items.isEmpty) {
+        return Left(ServerFailure('Agregue al menos un producto al traslado'));
+      }
+
+      // Validar TODO antes de mover nada.
+      final products = <String, IsarProduct>{};
+      for (final item in params.items) {
+        if (item.quantity <= 0) {
+          return Left(ServerFailure('La cantidad a trasladar debe ser mayor a cero'));
+        }
+        final product = await _isar.isarProducts
+            .filter()
+            .serverIdEqualTo(item.productId)
+            .findFirst();
+        if (product == null) {
+          return Left(CacheFailure('Producto no encontrado en el equipo'));
+        }
+        final available = (await _isar.isarInventoryBatchs
+                .filter()
+                .deletedAtIsNull()
+                .and()
+                .productIdEqualTo(item.productId)
+                .and()
+                .warehouseIdEqualTo(params.fromWarehouseId)
+                .findAll())
+            .fold<int>(0, (sum, b) => sum + b.currentQuantity);
+        if (available < item.quantity) {
+          return Left(ServerFailure(
+            'Stock insuficiente de ${product.name} en el almacén de origen: '
+            'hay $available, se intenta trasladar ${item.quantity}',
+          ));
+        }
+        products[item.productId] = product;
+      }
+
+      InventoryMovement? first;
+      for (var i = 0; i < params.items.length; i++) {
+        final item = params.items[i];
+        final product = products[item.productId]!;
+        final now = DateTime.now();
+        final key = (idempotencyKeys != null && i < idempotencyKeys.length)
+            ? idempotencyKeys[i]
+            : 'transfer_offline_${now.microsecondsSinceEpoch}_${i}_${item.productId.hashCode}';
+        try {
+          await Get.find<SyncService>().addOperationForCurrentUser(
+            entityType: 'InventoryTransfer',
+            entityId: key,
+            operationType: SyncOperationType.create,
+            data: {
+              'productId': item.productId,
+              'quantity': item.quantity,
+              'fromWarehouseId': params.fromWarehouseId,
+              'toWarehouseId': params.toWarehouseId,
+              'notes': item.notes ?? params.notes,
+              'idempotencyKey': key,
+            },
+          );
+        } catch (e) {
+          return Left(CacheFailure(
+            'No se pudo guardar el traslado para sincronizar '
+            '(${i} de ${params.items.length} productos guardados): $e',
+          ));
+        }
+
+        final out = await _applyLocalStockChange(
+          movementId: '${key}_out',
+          productId: item.productId,
+          product: product,
+          quantity: -item.quantity,
+          unitCost: 0,
+          warehouseId: params.fromWarehouseId,
+          type: IsarInventoryMovementType.transferOut,
+          notes: params.notes ?? 'Traslado entre almacenes (sin conexión)',
+          now: now,
+          changesProductStock: false,
+        );
+        await _applyLocalStockChange(
+          movementId: '${key}_in',
+          productId: item.productId,
+          product: product,
+          quantity: item.quantity,
+          unitCost: out.unitCost,
+          warehouseId: params.toWarehouseId,
+          type: IsarInventoryMovementType.transferIn,
+          notes: params.notes ?? 'Traslado entre almacenes (sin conexión)',
+          now: now,
+          changesProductStock: false,
+        );
+        first ??= out.toEntity();
+      }
+      return Right(first!);
+    } catch (e) {
+      return Left(CacheFailure('Error al crear el traslado sin conexión: $e'));
+    }
   }
 
+  /// El servidor aplica los traslados al crearlos: no existen traslados
+  /// pendientes de confirmar.
   @override
   Future<Either<Failure, InventoryMovement>> confirmTransfer(String transferId) async {
-    return Left(ServerFailure('Transfer operations not supported offline'));
+    return Left(ServerFailure(
+      'Los traslados se aplican al crearlos; no requieren confirmación.',
+    ));
   }
 
   // ==================== STATS ====================

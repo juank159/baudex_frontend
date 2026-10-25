@@ -97,6 +97,8 @@ import '../../../features/settings/presentation/controllers/user_preferences_con
 import '../../../features/invoices/data/datasources/invoice_remote_datasource.dart';
 import '../../../features/invoices/data/models/add_payment_request_model.dart';
 import '../../../features/invoices/data/models/invoice_model.dart';
+import '../../../features/inventory/domain/repositories/inventory_repository.dart';
+import '../../../features/inventory/data/datasources/inventory_local_datasource.dart';
 import '../../../features/invoices/data/models/create_invoice_request_model.dart';
 import '../../../features/invoices/data/models/update_invoice_request_model.dart';
 import '../../../features/invoices/data/models/invoice_item_model.dart';
@@ -367,6 +369,198 @@ class SyncService extends GetxService {
         shouldIconPulse: false,
       );
     } catch (_) {}
+  }
+
+  /// Ajuste o traslado de inventario hecho sin conexión. Lleva su clave de
+  /// idempotencia: si ya se aplicó (respuesta perdida), el servidor no lo
+  /// repite. Si el servidor lo RECHAZA (p. ej. stock insuficiente), el equipo
+  /// vuelve al stock del servidor y se avisa.
+  Future<void> _syncInventoryStockOperation(SyncOperation operation) async {
+    final InventoryRemoteDataSource remote =
+        Get.isRegistered<InventoryRemoteDataSource>()
+            ? Get.find<InventoryRemoteDataSource>()
+            : InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio);
+    final data = Map<String, dynamic>.from(jsonDecode(operation.payload) as Map);
+    final productId = await _resolveSyncedProductId(data['productId'] as String);
+    data['productId'] = productId;
+    for (final field in ['warehouseId', 'fromWarehouseId', 'toWarehouseId']) {
+      final value = data[field] as String?;
+      if (value != null) data[field] = await _resolveSyncedWarehouseId(value);
+    }
+    final isTransfer = operation.entityType == 'InventoryTransfer';
+
+    try {
+      if (isTransfer) {
+        await remote.createTransfer({
+          'items': [
+            {'productId': productId, 'quantity': data['quantity']},
+          ],
+          'fromWarehouseId': data['fromWarehouseId'],
+          'toWarehouseId': data['toWarehouseId'],
+          'notes': data['notes'],
+          'idempotencyKeys': [data['idempotencyKey']],
+        });
+      } else {
+        await remote.createStockAdjustment(data);
+      }
+    } catch (e) {
+      final code = int.tryParse(
+            RegExp(r'Error (\d{3})').firstMatch(e.toString())?.group(1) ?? '',
+          ) ??
+          (e is ServerException ? e.statusCode ?? 0 : 0);
+      final rejected = code >= 400 && code < 500 && code != 401 && code != 408 && code != 429;
+      if (!rejected) rethrow;
+      await _discardLocalInventoryOp(operation.entityId);
+      await _refreshProductStockFromServer(productId);
+      final reason = e.toString().replaceFirst('Exception: ', '');
+      AppLogger.w('${isTransfer ? 'Traslado' : 'Ajuste'} rechazado por el servidor: $reason', tag: 'SYNC');
+      try {
+        Get.snackbar(
+          isTransfer ? 'El traslado NO se aplicó' : 'El ajuste NO se aplicó',
+          'El servidor lo rechazó:\n$reason\n\nEl inventario quedó como está en el servidor.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange.shade800,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 30),
+          isDismissible: true,
+        );
+      } catch (_) {}
+      return;
+    }
+
+    // El servidor ya lo tiene: quitar los movimientos/lotes temporales (los
+    // reales llegan con la descarga).
+    await _discardLocalInventoryOp(operation.entityId);
+    AppLogger.i('${isTransfer ? 'Traslado' : 'Ajuste'} ${operation.entityId} sincronizado', tag: 'SYNC');
+  }
+
+  /// Movimientos y lotes temporales de un ajuste/traslado hecho sin conexión.
+  Future<void> _discardLocalInventoryOp(String key) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      await isar.writeTxn(() async {
+        await isar.isarInventoryMovements.filter().serverIdStartsWith(key).deleteAll();
+        await isar.isarInventoryBatchs
+            .filter()
+            .serverIdStartsWith('batch_offline_$key')
+            .deleteAll();
+      });
+    } catch (e) {
+      AppLogger.w('No se pudieron quitar los registros temporales de $key: $e', tag: 'SYNC');
+    }
+  }
+
+  /// Stock del producto como está en el servidor.
+  Future<void> _refreshProductStockFromServer(String productId) async {
+    try {
+      final product = await Get.find<ProductRemoteDataSource>().getProductById(productId);
+      final isar = IsarDatabase.instance.database;
+      final local = await isar.isarProducts.filter().serverIdEqualTo(productId).findFirst();
+      if (local != null) {
+        local.stock = product.stock;
+        local.isSynced = true;
+        local.lastSyncAt = DateTime.now();
+        await isar.writeTxn(() => isar.isarProducts.put(local));
+      }
+    } catch (e) {
+      AppLogger.w('No se pudo traer el stock de $productId: $e', tag: 'SYNC');
+    }
+  }
+
+  /// Id real de un almacén (pudo crearse sin conexión).
+  Future<String> _resolveSyncedWarehouseId(String warehouseId) async {
+    if (!warehouseId.startsWith('warehouse_offline_')) return warehouseId;
+    final mapped = await lookupTempIdMapping(warehouseId);
+    if (mapped != null && mapped.isNotEmpty) return mapped;
+    throw Exception('Almacén $warehouseId aún no sincronizado - reintentando después');
+  }
+
+  /// Almacén creado/editado/eliminado sin conexión.
+  Future<void> _syncWarehouseOperation(SyncOperation operation) async {
+    final InventoryRemoteDataSource remote =
+        Get.isRegistered<InventoryRemoteDataSource>()
+            ? Get.find<InventoryRemoteDataSource>()
+            : InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio);
+    final data = Map<String, dynamic>.from(jsonDecode(operation.payload) as Map);
+
+    switch (operation.operationType) {
+      case SyncOperationType.create:
+        final created = await remote.createWarehouse(CreateWarehouseParams(
+          name: data['name'] as String,
+          code: data['code'] as String,
+          description: data['description'] as String?,
+          address: data['address'] as String?,
+          isActive: data['isActive'] as bool? ?? true,
+        ));
+        final tempId = operation.entityId;
+        await registerTempIdMapping(tempId, created.id);
+        // Lo creado en el equipo con el id temporal pasa al real.
+        try {
+          final isar = IsarDatabase.instance.database;
+          final batches = await isar.isarInventoryBatchs
+              .filter()
+              .warehouseIdEqualTo(tempId)
+              .findAll();
+          final movements = await isar.isarInventoryMovements
+              .filter()
+              .warehouseIdEqualTo(tempId)
+              .findAll();
+          for (final b in batches) {
+            b.warehouseId = created.id;
+          }
+          for (final m in movements) {
+            m.warehouseId = created.id;
+          }
+          await isar.writeTxn(() async {
+            await isar.isarInventoryBatchs.putAll(batches);
+            await isar.isarInventoryMovements.putAll(movements);
+          });
+          final localDs = Get.isRegistered<InventoryLocalDataSource>()
+              ? Get.find<InventoryLocalDataSource>()
+              : null;
+          if (localDs != null) {
+            final cached = await localDs.getCachedWarehouses();
+            await localDs.cacheWarehouses([
+              for (final w in cached)
+                w.id == tempId ? created : w,
+            ]);
+          }
+        } catch (e) {
+          AppLogger.w('Almacén $tempId: no se pudo actualizar el id local: $e', tag: 'SYNC');
+        }
+        AppLogger.i('Almacén creado en servidor: $tempId → ${created.id}', tag: 'SYNC');
+        break;
+      case SyncOperationType.update:
+        final id = await _resolveSyncedWarehouseId(operation.entityId);
+        await remote.updateWarehouse(
+          id,
+          UpdateWarehouseParams(
+            name: data['name'] as String?,
+            code: data['code'] as String?,
+            description: data['description'] as String?,
+            address: data['address'] as String?,
+            isActive: data['isActive'] as bool?,
+          ),
+        );
+        break;
+      case SyncOperationType.delete:
+        final id = await _resolveSyncedWarehouseId(operation.entityId);
+        try {
+          await remote.deleteWarehouse(id);
+        } catch (e) {
+          // Ya no existe: no hay nada que eliminar.
+          if (!e.toString().contains('404')) rethrow;
+        }
+        break;
+    }
+  }
+
+  /// Id real de un producto (pudo crearse sin conexión).
+  Future<String> _resolveSyncedProductId(String productId) async {
+    if (!productId.startsWith('product_offline_')) return productId;
+    final mapped = await lookupTempIdMapping(productId);
+    if (mapped != null && mapped.isNotEmpty) return mapped;
+    throw Exception('Producto $productId aún no sincronizado - reintentando después');
   }
 
   /// Id real (del servidor) de una factura para una operación encolada. Si
@@ -1467,11 +1661,13 @@ class SyncService extends GetxService {
     final priorityOrder = {
       'organization': 0, 'organization_profit_margin': 0, 'user_profile': 0,
       'Category': 1, 'category': 1, 'BankAccount': 1, 'bank_account': 1,
+      'Warehouse': 1,
       'Product': 2, 'product': 2, 'Customer': 3, 'customer': 3,
       'Supplier': 3, 'supplier': 3,
       'Invoice': 4, 'invoice': 4, 'Expense': 4, 'expense': 4,
       'PurchaseOrder': 4, 'purchase_order': 4,
       'InventoryMovement': 5, 'inventory_movement': 5, 'inventory_movement_fifo': 5,
+      'InventoryAdjustment': 5, 'InventoryTransfer': 5,
       'CreditNote': 5, 'credit_note': 5, 'CustomerCredit': 5, 'customer_credit': 5,
       'ClientBalance': 5, 'client_balance': 5,
       'notification': 6, 'user_preferences': 6,
@@ -1719,6 +1915,13 @@ class SyncService extends GetxService {
         case 'inventory_movement':
         case 'inventory_movement_fifo':
           await _syncInventoryMovementOperation(operation);
+          break;
+        case 'InventoryAdjustment':
+        case 'InventoryTransfer':
+          await _syncInventoryStockOperation(operation);
+          break;
+        case 'Warehouse':
+          await _syncWarehouseOperation(operation);
           break;
         case 'CreditNote':
         case 'credit_note':
@@ -5529,6 +5732,11 @@ class SyncService extends GetxService {
             'Cuenta bancaria creada en servidor con ID: ${createdBankAccount.id}',
             tag: 'SYNC',
           );
+          // Cambios hechos sin conexión sobre esta cuenta (principal,
+          // activar/desactivar) usan su id temporal: con esto llegan al real.
+          if (operation.entityId != createdBankAccount.id) {
+            await registerTempIdMapping(operation.entityId, createdBankAccount.id);
+          }
 
           // ✅ Actualizar ISAR con el ID real del servidor
           if (operation.entityId.startsWith('bank_')) {
@@ -5584,8 +5792,18 @@ class SyncService extends GetxService {
             sortOrder: data['sortOrder'],
             description: data['description'],
           );
+          String bankAccountId = operation.entityId;
+          if (!RegExp(r'^[0-9a-fA-F]{8}-').hasMatch(bankAccountId)) {
+            final mapped = await lookupTempIdMapping(bankAccountId);
+            if (mapped == null || mapped.isEmpty) {
+              throw Exception(
+                'Cuenta $bankAccountId aún no sincronizada - reintentando después',
+              );
+            }
+            bankAccountId = mapped;
+          }
           await remoteDataSource.updateBankAccount(
-            operation.entityId,
+            bankAccountId,
             updateRequest,
           );
           AppLogger.i('Cuenta bancaria actualizada en servidor', tag: 'SYNC');

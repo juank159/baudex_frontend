@@ -64,7 +64,6 @@ import '../../../products/presentation/bindings/product_binding.dart';
 import 'package:baudex_desktop/features/invoices/data/models/invoice_form_models.dart';
 
 // ✅ NUEVO IMPORT: Controlador de impresión térmica
-import '../services/invoice_inventory_service.dart';
 import '../../../settings/presentation/controllers/user_preferences_controller.dart';
 
 class InvoiceFormController extends GetxController {
@@ -82,9 +81,6 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVO: Controlador de impresión térmica
   late final ThermalPrinterController _thermalPrinterController;
-
-  // ✅ NUEVO: Servicio de integración con inventario (opcional)
-  InvoiceInventoryService? _inventoryService;
 
   // Helper para obtener preferencias de usuario
   bool get shouldValidateStock {
@@ -123,14 +119,6 @@ class InvoiceFormController extends GetxController {
     } catch (e) {
       _thermalPrinterController = Get.put(ThermalPrinterController());
 
-    }
-
-    // ✅ INICIALIZAR SERVICIO DE INVENTARIO (OPCIONAL)
-    if (Get.isRegistered<InvoiceInventoryService>()) {
-      _inventoryService = Get.find<InvoiceInventoryService>();
-
-    } else {
-      _inventoryService = null;
     }
   }
 
@@ -2075,21 +2063,11 @@ class InvoiceFormController extends GetxController {
       },
       (invoice) async {
 
-        // ✅ PROCESAR INVENTARIO AUTOMÁTICAMENTE (si el servicio está disponible)
-        if (_inventoryService != null) {
-          try {
-            final inventoryProcessed = await _inventoryService!
-                .processInventoryForInvoice(invoice);
-            if (inventoryProcessed) {
-            } else {
-
-            }
-          } catch (e) {
-
-          }
-        } else {
-
-        }
+        // El inventario lo descuenta el servidor al crear la factura (y el
+        // equipo, en el repositorio, para verlo al instante o sin internet).
+        // Aquí antes se volvía a descontar producto por producto contra un
+        // endpoint que ya no existe: una petición fallida por producto en
+        // cada venta, y riesgo de descontar dos veces.
 
         // 📊 Avisar al tablero: se actualiza cuando el cajero salga de
         // facturación (recargarlo aquí frenaba la venta siguiente).

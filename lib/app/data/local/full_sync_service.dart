@@ -1374,7 +1374,10 @@ class FullSyncService extends GetxService {
             op.entityType == 'inventory_movement' ||
             op.entityType == 'InventoryMovement' ||
             op.entityType == 'PurchaseOrder' ||
-            op.entityType == 'purchase_order');
+            op.entityType == 'purchase_order' ||
+            op.entityType == 'CreditNote' ||
+            op.entityType == 'InventoryAdjustment' ||
+            op.entityType == 'InventoryTransfer');
         final protected = hasPendingInventoryOps
             ? (await _isar.isarInventoryBatchs
                     .filter()
@@ -1764,7 +1767,9 @@ class FullSyncService extends GetxService {
           op.status != SyncStatus.completed &&
           (op.entityType == 'Invoice' ||
            op.entityType == 'CreditNote' ||
-           op.entityType == 'inventory_movement_fifo')).toList();
+           op.entityType == 'inventory_movement_fifo' ||
+           op.entityType == 'InventoryAdjustment' ||
+           op.entityType == 'InventoryTransfer')).toList();
 
       // Extraer productIds activamente referenciados en esas ops
       final activeProductIds = <String>{};
@@ -2237,7 +2242,10 @@ class FullSyncService extends GetxService {
         op.entityType == 'inventory_movement' ||
         op.entityType == 'InventoryMovement' ||
         op.entityType == 'PurchaseOrder' ||
-        op.entityType == 'purchase_order');
+        op.entityType == 'purchase_order' ||
+        op.entityType == 'CreditNote' ||
+        op.entityType == 'InventoryAdjustment' ||
+        op.entityType == 'InventoryTransfer');
 
     Set<String> unsyncedServerIds = {};
     if (hasPendingInventoryOps) {

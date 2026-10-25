@@ -595,8 +595,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
   @override
   Future<Either<Failure, BankAccount>> setDefaultBankAccount(String id) async {
     if (!await networkInfo.isConnected) {
-      // TODO: Implementar cambio de cuenta por defecto offline
-      return Left(NetworkFailure('Sin conexión a internet'));
+      return _updateFlagsOffline(id, isDefault: true);
     }
 
     try {
@@ -625,8 +624,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     String id,
   ) async {
     if (!await networkInfo.isConnected) {
-      // TODO: Implementar toggle offline
-      return Left(NetworkFailure('Sin conexión a internet'));
+      return _updateFlagsOffline(id, toggleActive: true);
     }
 
     try {
@@ -647,6 +645,64 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
       return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(UnknownFailure('Error inesperado: $e'));
+    }
+  }
+
+  /// Cuenta principal / activar-desactivar sin conexión. Se encola como una
+  /// actualización con el valor FINAL (no "cambiar"), así reintentarla da el
+  /// mismo resultado; el servidor desmarca las demás al marcar la principal.
+  Future<Either<Failure, BankAccount>> _updateFlagsOffline(
+    String id, {
+    bool isDefault = false,
+    bool toggleActive = false,
+  }) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final account =
+          await isar.isarBankAccounts.filter().serverIdEqualTo(id).findFirst();
+      if (account == null) {
+        return Left(CacheFailure('Cuenta no encontrada en el equipo'));
+      }
+      final newActive = toggleActive ? !account.isActive : account.isActive;
+      final data = <String, dynamic>{
+        if (isDefault) 'isDefault': true,
+        if (toggleActive) 'isActive': newActive,
+      };
+
+      try {
+        await Get.find<SyncService>().addOperationForCurrentUser(
+          entityType: 'BankAccount',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: data,
+        );
+      } catch (e) {
+        return Left(CacheFailure(
+          'No se pudo guardar el cambio para sincronizar. No se aplicó: $e',
+        ));
+      }
+
+      await isar.writeTxn(() async {
+        if (isDefault) {
+          final others = await isar.isarBankAccounts
+              .filter()
+              .isDefaultEqualTo(true)
+              .findAll();
+          for (final other in others) {
+            if (other.serverId == id) continue;
+            other.isDefault = false;
+            await isar.isarBankAccounts.put(other);
+          }
+          account.isDefault = true;
+        }
+        if (toggleActive) account.isActive = newActive;
+        account.updatedAt = DateTime.now();
+        account.isSynced = false;
+        await isar.isarBankAccounts.put(account);
+      });
+      return Right(account.toEntity());
+    } catch (e) {
+      return Left(CacheFailure('Error al actualizar la cuenta sin conexión: $e'));
     }
   }
 
