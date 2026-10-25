@@ -1017,6 +1017,29 @@ class InvoiceFormController extends GetxController {
     return result;
   }
 
+  /// Producto de un código de barras escaneado. Primero la búsqueda EXACTA
+  /// en el equipo (instantánea); si no aparece, lo mismo que hacía antes el
+  /// buscador: la búsqueda general, el código exacto o, si no, la primera
+  /// coincidencia (p. ej. códigos guardados con un cero adelante).
+  Future<Product?> findProductByBarcode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    if (Get.isRegistered<ProductOfflineRepository>()) {
+      final exact = await Get.find<ProductOfflineRepository>()
+          .getProductByBarcode(trimmed);
+      final product = exact.fold((_) => null, (p) => p);
+      if (product != null && product.status == ProductStatus.active) {
+        return product;
+      }
+    }
+    final results = await searchProducts(trimmed);
+    if (results.isEmpty) return null;
+    return results.firstWhereOrNull(
+          (p) => p.barcode?.toLowerCase() == trimmed.toLowerCase(),
+        ) ??
+        results.first;
+  }
+
   Future<List<Product>> searchProducts(String query) async {
     if (query.trim().isEmpty) return [];
 
@@ -1243,13 +1266,18 @@ class InvoiceFormController extends GetxController {
     required String Function(T) idOf,
   }) async {
     try {
+      // Lo encontrado en el equipo se muestra YA: no se espera al servidor
+      // (antes cada letra podía esperar hasta 6 s mientras bajaba el
+      // catálogo). Solo si el equipo no encontró nada y el catálogo aún no
+      // termina de bajar, se pregunta al servidor, con espera corta.
+      if (local.isNotEmpty) return local;
       if (await localCollectionReady(collection())) return local;
       if (!Get.isRegistered<NetworkInfo>() ||
           !await Get.find<NetworkInfo>().isConnected) {
         return local;
       }
       final fromServer = await remote().timeout(
-        const Duration(seconds: 6),
+        const Duration(milliseconds: 2500),
         onTimeout: () => <T>[],
       );
       if (fromServer.isEmpty) return local;

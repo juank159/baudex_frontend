@@ -13,6 +13,7 @@ import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/product_price.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../controllers/invoice_form_controller.dart';
+import 'barcode_scan_queue.dart';
 
 class ProductSearchWidget extends StatefulWidget {
   final InvoiceFormController controller;
@@ -53,6 +54,9 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   // de una más nueva, su resultado se descarta y no tapa al nuevo.
   int _searchSeq = 0;
 
+  // Escaneos (Enter del lector): se buscan de una vez y en orden.
+  late final BarcodeScanQueue _scanQueue;
+
   // Control para pausar la restauración automática de focus.
   // El padre (ej: CustomerSelectorWidget) lo puede activar mientras el
   // usuario está editando otros campos.
@@ -61,6 +65,15 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   @override
   void initState() {
     super.initState();
+    _scanQueue = BarcodeScanQueue(
+      find: (code) => widget.controller.findProductByBarcode(code),
+      onFound: (product, _) {
+        if (mounted) _addScannedProduct(product);
+      },
+      onNotFound: (code) {
+        if (mounted) _showBarcodeNotFound(code);
+      },
+    );
     _searchController.addListener(_onSearchChanged);
 
     // Reaccionar SOLO cuando el focus realmente cambia (no en un timer).
@@ -115,6 +128,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
   void dispose() {
     try {
       _debounceTimer?.cancel();
+      _scanQueue.dispose();
 
       _searchController.removeListener(_onSearchChanged);
       _focusNode.removeListener(_onFocusChanged);
@@ -843,33 +857,11 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
       final isUnregisteredProduct = _isUnregisteredProductQuery(query);
       
       if (isBarcode) {
-        // Búsqueda por código de barras para números >7 dígitos
-        
-        // 1. Primero buscar localmente
-        final exactMatch = await _searchByBarcode(query);
-        if (exactMatch != null) {
-          results.add(exactMatch);
-        }
-        
-        // 2. Si no se encuentra localmente, buscar en la API
-        if (exactMatch == null) {
-          final apiResults = await widget.controller.searchProducts(query);
-          results.addAll(apiResults);
-        }
-        
-        // Si hay resultados después de búsqueda local + API, agregar automáticamente el primero
-        if (results.isNotEmpty) {
-          final productToAdd = results.first;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted && _searchResults.isNotEmpty) {
-                _selectProduct(productToAdd);
-              }
-            });
-          });
-        } else {
-          // Solo mensaje de log, SIN audio para códigos de barras no encontrados
-        }
+        // Código de barras (>7 dígitos) escrito sin Enter: búsqueda exacta
+        // en el equipo (y, si no, la general de siempre). Si aparece se
+        // agrega abajo de una vez (antes esperaba 500 ms más).
+        final product = await widget.controller.findProductByBarcode(query);
+        if (product != null) results.add(product);
       } else if (isUnregisteredProduct) {
         // Número ≤7 dígitos = entrada de precio / producto sin registrar.
         // SOLO buscamos por SKU exacto. NO lanzamos búsqueda de texto porque
@@ -909,6 +901,12 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
         if (_searchResults.isNotEmpty) {
           _ensureSearchFieldFocus();
         }
+
+        // Código de barras encontrado: se agrega de una vez.
+        if (isBarcode && _searchResults.isNotEmpty) {
+          _selectProduct(_searchResults.first);
+          return;
+        }
         
         // ✅ NUEVO: Audio y auto-selección para códigos de barras no encontrados
         if (isBarcode && _searchResults.isEmpty) {
@@ -941,19 +939,6 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     }
   }
 
-  Future<Product?> _searchByBarcode(String barcode) async {
-    try {
-      // Search ISAR via controller (covers full catalog, not just first-50 page)
-      final results = await widget.controller.searchProducts(barcode);
-      return results.firstWhereOrNull(
-        (p) => p.barcode?.toLowerCase() == barcode.toLowerCase(),
-      );
-    } catch (e) {
-AppLogger.e('❌ Error en búsqueda por código de barras: $e');
-      return null;
-    }
-  }
-
   Future<Product?> _searchBySku(String sku) async {
     try {
       // Search ISAR via controller (covers full catalog, not just first-50 page)
@@ -968,15 +953,92 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
   }
 
   void _handleDirectSearch(String query) {
-    if (query.trim().isEmpty) return;
+    final q = query.trim();
+    if (q.isEmpty) return;
 
-    // Si hay resultados, seleccionar el primero
+    // Código de barras (Enter del lector): se busca y se agrega de una vez,
+    // en orden. Solo se usan resultados en pantalla si son de ESTE código
+    // (antes, con resultados viejos de otra búsqueda, se agregaba el primero
+    // de esos: un producto equivocado).
+    if (_isBarcodeQuery(q)) {
+      if (_searchResults.isNotEmpty && _lastSearchTerm == q) {
+        _selectProduct(_searchResults.first);
+      } else {
+        _enqueueScan(q);
+      }
+      return;
+    }
+
+    // Precio de producto no registrado (≤7 dígitos): misma regla de siempre.
+    if (_isUnregisteredProductQuery(q)) {
+      if (_searchResults.isNotEmpty && _lastSearchTerm == q) {
+        _selectProduct(_searchResults.first);
+      } else {
+        _resolvePriceEnter(q);
+      }
+      return;
+    }
+
+    // Texto: si hay resultados, seleccionar el primero (igual que antes);
+    // si todavía no, buscar ya sin esperar.
     if (_searchResults.isNotEmpty) {
       _selectProduct(_searchResults.first);
-    } else if (_isUnregisteredProductQuery(query)) {
-      // Si es un número ≤7 dígitos y no hay resultados, crear producto sin registrar
-      final price = double.tryParse(query) ?? 0.0;
-      _createUnregisteredProduct(price);
+    } else {
+      _debounceTimer?.cancel();
+      _performSearch(q);
+    }
+  }
+
+  /// Escaneo: la caja queda libre para el siguiente código y este se busca
+  /// en la cola (en orden, sin perder ninguno).
+  void _enqueueScan(String code) {
+    _debounceTimer?.cancel();
+    _searchSeq++; // descarta una búsqueda en curso de este mismo texto
+    _lastSearchTerm = '';
+    _searchController.clear();
+    _scanQueue.add(code);
+  }
+
+  /// Producto escaneado encontrado. La caja NO se borra: el siguiente código
+  /// puede estar entrando.
+  void _addScannedProduct(Product product) {
+    widget.onProductSelected(product, 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_hasModalRouteAbove()) _focusNode.requestFocus();
+    });
+  }
+
+  /// Código escaneado sin producto: aviso de voz y, si no se está escribiendo
+  /// otra cosa, el código queda seleccionado en la caja para corregirlo
+  /// (como antes).
+  void _showBarcodeNotFound(String code) {
+    AudioNotificationService.instance.announceProductNotFound();
+    if (_searchController.text.isNotEmpty || _scanQueue.pendingCount > 1) return;
+    _lastSearchTerm = code; // ya se buscó: no repetir
+    _searchController.text = code;
+    setState(() {
+      _searchResults.clear();
+      _showResults = true;
+      _isSearching = false;
+      _selectedResultIndex = -1;
+    });
+    _autoSelectBarcodeText();
+  }
+
+  /// Enter con un precio (≤7 dígitos): si existe un producto con ese SKU
+  /// exacto se agrega ese; si no, producto no registrado (como siempre).
+  /// Antes, un Enter rápido creaba "no registrado" aunque el SKU existiera.
+  Future<void> _resolvePriceEnter(String q) async {
+    _debounceTimer?.cancel();
+    final seq = ++_searchSeq;
+    final skuMatch = await _searchBySku(q);
+    if (!mounted || seq != _searchSeq || _searchController.text.trim() != q) {
+      return;
+    }
+    if (skuMatch != null) {
+      _selectProduct(skuMatch);
+    } else {
+      _createUnregisteredProduct(double.tryParse(q) ?? 0.0);
     }
   }
 

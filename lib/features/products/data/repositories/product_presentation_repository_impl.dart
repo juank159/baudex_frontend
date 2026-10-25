@@ -77,11 +77,21 @@ class ProductPresentationRepositoryImpl
     );
     if (local != null) return local;
 
+    // Facturación lo pide al agregar CADA producto: si el equipo ya tiene
+    // presentaciones de este producto, se usan de una vez (antes, mientras
+    // bajaba el catálogo, cada producto agregado esperaba al servidor).
+    final cachedNow = await _getFromCache(productId);
+    if (cachedNow.fold((_) => false, (list) => list.isNotEmpty)) {
+      return cachedNow;
+    }
+
     final isConnected = await networkInfo.isConnected;
 
     if (isConnected) {
       try {
-        final models = await remoteDataSource.getPresentations(productId);
+        final models = await remoteDataSource
+            .getPresentations(productId)
+            .timeout(const Duration(milliseconds: 2500));
         await localDataSource.cachePresentations(models);
         return Right(models.map((m) => m.toEntity()).toList());
       } on ServerException catch (e) {
@@ -97,6 +107,7 @@ class ProductPresentationRepositoryImpl
         );
         return _getFromCache(productId);
       } catch (e) {
+        // Incluye la espera agotada: se sigue con lo del equipo.
         AppLogger.e(
           'Error inesperado al obtener presentaciones: $e',
           tag: 'PresentationRepo',
