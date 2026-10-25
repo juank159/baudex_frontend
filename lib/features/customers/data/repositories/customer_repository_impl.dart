@@ -824,6 +824,40 @@ class CustomerRepositoryImpl implements CustomerRepository {
     Map<String, dynamic>? metadata,
   }) async {
     try {
+      // Mismas reglas que el servidor, con lo que hay en el equipo: si ya
+      // existe un cliente activo con ese documento o email, se avisa quién es
+      // (si se creara, el servidor lo rechazaría al sincronizar).
+      final isarDocType = IsarDocumentType.values.firstWhere(
+        (e) => e.name == documentType.name,
+        orElse: () => IsarDocumentType.other,
+      );
+      final sameDocument = await isar.isarCustomers
+          .filter()
+          .documentTypeEqualTo(isarDocType)
+          .and()
+          .documentNumberEqualTo(documentNumber)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      if (sameDocument != null) {
+        return Left(ServerFailure(
+          'El número de documento ya está registrado (cliente: '
+          '${sameDocument.firstName} ${sameDocument.lastName}). Búsquelo en clientes.',
+        ));
+      }
+      final sameEmail = await isar.isarCustomers
+          .filter()
+          .emailEqualTo(email, caseSensitive: false)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      if (sameEmail != null) {
+        return Left(ServerFailure(
+          'El email ya está registrado (cliente: '
+          '${sameEmail.firstName} ${sameEmail.lastName}). Búsquelo en clientes.',
+        ));
+      }
+
       // Generar un ID temporal único para el cliente offline
       final now = DateTime.now();
       final tempId = 'customer_offline_${now.millisecondsSinceEpoch}_${firstName.hashCode}';
@@ -900,6 +934,17 @@ class CustomerRepositoryImpl implements CustomerRepository {
           priority: 1, // Alta prioridad para creación
         );
       } catch (e) {
+        // Sin la operación en la cola el cliente nunca llegaría al servidor:
+        // se quita del equipo y se avisa, en vez de dar por creado algo que
+        // se perdería.
+        try {
+          await isar.writeTxn(() async {
+            await isar.isarCustomers.deleteByServerId(tempId);
+          });
+        } catch (_) {}
+        return Left(CacheFailure(
+          'No se pudo guardar el cliente para sincronizar. No se creó: $e',
+        ));
       }
 
       return Right(tempCustomer);

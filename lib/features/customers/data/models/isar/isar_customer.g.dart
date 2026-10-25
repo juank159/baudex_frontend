@@ -263,7 +263,7 @@ const IsarCustomerSchema = CollectionSchema(
     r'email': IndexSchema(
       id: -26095440403582047,
       name: r'email',
-      unique: true,
+      unique: false,
       replace: false,
       properties: [
         IndexPropertySchema(
@@ -657,59 +657,6 @@ extension IsarCustomerByIndex on IsarCollection<IsarCustomer> {
   List<Id> putAllByServerIdSync(List<IsarCustomer> objects,
       {bool saveLinks = true}) {
     return putAllByIndexSync(r'serverId', objects, saveLinks: saveLinks);
-  }
-
-  Future<IsarCustomer?> getByEmail(String email) {
-    return getByIndex(r'email', [email]);
-  }
-
-  IsarCustomer? getByEmailSync(String email) {
-    return getByIndexSync(r'email', [email]);
-  }
-
-  Future<bool> deleteByEmail(String email) {
-    return deleteByIndex(r'email', [email]);
-  }
-
-  bool deleteByEmailSync(String email) {
-    return deleteByIndexSync(r'email', [email]);
-  }
-
-  Future<List<IsarCustomer?>> getAllByEmail(List<String> emailValues) {
-    final values = emailValues.map((e) => [e]).toList();
-    return getAllByIndex(r'email', values);
-  }
-
-  List<IsarCustomer?> getAllByEmailSync(List<String> emailValues) {
-    final values = emailValues.map((e) => [e]).toList();
-    return getAllByIndexSync(r'email', values);
-  }
-
-  Future<int> deleteAllByEmail(List<String> emailValues) {
-    final values = emailValues.map((e) => [e]).toList();
-    return deleteAllByIndex(r'email', values);
-  }
-
-  int deleteAllByEmailSync(List<String> emailValues) {
-    final values = emailValues.map((e) => [e]).toList();
-    return deleteAllByIndexSync(r'email', values);
-  }
-
-  Future<Id> putByEmail(IsarCustomer object) {
-    return putByIndex(r'email', object);
-  }
-
-  Id putByEmailSync(IsarCustomer object, {bool saveLinks = true}) {
-    return putByIndexSync(r'email', object, saveLinks: saveLinks);
-  }
-
-  Future<List<Id>> putAllByEmail(List<IsarCustomer> objects) {
-    return putAllByIndex(r'email', objects);
-  }
-
-  List<Id> putAllByEmailSync(List<IsarCustomer> objects,
-      {bool saveLinks = true}) {
-    return putAllByIndexSync(r'email', objects, saveLinks: saveLinks);
   }
 }
 

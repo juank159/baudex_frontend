@@ -58,6 +58,7 @@ import '../../../features/categories/data/repositories/category_offline_reposito
 
 // Customers
 import '../../../features/customers/data/datasources/customer_remote_datasource.dart';
+import '../../../features/customers/data/models/customer_model.dart';
 import '../../../features/customers/data/final_consumer_resolver.dart';
 import '../../../features/customers/data/models/create_customer_request_model.dart';
 import '../../../features/customers/data/models/update_customer_request_model.dart';
@@ -4379,7 +4380,30 @@ class SyncService extends GetxService {
             notes: finalData['notes'],
             metadata: finalData['metadata'],
           );
-          final createdCustomer = await remoteDataSource.createCustomer(request);
+          CustomerModel createdCustomer;
+          try {
+            createdCustomer = await remoteDataSource.createCustomer(request);
+          } on ServerException catch (e) {
+            // "Ya existe" con el MISMO documento = es este mismo cliente: se
+            // creó con internet pero la respuesta no llegó y se volvió a
+            // guardar sin conexión. Se usa el del servidor; si no, el cliente
+            // quedaba fallando para siempre y sus facturas no subían.
+            if (e.statusCode != 409) rethrow;
+            try {
+              createdCustomer = await remoteDataSource.getCustomerByDocument(
+                request.documentType,
+                request.documentNumber,
+              );
+            } catch (_) {
+              // No es el mismo documento (p. ej. solo el email coincide):
+              // hay que corregirlo a mano; se conserva el error original.
+              throw e;
+            }
+            AppLogger.i(
+              'Cliente ${operation.entityId} ya existía en el servidor (${createdCustomer.id}) — se vincula',
+              tag: 'SYNC',
+            );
+          }
           AppLogger.i(
             'Cliente creado en servidor con ID: ${createdCustomer.id}',
             tag: 'SYNC',
@@ -4387,14 +4411,31 @@ class SyncService extends GetxService {
 
           // ✅ Actualizar ISAR con el ID real del servidor
           if (operation.entityId.startsWith('customer_')) {
+            // Las facturas/créditos que usen el id temporal lo resuelven con
+            // este mapeo aunque ya no esté en la cola.
+            await registerTempIdMapping(operation.entityId, createdCustomer.id);
             try {
               final isar = IsarDatabase.instance.database;
               final isarCustomer = await isar.isarCustomers
                   .filter()
                   .serverIdEqualTo(operation.entityId)
                   .findFirst();
+              final alreadyLocal = await isar.isarCustomers
+                  .filter()
+                  .serverIdEqualTo(createdCustomer.id)
+                  .findFirst();
 
-              if (isarCustomer != null) {
+              if (isarCustomer != null && alreadyLocal != null) {
+                // El cliente real ya está en el equipo: quitar la copia
+                // temporal para que no aparezca dos veces en el buscador.
+                await isar.writeTxn(() async {
+                  await isar.isarCustomers.delete(isarCustomer.id);
+                });
+                AppLogger.i(
+                  'ISAR: copia temporal ${operation.entityId} unida a ${createdCustomer.id}',
+                  tag: 'SYNC',
+                );
+              } else if (isarCustomer != null) {
                 isarCustomer.serverId = createdCustomer.id;
                 isarCustomer.markAsSynced();
                 await isar.writeTxn(() async {

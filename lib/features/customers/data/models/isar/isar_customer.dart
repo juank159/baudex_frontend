@@ -22,7 +22,11 @@ class IsarCustomer {
 
   String? companyName;
 
-  @Index(unique: true)
+  // NO único: el servidor valida que el email no se repita. Como índice
+  // único en el equipo hacía fallar el guardado del cliente real cuando ya
+  // había una copia local con ese email (y con él toda la página de la
+  // descarga de clientes: los clientes nuevos no aparecían en el buscador).
+  @Index()
   late String email;
 
   String? phone;
