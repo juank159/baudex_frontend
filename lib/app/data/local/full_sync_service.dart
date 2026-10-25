@@ -744,7 +744,11 @@ class FullSyncService extends GetxService {
     required Future<int> Function(List<String>) delete,
     required Future<int> Function(Set<String>) sweep,
   }) =>
-      _ChangeHandler(apply: apply, delete: delete, sweep: sweep);
+      _ChangeHandler(
+        apply: apply,
+        delete: delete,
+        sweep: (seen, _) => sweep(seen),
+      );
 
   /// Solo para pruebas: corre la descarga incremental de [entity] (pull
   /// periódico si se pasa [deadline]).
@@ -998,7 +1002,13 @@ class FullSyncService extends GetxService {
     }
 
     if (progress.isFullDownload && progress.sweepValid) {
-      final removed = await handler.sweep(progress.seen);
+      // Corte: hora del SERVIDOR al empezar la descarga (ya trae 2 min de
+      // margen). Lo creado o cambiado después no se toca aunque no haya
+      // llegado en las páginas (p. ej. un cliente creado mientras se
+      // descargaba). Sin marca: inicio en el equipo con 10 min de margen.
+      final cutoff = DateTime.tryParse(progress.watermark ?? '') ??
+          progress.startedAt.subtract(const Duration(minutes: 10));
+      final removed = await handler.sweep(progress.seen, cutoff);
       if (removed > 0) {
         debugPrint(
           '[FULL_SYNC] $entity: $removed registro(s) local(es) ya no existen en el servidor — quitados',
@@ -1067,18 +1077,62 @@ class FullSyncService extends GetxService {
   /// sin conexión (ID temporal) ni los que tienen cambios sin subir.
   Future<int> _sweepServerRows(
     Set<String> seen,
+    DateTime cutoff,
+    IsarCollection<dynamic> collection,
     Future<List<String>> Function() localServerIds,
     Future<int> Function(List<String> ids) deleteAll,
   ) async {
     final queued = await _queuedEntityIds();
-    final stale = (await localServerIds())
+    final candidates = (await localServerIds())
         .where((id) =>
             _uuidPattern.hasMatch(id) &&
             !seen.contains(id) &&
             !queued.contains(id))
         .toList();
+    if (candidates.isEmpty) return 0;
+    final stale = await _unchangedSince(collection, candidates, cutoff);
     if (stale.isEmpty) return 0;
     return _isar.writeTxn(() => deleteAll(stale));
+  }
+
+  /// De [serverIds], los que NO cambiaron desde [cutoff]. Lo creado o
+  /// modificado durante la descarga se conserva. Ante cualquier duda (fecha
+  /// ilegible, error), se conserva: nunca se borra algo sin certeza.
+  /// Solo para pruebas.
+  @visibleForTesting
+  static Future<List<String>> debugUnchangedSince(
+    IsarCollection<dynamic> collection,
+    List<String> serverIds,
+    DateTime cutoff,
+  ) =>
+      _unchangedSince(collection, serverIds, cutoff);
+
+  static Future<List<String>> _unchangedSince(
+    IsarCollection<dynamic> collection,
+    List<String> serverIds,
+    DateTime cutoff,
+  ) async {
+    try {
+      final rows = await collection.getAllByIndex(
+        'serverId',
+        [for (final id in serverIds) [id]],
+      );
+      final result = <String>[];
+      for (final dynamic row in rows) {
+        if (row == null) continue;
+        final DateTime? updatedAt = row.updatedAt as DateTime?;
+        final DateTime? createdAt = row.createdAt as DateTime?;
+        final last = [updatedAt, createdAt]
+            .whereType<DateTime>()
+            .fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
+        if (last != null && last.isBefore(cutoff)) {
+          result.add(row.serverId as String);
+        }
+      }
+      return result;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Set<String> _skippedIds(Iterable<String> all, Iterable<String> kept) {
@@ -1124,8 +1178,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarInvoices.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarInvoices,
         () => _isar.isarInvoices.where().serverIdProperty().findAll(),
         _isar.isarInvoices.deleteAllByServerId,
       ),
@@ -1160,8 +1216,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarProducts.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarProducts,
         () => _isar.isarProducts.where().serverIdProperty().findAll(),
         _isar.isarProducts.deleteAllByServerId,
       ),
@@ -1190,8 +1248,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) => _deleteServerRows(
           ids, _isar.isarProductPresentations.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarProductPresentations,
         () =>
             _isar.isarProductPresentations.where().serverIdProperty().findAll(),
         _isar.isarProductPresentations.deleteAllByServerId,
@@ -1209,8 +1269,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarCustomers.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarCustomers,
         () => _isar.isarCustomers.where().serverIdProperty().findAll(),
         _isar.isarCustomers.deleteAllByServerId,
       ),
@@ -1227,8 +1289,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarSuppliers.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarSuppliers,
         () => _isar.isarSuppliers.where().serverIdProperty().findAll(),
         _isar.isarSuppliers.deleteAllByServerId,
       ),
@@ -1246,8 +1310,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarExpenses.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarExpenses,
         () => _isar.isarExpenses.where().serverIdProperty().findAll(),
         _isar.isarExpenses.deleteAllByServerId,
       ),
@@ -1274,8 +1340,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarPurchaseOrders.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarPurchaseOrders,
         () => _isar.isarPurchaseOrders.where().serverIdProperty().findAll(),
         _isar.isarPurchaseOrders.deleteAllByServerId,
       ),
@@ -1293,8 +1361,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarCreditNotes.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarCreditNotes,
         () => _isar.isarCreditNotes.where().serverIdProperty().findAll(),
         _isar.isarCreditNotes.deleteAllByServerId,
       ),
@@ -1356,8 +1426,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) => _deleteServerRows(
           ids, _isar.isarCustomerCredits.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarCustomerCredits,
         () => _isar.isarCustomerCredits.where().serverIdProperty().findAll(),
         _isar.isarCustomerCredits.deleteAllByServerId,
       ),
@@ -1405,8 +1477,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) => _deleteServerRows(
           ids, _isar.isarInventoryBatchs.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarInventoryBatchs,
         () => _isar.isarInventoryBatchs.where().serverIdProperty().findAll(),
         _isar.isarInventoryBatchs.deleteAllByServerId,
       ),
@@ -1423,8 +1497,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) => _deleteServerRows(
           ids, _isar.isarInventoryMovements.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarInventoryMovements,
         () => _isar.isarInventoryMovements.where().serverIdProperty().findAll(),
         _isar.isarInventoryMovements.deleteAllByServerId,
       ),
@@ -1441,8 +1517,10 @@ class FullSyncService extends GetxService {
       },
       delete: (ids) =>
           _deleteServerRows(ids, _isar.isarNotifications.deleteAllByServerId),
-      sweep: (seen) => _sweepServerRows(
+      sweep: (seen, cutoff) => _sweepServerRows(
         seen,
+        cutoff,
+        _isar.isarNotifications,
         () => _isar.isarNotifications.where().serverIdProperty().findAll(),
         _isar.isarNotifications.deleteAllByServerId,
       ),
@@ -2725,8 +2803,9 @@ class _ChangeHandler {
   /// Quita las copias locales de registros borrados en el servidor.
   final Future<int> Function(List<String> ids) delete;
 
-  /// Tras una descarga completa, quita las copias locales que no llegaron.
-  final Future<int> Function(Set<String> seen) sweep;
+  /// Tras una descarga completa, quita las copias locales que no llegaron
+  /// (y que no cambiaron desde [cutoff], el inicio de la descarga).
+  final Future<int> Function(Set<String> seen, DateTime cutoff) sweep;
 
   const _ChangeHandler({
     required this.apply,
@@ -2763,6 +2842,10 @@ class _ChangesProgress {
   /// IDs se vieron en esta misma ejecución. Si la descarga se reanudó tras
   /// reiniciar la app, no se tienen los IDs anteriores y no se limpia.
   bool sweepValid = true;
+
+  /// Cuándo empezó esta descarga en el equipo (respaldo del corte de la
+  /// limpieza si el servidor no entregó marca).
+  final DateTime startedAt = DateTime.now();
 
   _ChangesProgress({
     required this.organization,
