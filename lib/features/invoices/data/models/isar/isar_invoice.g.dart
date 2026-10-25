@@ -227,7 +227,7 @@ const IsarInvoiceSchema = CollectionSchema(
     r'number': IndexSchema(
       id: 5012388430481709372,
       name: r'number',
-      unique: true,
+      unique: false,
       replace: false,
       properties: [
         IndexPropertySchema(
@@ -638,59 +638,6 @@ extension IsarInvoiceByIndex on IsarCollection<IsarInvoice> {
   List<Id> putAllByServerIdSync(List<IsarInvoice> objects,
       {bool saveLinks = true}) {
     return putAllByIndexSync(r'serverId', objects, saveLinks: saveLinks);
-  }
-
-  Future<IsarInvoice?> getByNumber(String number) {
-    return getByIndex(r'number', [number]);
-  }
-
-  IsarInvoice? getByNumberSync(String number) {
-    return getByIndexSync(r'number', [number]);
-  }
-
-  Future<bool> deleteByNumber(String number) {
-    return deleteByIndex(r'number', [number]);
-  }
-
-  bool deleteByNumberSync(String number) {
-    return deleteByIndexSync(r'number', [number]);
-  }
-
-  Future<List<IsarInvoice?>> getAllByNumber(List<String> numberValues) {
-    final values = numberValues.map((e) => [e]).toList();
-    return getAllByIndex(r'number', values);
-  }
-
-  List<IsarInvoice?> getAllByNumberSync(List<String> numberValues) {
-    final values = numberValues.map((e) => [e]).toList();
-    return getAllByIndexSync(r'number', values);
-  }
-
-  Future<int> deleteAllByNumber(List<String> numberValues) {
-    final values = numberValues.map((e) => [e]).toList();
-    return deleteAllByIndex(r'number', values);
-  }
-
-  int deleteAllByNumberSync(List<String> numberValues) {
-    final values = numberValues.map((e) => [e]).toList();
-    return deleteAllByIndexSync(r'number', values);
-  }
-
-  Future<Id> putByNumber(IsarInvoice object) {
-    return putByIndex(r'number', object);
-  }
-
-  Id putByNumberSync(IsarInvoice object, {bool saveLinks = true}) {
-    return putByIndexSync(r'number', object, saveLinks: saveLinks);
-  }
-
-  Future<List<Id>> putAllByNumber(List<IsarInvoice> objects) {
-    return putAllByIndex(r'number', objects);
-  }
-
-  List<Id> putAllByNumberSync(List<IsarInvoice> objects,
-      {bool saveLinks = true}) {
-    return putAllByIndexSync(r'number', objects, saveLinks: saveLinks);
   }
 }
 

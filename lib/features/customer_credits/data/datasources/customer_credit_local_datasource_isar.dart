@@ -8,6 +8,7 @@ import '../models/customer_credit_model.dart';
 import '../models/isar/isar_customer_credit.dart';
 import '../../domain/entities/customer_credit.dart';
 import 'customer_credit_local_datasource.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 /// Implementación ISAR del datasource local de créditos de clientes
 /// Almacenamiento persistente offline-first usando ISAR
@@ -364,6 +365,7 @@ class CustomerCreditLocalDataSourceIsar implements CustomerCreditLocalDataSource
           tempCredit.updatedAt = DateTime.now();
           tempCredit.lastSyncAt = DateTime.now();
 
+          await dropServerCopy(isar.isarCustomerCredits, tempCredit.id, tempCredit.serverId);
           await isar.isarCustomerCredits.put(tempCredit);
         }
       });

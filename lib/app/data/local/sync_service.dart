@@ -157,6 +157,7 @@ import '../../../features/settings/data/datasources/user_preferences_local_datas
 
 // FASE 5: Pull automático al reconectar
 import 'full_sync_service.dart';
+import 'isar_rekey.dart';
 
 /// Resultado de una operación de sync individual
 enum _SyncOpResult { success, failure, skipped }
@@ -221,6 +222,150 @@ class SyncService extends GetxService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('$_tempIdMapPrefix$tempId', realId);
+    } catch (_) {}
+  }
+
+  /// El servidor rechazó una anulación hecha sin conexión: el equipo vuelve a
+  /// quedar como el servidor (la factura en su estado real, el inventario que
+  /// se había devuelto se vuelve a descontar y el crédito vuelve a su estado)
+  /// y se avisa. La operación se da por terminada para que no siga
+  /// bloqueando la factura ni los productos.
+  Future<void> _revertOfflineCancel({
+    required InvoiceRemoteDataSource remoteDataSource,
+    required String invoiceId,
+    required String localInvoiceId,
+    required Map<String, dynamic> data,
+    required String reason,
+  }) async {
+    final isar = IsarDatabase.instance.database;
+    String number = invoiceId;
+
+    // 1. Factura como está en el servidor.
+    try {
+      final serverInvoice = await remoteDataSource.getInvoiceById(invoiceId);
+      number = serverInvoice.number;
+      final isarInv = await isar.isarInvoices
+              .filter()
+              .serverIdEqualTo(localInvoiceId)
+              .findFirst() ??
+          await isar.isarInvoices.filter().serverIdEqualTo(invoiceId).findFirst();
+      if (isarInv != null) {
+        isarInv.status = _mapInvoiceStatusToIsar(serverInvoice.status);
+        isarInv.paidAmount = serverInvoice.paidAmount;
+        isarInv.balanceDue = serverInvoice.balanceDue;
+        isarInv.paymentsJson = IsarInvoice.encodePayments(serverInvoice.payments);
+        isarInv.isSynced = true;
+        isarInv.lastSyncAt = DateTime.now();
+        await isar.writeTxn(() => isar.isarInvoices.put(isarInv));
+      }
+    } catch (e) {
+      AppLogger.w('Anulación rechazada: no se pudo traer la factura $invoiceId: $e', tag: 'SYNC');
+    }
+
+    // 2. Volver a descontar lo que la anulación devolvió en el equipo
+    //    (mismas unidades: cantidad × presentación; el lote más reciente
+    //    primero, al revés de como se devolvió).
+    if (data['inventoryRestored'] == true) {
+      try {
+        final units = <String, int>{};
+        for (final item in (data['items'] as List? ?? const [])) {
+          if (item is! Map) continue;
+          final productId = item['productId']?.toString();
+          if (productId == null || productId.isEmpty) continue;
+          final qty = ((item['quantity'] as num? ?? 0) *
+                  ((item['presentationFactor'] as num?) ?? 1))
+              .round();
+          if (qty > 0) units[productId] = (units[productId] ?? 0) + qty;
+        }
+        await isar.writeTxn(() async {
+          for (final entry in units.entries) {
+            final batches = await isar.isarInventoryBatchs
+                .filter()
+                .deletedAtIsNull()
+                .and()
+                .productIdEqualTo(entry.key)
+                .findAll();
+            batches.sort((a, b) => b.entryDate.compareTo(a.entryDate));
+            var remaining = entry.value;
+            for (final batch in batches) {
+              if (remaining <= 0) break;
+              final take = remaining > batch.currentQuantity
+                  ? batch.currentQuantity
+                  : remaining;
+              if (take <= 0) continue;
+              batch.consume(take, modifiedBy: 'offline_invoice_cancel_rejected');
+              await isar.isarInventoryBatchs.put(batch);
+              remaining -= take;
+            }
+            final product = await isar.isarProducts
+                .filter()
+                .serverIdEqualTo(entry.key)
+                .findFirst();
+            if (product != null) {
+              final newStock = product.stock - entry.value;
+              product.stock = newStock < 0 ? 0 : newStock;
+              await isar.isarProducts.put(product);
+            }
+          }
+        });
+      } catch (e) {
+        AppLogger.w('Anulación rechazada: no se pudo volver a descontar el inventario: $e', tag: 'SYNC');
+      }
+    }
+
+    // 3. Crédito de la factura como está en el servidor.
+    try {
+      final credits = await isar.isarCustomerCredits
+          .filter()
+          .group((q) => q
+              .invoiceIdEqualTo(localInvoiceId)
+              .or()
+              .invoiceIdEqualTo(invoiceId))
+          .findAll();
+      if (credits.isNotEmpty) {
+        final CustomerCreditRemoteDataSource creditRemote =
+            Get.isRegistered<CustomerCreditRemoteDataSource>()
+                ? Get.find<CustomerCreditRemoteDataSource>()
+                : CustomerCreditRemoteDataSourceImpl(dioClient: Get.find<DioClient>());
+        for (final credit in credits) {
+          try {
+            final server = await creditRemote.getCreditById(credit.serverId);
+            credit.status = IsarCreditStatus.values.firstWhere(
+              (s) => s.name == server.status.name,
+              orElse: () => credit.status,
+            );
+            credit.paidAmount = server.paidAmount;
+            credit.balanceDue = server.balanceDue;
+          } catch (_) {
+            // Crédito provisional (aún sin id real): estado según su saldo.
+            credit.status = credit.balanceDue <= 0
+                ? IsarCreditStatus.paid
+                : (credit.paidAmount > 0
+                    ? IsarCreditStatus.partiallyPaid
+                    : IsarCreditStatus.pending);
+          }
+          credit.updatedAt = DateTime.now();
+        }
+        await isar.writeTxn(() => isar.isarCustomerCredits.putAll(credits));
+      }
+    } catch (e) {
+      AppLogger.w('Anulación rechazada: no se pudo restaurar el crédito: $e', tag: 'SYNC');
+    }
+
+    AppLogger.w('Anulación de $number rechazada por el servidor: $reason', tag: 'SYNC');
+    try {
+      Get.snackbar(
+        'La anulación NO se aplicó',
+        'La factura $number no se pudo anular en el servidor:\n$reason\n\n'
+            'Se dejó como está en el servidor (inventario y crédito incluidos).',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.shade800,
+        colorText: Colors.white,
+        icon: const Icon(Icons.info_outline, color: Colors.white),
+        duration: const Duration(seconds: 30),
+        isDismissible: true,
+        shouldIconPulse: false,
+      );
     } catch (_) {}
   }
 
@@ -3316,6 +3461,7 @@ class SyncService extends GetxService {
                 isarProduct.serverId = createdProduct.id;
                 isarProduct.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarProducts, isarProduct.id, isarProduct.serverId);
                   await isar.isarProducts.put(isarProduct);
                 });
                 // Persistir mapeo temp→real para resolver referencias en futuras sesiones
@@ -3720,6 +3866,7 @@ class SyncService extends GetxService {
                 isarPresentation.serverId = created.id;
                 isarPresentation.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarProductPresentations, isarPresentation.id, isarPresentation.serverId);
                   await isar.isarProductPresentations.put(isarPresentation);
                 });
                 AppLogger.i(
@@ -4087,6 +4234,7 @@ class SyncService extends GetxService {
                 isarCategory.serverId = createdCategory.id;
                 isarCategory.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarCategorys, isarCategory.id, isarCategory.serverId);
                   await isar.isarCategorys.put(isarCategory);
                 });
                 AppLogger.i(
@@ -4439,6 +4587,7 @@ class SyncService extends GetxService {
                 isarCustomer.serverId = createdCustomer.id;
                 isarCustomer.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarCustomers, isarCustomer.id, isarCustomer.serverId);
                   await isar.isarCustomers.put(isarCustomer);
                 });
                 AppLogger.i(
@@ -4718,6 +4867,7 @@ class SyncService extends GetxService {
                 isarSupplier.serverId = createdSupplier.id;
                 isarSupplier.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarSuppliers, isarSupplier.id, isarSupplier.serverId);
                   await isar.isarSuppliers.put(isarSupplier);
                 });
                 AppLogger.i(
@@ -4982,6 +5132,7 @@ class SyncService extends GetxService {
                 isarExpense.markAsSynced();
 
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarExpenses, isarExpense.id, isarExpense.serverId);
                   await isar.isarExpenses.put(isarExpense);
                 });
 
@@ -5392,6 +5543,7 @@ class SyncService extends GetxService {
                 isarBankAccount.serverId = createdBankAccount.id;
                 isarBankAccount.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarBankAccounts, isarBankAccount.id, isarBankAccount.serverId);
                   await isar.isarBankAccounts.put(isarBankAccount);
                 });
                 AppLogger.i(
@@ -5520,6 +5672,7 @@ class SyncService extends GetxService {
             localMovement.serverId = created.id;
             localMovement.balanceAfter = created.balanceAfter;
             localMovement.markAsSynced();
+            await dropServerCopy(isar.isarBankAccountMovements, localMovement.id, localMovement.serverId);
             await isar.isarBankAccountMovements.put(localMovement);
           });
         }
@@ -5623,6 +5776,7 @@ class SyncService extends GetxService {
               if (finalFromBalance != null) localOut.balanceAfter = finalFromBalance;
               if (serverInId != null) localOut.counterpartyMovementId = serverInId;
               localOut.markAsSynced();
+              await dropServerCopy(isar.isarBankAccountMovements, localOut.id, localOut.serverId);
               await isar.isarBankAccountMovements.put(localOut);
             }
           }
@@ -5636,6 +5790,7 @@ class SyncService extends GetxService {
               if (finalToBalance != null) localIn.balanceAfter = finalToBalance;
               if (serverOutId != null) localIn.counterpartyMovementId = serverOutId;
               localIn.markAsSynced();
+              await dropServerCopy(isar.isarBankAccountMovements, localIn.id, localIn.serverId);
               await isar.isarBankAccountMovements.put(localIn);
             }
           }
@@ -6078,6 +6233,7 @@ class SyncService extends GetxService {
                 }
                 isarInvoice.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarInvoices, isarInvoice.id, isarInvoice.serverId);
                   await isar.isarInvoices.put(isarInvoice);
                 });
                 AppLogger.i(
@@ -6280,6 +6436,7 @@ class SyncService extends GetxService {
                   localCredit.isSynced = true;
                   localCredit.lastSyncAt = DateTime.now();
                   await isar.writeTxn(() async {
+                    await dropServerCopy(isar.isarCustomerCredits, localCredit.id, localCredit.serverId);
                     await isar.isarCustomerCredits.put(localCredit);
                   });
                   AppLogger.i(
@@ -6364,7 +6521,25 @@ class SyncService extends GetxService {
 
             final InvoiceModel serverInvoice;
             if (invoiceAction == 'cancel') {
-              serverInvoice = await remoteDataSource.cancelInvoice(invoiceId);
+              try {
+                serverInvoice = await remoteDataSource.cancelInvoice(invoiceId);
+              } on ServerException catch (e) {
+                // El servidor NO la anuló por una regla de negocio (p. ej. en
+                // otro equipo ya la pagaron). Errores de red/servidor se
+                // reintentan solos.
+                final code = e.statusCode ?? 0;
+                final rejected = code >= 400 && code < 500 &&
+                    code != 401 && code != 408 && code != 429;
+                if (!rejected) rethrow;
+                await _revertOfflineCancel(
+                  remoteDataSource: remoteDataSource,
+                  invoiceId: invoiceId,
+                  localInvoiceId: operation.entityId,
+                  data: data,
+                  reason: e.message,
+                );
+                break;
+              }
             } else {
               final paymentItems = [
                 for (final p in (data['payments'] as List? ?? const []))
@@ -6963,6 +7138,7 @@ class SyncService extends GetxService {
                 isarPO.serverId = createdPO.id;
                 isarPO.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarPurchaseOrders, isarPO.id, isarPO.serverId);
                   await isar.isarPurchaseOrders.put(isarPO);
 
                   // Reemplazar items locales (IDs temporales) con items del servidor (IDs reales)
@@ -7635,6 +7811,7 @@ class SyncService extends GetxService {
                   isarMovement.serverId = createdFifo.id;
                   isarMovement.markAsSynced();
                   await isar.writeTxn(() async {
+                    await dropServerCopy(isar.isarInventoryMovements, isarMovement.id, isarMovement.serverId);
                     await isar.isarInventoryMovements.put(isarMovement);
                   });
                   AppLogger.i(
@@ -7711,6 +7888,7 @@ class SyncService extends GetxService {
                   isarMovement.serverId = createdMovement.id;
                   isarMovement.markAsSynced();
                   await isar.writeTxn(() async {
+                    await dropServerCopy(isar.isarInventoryMovements, isarMovement.id, isarMovement.serverId);
                     await isar.isarInventoryMovements.put(isarMovement);
                   });
                   AppLogger.i(
@@ -7949,6 +8127,7 @@ class SyncService extends GetxService {
                 isarCN.serverId = createdCreditNote.id;
                 isarCN.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarCreditNotes, isarCN.id, isarCN.serverId);
                   await isar.isarCreditNotes.put(isarCN);
                 });
                 AppLogger.i(
@@ -8120,6 +8299,7 @@ class SyncService extends GetxService {
                 isarCredit.isSynced = true;
                 isarCredit.lastSyncAt = DateTime.now();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.isarCustomerCredits, isarCredit.id, isarCredit.serverId);
                   await isar.isarCustomerCredits.put(isarCredit);
                 });
                 AppLogger.i(
@@ -9112,6 +9292,7 @@ class SyncService extends GetxService {
                 isarPrinter.serverId = createdPrinter.id;
                 isarPrinter.markAsSynced();
                 await isar.writeTxn(() async {
+                  await dropServerCopy(isar.printerSettingsModels, isarPrinter.id, isarPrinter.serverId);
                   await isar.printerSettingsModels.put(isarPrinter);
                 });
                 AppLogger.i(

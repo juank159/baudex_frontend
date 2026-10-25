@@ -25,6 +25,7 @@ import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../models/customer_model.dart';
 
 import '../models/create_customer_request_model.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 /// Implementación del repositorio de clientes con sincronización dual cache
 class CustomerRepositoryImpl implements CustomerRepository {
@@ -2119,6 +2120,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
             isarCustomer.markAsSynced();
 
             await isar.writeTxn(() async {
+              await dropServerCopy(isar.isarCustomers, isarCustomer.id, isarCustomer.serverId);
               await isar.isarCustomers.put(isarCustomer);
             });
 

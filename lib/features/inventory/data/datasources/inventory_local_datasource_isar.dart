@@ -22,6 +22,7 @@ import '../../domain/entities/inventory_batch.dart';
 import '../../domain/entities/inventory_movement.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import 'inventory_local_datasource.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 /// Implementación ISAR del datasource local de inventory
 ///
@@ -213,6 +214,7 @@ class InventoryLocalDataSourceIsar implements InventoryLocalDataSource {
           tempBatch.updatedAt = DateTime.now();
           tempBatch.lastSyncAt = DateTime.now();
 
+          await dropServerCopy(_isar.isarInventoryBatchs, tempBatch.id, tempBatch.serverId);
           await _isar.isarInventoryBatchs.put(tempBatch);
         }
       });
@@ -443,6 +445,7 @@ class InventoryLocalDataSourceIsar implements InventoryLocalDataSource {
           tempMovement.updatedAt = DateTime.now();
           tempMovement.lastSyncAt = DateTime.now();
 
+          await dropServerCopy(_isar.isarInventoryBatchMovements, tempMovement.id, tempMovement.serverId);
           await _isar.isarInventoryBatchMovements.put(tempMovement);
         }
       });

@@ -36,6 +36,7 @@ import '../../../customer_credits/data/datasources/customer_credit_remote_dataso
 import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../../../customer_credits/domain/entities/customer_credit.dart' show CreditStatus;
 import '../../../../app/core/network/dio_client.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 class InvoiceRepositoryImpl implements InvoiceRepository {
   final InvoiceRemoteDataSource remoteDataSource;
@@ -1512,6 +1513,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
             isarInvoice.markAsSynced();
 
             await isar.writeTxn(() async {
+              await dropServerCopy(isar.isarInvoices, isarInvoice.id, isarInvoice.serverId);
               await isar.isarInvoices.put(isarInvoice);
             });
 

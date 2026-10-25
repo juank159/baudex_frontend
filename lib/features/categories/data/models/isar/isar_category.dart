@@ -17,7 +17,10 @@ class IsarCategory {
 
   String? description;
 
-  @Index(unique: true)
+  // NO único: el servidor valida que no se repita. Como índice único en el
+  // equipo, la copia hecha sin conexión y la que trae la descarga chocaban,
+  // y fallaba toda la página de la descarga.
+  @Index()
   late String slug;
 
   String? image;

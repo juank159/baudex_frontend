@@ -956,6 +956,8 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           operationType: SyncOperationType.update,
           data: {
             'action': 'cancel',
+            // Para poder deshacerlo si el servidor rechaza la anulación.
+            'inventoryRestored': restoresInventory,
             'items': [
               for (final item in invoice.items)
                 if (item.productId != null && item.productId!.isNotEmpty)

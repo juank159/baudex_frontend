@@ -164,7 +164,7 @@ const IsarCategorySchema = CollectionSchema(
     r'slug': IndexSchema(
       id: 6169444064746062836,
       name: r'slug',
-      unique: true,
+      unique: false,
       replace: false,
       properties: [
         IndexPropertySchema(
@@ -425,59 +425,6 @@ extension IsarCategoryByIndex on IsarCollection<IsarCategory> {
   List<Id> putAllByServerIdSync(List<IsarCategory> objects,
       {bool saveLinks = true}) {
     return putAllByIndexSync(r'serverId', objects, saveLinks: saveLinks);
-  }
-
-  Future<IsarCategory?> getBySlug(String slug) {
-    return getByIndex(r'slug', [slug]);
-  }
-
-  IsarCategory? getBySlugSync(String slug) {
-    return getByIndexSync(r'slug', [slug]);
-  }
-
-  Future<bool> deleteBySlug(String slug) {
-    return deleteByIndex(r'slug', [slug]);
-  }
-
-  bool deleteBySlugSync(String slug) {
-    return deleteByIndexSync(r'slug', [slug]);
-  }
-
-  Future<List<IsarCategory?>> getAllBySlug(List<String> slugValues) {
-    final values = slugValues.map((e) => [e]).toList();
-    return getAllByIndex(r'slug', values);
-  }
-
-  List<IsarCategory?> getAllBySlugSync(List<String> slugValues) {
-    final values = slugValues.map((e) => [e]).toList();
-    return getAllByIndexSync(r'slug', values);
-  }
-
-  Future<int> deleteAllBySlug(List<String> slugValues) {
-    final values = slugValues.map((e) => [e]).toList();
-    return deleteAllByIndex(r'slug', values);
-  }
-
-  int deleteAllBySlugSync(List<String> slugValues) {
-    final values = slugValues.map((e) => [e]).toList();
-    return deleteAllByIndexSync(r'slug', values);
-  }
-
-  Future<Id> putBySlug(IsarCategory object) {
-    return putByIndex(r'slug', object);
-  }
-
-  Id putBySlugSync(IsarCategory object, {bool saveLinks = true}) {
-    return putByIndexSync(r'slug', object, saveLinks: saveLinks);
-  }
-
-  Future<List<Id>> putAllBySlug(List<IsarCategory> objects) {
-    return putAllByIndex(r'slug', objects);
-  }
-
-  List<Id> putAllBySlugSync(List<IsarCategory> objects,
-      {bool saveLinks = true}) {
-    return putAllByIndexSync(r'slug', objects, saveLinks: saveLinks);
   }
 }
 

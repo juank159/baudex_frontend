@@ -248,7 +248,7 @@ const IsarProductSchema = CollectionSchema(
     r'sku': IndexSchema(
       id: -3348042439688860591,
       name: r'sku',
-      unique: true,
+      unique: false,
       replace: false,
       properties: [
         IndexPropertySchema(
@@ -696,58 +696,6 @@ extension IsarProductByIndex on IsarCollection<IsarProduct> {
   List<Id> putAllByServerIdSync(List<IsarProduct> objects,
       {bool saveLinks = true}) {
     return putAllByIndexSync(r'serverId', objects, saveLinks: saveLinks);
-  }
-
-  Future<IsarProduct?> getBySku(String sku) {
-    return getByIndex(r'sku', [sku]);
-  }
-
-  IsarProduct? getBySkuSync(String sku) {
-    return getByIndexSync(r'sku', [sku]);
-  }
-
-  Future<bool> deleteBySku(String sku) {
-    return deleteByIndex(r'sku', [sku]);
-  }
-
-  bool deleteBySkuSync(String sku) {
-    return deleteByIndexSync(r'sku', [sku]);
-  }
-
-  Future<List<IsarProduct?>> getAllBySku(List<String> skuValues) {
-    final values = skuValues.map((e) => [e]).toList();
-    return getAllByIndex(r'sku', values);
-  }
-
-  List<IsarProduct?> getAllBySkuSync(List<String> skuValues) {
-    final values = skuValues.map((e) => [e]).toList();
-    return getAllByIndexSync(r'sku', values);
-  }
-
-  Future<int> deleteAllBySku(List<String> skuValues) {
-    final values = skuValues.map((e) => [e]).toList();
-    return deleteAllByIndex(r'sku', values);
-  }
-
-  int deleteAllBySkuSync(List<String> skuValues) {
-    final values = skuValues.map((e) => [e]).toList();
-    return deleteAllByIndexSync(r'sku', values);
-  }
-
-  Future<Id> putBySku(IsarProduct object) {
-    return putByIndex(r'sku', object);
-  }
-
-  Id putBySkuSync(IsarProduct object, {bool saveLinks = true}) {
-    return putByIndexSync(r'sku', object, saveLinks: saveLinks);
-  }
-
-  Future<List<Id>> putAllBySku(List<IsarProduct> objects) {
-    return putAllByIndex(r'sku', objects);
-  }
-
-  List<Id> putAllBySkuSync(List<IsarProduct> objects, {bool saveLinks = true}) {
-    return putAllByIndexSync(r'sku', objects, saveLinks: saveLinks);
   }
 }
 

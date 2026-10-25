@@ -23,6 +23,7 @@ import '../models/update_category_request_model.dart';
 import '../models/isar/isar_category.dart';
 import '../../../../app/data/local/local_first.dart';
 import 'category_offline_repository.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 /// Implementación del repositorio de categorías
 ///
@@ -1255,6 +1256,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
             isarCategory.markAsSynced();
 
             await isar.writeTxn(() async {
+              await dropServerCopy(isar.isarCategorys, isarCategory.id, isarCategory.serverId);
               await isar.isarCategorys.put(isarCategory);
             });
 

@@ -29,6 +29,7 @@ import '../models/create_expense_category_request_model.dart';
 import '../models/expense_category_model.dart';
 import '../../../../app/data/local/local_first.dart';
 import 'expense_offline_repository.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 class ExpenseRepositoryImpl implements ExpenseRepository {
   final ExpenseRemoteDataSource remoteDataSource;
@@ -1869,6 +1870,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
             isarExpense.markAsSynced();
 
             await isar.writeTxn(() async {
+              await dropServerCopy(isar.isarExpenses, isarExpense.id, isarExpense.serverId);
               await isar.isarExpenses.put(isarExpense);
             });
 

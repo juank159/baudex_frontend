@@ -20,6 +20,7 @@ import '../models/bank_account_model.dart';
 import '../models/bank_account_transaction_model.dart';
 import '../../../../app/data/local/local_first.dart';
 import 'bank_account_offline_repository.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 /// Implementación del repositorio de cuentas bancarias
 class BankAccountRepositoryImpl implements BankAccountRepository {
@@ -970,6 +971,7 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
             isarAccount.markAsSynced();
 
             await isar.writeTxn(() async {
+              await dropServerCopy(isar.isarBankAccounts, isarAccount.id, isarAccount.serverId);
               await isar.isarBankAccounts.put(isarAccount);
             });
 

@@ -12,6 +12,7 @@ import '../models/isar/isar_product_price.dart';
 import '../../domain/entities/product.dart';
 import 'product_local_datasource.dart';
 import 'package:isar/isar.dart';
+import '../../../../app/data/local/isar_rekey.dart';
 
 /// Implementación ISAR del datasource local de productos
 ///
@@ -827,6 +828,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
           tempProduct.isSynced = true;
           tempProduct.updatedAt = DateTime.now();
 
+          await dropServerCopy(isar.isarProducts, tempProduct.id, tempProduct.serverId);
           await isar.isarProducts.put(tempProduct);
         }
       });
