@@ -1266,11 +1266,9 @@ class InvoiceFormController extends GetxController {
     required String Function(T) idOf,
   }) async {
     try {
-      // Lo encontrado en el equipo se muestra YA: no se espera al servidor
-      // (antes cada letra podía esperar hasta 6 s mientras bajaba el
-      // catálogo). Solo si el equipo no encontró nada y el catálogo aún no
-      // termina de bajar, se pregunta al servidor, con espera corta.
-      if (local.isNotEmpty) return local;
+      // Mientras el módulo baja, el equipo tiene solo una PARTE: aunque haya
+      // encontrado algo (otro "Hugo"), el buscado puede faltar. Se suman
+      // los del servidor, con espera corta (2,5 s; antes 6 s).
       if (await localCollectionReady(collection())) return local;
       if (!Get.isRegistered<NetworkInfo>() ||
           !await Get.find<NetworkInfo>().isConnected) {
