@@ -816,23 +816,32 @@ class FullSyncService extends GetxService {
   /// los devolvía: un empleado veía 15 clientes de 119.
   late final Map<String, _RowCountCheck> _countChecks = {
     'customers': _RowCountCheck(
-      server: () async {
-        final remoteDS = _getOrCreateDS<CustomerRemoteDataSource>(
-          () => CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
-        );
-        final response =
-            await remoteDS.getCustomers(CustomerQueryModel(page: 1, limit: 1));
-        return response.meta.totalItems;
-      },
-      local: () async => (await _isar.isarCustomers
-              .filter()
-              .deletedAtIsNull()
-              .serverIdProperty()
-              .findAll())
-          .where(_uuidPattern.hasMatch)
-          .length,
+      server: () async =>
+          await _changesClient.count('customers') ??
+          (await _getOrCreateDS<CustomerRemoteDataSource>(
+            () => CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+          ).getCustomers(CustomerQueryModel(page: 1, limit: 1)))
+              .meta
+              .totalItems,
+      local: () async => _countServerIds(await _isar.isarCustomers
+          .filter()
+          .deletedAtIsNull()
+          .serverIdProperty()
+          .findAll()),
+    ),
+    'customer_credits': _RowCountCheck(
+      server: () => _changesClient.count('customer_credits'),
+      local: () async => _countServerIds(await _isar.isarCustomerCredits
+          .filter()
+          .deletedAtIsNull()
+          .serverIdProperty()
+          .findAll()),
     ),
   };
+
+  /// Solo los registros que ya existen en el servidor (no los temporales).
+  static int _countServerIds(List<String> ids) =>
+      ids.where(_uuidPattern.hasMatch).toSet().length;
   final Map<String, DateTime> _lastCountCheck = {};
   static const Duration _countCheckEvery = Duration(minutes: 15);
 

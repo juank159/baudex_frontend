@@ -98,6 +98,21 @@ class SyncChangesClient {
       rethrow;
     }
   }
+
+  /// Cuántos registros vivos tiene [entity] en el servidor; `null` si el
+  /// servidor aún no lo soporta.
+  Future<int?> count(String entity) async {
+    try {
+      final response = await dioClient.get('/sync/count/$entity');
+      final body = response.data;
+      final data = body is Map && body['data'] is Map ? body['data'] : body;
+      final value = data is Map ? data['count'] : null;
+      return value is num ? value.toInt() : int.tryParse('$value');
+    } on ServerException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
 }
 
 /// Hasta dónde se descargó cada módulo, por negocio. Se guarda fuera de ISAR

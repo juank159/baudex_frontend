@@ -19,6 +19,10 @@ class FakeServer implements SyncChangesClient {
   @override
   DioClient get dioClient => throw UnimplementedError();
 
+  @override
+  Future<int?> count(String entity) async =>
+      rows.values.where((r) => !r.deleted).length;
+
   void put(String id, String stamp, {bool deleted = false}) =>
       rows[id] = (stamp: stamp, deleted: deleted);
 
