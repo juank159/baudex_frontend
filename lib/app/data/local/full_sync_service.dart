@@ -124,6 +124,12 @@ class FullSyncResult {
 }
 
 /// Progreso de sincronización de una entidad
+class _RowCountCheck {
+  final Future<int?> Function() server;
+  final Future<int> Function() local;
+  const _RowCountCheck({required this.server, required this.local});
+}
+
 class SyncEntityProgress {
   final String entityName;
   final int count;
@@ -756,9 +762,23 @@ class FullSyncService extends GetxService {
   Future<int?> debugPullChanges(String entity, {DateTime? deadline}) =>
       debugSyncEntity(
         _incrementalEntities.entries.firstWhere((e) => e.value == entity).key,
-        () => _pullChanges(entity),
+        () => _pullThenHeal(entity),
         deadline: deadline,
       );
+
+  /// Solo para pruebas: reemplaza el conteo servidor/equipo de [entity].
+  @visibleForTesting
+  void debugSetCountCheck(String entity,
+          {required Future<int?> Function() server,
+          required Future<int> Function() local}) =>
+      _countCheckOverrides[entity] = _RowCountCheck(server: server, local: local);
+  final Map<String, _RowCountCheck> _countCheckOverrides = {};
+
+  Future<int> _pullThenHeal(String entity) async {
+    final applied = await _pullChanges(entity);
+    await _healMissingRows(entity);
+    return applied;
+  }
 
   /// Descargas incrementales a medias (por tiempo agotado); el siguiente pull
   /// sigue desde aquí.
@@ -778,7 +798,7 @@ class FullSyncService extends GetxService {
       final until = _incrementalUnsupportedUntil;
       if (until != null && DateTime.now().isBefore(until)) return legacy();
       try {
-        return await _pullChanges(entity);
+        return await _pullThenHeal(entity);
       } on SyncChangesUnsupportedException {
         _incrementalUnsupportedUntil =
             DateTime.now().add(const Duration(minutes: 30));
@@ -788,6 +808,57 @@ class FullSyncService extends GetxService {
         return legacy();
       }
     };
+  }
+
+  /// Cuántos registros tiene el servidor vs. el equipo, por módulo. Si el
+  /// equipo perdió registros (versiones anteriores borraban clientes del
+  /// equipo al crear o editar uno), la descarga "solo lo que cambió" nunca
+  /// los devolvía: un empleado veía 15 clientes de 119.
+  late final Map<String, _RowCountCheck> _countChecks = {
+    'customers': _RowCountCheck(
+      server: () async {
+        final remoteDS = _getOrCreateDS<CustomerRemoteDataSource>(
+          () => CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+        );
+        final response =
+            await remoteDS.getCustomers(CustomerQueryModel(page: 1, limit: 1));
+        return response.meta.totalItems;
+      },
+      local: () async => (await _isar.isarCustomers
+              .filter()
+              .deletedAtIsNull()
+              .serverIdProperty()
+              .findAll())
+          .where(_uuidPattern.hasMatch)
+          .length,
+    ),
+  };
+  final Map<String, DateTime> _lastCountCheck = {};
+  static const Duration _countCheckEvery = Duration(minutes: 15);
+
+  /// Al terminar una descarga incremental: si el equipo tiene MENOS
+  /// registros que el servidor, se olvida la marca y la siguiente descarga
+  /// baja todo de nuevo (sin borrar nada del equipo). Se revisa al abrir la
+  /// app y luego cada 15 minutos. Cualquier error se ignora.
+  Future<void> _healMissingRows(String entity) async {
+    final check = _countCheckOverrides[entity] ?? _countChecks[entity];
+    if (check == null || _changesProgress.containsKey(entity)) return;
+    final last = _lastCountCheck[entity];
+    if (last != null && DateTime.now().difference(last) < _countCheckEvery) {
+      return;
+    }
+    _lastCountCheck[entity] = DateTime.now();
+    try {
+      final server = await check.server();
+      final local = await check.local();
+      if (server == null || local >= server) return;
+      final organization = await _organizationKey();
+      if (organization == null) return;
+      await _watermarks.remove(organization, entity);
+      debugPrint(
+        '[FULL_SYNC] $entity: el equipo tiene $local y el servidor $server — se descarga todo de nuevo',
+      );
+    } catch (_) {}
   }
 
   /// Identifica al negocio para guardar sus marcas por separado.

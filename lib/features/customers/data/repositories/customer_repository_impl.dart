@@ -1906,13 +1906,11 @@ class CustomerRepositoryImpl implements CustomerRepository {
     return true;
   }
 
-  /// Invalidar cache de listados para reflejar cambios
-  Future<void> _invalidateListCache() async {
-    try {
-      await localDataSource.clearCustomerCache();
-    } catch (e) {
-    }
-  }
+  /// Antes borraba TODOS los clientes del equipo tras crear/editar uno con
+  /// internet; la descarga incremental solo devolvía los que cambiaron y el
+  /// equipo quedaba con unos pocos (p. ej. 15 de 119). El cliente ya quedó
+  /// guardado con cacheCustomer: no hay nada que borrar.
+  Future<void> _invalidateListCache() async {}
 
   /// Obtener clientes desde cache local (ISAR + SecureStorage fallback)
   Future<Either<Failure, PaginatedResult<Customer>>>

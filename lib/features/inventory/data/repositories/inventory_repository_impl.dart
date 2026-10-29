@@ -141,9 +141,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         // Cache the new movement
         await localDataSource.cacheMovement(movement);
 
-        // Clear movements cache to force refresh on next fetch
-        await localDataSource.clearMovementsCache();
-
         return Right(movement.toEntity());
       } on ServerException catch (e) {
         // Errores de negocio (400, 409, 422) NO deben crear offline
@@ -349,9 +346,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         // Cache the updated movement
         await localDataSource.cacheMovement(movement);
 
-        // Clear movements cache to force refresh on next fetch
-        await localDataSource.clearMovementsCache();
-
         return Right(movement.toEntity());
       } on ServerException catch (e) {
         AppLogger.w(' ServerException al actualizar movimiento: ${e.message} - Actualizando offline...');
@@ -501,8 +495,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
           AppLogger.w(' Error actualizando ISAR (no crítico): $e');
         }
 
-        // Clear related caches
-        await localDataSource.clearMovementsCache();
 
         return const Right(null);
       } on ServerException catch (e) {
@@ -543,8 +535,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         AppLogger.w(' Error actualizando ISAR (no crítico): $e');
       }
 
-      // Clear related caches
-      await localDataSource.clearMovementsCache();
 
       // Agregar a cola de sincronización
       try {
@@ -579,7 +569,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         await localDataSource.cacheMovement(movement);
 
         // Clear caches to force refresh
-        await localDataSource.clearMovementsCache();
         await localDataSource.clearBalancesCache();
 
         return Right(movement.toEntity());
@@ -606,9 +595,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         // Cache the cancelled movement
         await localDataSource.cacheMovement(movement);
-
-        // Clear movements cache to force refresh
-        await localDataSource.clearMovementsCache();
 
         return Right(movement.toEntity());
       } on ServerException catch (e) {
@@ -1000,7 +986,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
 
       // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
 
       return Right(movement.toEntity());
@@ -1044,7 +1029,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
 
       // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
 
       return Right(movements.map((model) => model.toEntity()).toList());
@@ -1076,7 +1060,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final movement = await remoteDataSource.createStockAdjustment(keyed);
 
       // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
 
       return Right(movement.toEntity());
@@ -1130,7 +1113,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
 
       // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
 
       return Right(movements.map((model) => model.toEntity()).toList());
@@ -1184,7 +1166,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final movement = await remoteDataSource.createTransfer(request);
 
       // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
 
       return Right(movement.toEntity());
