@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
 import 'isar_database.dart';
@@ -298,6 +299,7 @@ class FullSyncService extends GetxService {
       // NUNCA borrar: syncOperations, idempotencyRecords, printerSettings no sincronizados
       // skipCleanup=true para pulls periódicos: upsert by serverId es seguro sin limpiar
       final wipeLocalData = !skipCleanup && await _isDifferentBusiness();
+      if (!wipeLocalData) await _refreshIfAppUpdated();
       if (!wipeLocalData && forceFullDownload) {
         await _watermarks.clearAll();
         _changesProgress.clear();
@@ -716,12 +718,20 @@ class FullSyncService extends GetxService {
   /// parte (p. ej. lo de los últimos días) y las pantallas deben usar el
   /// servidor.
   Future<bool> isModuleDownloaded(String entity) async {
+    // Una "actualización" (re-descarga tras instalar versión nueva) no
+    // cuenta: el equipo ya tiene todo y las pantallas siguen leyéndolo.
     final inMemory = _changesProgress[entity];
-    if (inMemory != null && inMemory.isFullDownload) return false;
+    if (inMemory != null && inMemory.isFullDownload && !inMemory.refresh) {
+      return false;
+    }
     final organization = await _organizationKey();
     if (organization == null) return false;
     final saved = await _watermarks.getProgress(organization, entity);
-    if (saved != null && saved['isFullDownload'] == true) return false;
+    if (saved != null &&
+        saved['isFullDownload'] == true &&
+        saved['refresh'] != true) {
+      return false;
+    }
     return await _watermarks.get(organization, entity) != null;
   }
 
@@ -868,6 +878,68 @@ class FullSyncService extends GetxService {
         '[FULL_SYNC] $entity: el equipo tiene $local y el servidor $server — se descarga todo de nuevo',
       );
     } catch (_) {}
+  }
+
+  static const String _installKey = 'sync_install_fingerprint_v1';
+  bool _installChecked = false;
+
+  /// Solo para pruebas: huella de instalación de reemplazo.
+  @visibleForTesting
+  Future<String?> Function()? debugInstallFingerprint;
+
+  /// Solo para pruebas: revisa si se instaló una versión nueva.
+  @visibleForTesting
+  Future<void> debugCheckAppUpdate() => _refreshIfAppUpdated();
+
+  /// Versión + fecha de instalación/actualización de la app. Cambia con
+  /// cada instalación nueva (Windows: fecha del .exe; Android: última
+  /// actualización), aunque el número de versión no cambie.
+  Future<String?> _installFingerprint() async {
+    if (debugInstallFingerprint != null) return debugInstallFingerprint!();
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return '${info.version}+${info.buildNumber}|'
+          '${info.updateTime?.millisecondsSinceEpoch ?? ''}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Se instaló una versión nueva: cada módulo ya descargado se vuelve a
+  /// bajar completo, en segundo plano y sin borrar nada antes. Las
+  /// pantallas siguen mostrando lo del equipo; al terminar, cada registro
+  /// queda como en el servidor y se quita lo que ya no existe. Antes había
+  /// que ir a Diagnóstico → "Forzar sincronización completa".
+  Future<void> _refreshIfAppUpdated() async {
+    if (_installChecked) return;
+    final organization = await _organizationKey();
+    if (organization == null) return;
+    _installChecked = true;
+    final fingerprint = await _installFingerprint();
+    if (fingerprint == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_installKey) == fingerprint) return;
+    var refreshed = 0;
+    for (final entity in _incrementalEntities.values.toSet()) {
+      if (_changesProgress.containsKey(entity)) continue;
+      if (await _watermarks.getProgress(organization, entity) != null) continue;
+      // Módulos que aún no terminan su primera descarga siguen con ella.
+      if (await _watermarks.get(organization, entity) == null) continue;
+      final progress = _ChangesProgress(
+        organization: organization,
+        since: SyncChangesClient.epoch,
+        refresh: true,
+      );
+      _changesProgress[entity] = progress;
+      await _watermarks.setProgress(organization, entity, progress.toJson());
+      refreshed++;
+    }
+    await prefs.setString(_installKey, fingerprint);
+    if (refreshed > 0) {
+      debugPrint(
+        '[FULL_SYNC] Versión nueva instalada: se vuelven a bajar $refreshed módulos en segundo plano',
+      );
+    }
   }
 
   /// Identifica al negocio para guardar sus marcas por separado.
@@ -2899,6 +2971,10 @@ class _ChangeHandler {
 class _ChangesProgress {
   final String organization;
   final bool isFullDownload;
+
+  /// Re-descarga completa de un módulo que el equipo YA tenía (versión nueva
+  /// instalada): las pantallas lo siguen leyendo del equipo mientras tanto.
+  final bool refresh;
   String since;
   String? afterId;
 
@@ -2931,11 +3007,13 @@ class _ChangesProgress {
     required this.organization,
     required this.since,
     bool? isFullDownload,
+    this.refresh = false,
   }) : isFullDownload = isFullDownload ?? since == SyncChangesClient.epoch;
 
   Map<String, dynamic> toJson() => {
         'organization': organization,
         'isFullDownload': isFullDownload,
+        'refresh': refresh,
         'since': since,
         'afterId': afterId,
         'watermark': watermark,
@@ -2955,6 +3033,7 @@ class _ChangesProgress {
       organization: organization,
       since: since,
       isFullDownload: json['isFullDownload'] == true,
+      refresh: json['refresh'] == true,
     )
       ..afterId = json['afterId'] as String?
       ..watermark = json['watermark'] as String?

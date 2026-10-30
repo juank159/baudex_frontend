@@ -1519,6 +1519,32 @@ class InvoiceFormController extends GetxController {
   }) async {
     if (!_validateForm()) return false;
 
+    // CONSUMIDOR FINAL: venta rápida, nunca queda debiendo (ni a crédito,
+    // ni parte pagada y el resto fiado, ni factura pendiente). Se revisa
+    // aquí, antes de guardar nada, con o sin internet.
+    if (!isEditMode &&
+        status != InvoiceStatus.draft &&
+        (selectedCustomer == null ||
+            FinalConsumerResolver.isFinalConsumer(selectedCustomer))) {
+      final paid = multiplePayments != null && multiplePayments.isNotEmpty
+          ? multiplePayments.fold<double>(0, (sum, p) => sum + p.amount)
+          : (paymentMethod == PaymentMethod.credit ? 0.0 : total);
+      final leavesDebt = paymentMethod == PaymentMethod.credit ||
+          createCreditForRemaining ||
+          status == InvoiceStatus.pending ||
+          status == InvoiceStatus.partiallyPaid ||
+          status == InvoiceStatus.overdue ||
+          paid + (balanceApplied ?? 0) < total - 0.009;
+      if (leavesDebt) {
+        _showError(
+          'Consumidor Final',
+          'El Consumidor Final no puede comprar a crédito ni quedar debiendo. '
+              'Cobre el total o seleccione un cliente registrado.',
+        );
+        return false;
+      }
+    }
+
     // Phase 2: bloquear venta en efectivo si NO hay caja abierta.
     // Aplica si el método principal es cash O si entre los pagos
     // múltiples hay alguno en efectivo.

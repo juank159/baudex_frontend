@@ -186,11 +186,22 @@ class SyncService extends GetxService {
 
   // Guard: pausar pull periódico cuando hay formularios activos
   static int _activeFormCount = 0;
-  static void notifyFormOpened() => _activeFormCount++;
+  static DateTime? _formOpenedAt;
+  static void notifyFormOpened() {
+    if (_activeFormCount == 0) _formOpenedAt = DateTime.now();
+    _activeFormCount++;
+  }
   static void notifyFormClosed() {
     if (_activeFormCount > 0) _activeFormCount--;
   }
-  static bool get hasActiveForm => _activeFormCount > 0;
+
+  /// Un formulario abierto pausa la descarga automática, pero como mucho
+  /// unos minutos: si una pantalla no avisa que se cerró, la descarga no
+  /// queda apagada hasta reiniciar la app.
+  static bool get hasActiveForm =>
+      _activeFormCount > 0 &&
+      _formOpenedAt != null &&
+      DateTime.now().difference(_formOpenedAt!) < const Duration(minutes: 5);
 
   // Mapeo temp→real IDs para resolver referencias entre sesiones
   static final Map<String, String> _tempToRealIdMap = {};
@@ -992,8 +1003,12 @@ class SyncService extends GetxService {
     // cada 60 s y solo con lo que cambió.
     final fullDownloadPending = Get.isRegistered<FullSyncService>() &&
         Get.find<FullSyncService>().hasPendingFullDownload;
+    // Descarga completa pendiente (equipo nuevo o versión nueva): pulls
+    // seguidos (cada uno con tiempo límite por módulo, así la pantalla
+    // respira entre tandas). Antes cada 15 s: tardaba muchísimo y había que
+    // forzarla desde Diagnóstico.
     final interval = fullDownloadPending
-        ? const Duration(seconds: 15)
+        ? const Duration(seconds: 2)
         : const Duration(seconds: 60);
     return DateTime.now().difference(_lastPullTime!) > interval;
   }
@@ -1014,6 +1029,14 @@ class SyncService extends GetxService {
       // Contar los 60 s desde que TERMINA el pull, no desde que empezó: si
       // un pull tarda, el siguiente no debe arrancar pegado a él.
       _lastPullTime = DateTime.now();
+
+      // Falta terminar una descarga completa: la siguiente tanda en 2 s, sin
+      // esperar el reloj de 10 s.
+      if (fullSyncService.hasPendingFullDownload) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (_isOnline.value && _shouldPeriodicPull()) _periodicPull();
+        });
+      }
 
       if (result.totalSynced > 0 && !result.wasAborted) {
         final countsChanged = _pullBroughtChanges(result.syncedCounts);
