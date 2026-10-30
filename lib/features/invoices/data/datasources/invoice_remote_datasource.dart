@@ -1,5 +1,6 @@
 // lib/features/invoices/data/datasources/invoice_remote_datasource.dart
 import 'package:dio/dio.dart';
+import '../../../../app/core/network/api_interceptor.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../domain/repositories/invoice_repository.dart';
@@ -324,9 +325,18 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         throw ServerException('Datos de factura inválidos');
       }
 
+      // El cajero espera esta respuesta: con internet malo no se esperan
+      // 60 s (el tiempo general); pasado este tiempo la venta se guarda en
+      // el equipo y sube después con la MISMA clave de idempotencia (el
+      // servidor no la crea dos veces si este intento sí llegó).
       final response = await dioClient.post(
         '/invoices',
         data: request.toJson(),
+        options: Options(
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 15),
+          extra: {ApiInterceptor.connectTimeoutExtra: const Duration(seconds: 6)},
+        ),
       );
 
       if (response.statusCode == 201 || response.statusCode == 200) {

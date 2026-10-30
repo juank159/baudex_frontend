@@ -1,4 +1,5 @@
 // test/unit/data/datasources/invoice_remote_datasource_test.dart
+import 'package:baudex_desktop/app/core/network/api_interceptor.dart';
 import 'package:baudex_desktop/app/core/errors/exceptions.dart';
 import 'package:baudex_desktop/app/core/network/dio_client.dart';
 import 'package:baudex_desktop/features/invoices/data/datasources/invoice_remote_datasource.dart';
@@ -650,6 +651,7 @@ void main() {
         when(() => mockDioClient.post(
               any(),
               data: any(named: 'data'),
+              options: any(named: 'options'),
             )).thenAnswer(
           (_) async => Response(
             data: tResponseData,
@@ -662,10 +664,16 @@ void main() {
         await dataSource.createInvoice(tRequest);
 
         // Assert
-        verify(() => mockDioClient.post(
+        final options = verify(() => mockDioClient.post(
               '/invoices',
               data: any(named: 'data'),
-            )).called(1);
+              options: captureAny(named: 'options'),
+            )).captured.single as Options;
+        // El cajero no espera los 60 s generales: pasado esto, la venta se
+        // guarda en el equipo (misma clave de idempotencia).
+        expect(options.receiveTimeout, const Duration(seconds: 15));
+        expect(options.extra?[ApiInterceptor.connectTimeoutExtra],
+            const Duration(seconds: 6));
       },
     );
 
@@ -676,6 +684,7 @@ void main() {
         when(() => mockDioClient.post(
               any(),
               data: any(named: 'data'),
+              options: any(named: 'options'),
             )).thenAnswer(
           (_) async => Response(
             data: tResponseData,
@@ -700,6 +709,7 @@ void main() {
         when(() => mockDioClient.post(
               any(),
               data: any(named: 'data'),
+              options: any(named: 'options'),
             )).thenAnswer(
           (_) async => Response(
             data: {

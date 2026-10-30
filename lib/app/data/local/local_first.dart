@@ -65,6 +65,11 @@ Future<bool> localCollectionReady(IsarCollection<dynamic> collection) async {
     if (!await Get.find<FullSyncService>().isModuleDownloaded(entity)) {
       return false;
     }
+    // Descarga completa terminada: lo del equipo es TODO lo que hay, aunque
+    // esté vacío (p. ej. un negocio sin presentaciones). Antes "vacío" era
+    // "no listo" y cada producto agregado a la factura esperaba al servidor.
+    _readyCollections.add(key);
+    return true;
   }
   final ready = await collection.count() > 0;
   if (ready) _readyCollections.add(key);

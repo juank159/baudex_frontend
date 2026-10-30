@@ -40,6 +40,10 @@ class ApiInterceptor extends Interceptor {
   // Header key para idempotencia
   static const String idempotencyKeyHeader = 'Idempotency-Key';
 
+  /// `Options(extra: {connectTimeoutExtra: Duration(...)})`: tiempo máximo
+  /// para conectar de una sola petición.
+  static const String connectTimeoutExtra = 'connect_timeout';
+
   // Cache en memoria para evitar lecturas repetidas
   String? _cachedToken;
   String? _cachedDeviceId;
@@ -139,6 +143,10 @@ class ApiInterceptor extends Interceptor {
       // Si algo falla aquí, la petición sale como estaba: el servidor
       // interpreta las horas sin zona con la zona del negocio.
     }
+
+    // Tiempo máximo para conectar de ESTA petición (Options no lo permite).
+    final connectTimeout = options.extra[connectTimeoutExtra];
+    if (connectTimeout is Duration) options.connectTimeout = connectTimeout;
 
     // Agregar Idempotency-Key para operaciones que modifican datos
     if (_requiresIdempotency(options.method)) {

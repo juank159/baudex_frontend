@@ -445,7 +445,8 @@ void main() {
 
         // Assert
         verify(() => mockLocalDataSource.cacheCustomer(any())).called(1);
-        verify(() => mockLocalDataSource.clearCustomerCache()).called(1);
+        // Nunca vaciar la lista local (antes el equipo quedaba con 1 cliente).
+        verifyNever(() => mockLocalDataSource.clearCustomerCache());
       },
     );
 
@@ -645,7 +646,7 @@ void main() {
         // Assert
         verify(() => mockLocalDataSource.removeCachedCustomer('cust-001'))
             .called(1);
-        verify(() => mockLocalDataSource.clearCustomerCache()).called(1);
+        verifyNever(() => mockLocalDataSource.clearCustomerCache());
       },
     );
 

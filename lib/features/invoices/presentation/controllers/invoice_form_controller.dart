@@ -661,6 +661,9 @@ class InvoiceFormController extends GetxController {
         invoice.items
             .map((item) => InvoiceItemFormData.fromEntity(item))
             .toList();
+    // Productos de la factura que se edita (para validar stock al cambiar
+    // cantidades): solo esos, no todo el catálogo.
+    unawaited(_loadProductsInInvoice());
   }
 
   // // ✅ MÉTODO CORREGIDO EN invoice_form_controller.dart
@@ -1061,7 +1064,14 @@ class InvoiceFormController extends GetxController {
 
       if (Get.isRegistered<ProductOfflineRepository>()) {
         final repo = Get.find<ProductOfflineRepository>();
-        final isarSearch = await repo.searchProducts(query, limit: null);
+        // Texto sin números ("ar", "leche"): tope de 100. Con 2 letras
+        // salían cientos y convertir cada uno congelaba los equipos lentos;
+        // el cajero sigue escribiendo para afinar. Con números (código,
+        // SKU, precio de producto no registrado) se trae todo, como siempre.
+        final isarSearch = await repo.searchProducts(
+          query,
+          limit: RegExp(r'\d').hasMatch(query) ? null : 100,
+        );
         isarSearch.fold(
           (failure) => AppLogger.w('ISAR search falló: ${failure.message}'),
           (list) {
@@ -1147,61 +1157,34 @@ class InvoiceFormController extends GetxController {
     }).toList();
   }
 
+  /// Antes se cargaba TODO el catálogo en memoria al abrir cada pestaña
+  /// (miles de productos convertidos uno por uno: la pantalla se congelaba
+  /// al abrir, peor en equipos de gama baja). La búsqueda ya va a la base
+  /// local; en memoria solo hacen falta los productos de ESTA factura, que
+  /// se agregan al elegirlos (_ensureProductIsAvailable).
   Future<void> _loadProducts() async {
-    if (_getProductsUseCase == null) {
-
-      // No limpiar — preservar lo que pueda haber de un load anterior.
-      _isLoadingProducts.value = false;
-      return;
-    }
-
     _isLoadingProducts.value = true;
-
-    // ═══════════════════════════════════════════════════════════════════
-    // PASO 1 — CACHE-FIRST: poblar _availableProducts desde ISAR YA.
-    // Si la app está offline, si el servidor está caído, o si el usuario
-    // tiene red lenta, al menos tiene los productos cacheados en memoria
-    // para que search/selectores funcionen de inmediato.
-    // ═══════════════════════════════════════════════════════════════════
-    await _loadProductsFromCacheFirst();
-
-    // No se vuelve a pedir el catálogo al servidor al abrir facturación (ni
-    // cada pestaña): la base local se mantiene al día con la descarga
-    // periódica, y bajar 150 productos aquí reemplazaba la lista completa
-    // por esos 150 y cargaba el equipo justo al empezar a vender.
+    await _loadProductsInInvoice();
     _isLoadingProducts.value = false;
   }
 
-  /// Carga productos DIRECTO desde ISAR sin pasar por el UseCase (que tiene
-  /// timeout a nivel de controller). Esto garantiza que el form arranque
-  /// con los productos cacheados aunque la red esté caída o lenta.
-  Future<void> _loadProductsFromCacheFirst() async {
+  /// Trae de la base local los productos que ya están en la factura (al
+  /// editar o duplicar) y aún no están en memoria.
+  Future<void> _loadProductsInInvoice() async {
     try {
-      if (!Get.isRegistered<ProductRepository>()) {
-
-        return;
+      if (!Get.isRegistered<ProductOfflineRepository>()) return;
+      final repo = Get.find<ProductOfflineRepository>();
+      final ids = _invoiceItems
+          .map((item) => item.productId)
+          .whereType<String>()
+          .where((id) =>
+              id.isNotEmpty && !_availableProducts.any((p) => p.id == id))
+          .toSet();
+      for (final id in ids) {
+        final result = await repo.getProductById(id);
+        result.fold((_) {}, _ensureProductIsAvailable);
       }
-      final repo = Get.find<ProductRepository>();
-      // El repo expone getCachedProducts() que lee directo de ISAR/cache
-      // sin tocar red — offline-first real, sin timeouts ni excepciones de red.
-      final cacheResult = await repo.getCachedProducts();
-      cacheResult.fold(
-        (failure) {
-
-        },
-        (products) {
-          if (products.isNotEmpty) {
-            // Solo productos activos (UX consistente con el search)
-            final activos = products
-                .where((p) => p.status == ProductStatus.active)
-                .toList();
-            _availableProducts.value = activos;
-          }
-        },
-      );
-    } catch (e) {
-
-    }
+    } catch (_) {}
   }
 
   // ==================== CUSTOMER MANAGEMENT ====================
@@ -2505,7 +2488,13 @@ class InvoiceFormController extends GetxController {
 
     if (!Get.isRegistered<CashRegisterController>()) return false;
     final ctrl = Get.find<CashRegisterController>();
-    // Refrescar el estado por si está stale (silencioso, sin loading visible).
+    // Caja ya abierta según el equipo: se vende de una vez y el estado se
+    // refresca en segundo plano (antes cada venta esperaba al servidor).
+    if (ctrl.hasOpenRegister) {
+      unawaited(ctrl.loadCurrent(silent: true));
+      return false;
+    }
+    // Cerrada según el equipo: confirmar (pudieron abrirla en otro equipo).
     await ctrl.loadCurrent(silent: true);
     if (ctrl.hasOpenRegister) return false; // OK, hay caja abierta
 

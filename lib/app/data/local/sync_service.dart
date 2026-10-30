@@ -2435,16 +2435,18 @@ class SyncService extends GetxService {
         tag: 'SYNC',
       );
 
-      // Intentar sincronizar inmediatamente si hay conexión Y el servidor responde
+      // Subir enseguida si hay conexión, SIN esperar: quien guardó (p. ej.
+      // una venta) ya terminó; antes esperaba toda la subida de la cola y,
+      // con internet lento, el cajero quedaba esperando.
       if (_isOnline.value) {
         try {
           final networkInfo = Get.find<NetworkInfo>();
           if (networkInfo.isServerReachable) {
-            await syncAll();
+            unawaited(syncAll().catchError((_) {}));
           }
         } catch (_) {
           // Si no se puede obtener NetworkInfo, intentar sync de todos modos
-          await syncAll();
+          unawaited(syncAll().catchError((_) {}));
         }
       }
     } catch (e) {

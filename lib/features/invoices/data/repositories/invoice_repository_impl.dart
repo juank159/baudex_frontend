@@ -1,4 +1,5 @@
 // lib/features/invoices/data/repositories/invoice_repository_impl.dart
+import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
@@ -699,17 +700,19 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       } catch (e) {
       }
 
-      // ✅ Para facturas a crédito puro, crear el CustomerCredit en el servidor
+      // Venta 100% a crédito: el servidor ya creó el crédito junto con la
+      // factura. Esto solo lo trae al equipo para verlo de una vez; va en
+      // segundo plano para que el cajero no espere otra petición.
       if (paymentMethod == PaymentMethod.credit &&
           (status == InvoiceStatus.pending || status == null) &&
           createdInvoice.total > 0) {
-        await _createCreditForPureCreditInvoice(
+        unawaited(_createCreditForPureCreditInvoice(
           invoiceId: createdInvoice.id,
           invoiceNumber: createdInvoice.number ?? '',
           customerId: customerId,
           amount: createdInvoice.total,
           dueDate: dueDate ?? DateTime.now().add(const Duration(days: 30)),
-        );
+        ));
       }
 
       return Right(createdInvoice);
