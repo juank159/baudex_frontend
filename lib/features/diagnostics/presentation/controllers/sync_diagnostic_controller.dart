@@ -177,9 +177,16 @@ class SyncDiagnosticController extends GetxController {
 
   // ==================== LIFECYCLE ====================
 
+  SyncDiagnosticController({this.background = false});
+
+  /// true cuando lo usa el vigilante automático (OpsHealthWatcher): sin
+  /// pantalla, sin timers ni listeners; solo calcula la salud y se destruye.
+  final bool background;
+
   @override
   void onInit() {
     super.onInit();
+    if (background) return;
     refreshAll();
     // Mientras la pantalla está abierta, el estado de la descarga se
     // actualiza solo (cada 5 s) para ver cómo avanza.

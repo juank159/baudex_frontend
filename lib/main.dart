@@ -15,6 +15,11 @@ import 'app/config/themes/app_theme.dart';
 import 'app/shared/utils/global_shortcuts.dart';
 import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
+import 'app/core/ops/ops_reporter.dart';
+import 'app/core/ops/ops_health_watcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'features/auth/presentation/controllers/auth_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +35,9 @@ void main() async {
         message.contains('AppLifecycleState')) {
       return;
     }
+    // Ops API: reporta el error real (el ruido ya se filtró arriba)
+    OpsReporter.capture(details.exception, details.stack,
+        context: {'library': details.library});
     originalOnError?.call(details);
   };
 
@@ -52,6 +60,8 @@ void main() async {
         stackStr.contains('removeSubscription')) {
       return true;
     }
+    // Ops API: error asíncrono no manejado que no es ruido conocido
+    OpsReporter.capture(error, stack);
     return false;
   };
 
@@ -63,6 +73,9 @@ void main() async {
     // PASO 2: Inicializar configuración de entorno
     await EnvConfig.initialize();
 
+    // PASO 2.1: Central de errores (Ops API → Telegram). Sin OPS_URL queda apagado.
+    await _initOpsReporter();
+
     // PASO 3: Inicializar base de datos ISAR
     await IsarDatabase.instance.initialize();
 
@@ -72,10 +85,37 @@ void main() async {
     // PASO 5: Inicializar dependencias offline-first
     InitialBinding().dependencies();
 
+    // PASO 6: Vigilante automático de salud (reporta problemas a la Ops API)
+    OpsHealthWatcher.start();
+
   } catch (e, stackTrace) {
   }
 
   runApp(const MyApp());
+}
+
+/// Configura el envío de errores a la Ops API con el cliente (organización)
+/// y usuario actuales, para saber a quién afecta cada error.
+Future<void> _initOpsReporter() async {
+  String? release;
+  try {
+    final info = await PackageInfo.fromPlatform();
+    release = '${info.version}+${info.buildNumber}';
+  } catch (_) {
+    // Sin versión: el reporte sale igual
+  }
+  AuthController? auth() =>
+      Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+  OpsReporter.init(
+    url: dotenv.env['OPS_URL'] ?? '',
+    key: dotenv.env['OPS_KEY'] ?? '',
+    // En debug nunca avisamos a Telegram aunque el .env apunte a producción
+    environment: kDebugMode ? 'development' : (dotenv.env['APP_ENV'] ?? 'production'),
+    release: release,
+    tenantId: () => auth()?.currentUser?.organizationId,
+    userId: () => auth()?.currentUser?.id,
+    currentRoute: () => Get.currentRoute,
+  );
 }
 
 class MyApp extends StatefulWidget {
