@@ -106,9 +106,13 @@ Future<void> _initOpsReporter() async {
   }
   AuthController? auth() =>
       Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+  // La llave va por --dart-define-from-file=ops.json (archivo privado que git
+  // ignora); el .env solo sirve de respaldo porque los .env sí se suben a git.
+  const definedUrl = String.fromEnvironment('OPS_URL');
+  const definedKey = String.fromEnvironment('OPS_KEY');
   OpsReporter.init(
-    url: dotenv.env['OPS_URL'] ?? '',
-    key: dotenv.env['OPS_KEY'] ?? '',
+    url: definedUrl.isNotEmpty ? definedUrl : (dotenv.env['OPS_URL'] ?? ''),
+    key: definedKey.isNotEmpty ? definedKey : (dotenv.env['OPS_KEY'] ?? ''),
     // En debug nunca avisamos a Telegram aunque el .env apunte a producción
     environment: kDebugMode ? 'development' : (dotenv.env['APP_ENV'] ?? 'production'),
     release: release,
