@@ -46,3 +46,7 @@ app.*.map.json
 
 # Baudity Ops: llave privada (se pasa con --dart-define-from-file=ops.json)
 ops.json
+
+# Variables de entorno: nunca a git (cada quien tiene las suyas en su equipo)
+.env*
+!.env.example
