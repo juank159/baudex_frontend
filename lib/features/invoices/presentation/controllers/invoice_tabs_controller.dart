@@ -49,6 +49,10 @@ class InvoiceTabsController extends GetxController
   // TabController
   TabController? _tabController;
 
+  // Consecutivo para que dos pestañas abiertas en el mismo milisegundo
+  // (duplicar, abrir varias seguidas) no compartan identificador.
+  int _tabSequence = 0;
+
   // Getters
   List<InvoiceTab> get tabs => _tabs;
   int get currentTabIndex => _currentTabIndex.value;
@@ -122,7 +126,7 @@ class InvoiceTabsController extends GetxController
       return '';
     }
 
-    final tabId = DateTime.now().millisecondsSinceEpoch.toString();
+    final tabId = '${DateTime.now().millisecondsSinceEpoch}_${_tabSequence++}';
     final isEdit = invoiceId != null;
 
     try {
@@ -138,11 +142,9 @@ class InvoiceTabsController extends GetxController
         invoiceId: invoiceId,
       );
 
+      // `add` ya avisa a la pantalla; un `refresh()` extra la redibujaba dos veces.
       _tabs.add(tab);
       _currentTabIndex.value = _tabs.length - 1;
-
-      // Forzar actualización del observable
-      _tabs.refresh();
 
       _updateTabController();
 
@@ -204,9 +206,9 @@ class InvoiceTabsController extends GetxController
 
   void updateTabTitle(String tabId, String newTitle) {
     final tabIndex = _tabs.indexWhere((tab) => tab.id == tabId);
-    if (tabIndex != -1) {
+    if (tabIndex != -1 && _tabs[tabIndex].title != newTitle) {
+      // La asignación ya avisa a la pantalla (una sola vez).
       _tabs[tabIndex] = _tabs[tabIndex].copyWith(title: newTitle);
-      _tabs.refresh();
     }
   }
 
@@ -317,7 +319,10 @@ class InvoiceTabsController extends GetxController
 
   void _updateTabActivity(int index) {
     if (index >= 0 && index < _tabs.length) {
-      _tabs[index] = _tabs[index].copyWith(lastActivity: DateTime.now());
+      // Se anota en la pestaña sin reemplazarla en la lista: reemplazarla
+      // avisaba a toda la pantalla (barra, menú y formulario) y la redibujaba
+      // completa en cada cambio de pestaña, por un dato que nadie muestra.
+      _tabs[index].lastActivity = DateTime.now();
     }
   }
 
