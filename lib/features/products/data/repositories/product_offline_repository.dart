@@ -14,6 +14,7 @@ import '../../domain/entities/product_price.dart';
 import '../../domain/entities/product_stats.dart';
 import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
+import '../../domain/services/product_deletion_rules.dart';
 import '../models/isar/isar_product.dart';
 import '../models/isar/isar_product_price.dart';
 
@@ -740,6 +741,12 @@ class ProductOfflineRepository implements ProductRepository {
       if (isarProduct == null) {
         return Left(CacheFailure('Product not found'));
       }
+
+      final blocked = productDeletionBlockReason(
+        name: isarProduct.name,
+        stock: isarProduct.stock,
+      );
+      if (blocked != null) return Left(BusinessRuleFailure(blocked));
 
       isarProduct.softDelete();
 

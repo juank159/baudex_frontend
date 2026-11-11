@@ -35,6 +35,7 @@ import '../../../features/products/data/models/update_product_request_model.dart
 import '../../../features/products/data/repositories/product_offline_repository.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
 import '../../../features/products/domain/entities/product.dart';
+import '../../../features/products/domain/services/product_deletion_rules.dart';
 import '../../../features/products/domain/entities/product_price.dart';
 import '../../../features/products/domain/entities/tax_enums.dart';
 import '../../../features/products/domain/repositories/product_repository.dart'
@@ -458,6 +459,23 @@ class SyncService extends GetxService {
       });
     } catch (e) {
       AppLogger.w('No se pudieron quitar los registros temporales de $key: $e', tag: 'SYNC');
+    }
+  }
+
+  /// Un borrado hecho sin conexión que el servidor rechazó: se deshace en local
+  /// para que este equipo muestre lo mismo que el servidor.
+  Future<void> _restoreProductAfterRejectedDelete(String productId, String reason) async {
+    AppLogger.w('El servidor rechazó eliminar el producto $productId: $reason. Se restaura en este equipo.', tag: 'SYNC');
+    try {
+      final isar = IsarDatabase.instance.database;
+      final local = await isar.isarProducts.filter().serverIdEqualTo(productId).findFirst();
+      if (local == null) return;
+      local.deletedAt = null;
+      local.markAsSynced();
+      await isar.writeTxn(() => isar.isarProducts.put(local));
+      await _refreshProductStockFromServer(productId);
+    } catch (e) {
+      AppLogger.w('No se pudo restaurar el producto $productId: $e', tag: 'SYNC');
     }
   }
 
@@ -3923,7 +3941,15 @@ class SyncService extends GetxService {
             'Eliminando producto en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
-          await remoteDataSource.deleteProduct(operation.entityId);
+          try {
+            await remoteDataSource.deleteProduct(operation.entityId);
+          } on ServerException catch (e) {
+            if (!isServerRejection(e.statusCode) || e.statusCode == 404) rethrow;
+            // El servidor no dejó borrarlo (existencias u órdenes abiertas): el
+            // producto sigue existiendo, así que vuelve a aparecer en este equipo.
+            await _restoreProductAfterRejectedDelete(operation.entityId, e.message);
+            return;
+          }
           AppLogger.i(
             'Producto eliminado en servidor exitosamente',
             tag: 'SYNC',

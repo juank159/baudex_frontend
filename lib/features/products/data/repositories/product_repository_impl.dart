@@ -20,6 +20,7 @@ import '../../domain/entities/product_price.dart';
 import '../../domain/entities/product_stats.dart';
 import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
+import '../../domain/services/product_deletion_rules.dart';
 import '../datasources/product_remote_datasource.dart';
 import '../datasources/product_local_datasource.dart';
 import '../models/product_model.dart';
@@ -1735,6 +1736,10 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, Unit>> deleteProduct(String id) async {
+    // Integridad: un producto con existencias no se borra (misma regla del servidor).
+    final blocked = await _deletionBlockReason(id);
+    if (blocked != null) return Left(BusinessRuleFailure(blocked));
+
     if (await networkInfo.isConnected) {
       try {
         await remoteDataSource.deleteProduct(id);
@@ -1768,6 +1773,12 @@ class ProductRepositoryImpl implements ProductRepository {
 
         return const Right(unit);
       } on ServerException catch (e) {
+        // El servidor dijo que no (p. ej. tiene existencias u órdenes de compra
+        // abiertas): no se borra en este equipo ni se encola para reintentar.
+        if (isServerRejection(e.statusCode)) {
+          AppLogger.w(' El servidor rechazó eliminar el producto $id: ${e.message}');
+          return Left(BusinessRuleFailure(e.message));
+        }
         AppLogger.w(' ServerException al eliminar producto: ${e.message} - Eliminando offline...');
         return _deleteProductOffline(id);
       } on ConnectionException catch (e) {
@@ -1782,6 +1793,18 @@ class ProductRepositoryImpl implements ProductRepository {
     } else {
       // Sin conexión, marcar para eliminación offline y sincronizar después
       return _deleteProductOffline(id);
+    }
+  }
+
+  /// Motivo por el que no se puede borrar, según lo que este equipo sabe del producto.
+  Future<String?> _deletionBlockReason(String id) async {
+    try {
+      final local = await _isar.isarProducts.filter().serverIdEqualTo(id).findFirst();
+      if (local == null) return null; // Sin copia local: decide el servidor.
+      return productDeletionBlockReason(name: local.name, stock: local.stock);
+    } catch (e) {
+      AppLogger.w(' No se pudo revisar las existencias antes de eliminar: $e');
+      return null;
     }
   }
 

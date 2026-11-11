@@ -81,6 +81,12 @@ class CacheFailure extends Failure {
 }
 
 /// Fallo de validación - Datos inválidos
+/// Una regla del negocio impide la operación (por ejemplo, borrar un producto
+/// con existencias). El mensaje ya está escrito para mostrárselo al usuario.
+class BusinessRuleFailure extends Failure {
+  const BusinessRuleFailure(super.message);
+}
+
 class ValidationFailure extends Failure {
   final List<String> errors;
 
