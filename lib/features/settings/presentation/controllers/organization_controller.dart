@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import '../../domain/entities/organization.dart';
 import '../../domain/repositories/organization_repository.dart';
 import '../../data/repositories/organization_repository_impl.dart';
+import '../../data/organization_pending_changes.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/data/local/isar_database.dart';
@@ -99,16 +100,11 @@ class OrganizationController extends GetxController
   /// equipo que todavía no suben al servidor (p. ej. el dueño cambió la tasa
   /// sin internet). Mientras tanto, lo que traiga el servidor es VIEJO y no
   /// debe pisar el cambio local.
-  static Future<bool> hasPendingLocalChanges() async {
-    try {
-      final pending = await IsarDatabase.instance.getPendingSyncOperations();
-      return pending.any((op) =>
-          op.entityType == 'organization' ||
-          op.entityType == 'organization_profit_margin');
-    } catch (_) {
-      return false;
-    }
-  }
+  ///
+  /// Un cambio que el servidor ya rechazó definitivamente NO cuenta: antes
+  /// dejaba a este equipo sin recibir nunca más la configuración (tasas).
+  static Future<bool> hasPendingLocalChanges() =>
+      OrganizationPendingChanges.hasPending();
 
   /// Aplica la versión del servidor solo si no hay cambios locales sin subir.
   Future<void> applyServerOrganization(Organization organization) async {
@@ -189,15 +185,20 @@ class OrganizationController extends GetxController
   }
 
   /// Revisa periódicamente si la configuración cambió en el servidor (p. ej.
-  /// el dueño actualizó la tasa desde otro equipo). Solo cuando el negocio
-  /// usa multimoneda, hay sesión y hay conexión. Sin conexión se sigue usando
-  /// la última tasa conocida.
+  /// el dueño actualizó la tasa desde otro equipo). Con multimoneda se revisa
+  /// en cada ciclo (20 s); sin multimoneda, cada tercer ciclo (60 s), para que
+  /// este equipo también se entere si OTRO equipo la activó o cambió el pie de
+  /// factura, la caja, etc. Sin conexión se sigue usando lo último conocido.
+  int _configRefreshTick = 0;
   void _startConfigRefresh() {
     _configRefreshTimer?.cancel();
     _configRefreshTimer = Timer.periodic(_configRefreshInterval, (_) {
       if (!_isAuthenticated) return;
-      if (_currentOrganization.value?.multiCurrencyEnabled != true) return;
       if (_isLoading.value) return;
+      _configRefreshTick++;
+      final usesMultiCurrency =
+          _currentOrganization.value?.multiCurrencyEnabled == true;
+      if (!usesMultiCurrency && _configRefreshTick % 3 != 0) return;
       _refreshFromServerInBackground();
     });
   }
@@ -396,10 +397,10 @@ class OrganizationController extends GetxController
     final org = currentOrganization;
     if (org == null) return false;
 
-    final settings = _buildSettings(org);
-    settings['multiCurrencyEnabled'] = enabled;
-
-    return await updateCurrentOrganization({'settings': settings});
+    // Solo la clave que cambió: el servidor combina, no reemplaza.
+    return await updateCurrentOrganization({
+      'settings': {'multiCurrencyEnabled': enabled},
+    });
   }
 
   // ==================== CASH REGISTER MODULE ====================
@@ -423,10 +424,10 @@ class OrganizationController extends GetxController
     final org = currentOrganization;
     if (org == null) return false;
 
-    final settings = _buildSettings(org);
-    settings['cashRegisterEnabled'] = enabled;
-
-    return await updateCurrentOrganization({'settings': settings});
+    // Solo la clave que cambió: el servidor combina, no reemplaza.
+    return await updateCurrentOrganization({
+      'settings': {'cashRegisterEnabled': enabled},
+    });
   }
 
   Map<String, dynamic> _buildSettings(Organization org) {
@@ -462,9 +463,10 @@ class OrganizationController extends GetxController
     }
 
     currencies.add(currency);
-    settings['acceptedCurrencies'] = currencies;
 
-    return await updateCurrentOrganization({'settings': settings});
+    return await updateCurrentOrganization({
+      'settings': {'acceptedCurrencies': currencies},
+    });
   }
 
   Future<bool> removeAcceptedCurrency(String code) async {
@@ -476,9 +478,10 @@ class OrganizationController extends GetxController
         List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
 
     currencies.removeWhere((c) => c['code'] == code);
-    settings['acceptedCurrencies'] = currencies;
 
-    return await updateCurrentOrganization({'settings': settings});
+    return await updateCurrentOrganization({
+      'settings': {'acceptedCurrencies': currencies},
+    });
   }
 
   Future<bool> updateCurrencyRate(String code, double newRate) async {
@@ -494,9 +497,13 @@ class OrganizationController extends GetxController
 
     currencies[index] = Map<String, dynamic>.from(currencies[index])
       ..['defaultRate'] = newRate;
-    settings['acceptedCurrencies'] = currencies;
 
-    return await updateCurrentOrganization({'settings': settings});
+    // Se envía SOLO la lista de monedas, no toda la configuración: así este
+    // equipo no puede pisar el pie de factura u otros ajustes que otro
+    // equipo haya cambiado, ni otro equipo puede devolver esta tasa.
+    return await updateCurrentOrganization({
+      'settings': {'acceptedCurrencies': currencies},
+    });
   }
 
   // ==================== PROFIT MARGIN METHODS ====================

@@ -1,5 +1,5 @@
 // lib/features/settings/data/repositories/organization_repository_impl.dart
-import 'package:baudex_desktop/app/data/local/isar_database.dart';
+import '../organization_pending_changes.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
@@ -97,15 +97,17 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
     }
   }
 
-  Future<bool> _hasPendingLocalChanges() async {
-    try {
-      final pending = await IsarDatabase.instance.getPendingSyncOperations();
-      return pending.any((op) =>
-          op.entityType == 'organization' ||
-          op.entityType == 'organization_profit_margin');
-    } catch (_) {
-      return false;
-    }
+  Future<bool> _hasPendingLocalChanges() =>
+      OrganizationPendingChanges.hasPending();
+
+  /// El servidor RECHAZÓ el cambio (dato inválido, sin permiso...). No es un
+  /// problema de conexión, así que no se debe guardar "para después": se
+  /// quedaría en la cola fallando para siempre y, mientras tanto, este equipo
+  /// mostraría un valor que el servidor nunca aceptó.
+  bool _isRejection(ServerException e) {
+    final code = e.statusCode;
+    if (code == null) return false;
+    return code >= 400 && code < 500 && code != 401 && code != 408 && code != 429;
   }
 
   @override
@@ -125,6 +127,7 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
         networkInfo.markServerUnreachable();
         return _offlineRepo.updateCurrentOrganization(updates);
       } on ServerException catch (e) {
+        if (_isRejection(e)) return Left(ServerFailure(e.message));
         if (e.message.contains('timeout') || e.message.contains('conexión')) {
           networkInfo.markServerUnreachable();
         }

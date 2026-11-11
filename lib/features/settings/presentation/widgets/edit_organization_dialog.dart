@@ -1722,10 +1722,10 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
     try {
       final controller = Get.find<OrganizationController>();
 
-      // Merge settings de facturación con settings existentes
-      final currentSettings = Map<String, dynamic>.from(
-        widget.organization.settings ?? {},
-      );
+      // Se envían SOLO las claves de facturación que edita este diálogo. Antes
+      // se mandaba una copia completa tomada al abrirlo, y si otro equipo
+      // había cambiado la tasa de cambio mientras tanto, la devolvía.
+      final currentSettings = <String, dynamic>{};
       currentSettings['businessName'] = _businessNameController.text.trim();
       currentSettings['taxId'] = _taxIdController.text.trim();
       currentSettings['address'] = _addressController.text.trim();
