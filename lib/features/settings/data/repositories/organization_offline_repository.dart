@@ -1,5 +1,6 @@
 // lib/features/settings/data/repositories/organization_offline_repository.dart
 import 'package:dartz/dartz.dart';
+import '../../domain/services/organization_settings_rules.dart';
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
@@ -97,7 +98,12 @@ class OrganizationOfflineRepository implements OrganizationRepository {
         isarOrg.timezone = updates['timezone'] as String;
       }
       if (updates.containsKey('settings')) {
-        isarOrg.updateSettings(updates['settings'] as Map<String, dynamic>);
+        // El cambio es parcial: se combina con lo que ya hay (igual que el
+        // servidor), no se reemplaza.
+        isarOrg.updateSettings(mergeOrganizationSettings(
+          isarOrg.settingsMap,
+          Map<String, dynamic>.from(updates['settings'] as Map),
+        ));
       }
       if (updates.containsKey('defaultProfitMarginPercentage')) {
         isarOrg.defaultProfitMarginPercentage =
@@ -120,6 +126,12 @@ class OrganizationOfflineRepository implements OrganizationRepository {
           data: updates,
         );
       } catch (e) {
+        // Si no se pudo encolar, el cambio NUNCA subiría al servidor y los
+        // demás equipos no lo verían: hay que decírselo al usuario.
+        return Left(CacheFailure(
+          'El cambio se guardó en este equipo pero no se pudo programar su '
+          'envío al servidor. Vuelve a guardarlo cuando haya conexión.',
+        ));
       }
 
       return Right(isarOrg.toEntity());
