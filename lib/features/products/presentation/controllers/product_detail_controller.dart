@@ -1,6 +1,7 @@
 // lib/features/products/presentation/controllers/product_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/errors/failures.dart';
 
 // Imports de entidades del dominio
 import '../../domain/entities/product.dart';
@@ -323,7 +324,10 @@ class ProductDetailController extends GetxController
       result.fold(
         // Caso de error
         (failure) {
-          _showError('Error al eliminar producto', failure.message);
+          _showError(
+            failure is BusinessRuleFailure ? 'No se puede eliminar' : 'Error al eliminar producto',
+            failure.message,
+          );
         },
         // Caso de éxito
         (_) {

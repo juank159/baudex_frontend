@@ -4,6 +4,7 @@ import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_stats.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/core/mixins/cache_first_mixin.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
@@ -496,7 +497,10 @@ class ProductsController extends GetxController
 
       result.fold(
         (failure) {
-          _showError('Error al eliminar', failure.message);
+          _showError(
+            failure is BusinessRuleFailure ? 'No se puede eliminar' : 'Error al eliminar',
+            failure.message,
+          );
         },
         (_) {
           _showSuccess('Producto eliminado exitosamente');
