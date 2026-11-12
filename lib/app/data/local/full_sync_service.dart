@@ -33,6 +33,7 @@ import '../../../features/settings/data/datasources/printer_settings_remote_data
 import '../../../features/settings/data/models/isar/isar_organization.dart';
 import '../../../features/settings/data/models/printer_settings_model.dart';
 import '../../../features/settings/data/repositories/organization_offline_repository.dart';
+import '../../../features/settings/data/organization_write_clock.dart';
 
 // Query Models
 import '../../../features/products/data/models/product_query_model.dart';
@@ -1754,7 +1755,15 @@ class FullSyncService extends GetxService {
     final remoteDS = Get.find<OrganizationRemoteDataSource>();
     final offlineRepo = OrganizationOfflineRepository();
 
+    final mark = OrganizationWriteClock.mark;
     final orgModel = await remoteDS.getCurrentOrganization();
+
+    // Si la configuración se guardó en este equipo mientras esta consulta iba
+    // en camino, la respuesta trae la versión anterior: no pisar lo guardado.
+    if (OrganizationWriteClock.changedSince(mark)) {
+      debugPrint('[FULL_SYNC] Organización guardada durante la descarga — se conserva la local');
+      return 1;
+    }
 
     // Si el dueño cambió la configuración en este equipo y aún no sube (p. ej.
     // sin internet), lo del servidor es la versión VIEJA: no pisarla.

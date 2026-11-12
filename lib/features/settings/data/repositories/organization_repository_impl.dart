@@ -1,5 +1,6 @@
 // lib/features/settings/data/repositories/organization_repository_impl.dart
 import '../organization_pending_changes.dart';
+import '../organization_write_clock.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
@@ -34,7 +35,11 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
       return Left(ConnectionFailure.noInternet);
     }
     try {
+      final mark = OrganizationWriteClock.mark;
       final result = await remoteDataSource.getCurrentOrganization();
+      // Esta consulta salió antes de un guardado hecho en este equipo: trae
+      // la versión anterior. Vale lo que quedó guardado.
+      if (OrganizationWriteClock.changedSince(mark)) return _getFromCache();
       // No guardar sobre un cambio local que aún no sube al servidor (p. ej.
       // la tasa se cambió sin internet): lo del servidor es la versión vieja.
       if (!await _hasPendingLocalChanges()) {
@@ -60,7 +65,10 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
   Future<Either<Failure, Organization>> getCurrentOrganization() async {
     if (await networkInfo.isConnected) {
       try {
+        final mark = OrganizationWriteClock.mark;
         final result = await remoteDataSource.getCurrentOrganization();
+        // Respuesta anterior a un guardado de este equipo: no pisarlo.
+        if (OrganizationWriteClock.changedSince(mark)) return _getFromCache();
 
         try {
           await _offlineRepo.cacheOrganization(result);
@@ -113,6 +121,18 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
   @override
   Future<Either<Failure, Organization>> updateCurrentOrganization(
       Map<String, dynamic> updates) async {
+    // Toda consulta al servidor que ya iba en camino queda marcada como vieja.
+    OrganizationWriteClock.tick();
+    try {
+      return await _updateCurrentOrganization(updates);
+    } finally {
+      // También las que salieron MIENTRAS se guardaba.
+      OrganizationWriteClock.tick();
+    }
+  }
+
+  Future<Either<Failure, Organization>> _updateCurrentOrganization(
+      Map<String, dynamic> updates) async {
     if (await networkInfo.isConnected) {
       try {
         final result =
@@ -157,6 +177,16 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
 
   @override
   Future<Either<Failure, bool>> updateProfitMargin(
+      double marginPercentage) async {
+    OrganizationWriteClock.tick();
+    try {
+      return await _updateProfitMargin(marginPercentage);
+    } finally {
+      OrganizationWriteClock.tick();
+    }
+  }
+
+  Future<Either<Failure, bool>> _updateProfitMargin(
       double marginPercentage) async {
     if (await networkInfo.isConnected) {
       try {
