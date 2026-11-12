@@ -482,7 +482,7 @@ class PurchaseOrderItemModel {
       receivedQuantity: (entity.receivedQuantity ?? 0).toString(),
       damagedQuantity: (entity.damagedQuantity ?? 0).toString(),
       missingQuantity: (entity.missingQuantity ?? 0).toString(),
-      pendingQuantity: (entity.quantity - (entity.receivedQuantity ?? 0)).toString(),
+      pendingQuantity: entity.pendingQuantity.toString(),
       expectedDate: null,
       lastReceivedDate: null,
       metadata: null,

@@ -56,16 +56,21 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
   late Map<String, TextEditingController> receivedControllers;
   final ScrollController _scrollController = ScrollController();
 
+  /// Líneas de la orden que todavía tienen unidades por recibir.
+  late final List<PurchaseOrderItem> _pendingItems =
+      widget.items.where((item) => item.pendingQuantity > 0).toList();
+
   @override
   void initState() {
     super.initState();
     quantities = {};
     receivedControllers = {};
 
-    for (var item in widget.items) {
+    for (var item in _pendingItems) {
       final quantity = CustomReceiveQuantities(
         itemId: item.id,
-        orderedQuantity: item.quantity.toInt(),
+        // Lo que falta por recibir de la línea, no lo pedido originalmente.
+        orderedQuantity: item.pendingQuantity,
         receivedQuantity: 0, // Se calculará automáticamente
         damagedQuantity: 0,
         missingQuantity: 0,
@@ -223,7 +228,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
         child: SingleChildScrollView(
           controller: _scrollController,
           child: Column(
-            children: widget.items.map((item) => _buildItemCard(item)).toList(),
+            children: _pendingItems.map((item) => _buildItemCard(item)).toList(),
           ),
         ),
       ),
@@ -279,7 +284,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
                       // Vista colapsada: mostrar cantidades básicas
                       if (!quantity.isExpanded)
                         Text(
-                          'Pedido: ${item.quantity} • Recibido: ${quantity.receivedQuantity}',
+                          'Por recibir: ${item.pendingQuantity} de ${item.quantity} • Recibido ahora: ${quantity.receivedQuantity}',
                           style: TextStyle(
                             color: ElegantLightTheme.textSecondary,
                             fontSize: 12,
@@ -308,7 +313,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Pedido: ${item.quantity.toInt()}',
+                    'Por recibir: ${item.pendingQuantity}',
                     style: TextStyle(
                       color: ElegantLightTheme.primaryBlue,
                       fontSize: 12,
