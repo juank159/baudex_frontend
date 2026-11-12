@@ -16,6 +16,11 @@ import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../bank_accounts/data/models/isar/isar_bank_account.dart';
 import '../../../credit_notes/data/models/isar/isar_credit_note.dart';
 import '../../../settings/data/models/isar/isar_organization.dart';
+import '../../../expenses/domain/entities/expense.dart' show ExpenseStatus;
+import '../../../invoices/domain/entities/invoice.dart'
+    show InvoiceStatus, PaymentMethod;
+import '../../../invoices/domain/entities/invoice_payment.dart';
+import '../../domain/services/dashboard_rules.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../domain/entities/recent_activity_advanced.dart';
 import '../../domain/entities/smart_notification.dart';
@@ -31,34 +36,135 @@ import 'dashboard_local_datasource.dart';
 /// en lugar de usar cache en SecureStorage
 class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
   final IsarDatabase _database;
+  final BusinessClock? _businessClock;
+  final DateTime Function()? _nowOverride;
 
-  DashboardLocalDataSourceIsar({IsarDatabase? database})
-      : _database = database ?? IsarDatabase.instance;
+  /// [businessClock] y [now] solo se pasan en pruebas; en la app salen de la
+  /// zona horaria del negocio (`TenantDateTimeService`).
+  DashboardLocalDataSourceIsar({
+    IsarDatabase? database,
+    BusinessClock? businessClock,
+    DateTime Function()? now,
+  })  : _database = database ?? IsarDatabase.instance,
+        _businessClock = businessClock,
+        _nowOverride = now;
 
   Isar get _isar => _database.database;
+
+  /// "Ahora" en el reloj del negocio.
+  DateTime _now() => _nowOverride?.call() ?? tenantNow();
+
+  /// Instante → hora del reloj del negocio (no UTC, no la del equipo).
+  DateTime _toBusinessTime(DateTime instant) {
+    if (_businessClock != null) return _businessClock(instant);
+    try {
+      if (Get.isRegistered<TenantDateTimeService>()) {
+        return Get.find<TenantDateTimeService>().toLocal(instant);
+      }
+    } catch (_) {}
+    return instant.toLocal();
+  }
+
+  DateTime _businessDay(DateTime value) =>
+      DashboardRules.businessDay(value, _toBusinessTime);
+
+  bool _expenseCounts(IsarExpenseStatus status) =>
+      DashboardRules.expenseCounts(ExpenseStatus.values.byName(status.name));
+
+  /// Factura de Isar → lo que usan las reglas del tablero.
+  SaleRecord _toSale(IsarInvoice inv) {
+    var payments = IsarInvoice.decodePayments(inv.paymentsJson);
+    if (payments.isEmpty && inv.paidAmount > 0) {
+      // Factura guardada sin el detalle de pagos: lo único que se sabe es
+      // cuánto se pagó y con qué método. Se toma como un pago en la fecha de
+      // la factura para no perder ese dinero del tablero.
+      payments = [
+        InvoicePayment(
+          id: '',
+          amount: inv.paidAmount,
+          paymentMethod: PaymentMethod.values.byName(inv.paymentMethod.name),
+          paymentDate: inv.date,
+          invoiceId: inv.serverId,
+          createdById: '',
+          organizationId: '',
+          createdAt: inv.date,
+          updatedAt: inv.date,
+        ),
+      ];
+    }
+    return SaleRecord(
+      id: inv.serverId,
+      status: InvoiceStatus.values.byName(inv.status.name),
+      date: inv.date,
+      total: inv.total,
+      payments: payments,
+      lines: _decodeLines(inv.itemsJson),
+    );
+  }
+
+  List<SaleLine> _decodeLines(String? itemsJson) {
+    if (itemsJson == null || itemsJson.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(itemsJson);
+      if (decoded is! List) return const [];
+      double? number(dynamic v) =>
+          v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
+      return [
+        for (final item in decoded)
+          if (item is Map)
+            SaleLine(
+              productId: item['productId']?.toString(),
+              quantity: number(item['quantity']) ?? 0.0,
+              unitPrice: number(item['unitPrice']) ?? 0.0,
+              presentationFactor: number(item['presentationFactor']),
+              unitCost: number(item['unitCost']),
+              totalCost: number(item['totalCost']),
+            ),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Quita las copias hechas sin conexión que ya tienen versión del servidor.
+  List<IsarInvoice> _withoutOfflineDuplicates(List<IsarInvoice> invoices) {
+    bool isOffline(IsarInvoice i) => i.serverId.startsWith('invoice_offline_');
+    final realNumbers =
+        invoices.where((i) => !isOffline(i)).map((i) => i.number).toSet();
+    final result = invoices
+        .where((i) => !(isOffline(i) && realNumbers.contains(i.number)))
+        .toList();
+    if (result.length != invoices.length) {
+      AppLogger.w(
+          'ISAR: filtrando ${invoices.length - result.length} facturas offline duplicadas',
+          tag: 'DASHBOARD');
+    }
+    return result;
+  }
 
   @override
   Future<DashboardStatsModel?> getCachedDashboardStats({DateTime? startDate, DateTime? endDate}) async {
     try {
-      // ⚡ OPTIMIZACIÓN: Cargar las 4 colecciones EN PARALELO
-      // Invoices y expenses usan filtro de fecha nativo de ISAR (campo indexado)
-      // Products y customers no necesitan filtro de fecha
+      // Mismas definiciones que el servidor: ver `DashboardRules`.
+      final period = BusinessPeriod.fromRange(startDate, endDate);
+
       final results = await Future.wait([
-        // 0: Invoices con filtro de fecha nativo ISAR
-        _queryInvoices(startDate, endDate),
-        // 1: Expenses con filtro de fecha nativo ISAR
+        // 0: Facturas del período + las que pudieron recibir pagos en él
+        _queryInvoiceCandidates(startDate, endDate),
+        // 1: Gastos del período
         _queryExpenses(startDate, endDate),
         // 2: Bank accounts (para resolver nombres en paymentMethodsBreakdown)
         _isar.isarBankAccounts.filter().deletedAtIsNull().findAll(),
       ]);
 
-      final invoices = results[0] as List<IsarInvoice>;
-      final expenses = results[1] as List<IsarExpense>;
+      final candidates =
+          _withoutOfflineDuplicates(results[0] as List<IsarInvoice>);
+      final expenses = (results[1] as List<IsarExpense>)
+          .where((e) => period.contains(_businessDay(e.date)))
+          .toList();
       final bankAccounts = results[2] as List<IsarBankAccount>;
-      // Solo los productos vendidos en el período (para el costo de lo
-      // vendido). Antes se cargaban los ~2.500 productos y todos los
-      // clientes en cada actualización solo para contarlos.
-      final products = await _productsSoldIn(invoices);
+
+      final sales = [for (final inv in candidates) _toSale(inv)];
 
       // Mapa bankAccountId → nombre para resolver pagos por cuenta bancaria (ej: Nequi)
       final bankAccountNames = <String, String>{};
@@ -66,171 +172,11 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         bankAccountNames[ba.serverId] = ba.name;
       }
 
-      // ⚡ INGRESOS POR PAGOS: Buscar facturas fuera del rango de fecha que recibieron
-      // pagos DENTRO del rango. Esto permite que abonos hechos hoy en facturas viejas
-      // se reflejen en el dashboard de hoy.
-      double paymentIncomeFromOldInvoices = 0.0;
-      final paymentIncomeByMethod = <String, _PMAccumulator>{};
-      if (startDate != null && endDate != null) {
-        final invoiceServerIds = invoices.map((i) => i.serverId).toSet();
-        // Facturas paid/partiallyPaid actualizadas en el rango pero creadas fuera
-        final oldInvoicesWithRecentPayments = await _isar.isarInvoices.filter()
-            .deletedAtIsNull()
-            .group((q) => q
-                .statusEqualTo(IsarInvoiceStatus.paid)
-                .or()
-                .statusEqualTo(IsarInvoiceStatus.partiallyPaid))
-            .updatedAtBetween(startDate, endDate)
-            .findAll();
-
-        for (final inv in oldInvoicesWithRecentPayments) {
-          // Excluir facturas ya incluidas por su fecha de creación
-          if (invoiceServerIds.contains(inv.serverId)) continue;
-
-          final payments = IsarInvoice.decodePayments(inv.paymentsJson);
-          for (final p in payments) {
-            // Solo contar pagos cuya fecha cae dentro del rango
-            if (p.paymentDate.isAfter(startDate.subtract(const Duration(seconds: 1))) &&
-                p.paymentDate.isBefore(endDate.add(const Duration(seconds: 1)))) {
-              paymentIncomeFromOldInvoices += p.amount;
-
-              // Acumular método de pago
-              String methodKey;
-              if (p.bankAccountId != null && p.bankAccountId!.isNotEmpty &&
-                  bankAccountNames.containsKey(p.bankAccountId)) {
-                methodKey = bankAccountNames[p.bankAccountId]!;
-              } else {
-                methodKey = p.paymentMethod.value;
-              }
-              paymentIncomeByMethod.putIfAbsent(methodKey, () => _PMAccumulator(methodKey));
-              paymentIncomeByMethod[methodKey]!.count++;
-              paymentIncomeByMethod[methodKey]!.totalAmount += p.amount;
-            }
-          }
-        }
-        if (paymentIncomeFromOldInvoices > 0) {
-          AppLogger.d('ISAR: Abonos en facturas antiguas: \$$paymentIncomeFromOldInvoices', tag: 'DASHBOARD');
-        }
-      }
-
-      // Filtrar duplicados offline que ya tienen versión real del servidor.
-      final offlineDuplicates = invoices.where((i) => i.serverId.startsWith('invoice_offline_')).toList();
-      if (offlineDuplicates.isNotEmpty) {
-        final offlineNumbers = offlineDuplicates.map((i) => i.number).toSet();
-        final realVersionExists = invoices.where((i) =>
-          !i.serverId.startsWith('invoice_offline_') && offlineNumbers.contains(i.number)).toList();
-        if (realVersionExists.isNotEmpty) {
-          AppLogger.w('ISAR: filtrando ${offlineDuplicates.length} facturas offline duplicadas', tag: 'DASHBOARD');
-          invoices.removeWhere((i) => i.serverId.startsWith('invoice_offline_') &&
-            realVersionExists.any((r) => r.number == i.number));
-        }
-      }
-
-      // ⚡ SINGLE-PASS: Calcular todas las métricas de invoices en una sola iteración
-      // Usar TenantDateTimeService para "hoy" correcto en timezone del tenant
-      DateTime now;
-      try {
-        if (Get.isRegistered<TenantDateTimeService>()) {
-          now = Get.find<TenantDateTimeService>().now();
-        } else {
-          now = DateTime.now();
-        }
-      } catch (_) {
-        now = DateTime.now();
-      }
+      final now = _now();
       final todayStart = DateTime(now.year, now.month, now.day);
       final monthStart = DateTime(now.year, now.month, 1);
 
-      double totalRevenue = 0.0;
-      double totalBilled = 0.0; // accrual basis: suma de invoice.total en el rango
-      double todaySales = 0.0;
-      double monthlySales = 0.0;
-      double invoicesIncome = 0.0;
-      int todayInvoicesCount = 0;
-      int pendingInvoices = 0;
-      int paidInvoices = 0;
-      int totalPaidCount = 0;
-      final paymentMethodsMap = <String, _PMAccumulator>{};
-
-      for (final inv in invoices) {
-        final isPaid = inv.status == IsarInvoiceStatus.paid;
-        final isPartial = inv.status == IsarInvoiceStatus.partiallyPaid;
-        final isPending = inv.status == IsarInvoiceStatus.pending;
-        // `credited` y `partiallyCredited` significan que se aplicó una NC
-        // posteriormente. El dinero SÍ entró cuando se pagó originalmente,
-        // así que cuentan como revenue. La devolución se descuenta vía NC.
-        final isCredited = inv.status == IsarInvoiceStatus.credited;
-        final isPartiallyCredited =
-            inv.status == IsarInvoiceStatus.partiallyCredited;
-
-        // Todas las facturas no canceladas cuentan a lo facturado.
-        if (inv.status != IsarInvoiceStatus.cancelled) {
-          totalBilled += inv.total;
-        }
-
-        if (isPaid || isPartial || isCredited || isPartiallyCredited) {
-          totalRevenue += inv.paidAmount;
-          totalPaidCount++;
-          if (inv.date.isAfter(todayStart)) todaySales += inv.paidAmount;
-          if (inv.date.isAfter(monthStart)) monthlySales += inv.paidAmount;
-
-          // Payment methods: desglosar desde pagos individuales (no inv.paymentMethod)
-          // Esto permite ver "Nequi", "Bancolombia", etc. por nombre de cuenta bancaria
-          // Usa mismo formato que el servidor: PaymentMethod.value ("cash") o nombre de cuenta ("Nequi")
-          final payments = IsarInvoice.decodePayments(inv.paymentsJson);
-          if (payments.isNotEmpty) {
-            for (final p in payments) {
-              String methodKey;
-              if (p.bankAccountId != null && p.bankAccountId!.isNotEmpty &&
-                  bankAccountNames.containsKey(p.bankAccountId)) {
-                // Pago asociado a cuenta bancaria → usar nombre (ej: "Nequi")
-                methodKey = bankAccountNames[p.bankAccountId]!;
-              } else {
-                // Pago sin cuenta bancaria → usar value del enum (ej: "cash", "credit_card")
-                methodKey = p.paymentMethod.value;
-              }
-              paymentMethodsMap.putIfAbsent(methodKey, () => _PMAccumulator(methodKey));
-              paymentMethodsMap[methodKey]!.count++;
-              paymentMethodsMap[methodKey]!.totalAmount += p.amount;
-            }
-          } else {
-            // Fallback: sin payments decodificados, usar método a nivel de factura
-            final methodKey = _paymentMethodToString(inv.paymentMethod);
-            paymentMethodsMap.putIfAbsent(methodKey, () => _PMAccumulator(methodKey));
-            paymentMethodsMap[methodKey]!.count++;
-            paymentMethodsMap[methodKey]!.totalAmount += inv.paidAmount;
-          }
-        }
-        if (isPaid || isCredited) {
-          paidInvoices++;
-          invoicesIncome += inv.paidAmount;
-        }
-        if (isPending) pendingInvoices++;
-        if (inv.date.isAfter(todayStart)) todayInvoicesCount++;
-      }
-
-      // ⚡ Sumar ingresos por pagos en facturas antiguas al revenue total
-      if (paymentIncomeFromOldInvoices > 0) {
-        totalRevenue += paymentIncomeFromOldInvoices;
-        todaySales += paymentIncomeFromOldInvoices;
-        invoicesIncome += paymentIncomeFromOldInvoices;
-        // Merge payment methods
-        for (final entry in paymentIncomeByMethod.entries) {
-          paymentMethodsMap.putIfAbsent(entry.key, () => _PMAccumulator(entry.key));
-          paymentMethodsMap[entry.key]!.count += entry.value.count;
-          paymentMethodsMap[entry.key]!.totalAmount += entry.value.totalAmount;
-        }
-      }
-
-      // Payment methods con porcentajes
-      final paymentMethodsList = paymentMethodsMap.values.map((pm) => PaymentMethodStats(
-        method: pm.method,
-        count: pm.count,
-        totalAmount: pm.totalAmount,
-        percentage: totalRevenue > 0 ? (pm.totalAmount / totalRevenue) * 100 : 0,
-      )).toList();
-
-      // ⚡ Multi-currency: leer config de org y calcular desglose por moneda
+      // ⚡ Multi-currency: leer config de org
       bool isMultiCurrencyEnabled = false;
       String baseCurrency = 'COP';
       List<CurrencyBreakdownStats>? currencyBreakdown;
@@ -243,42 +189,108 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         }
       } catch (_) {}
 
-      if (isMultiCurrencyEnabled) {
-        final currencyMap = <String, _CurrencyAccumulator>{};
-        for (final inv in invoices) {
-          final isPaid = inv.status == IsarInvoiceStatus.paid;
-          final isPartial = inv.status == IsarInvoiceStatus.partiallyPaid;
-          if (!isPaid && !isPartial) continue;
+      // ───── COBRADO: pagos por FECHA DE PAGO (definición 1) ─────
+      // Incluye los abonos hechos en el período a facturas de otra fecha y
+      // deja por fuera anuladas, saldo a favor y el ajuste de Bre-B.
+      final collected = DashboardRules.collectedPayments(
+        invoices: sales,
+        period: period,
+        toBusinessTime: _toBusinessTime,
+      );
 
-          final payments = IsarInvoice.decodePayments(inv.paymentsJson);
-          for (final p in payments) {
-            if (p.isForeignCurrency) {
-              final curr = p.paymentCurrency!;
-              currencyMap.putIfAbsent(curr, () => _CurrencyAccumulator());
-              currencyMap[curr]!.count++;
-              currencyMap[curr]!.totalBase += p.amount;
-              currencyMap[curr]!.totalForeign += (p.paymentCurrencyAmount ?? 0);
-              currencyMap[curr]!.totalRate += (p.exchangeRate ?? 0);
-            }
-          }
-        }
+      double totalRevenue = 0.0;
+      double todaySales = 0.0;
+      double monthlySales = 0.0;
+      double paymentIncomeFromOldInvoices = 0.0;
+      final paidInvoiceIds = <String>{};
+      final paymentMethodsMap = <String, _PMAccumulator>{};
+      final currencyMap = <String, _CurrencyAccumulator>{};
 
-        if (currencyMap.isNotEmpty) {
-          currencyBreakdown = currencyMap.entries.map((e) {
-            final acc = e.value;
-            return CurrencyBreakdownStats(
-              currency: e.key,
-              count: acc.count,
-              totalBaseAmount: acc.totalBase,
-              totalForeignAmount: acc.totalForeign,
-              avgRate: acc.count > 0 ? acc.totalRate / acc.count : 0,
-              percentage: totalRevenue > 0 ? (acc.totalBase / totalRevenue) * 100 : 0,
-            );
-          }).toList();
+      for (final c in collected) {
+        final p = c.payment;
+        totalRevenue += p.amount;
+        paidInvoiceIds.add(c.invoice.id);
+        // "Hoy" y "este mes" incluyen el primer instante del día (antes una
+        // fecha a medianoche quedaba por fuera).
+        if (!c.day.isBefore(todayStart)) todaySales += p.amount;
+        if (!c.day.isBefore(monthStart)) monthlySales += p.amount;
+        if (c.onInvoiceOutsidePeriod) paymentIncomeFromOldInvoices += p.amount;
+
+        // Mismo formato que el servidor: nombre de la cuenta ("Nequi") o el
+        // value del método ("cash"); Bre-B aparte de las transferencias.
+        final bankName = p.bankAccountId != null && p.bankAccountId!.isNotEmpty
+            ? bankAccountNames[p.bankAccountId]
+            : null;
+        final methodKey = p.channel == 'breb'
+            ? (bankName != null ? 'Bre-B · $bankName' : 'Bre-B')
+            : (bankName ?? p.paymentMethod.value);
+        final pm = paymentMethodsMap.putIfAbsent(
+            methodKey, () => _PMAccumulator(methodKey));
+        pm.count++;
+        pm.totalAmount += p.amount;
+
+        if (isMultiCurrencyEnabled && p.isForeignCurrency) {
+          final acc = currencyMap.putIfAbsent(
+              p.paymentCurrency!, () => _CurrencyAccumulator());
+          acc.count++;
+          acc.totalBase += p.amount;
+          acc.totalForeign += (p.paymentCurrencyAmount ?? 0);
+          acc.totalRate += (p.exchangeRate ?? 0);
         }
       }
+      final totalPaidCount = paidInvoiceIds.length;
+      if (paymentIncomeFromOldInvoices > 0) {
+        AppLogger.d('ISAR: Abonos en facturas antiguas: \$$paymentIncomeFromOldInvoices', tag: 'DASHBOARD');
+      }
 
-      // ⚡ SINGLE-PASS: Calcular todas las métricas de expenses en una sola iteración
+      // ───── FACTURADO: facturas del período, sin anuladas ni borradores
+      // (definición 2). Conteos como el servidor. ─────
+      final billed = DashboardRules.billedInvoices(
+        invoices: sales,
+        period: period,
+        toBusinessTime: _toBusinessTime,
+      );
+      double totalBilled = 0.0;
+      int todayInvoicesCount = 0;
+      int pendingInvoices = 0;
+      int paidInvoices = 0;
+      for (final inv in billed) {
+        totalBilled += inv.total;
+        if (inv.status == InvoiceStatus.paid) paidInvoices++;
+        if (inv.status == InvoiceStatus.pending ||
+            inv.status == InvoiceStatus.partiallyPaid ||
+            inv.status == InvoiceStatus.overdue) {
+          pendingInvoices++;
+        }
+        if (!_businessDay(inv.date).isBefore(todayStart)) todayInvoicesCount++;
+      }
+      // "Ingresos por facturas", igual que el servidor: lo facturado en el
+      // período (pagado, parcial o a crédito) + abonos a facturas anteriores.
+      final invoicesIncome = totalBilled + paymentIncomeFromOldInvoices;
+
+      // Payment methods con porcentajes
+      final paymentMethodsList = paymentMethodsMap.values.map((pm) => PaymentMethodStats(
+        method: pm.method,
+        count: pm.count,
+        totalAmount: pm.totalAmount,
+        percentage: totalRevenue > 0 ? (pm.totalAmount / totalRevenue) * 100 : 0,
+      )).toList();
+
+      if (currencyMap.isNotEmpty) {
+        currencyBreakdown = currencyMap.entries.map((e) {
+          final acc = e.value;
+          return CurrencyBreakdownStats(
+            currency: e.key,
+            count: acc.count,
+            totalBaseAmount: acc.totalBase,
+            totalForeignAmount: acc.totalForeign,
+            avgRate: acc.count > 0 ? acc.totalRate / acc.count : 0,
+            percentage: totalRevenue > 0 ? (acc.totalBase / totalRevenue) * 100 : 0,
+          );
+        }).toList();
+      }
+
+      // ───── GASTOS: solo aprobados o pagados (definición 3) ─────
       double totalExpensesAmount = 0.0;
       double monthlyExpensesAmount = 0.0;
       double todayExpensesAmount = 0.0;
@@ -286,20 +298,12 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       int approvedExpenses = 0;
       final expensesByCategory = <String, double>{};
 
-      // Estados que impactan financieramente — espejo de
-      // ExpenseStatus.isCountable (paid + approved + pending).
-      // Mantener IDÉNTICO al criterio de ese helper para que pie y bar
-      // charts del dashboard hablen del mismo total.
-      bool isCountableIsar(IsarExpenseStatus s) =>
-          s == IsarExpenseStatus.paid ||
-          s == IsarExpenseStatus.approved ||
-          s == IsarExpenseStatus.pending;
-
       for (final exp in expenses) {
-        if (isCountableIsar(exp.status)) {
+        if (_expenseCounts(exp.status)) {
+          final day = _businessDay(exp.date);
           totalExpensesAmount += exp.amount;
-          if (exp.date.isAfter(monthStart)) monthlyExpensesAmount += exp.amount;
-          if (exp.date.isAfter(todayStart)) todayExpensesAmount += exp.amount;
+          if (!day.isBefore(monthStart)) monthlyExpensesAmount += exp.amount;
+          if (!day.isBefore(todayStart)) todayExpensesAmount += exp.amount;
           expensesByCategory[exp.categoryId] =
               (expensesByCategory[exp.categoryId] ?? 0.0) + exp.amount;
         }
@@ -338,11 +342,11 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
 
       final averageOrderValue = totalPaidCount > 0 ? totalRevenue / totalPaidCount : 0.0;
 
-      // ⚡ TREND por día dentro del rango (mismo formato que el backend)
+      // ⚡ TREND por día del negocio dentro del rango (definición 5)
       final trendPoints = _buildTrend(
-        startDate: startDate,
-        endDate: endDate,
-        invoices: invoices,
+        period: period,
+        collected: collected,
+        billed: billed,
         expenses: expenses,
       );
 
@@ -376,22 +380,16 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       // Refleja el dinero que efectivamente se quedó la empresa.
       final netRevenue = totalRevenue - creditNotesTotal;
 
-      // ⚡ CALCULAR COGS REAL desde precios de costo de productos
-      final cogsResult = _calculateCOGSFromProducts(
-          invoices, products, await _batchCostByProduct(products));
-      final totalCOGS = cogsResult.totalCOGS;
-      // Phase 1B: profitabilidad sobre netRevenue (no totalRevenue) para que
-      // los márgenes reflejen la realidad económica cuando hay devoluciones.
-      final grossProfit = netRevenue - totalCOGS;
-      final grossMarginPercentage = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0.0;
-      final netProfit = grossProfit - totalExpensesAmount;
-      final netMarginPercentage = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0.0;
-      final averageMarginPerSale = totalPaidCount > 0 ? grossProfit / totalPaidCount : 0.0;
+      // ───── UTILIDAD (definición 4): ventas devengadas del período contra
+      // el costo de esas mismas líneas. Puede ser negativa. ─────
+      final profitability =
+          await _buildProfitability(sales, period, totalExpensesAmount);
 
       AppLogger.d(
-        'Dashboard ISAR: revenue=\$$totalRevenue, NCs=\$$creditNotesTotal ($creditNotesCount), netRevenue=\$$netRevenue',
+        'Dashboard ISAR: cobrado=\$$totalRevenue, facturado=\$$totalBilled, NCs=\$$creditNotesTotal ($creditNotesCount), netRevenue=\$$netRevenue',
         tag: 'DASHBOARD',
       );
+
 
       return DashboardStatsModel(
         sales: SalesStatsModel(
@@ -405,7 +403,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           monthlyGrowth: 0.0,
         ),
         invoices: InvoiceStatsModel(
-          totalInvoices: invoices.length,
+          totalInvoices: billed.length,
           todayInvoices: todayInvoicesCount,
           pendingInvoices: pendingInvoices,
           paidInvoices: paidInvoices,
@@ -438,29 +436,11 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           monthlyGrowth: 0.0,
           expensesByCategory: expensesByCategory,
         ),
-        profitability: ProfitabilityStatsModel(
-          totalRevenue: totalRevenue,
-          totalCOGS: totalCOGS,
-          grossProfit: grossProfit,
-          grossMarginPercentage: grossMarginPercentage,
-          netProfit: netProfit,
-          netMarginPercentage: netMarginPercentage,
-          averageMarginPerSale: averageMarginPerSale,
-          topProfitableProducts: cogsResult.topProfitableProducts,
-          lowProfitableProducts: cogsResult.lowProfitableProducts,
-          marginsByCategory: cogsResult.marginsByCategory,
-          trend: const ProfitabilityTrendModel(
-            previousPeriodGrossMargin: 0.0,
-            currentPeriodGrossMargin: 0.0,
-            marginGrowth: 0.0,
-            isImproving: false,
-            dailyMargins: [],
-          ),
-        ),
+        profitability: profitability,
         paymentMethodsBreakdown: paymentMethodsList,
         incomeTypeBreakdown: IncomeTypeBreakdown(
           invoices: invoicesIncome,
-          newInvoices: invoicesIncome - paymentIncomeFromOldInvoices,
+          newInvoices: totalBilled,
           paymentsOnOldInvoices: paymentIncomeFromOldInvoices,
           credits: 0.0,
           total: invoicesIncome,
@@ -474,8 +454,8 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         creditNotesTotal: creditNotesTotal,
         creditNotesCount: creditNotesCount,
         netRevenue: netRevenue,
-        grossMarginPercentage: grossMarginPercentage.toDouble(),
-        netMarginPercentage: netMarginPercentage.toDouble(),
+        grossMarginPercentage: profitability.grossMarginPercentage,
+        netMarginPercentage: profitability.netMarginPercentage,
         trend: trendPoints,
       );
     } catch (e) {
@@ -486,41 +466,34 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
 
   // ─────── Helpers de paridad con backend ───────
 
-  /// Construye puntos de tendencia por día dentro del rango.
+  /// Construye puntos de tendencia por día del negocio dentro del rango,
+  /// con las mismas definiciones de los totales.
   List<TrendPoint> _buildTrend({
-    DateTime? startDate,
-    DateTime? endDate,
-    required List<IsarInvoice> invoices,
+    required BusinessPeriod period,
+    required List<CollectedPayment> collected,
+    required List<SaleRecord> billed,
     required List<IsarExpense> expenses,
   }) {
-    if (startDate == null || endDate == null) return const [];
-    final start = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    final start = period.firstDay;
+    final end = period.lastDay;
+    if (start == null || end == null) return const [];
 
     // Mapas por YYYY-MM-DD para O(1) lookup.
     final revenueByDay = <String, double>{};
     final billedByDay = <String, double>{};
     final expensesByDay = <String, double>{};
 
-    for (final inv in invoices) {
-      final key = _isoDay(inv.date);
-      if (inv.status != IsarInvoiceStatus.cancelled) {
-        billedByDay[key] = (billedByDay[key] ?? 0) + inv.total;
-      }
-      if (inv.status == IsarInvoiceStatus.paid ||
-          inv.status == IsarInvoiceStatus.partiallyPaid) {
-        final payments = IsarInvoice.decodePayments(inv.paymentsJson);
-        for (final p in payments) {
-          final pKey = _isoDay(p.paymentDate);
-          revenueByDay[pKey] = (revenueByDay[pKey] ?? 0) + p.amount;
-        }
-      }
+    for (final c in collected) {
+      final key = _isoDay(c.day);
+      revenueByDay[key] = (revenueByDay[key] ?? 0) + c.payment.amount;
     }
-
+    for (final inv in billed) {
+      final key = _isoDay(_businessDay(inv.date));
+      billedByDay[key] = (billedByDay[key] ?? 0) + inv.total;
+    }
     for (final exp in expenses) {
-      if (exp.status == IsarExpenseStatus.approved ||
-          exp.status == IsarExpenseStatus.paid) {
-        final key = _isoDay(exp.date);
+      if (_expenseCounts(exp.status)) {
+        final key = _isoDay(_businessDay(exp.date));
         expensesByDay[key] = (expensesByDay[key] ?? 0) + exp.amount;
       }
     }
@@ -535,7 +508,8 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         billed: billedByDay[key] ?? 0,
         expenses: expensesByDay[key] ?? 0,
       ));
-      cursor = cursor.add(const Duration(days: 1));
+      // Por calendario (no +24 h): un cambio de hora no salta ni repite días.
+      cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
     }
     return points;
   }
@@ -634,46 +608,79 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
     );
   }
 
+  /// Margen de un día a cada lado del rango: la consulta filtra por instante
+  /// y el día exacto (zona del negocio) se decide después en memoria.
+  static const _edge = Duration(days: 1);
+
+  /// Facturas que el tablero necesita para un período:
+  /// - las que tienen fecha en el período, y
+  /// - las de otra fecha que pudieron recibir un pago en él. Un pago toca la
+  ///   factura, así que basta traer las modificadas desde el inicio del
+  ///   período; el día de cada pago se revisa después con su fecha de pago.
+  ///   (Antes se exigía que la última modificación cayera DENTRO del período
+  ///   y un abono dejaba de verse en cuanto la factura volvía a cambiar.)
+  Future<List<IsarInvoice>> _queryInvoiceCandidates(
+      DateTime? startDate, DateTime? endDate) async {
+    if (startDate == null) {
+      // Sin inicio, cualquier factura puede tener pagos en el período.
+      return _isar.isarInvoices.filter().deletedAtIsNull().findAll();
+    }
+    final byDate = await _queryInvoices(startDate, endDate);
+    final touched = await _isar.isarInvoices
+        .filter()
+        .deletedAtIsNull()
+        .updatedAtGreaterThan(startDate.subtract(_edge), include: true)
+        .findAll();
+    final seen = byDate.map((i) => i.id).toSet();
+    return [...byDate, ...touched.where((i) => seen.add(i.id))];
+  }
+
   /// ⚡ Query invoices con filtro de fecha nativo ISAR (usa índice @Index en date)
   Future<List<IsarInvoice>> _queryInvoices(DateTime? startDate, DateTime? endDate) async {
-    if (startDate != null && endDate != null) {
+    final from = startDate?.subtract(_edge);
+    final to = endDate?.add(_edge);
+    if (from != null && to != null) {
       return _isar.isarInvoices.filter()
           .deletedAtIsNull()
-          .dateBetween(startDate, endDate)
+          .dateBetween(from, to)
           .findAll();
-    } else if (startDate != null) {
+    } else if (from != null) {
       return _isar.isarInvoices.filter()
           .deletedAtIsNull()
-          .dateGreaterThan(startDate, include: true)
+          .dateGreaterThan(from, include: true)
           .findAll();
-    } else if (endDate != null) {
+    } else if (to != null) {
       return _isar.isarInvoices.filter()
           .deletedAtIsNull()
-          .dateLessThan(endDate, include: true)
+          .dateLessThan(to, include: true)
           .findAll();
     }
     return _isar.isarInvoices.filter().deletedAtIsNull().findAll();
   }
 
-  /// ⚡ Query expenses con filtro de fecha nativo ISAR (usa índice @Index en date)
+  /// ⚡ Query expenses con filtro de fecha nativo ISAR (usa índice @Index en date).
+  /// Trae un día de margen a cada lado; quien llama filtra por día del negocio.
   Future<List<IsarExpense>> _queryExpenses(DateTime? startDate, DateTime? endDate) async {
-    if (startDate != null && endDate != null) {
+    final from = startDate?.subtract(_edge);
+    final to = endDate?.add(_edge);
+    if (from != null && to != null) {
       return _isar.isarExpenses.filter()
           .deletedAtIsNull()
-          .dateBetween(startDate, endDate)
+          .dateBetween(from, to)
           .findAll();
-    } else if (startDate != null) {
+    } else if (from != null) {
       return _isar.isarExpenses.filter()
           .deletedAtIsNull()
-          .dateGreaterThan(startDate, include: true)
+          .dateGreaterThan(from, include: true)
           .findAll();
-    } else if (endDate != null) {
+    } else if (to != null) {
       return _isar.isarExpenses.filter()
           .deletedAtIsNull()
-          .dateLessThan(endDate, include: true)
+          .dateLessThan(to, include: true)
           .findAll();
     }
     return _isar.isarExpenses.filter().deletedAtIsNull().findAll();
+
   }
 
   @override
@@ -733,63 +740,25 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
     DateTime? endDate,
   }) async {
     try {
-      // ⚡ Cargar invoices, expenses y products en paralelo
+      // Misma utilidad que muestra el tablero (definición 4).
+      final period = BusinessPeriod.fromRange(startDate, endDate);
       final results = await Future.wait([
         _queryInvoices(startDate, endDate),
         _queryExpenses(startDate, endDate),
       ]);
-
-      final invoices = results[0] as List<IsarInvoice>;
-      final expenses = results[1] as List<IsarExpense>;
-      final products = await _productsSoldIn(invoices);
-
-      double totalRevenue = 0.0;
-      int paidCount = 0;
-      for (final inv in invoices) {
-        if (inv.status == IsarInvoiceStatus.paid ||
-            inv.status == IsarInvoiceStatus.partiallyPaid) {
-          totalRevenue += inv.paidAmount;
-          paidCount++;
-        }
-      }
-
+      final sales = [
+        for (final inv
+            in _withoutOfflineDuplicates(results[0] as List<IsarInvoice>))
+          _toSale(inv),
+      ];
       double totalExpenses = 0.0;
-      for (final exp in expenses) {
-        if (exp.status == IsarExpenseStatus.paid ||
-            exp.status == IsarExpenseStatus.approved) {
+      for (final exp in results[1] as List<IsarExpense>) {
+        if (_expenseCounts(exp.status) &&
+            period.contains(_businessDay(exp.date))) {
           totalExpenses += exp.amount;
         }
       }
-
-      // ⚡ CALCULAR COGS REAL desde precios de costo de productos
-      final cogsResult = _calculateCOGSFromProducts(
-          invoices, products, await _batchCostByProduct(products));
-      final totalCOGS = cogsResult.totalCOGS;
-      final grossProfit = totalRevenue - totalCOGS;
-      final grossMarginPercentage = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0.0;
-      final netProfit = grossProfit - totalExpenses;
-      final netMarginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0.0;
-      final averageMarginPerSale = paidCount > 0 ? grossProfit / paidCount : 0.0;
-
-      return ProfitabilityStatsModel(
-        totalRevenue: totalRevenue,
-        totalCOGS: totalCOGS,
-        grossProfit: grossProfit,
-        grossMarginPercentage: grossMarginPercentage,
-        netProfit: netProfit,
-        netMarginPercentage: netMarginPercentage,
-        averageMarginPerSale: averageMarginPerSale,
-        topProfitableProducts: cogsResult.topProfitableProducts,
-        lowProfitableProducts: cogsResult.lowProfitableProducts,
-        marginsByCategory: cogsResult.marginsByCategory,
-        trend: const ProfitabilityTrendModel(
-          previousPeriodGrossMargin: 0.0,
-          currentPeriodGrossMargin: 0.0,
-          marginGrowth: 0.0,
-          isImproving: false,
-          dailyMargins: [],
-        ),
-      );
+      return await _buildProfitability(sales, period, totalExpenses);
     } catch (e) {
       AppLogger.e('Error calculating offline profitability: $e', tag: 'DASHBOARD');
       return null;
@@ -936,19 +905,16 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
     DateTime? endDate,
   }) async {
     try {
-      // ⚡ Usar query con filtro de fecha nativo ISAR
+      final period = BusinessPeriod.fromRange(startDate, endDate);
       final expenses = await _queryExpenses(startDate, endDate);
 
-      // Criterio IDÉNTICO al de getCachedDashboardStats:
-      // paid + approved + pending (espejo de ExpenseStatus.isCountable).
-      // Esto garantiza que el pie chart (expensesByCategory) y el bar
-      // chart (expenses.totalAmount) siempre coincidan.
+      // Criterio IDÉNTICO al de getCachedDashboardStats (aprobados o
+      // pagados, por día del negocio): el gráfico por categoría y el total
+      // de gastos siempre coinciden.
       final result = <String, double>{};
       for (final expense in expenses) {
-        final s = expense.status;
-        if (s == IsarExpenseStatus.paid ||
-            s == IsarExpenseStatus.approved ||
-            s == IsarExpenseStatus.pending) {
+        if (_expenseCounts(expense.status) &&
+            period.contains(_businessDay(expense.date))) {
           result[expense.categoryId] =
               (result[expense.categoryId] ?? 0.0) + expense.amount;
         }
@@ -960,34 +926,67 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
     }
   }
 
-  // ==================== COGS CALCULATION ====================
+  // ==================== UTILIDAD ====================
 
-  /// Calcula COGS real desde inventory batches (FIFO) y precios de costo de productos en ISAR.
-  /// Prioridad: 1) unitCost de inventory_batches (como hace el backend), 2) costPrice de product_prices
-  /// IDs de producto de las facturas pagadas (lo que se usa para el costo).
-  Set<String> _soldProductIds(List<IsarInvoice> invoices) {
-    final ids = <String>{};
-    for (final inv in invoices) {
-      final isPaid = inv.status == IsarInvoiceStatus.paid ||
-          inv.status == IsarInvoiceStatus.partiallyPaid;
-      if (!isPaid || inv.itemsJson == null || inv.itemsJson!.isEmpty) continue;
-      try {
-        final decoded = jsonDecode(inv.itemsJson!);
-        if (decoded is! List) continue;
-        for (final item in decoded) {
-          if (item is Map && item['productId'] != null) {
-            final id = item['productId'].toString();
-            if (id.isNotEmpty) ids.add(id);
-          }
-        }
-      } catch (_) {}
-    }
-    return ids;
+  /// Utilidad del período con la definición 4 (ver `DashboardRules.profit`).
+  Future<ProfitabilityStatsModel> _buildProfitability(
+    List<SaleRecord> sales,
+    BusinessPeriod period,
+    double expensesAmount,
+  ) async {
+    final accrued = sales
+        .where((s) =>
+            DashboardRules.isAccruedSale(s.status) &&
+            period.contains(_businessDay(s.date)))
+        .toList();
+    final products = await _productsSoldIn(accrued);
+    final currentCosts =
+        _currentCostByProduct(products, await _batchCostByProduct(products));
+    final profit = DashboardRules.profit(
+      invoices: accrued,
+      period: period,
+      toBusinessTime: _toBusinessTime,
+      expenses: expensesAmount,
+      currentUnitCosts: currentCosts,
+    );
+    final byProduct = _productProfitability(accrued, products, currentCosts);
+
+    AppLogger.d(
+      'Utilidad offline: ventas=${profit.salesRevenue}, costo=${profit.costOfGoodsSold}, '
+      'bruta=${profit.grossProfit}, neta=${profit.netProfit}',
+      tag: 'DASHBOARD',
+    );
+
+    return ProfitabilityStatsModel(
+      // Ventas devengadas (no lo cobrado), como la rentabilidad del servidor.
+      totalRevenue: profit.salesRevenue,
+      totalCOGS: profit.costOfGoodsSold,
+      grossProfit: profit.grossProfit,
+      grossMarginPercentage: profit.grossMarginPercentage,
+      netProfit: profit.netProfit,
+      netMarginPercentage: profit.netMarginPercentage,
+      averageMarginPerSale: profit.averageMarginPerSale,
+      topProfitableProducts: byProduct.topProfitableProducts,
+      lowProfitableProducts: byProduct.lowProfitableProducts,
+      marginsByCategory: byProduct.marginsByCategory,
+      trend: const ProfitabilityTrendModel(
+        previousPeriodGrossMargin: 0.0,
+        currentPeriodGrossMargin: 0.0,
+        marginGrowth: 0.0,
+        isImproving: false,
+        dailyMargins: [],
+      ),
+    );
   }
 
-  /// Solo los productos vendidos en el período, en una consulta.
-  Future<List<IsarProduct>> _productsSoldIn(List<IsarInvoice> invoices) async {
-    final ids = _soldProductIds(invoices).toList();
+  /// Solo los productos vendidos en esas facturas, en una consulta.
+  Future<List<IsarProduct>> _productsSoldIn(List<SaleRecord> sales) async {
+    final ids = <String>{
+      for (final sale in sales)
+        for (final line in sale.lines)
+          if (line.productId != null && line.productId!.isNotEmpty)
+            line.productId!,
+    }.toList();
     if (ids.isEmpty) return const [];
     return _isar.isarProducts
         .filter()
@@ -1030,77 +1029,54 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
     }
   }
 
-  _COGSResult _calculateCOGSFromProducts(
-    List<IsarInvoice> invoices,
+  /// Costo ACTUAL por producto (por unidad base). Solo se usa en las líneas
+  /// que no traen su costo guardado. Prioridad: costo promedio de los lotes
+  /// con existencias; si no hay, el precio de costo del producto.
+  Map<String, double> _currentCostByProduct(
     List<IsarProduct> products,
     Map<String, double> batchCosts,
   ) {
-    // 1. Construir mapa productId → costPrice usando múltiples fuentes
-    final costPriceMap = <String, double>{};
-    final productNameMap = <String, String>{};
-    final productCategoryMap = <String, String>{};
-
+    final costs = <String, double>{};
     for (final product in products) {
-      productNameMap[product.serverId] = product.name;
-      productCategoryMap[product.serverId] = product.categoryId;
-
-      // Fallback: Buscar precio de costo en la lista de precios del producto
       for (final price in product.prices) {
         if (price.type == IsarPriceType.cost && price.status == IsarPriceStatus.active) {
-          costPriceMap[product.serverId] = price.finalAmount;
+          costs[product.serverId] = price.finalAmount;
           break;
         }
       }
     }
+    costs.addAll(batchCosts);
+    return costs;
+  }
 
-    // Fuente principal: costo promedio ponderado de los lotes con existencias
-    // (calculado antes, sin bloquear la pantalla).
-    costPriceMap.addAll(batchCosts);
+  /// Utilidad por producto y por categoría de las ventas devengadas, con el
+  /// mismo costo por línea que el total (`DashboardRules.lineCost`).
+  _COGSResult _productProfitability(
+    Iterable<SaleRecord> accruedSales,
+    List<IsarProduct> products,
+    Map<String, double> currentCosts,
+  ) {
+    final productNameMap = <String, String>{};
+    final productCategoryMap = <String, String>{};
+    for (final product in products) {
+      productNameMap[product.serverId] = product.name;
+      productCategoryMap[product.serverId] = product.categoryId;
+    }
 
-    // 2. Para cada factura pagada, calcular COGS por item
-    double totalCOGS = 0.0;
     final productProfitability = <String, _ProductProfit>{};
-
-    for (final inv in invoices) {
-      final isPaid = inv.status == IsarInvoiceStatus.paid ||
-          inv.status == IsarInvoiceStatus.partiallyPaid;
-      if (!isPaid) continue;
-      if (inv.itemsJson == null || inv.itemsJson!.isEmpty) continue;
-
-      try {
-        final decoded = jsonDecode(inv.itemsJson!);
-        if (decoded is! List) continue;
-
-        for (final item in decoded) {
-          if (item is! Map<String, dynamic>) continue;
-
-          final productId = item['productId']?.toString();
-          if (productId == null || productId.isEmpty) continue;
-
-          final double quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
-          final double unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0.0;
-          final costPrice = costPriceMap[productId];
-
-          if (costPrice != null && costPrice > 0) {
-            final itemCOGS = quantity * costPrice;
-            final itemRevenue = quantity * unitPrice;
-            totalCOGS += itemCOGS;
-
-            // Acumular profitability por producto
-            productProfitability.putIfAbsent(productId, () => _ProductProfit(
-              productId: productId,
-              productName: productNameMap[productId] ?? 'Producto',
-              categoryId: productCategoryMap[productId] ?? '',
-              costPrice: costPrice,
-            ));
-            productProfitability[productId]!.totalRevenue += itemRevenue;
-            productProfitability[productId]!.totalCOGS += itemCOGS;
-            productProfitability[productId]!.unitsSold += quantity.toInt();
-          }
-        }
-      } catch (e) {
-        // Skip invoice items que no se puedan decodificar
-        continue;
+    for (final sale in accruedSales) {
+      for (final line in sale.lines) {
+        final productId = line.productId;
+        if (productId == null || productId.isEmpty) continue;
+        final acc = productProfitability.putIfAbsent(productId, () => _ProductProfit(
+          productId: productId,
+          productName: productNameMap[productId] ?? 'Producto',
+          categoryId: productCategoryMap[productId] ?? '',
+        ));
+        acc.totalRevenue += line.revenue;
+        acc.totalCOGS += DashboardRules.lineCost(line,
+            currentUnitCost: currentCosts[productId]);
+        acc.unitsSold += line.quantity.toInt();
       }
     }
 
@@ -1119,7 +1095,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       marginPercentage: p.marginPercentage,
       unitsSold: p.unitsSold,
       averageSellingPrice: p.unitsSold > 0 ? p.totalRevenue / p.unitsSold : 0.0,
-      averageFifoCost: p.costPrice,
+      averageFifoCost: p.unitsSold > 0 ? p.totalCOGS / p.unitsSold : 0.0,
     )).toList();
 
     final lowProducts = profitableList.reversed.take(5).map((p) => ProductProfitabilityModel(
@@ -1133,7 +1109,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       marginPercentage: p.marginPercentage,
       unitsSold: p.unitsSold,
       averageSellingPrice: p.unitsSold > 0 ? p.totalRevenue / p.unitsSold : 0.0,
-      averageFifoCost: p.costPrice,
+      averageFifoCost: p.unitsSold > 0 ? p.totalCOGS / p.unitsSold : 0.0,
     )).toList();
 
     // 4. Márgenes por categoría
@@ -1156,13 +1132,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       }
     }
 
-    AppLogger.d(
-      'COGS offline: total=$totalCOGS, products con costo=${costPriceMap.length}/${products.length}',
-      tag: 'DASHBOARD',
-    );
-
     return _COGSResult(
-      totalCOGS: totalCOGS,
       topProfitableProducts: topProducts,
       lowProfitableProducts: lowProducts,
       marginsByCategory: marginsByCategory,
@@ -1170,27 +1140,6 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
   }
 
   // ==================== HELPER METHODS ====================
-
-  String _paymentMethodToString(IsarPaymentMethod method) {
-    switch (method) {
-      case IsarPaymentMethod.cash:
-        return 'Efectivo';
-      case IsarPaymentMethod.credit:
-        return 'Credito';
-      case IsarPaymentMethod.creditCard:
-        return 'Tarjeta de Credito';
-      case IsarPaymentMethod.debitCard:
-        return 'Tarjeta de Debito';
-      case IsarPaymentMethod.bankTransfer:
-        return 'Transferencia';
-      case IsarPaymentMethod.check:
-        return 'Cheque';
-      case IsarPaymentMethod.clientBalance:
-        return 'Saldo Cliente';
-      case IsarPaymentMethod.other:
-        return 'Otro';
-    }
-  }
 
   ActivityType _mapInvoiceStatusToActivityType(IsarInvoiceStatus status) {
     switch (status) {
@@ -1349,13 +1298,11 @@ class _DebtorAcc {
 
 /// Resultado del cálculo de COGS
 class _COGSResult {
-  final double totalCOGS;
   final List<ProductProfitabilityModel> topProfitableProducts;
   final List<ProductProfitabilityModel> lowProfitableProducts;
   final Map<String, double> marginsByCategory;
 
   _COGSResult({
-    required this.totalCOGS,
     required this.topProfitableProducts,
     required this.lowProfitableProducts,
     required this.marginsByCategory,
@@ -1367,7 +1314,6 @@ class _ProductProfit {
   final String productId;
   final String productName;
   final String categoryId;
-  final double costPrice;
   double totalRevenue = 0.0;
   double totalCOGS = 0.0;
   int unitsSold = 0;
@@ -1376,7 +1322,6 @@ class _ProductProfit {
     required this.productId,
     required this.productName,
     required this.categoryId,
-    required this.costPrice,
   });
 
   double get grossProfit => totalRevenue - totalCOGS;

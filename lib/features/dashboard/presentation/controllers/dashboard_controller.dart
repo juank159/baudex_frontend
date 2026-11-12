@@ -8,7 +8,7 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/get_unread_not
 import 'package:baudex_desktop/features/dashboard/domain/usecases/mark_notification_as_read_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitability_stats_usecase.dart';
 import 'package:get/get.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
 import 'package:flutter/material.dart';
 import '../../../../app/data/local/sync_service.dart';
 import 'dart:async';
@@ -19,8 +19,9 @@ import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../data/datasources/dashboard_local_datasource.dart';
+import '../../data/datasources/profitability_cache.dart';
 import '../../data/models/dashboard_stats_model.dart';
-import '../../data/models/profitability_stats_model.dart';
+import '../../domain/services/dashboard_rules.dart';
 import '../../../../features/subscriptions/presentation/controllers/subscription_controller.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../domain/entities/recent_activity.dart';
@@ -133,19 +134,13 @@ class DashboardController extends GetxController
   String get selectedPeriod => _selectedPeriod.value;
 
   // Quick stats getters
-  /// Dinero realmente cobrado en el período (cash basis). Es la métrica
-  /// principal para el usuario. Si el backend aún no envía totalCollected,
-  /// cae a totalRevenue (comportamiento previo).
-  double get totalCollected {
-    final tc = dashboardStats?.totalCollected ?? 0.0;
-    return tc > 0 ? tc : totalRevenue;
-  }
+  /// Dinero realmente cobrado en el período (por fecha de pago). Es la
+  /// métrica principal. Si no se cobró nada, se muestra 0: no se reemplaza
+  /// por lo facturado.
+  double get totalCollected => dashboardStats?.totalCollected ?? 0.0;
 
-  /// Total facturado (accrual basis, incluye crédito). Métrica secundaria.
-  double get totalBilled {
-    final tb = dashboardStats?.totalBilled ?? 0.0;
-    return tb > 0 ? tb : totalRevenue;
-  }
+  /// Total facturado en el período (incluye crédito). Métrica secundaria.
+  double get totalBilled => dashboardStats?.totalBilled ?? 0.0;
 
   /// Phase 1B: total de notas de crédito aplicadas en el período.
   double get creditNotesTotal => dashboardStats?.creditNotesTotal ?? 0.0;
@@ -178,15 +173,13 @@ class DashboardController extends GetxController
   // ✅ COGS real del backend (o 0 si no está disponible)
   double get totalCOGS => profitabilityStats?.totalCOGS ?? 0.0;
 
-  /// Margen bruto real (con COGS). Usa el campo del backend si está disponible,
-  /// si no lo calcula localmente.
+  /// Margen bruto real (con COGS). Usa el campo del backend si está
+  /// disponible; si no, el de la rentabilidad (ventas contra su costo).
   double get grossMarginPercentage {
     if (!canSeeProfit) return 0.0;
     final server = dashboardStats?.grossMarginPercentage ?? 0.0;
     if (server != 0) return server;
-    return totalCollected > 0
-        ? ((totalCollected - totalCOGS) / totalCollected) * 100
-        : 0.0;
+    return profitabilityStats?.grossMarginPercentage ?? 0.0;
   }
 
   @override
@@ -260,9 +253,7 @@ class DashboardController extends GetxController
       update();
 
       // ═══ PASO 2: Refresh en background si hay red ═══
-      // Se le pasa el cálculo local recién hecho para que no lo repita al
-      // mezclar con la respuesta del servidor.
-      _refreshFromServer(startDate, endDate, null, _lastLocalStats);
+      _refreshFromServer(startDate, endDate);
 
       _showSubscriptionDialogIfNeeded();
     } catch (e) {
@@ -285,7 +276,7 @@ class DashboardController extends GetxController
 
   /// Refresca datos del servidor en background (no bloquea UI)
   void _refreshFromServer(DateTime? startDate, DateTime? endDate,
-      [int? version, DashboardStatsModel? localStats]) {
+      [int? version]) {
     final v = version ?? _dataVersion;
     () async {
       if (!_isAlive) return;
@@ -295,27 +286,18 @@ class DashboardController extends GetxController
         final isOnline = await networkInfo.isConnected;
         if (!isOnline || !_isAlive || v != _dataVersion) return;
 
-        // CRÍTICO: si hay operaciones pendientes en sync queue (factura
-        // recién creada que aún no se subió), NO consultar al server.
-        // El server devolvería datos viejos y sobrescribiría los stats
-        // locales correctos calculados desde ISAR. Cuando el sync termine,
-        // `onSyncCompleted()` re-disparará este refresh con datos actualizados.
-        try {
-          if (Get.isRegistered<SyncService>()) {
-            final pending = Get.find<SyncService>().pendingOperationsCount;
-            if (pending > 0) {
-              return;
-            }
-          }
-        } catch (_) {}
+        // Con cambios del equipo sin subir no se consulta al servidor: aún
+        // no los conoce y sus cifras taparían las locales, que sí los
+        // incluyen. Cuando la subida termina, `onSyncCompleted()` vuelve a
+        // disparar este refresh. Ver `DashboardRules.shouldAskServer`.
+        if (!_shouldAskServer) return;
 
         // Patrón nuevo: `_withSoftTimeout` en vez de `.timeout(...)` —
         // evita que el debugger de VSCode pause en TimeoutException
         // cada vez que el usuario navega y los futures siguen volando.
         await Future.wait([
           _withSoftTimeout(
-            () => loadDashboardStats(
-                startDate: startDate, endDate: endDate, localStats: localStats),
+            () => loadDashboardStats(startDate: startDate, endDate: endDate),
             timeout: const Duration(seconds: 8),
             tag: 'estadísticas',
             onTimeoutOrError: () => _isLoadingStats.value = false,
@@ -361,10 +343,30 @@ class DashboardController extends GetxController
     }();
   }
 
-  /// ⚡ Carga rápida offline: todo desde ISAR sin verificaciones de red adicionales
-  /// Cálculo local de la carga en curso (lo deja `_loadAllOffline`).
-  DashboardStatsModel? _lastLocalStats;
+  /// Operaciones del equipo que aún no han subido al servidor.
+  @visibleForTesting
+  int Function() pendingSyncOperations = () {
+    try {
+      if (Get.isRegistered<SyncService>()) {
+        return Get.find<SyncService>().pendingOperationsCount;
+      }
+    } catch (_) {}
+    return 0;
+  };
 
+  bool get _shouldAskServer => DashboardRules.shouldAskServer(
+      pendingSyncOperations: pendingSyncOperations());
+
+  /// Organización en sesión (para que la caché no se cruce entre empresas).
+  String? get _organizationId {
+    try {
+      return Get.find<AuthController>().currentUser?.organizationId;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// ⚡ Carga rápida offline: todo desde ISAR sin verificaciones de red adicionales
   Future<void> _loadAllOffline(DateTime? startDate, DateTime? endDate) async {
     if (!_isAlive) return;
     final localDataSource = Get.find<DashboardLocalDataSource>();
@@ -394,52 +396,19 @@ class DashboardController extends GetxController
 
       // Procesar stats
       final stats = results[0] as DashboardStatsModel?;
-      _lastLocalStats = stats;
       if (stats != null) {
-        // ═══════════════════════════════════════════════════════════════
-        // PROFITABILITY: Usar cache EXACTO para armonizar, fallback solo para COGS
-        // ═══════════════════════════════════════════════════════════════
-        bool hasExactCache = false;
-        final exactProfitability = await _getExactCachedProfitabilityStats(startDate, endDate);
-        // No usar caché con grossProfit < 0: podría ser un valor incorrecto guardado
-        // antes de fixes del cálculo de COGS. El servidor actualizará en 1-2s.
-        if (exactProfitability != null && exactProfitability.grossProfit >= 0) {
-          _profitabilityStats.value = exactProfitability;
-          hasExactCache = true;
-        } else {
-          // Fallback: usar ISAR revenue como base, pero intentar obtener ratio COGS del cache
-          final fallbackProfitability = await _getFallbackProfitabilityStats();
-          if (fallbackProfitability != null && fallbackProfitability.totalRevenue > 0) {
-            // Ratio COGS del cache aplicado al revenue de ISAR.
-            // Limitado a [0,1] para evitar que un período atípico genere pérdidas falsas.
-            final cogsRatio = (fallbackProfitability.totalCOGS / fallbackProfitability.totalRevenue).clamp(0.0, 1.0);
-            final isarRevenue = stats.profitability.totalRevenue;
-            final estimatedCOGS = isarRevenue * cogsRatio;
-            final estimatedGrossProfit = isarRevenue - estimatedCOGS;
-            final estimatedNetProfit = estimatedGrossProfit - stats.expenses.totalAmount;
-            _profitabilityStats.value = ProfitabilityStatsModel(
-              totalRevenue: isarRevenue,
-              totalCOGS: estimatedCOGS,
-              grossProfit: estimatedGrossProfit,
-              grossMarginPercentage: isarRevenue > 0 ? (estimatedGrossProfit / isarRevenue) * 100 : 0,
-              netProfit: estimatedNetProfit,
-              netMarginPercentage: isarRevenue > 0 ? (estimatedNetProfit / isarRevenue) * 100 : 0,
-              averageMarginPerSale: stats.profitability.averageMarginPerSale,
-              topProfitableProducts: fallbackProfitability.topProfitableProducts,
-              lowProfitableProducts: fallbackProfitability.lowProfitableProducts,
-              marginsByCategory: fallbackProfitability.marginsByCategory,
-              trend: const ProfitabilityTrendModel(
-                previousPeriodGrossMargin: 0.0,
-                currentPeriodGrossMargin: 0.0,
-                marginGrowth: 0.0,
-                isImproving: false,
-                dailyMargins: [],
-              ),
-            );
-          } else {
-            _profitabilityStats.value = stats.profitability;
-          }
-        }
+        // RENTABILIDAD: la última que dio el servidor para esta organización
+        // y este mismo rango, sea ganancia o pérdida. Si no hay, la calculada
+        // en el equipo con el costo guardado en cada línea (no se estima con
+        // el margen de otro período).
+        final exactProfitability =
+            await _profitabilityCache.load(
+          organizationId: _organizationId,
+          start: startDate,
+          end: endDate,
+        );
+        final hasExactCache = exactProfitability != null;
+        _profitabilityStats.value = exactProfitability ?? stats.profitability;
 
         // ⚡ Mapear nombres de categoría en expensesByCategory
         final rawExpensesByCategory = stats.expenses.expensesByCategory;
@@ -521,11 +490,10 @@ class DashboardController extends GetxController
   Future<void> loadDashboardStats({
     DateTime? startDate,
     DateTime? endDate,
-    // Cálculo local ya hecho en esta misma carga (mismo rango). Si no viene,
-    // se calcula aquí.
-    DashboardStatsModel? localStats,
   }) async {
     if (!_isAlive) return;
+    // Con cambios sin subir se deja el cálculo local (ver _refreshFromServer).
+    if (!_shouldAskServer) return;
     _isLoadingStats.value = true;
     _statsError.value = null;
 
@@ -537,68 +505,17 @@ class DashboardController extends GetxController
       if (!_isAlive) return;
       result.fold(
         (failure) {
+          // Sin respuesta: queda en pantalla el cálculo local.
           _statsError.value = _mapFailureToMessage(failure);
         },
-        (stats) async {
-          // Phase 1B: SIEMPRE recalcular creditNotesTotal/netRevenue desde
-          // ISAR. El backend puede o no enviar estos campos, pero ISAR
-          // siempre tiene las NCs reales.
-          DashboardStats finalStats = stats;
-          try {
-            final offlineStats = localStats ??
-                await Get.find<DashboardLocalDataSource>()
-                    .getCachedDashboardStats(
-                  startDate: startDate,
-                  endDate: endDate,
-                );
-            if (offlineStats != null) {
-              // Merge defensivo: si el server retorna MENOS data que el
-              // local (típicamente porque la factura recién creada aún no
-              // se ha sincronizado al server), preferimos los datos locales
-              // de ISAR. Sin esto, el dashboard mostraría revenue=$0 justo
-              // después de crear una factura — bug que el usuario reportó.
-              final serverHasLessData =
-                  stats.totalCollected < offlineStats.totalCollected ||
-                      stats.sales.totalAmount < offlineStats.sales.totalAmount;
-
-              if (serverHasLessData) {
-                finalStats = offlineStats;
-              } else {
-                // Server tiene data igual o más reciente. Mergeamos:
-                //  - revenue/totalCollected del server (fuente de verdad)
-                //  - NCs del local (mientras backend no envíe consistente)
-                //  - expensesByCategory del LOCAL si el server retorna vacío
-                //    (el server a veces devuelve 0 categorías aunque haya
-                //    gastos cuando no aplica el join correcto).
-                final ncTotal = offlineStats.creditNotesTotal;
-                final ncCount = offlineStats.creditNotesCount;
-                final netRevenue = stats.totalCollected - ncTotal;
-
-                // EXPENSES: SIEMPRE desde ISAR (offlineStats.expenses).
-                //
-                // Fuente única de verdad. Antes mezclábamos `stats.expenses`
-                // del server con `expensesByCategory` cargado por separado y
-                // los criterios de filtro (status) no coincidían, dejando el
-                // bar chart con un total y el pie chart con otro.
-                //
-                // ISAR ya calcula `totalAmount` Y `expensesByCategory` en un
-                // solo paso usando el mismo filtro (paid+approved+pending,
-                // ver `getCachedDashboardStats`). Reemplazamos el bloque
-                // completo del server por el de ISAR → consistencia 100%
-                // entre TODOS los widgets que consumen `stats.expenses`.
-                final mergedExpenses = offlineStats.expenses;
-
-                finalStats = stats.copyWith(
-                  creditNotesTotal: ncTotal,
-                  creditNotesCount: ncCount,
-                  netRevenue: netRevenue,
-                  expenses: mergedExpenses,
-                );
-              }
-            }
-          } catch (e) {
-          }
-          _dashboardStats.value = finalStats;
+        (stats) {
+          // Con respuesta del servidor se muestran SUS cifras completas
+          // (cobrado, facturado, gastos, notas crédito). Antes ganaba "el
+          // mayor" entre servidor y equipo, y gastos y notas crédito salían
+          // del equipo aunque ganara el servidor: las cifras saltaban y no
+          // cuadraban entre sí. El desglose de gastos por categoría sí se
+          // arma después desde el equipo, con la misma definición.
+          _dashboardStats.value = stats;
           update();
         },
       );
@@ -649,11 +566,21 @@ class DashboardController extends GetxController
             'grossProfit=${stats.grossProfit.toStringAsFixed(2)} '
             'netProfit=${stats.netProfit.toStringAsFixed(2)}');
         _profitabilityStats.value = stats;
-        _cacheProfitabilityStats(stats, startDate, endDate);
+        unawaited(_profitabilityCache.save(
+          organizationId: _organizationId,
+          start: startDate,
+          end: endDate,
+          stats: stats,
+        ));
         update();
       } else {
         final failure = result.fold((f) => f, (_) => throw Exception());
-        final cached = await _getCachedProfitabilityStats(startDate, endDate);
+        // Solo la caché de ESTE rango; la de otro período no aplica.
+        final cached = await _profitabilityCache.load(
+          organizationId: _organizationId,
+          start: startDate,
+          end: endDate,
+        );
         if (!_isAlive) return;
         if (cached != null) {
           _profitabilityStats.value = cached;
@@ -1069,16 +996,9 @@ class DashboardController extends GetxController
     }
   }
 
-  // Gastos por categoría — SIEMPRE desde ISAR.
-  //
-  // Antes esto consultaba el API `/expenses` y el filtro de status no
-  // coincidía con el del backend que genera `stats.expenses.totalAmount`
-  // ni con el del cálculo offline ISAR. Resultado: bar chart con un
-  // total y pie chart con otro.
-  //
-  // Ahora ambos vienen de la misma fuente (ISAR) con el mismo filtro
-  // (paid+approved+pending). Online u offline el resultado es idéntico
-  // porque ISAR siempre tiene los gastos sincronizados.
+  // Gastos por categoría — desde ISAR, con la misma definición del total
+  // (aprobados o pagados, por fecha del gasto), para que el gráfico por
+  // categoría y el total de gastos coincidan con o sin conexión.
   Future<void> _loadExpensesByCategory() async {
     if (!_isAlive) return;
     _isLoadingExpenseChart.value = true;
@@ -1145,8 +1065,6 @@ class DashboardController extends GetxController
   }
 
   static const String _categoriesMapCacheKey = 'dashboard_expense_categories_map';
-  static const String _profitabilityCachePrefix = 'dashboard_profitability_';
-  static const String _profitabilityLatestKey = 'dashboard_profitability_latest';
 
   // Cachear mapa de categorías en SecureStorage
   Future<void> _cacheCategoriesMap(Map<String, String> categoriesMap) async {
@@ -1197,82 +1115,12 @@ class DashboardController extends GetxController
 
   // ==================== PROFITABILITY CACHE ====================
 
-  /// Genera clave de cache para un rango de fechas específico
-  String _profitabilityCacheKey(DateTime? start, DateTime? end) {
-    if (start == null && end == null) return '${_profitabilityCachePrefix}all';
-    final s = start?.toIso8601String().substring(0, 10) ?? 'null';
-    final e = end?.toIso8601String().substring(0, 10) ?? 'null';
-    return '$_profitabilityCachePrefix${s}_$e';
-  }
-
-  /// Cachear datos reales de rentabilidad del backend (COGS, márgenes, productos, tendencias)
-  Future<void> _cacheProfitabilityStats(
-    ProfitabilityStats stats, DateTime? startDate, DateTime? endDate,
-  ) async {
-    // No cachear grossProfit negativo: evita que un dato incorrecto o de un bug
-    // anterior quede guardado y se muestre como "Pérdida" en la próxima sesión.
-    // El servidor siempre recalcula correctamente cuando hay conexión.
-    if (stats.grossProfit < 0) return;
-    try {
-      final model = ProfitabilityStatsModel.fromEntity(stats);
-      final jsonStr = json.encode(model.toJson());
-      final secureStorage = Get.find<SecureStorageService>();
-
-      // Cache con key exacta del rango de fechas
-      await secureStorage.write(_profitabilityCacheKey(startDate, endDate), jsonStr);
-
-      // Siempre actualizar "latest" como fallback general
-      final metadata = json.encode({
-        'data': model.toJson(),
-        'startDate': startDate?.toIso8601String(),
-        'endDate': endDate?.toIso8601String(),
-        'cachedAt': DateTime.now().toIso8601String(),
-      });
-      await secureStorage.write(_profitabilityLatestKey, metadata);
-
-    } catch (e) {
-    }
-  }
-
-  /// Leer datos reales de rentabilidad cacheados para un rango EXACTO
-  Future<ProfitabilityStatsModel?> _getExactCachedProfitabilityStats(
-    DateTime? startDate, DateTime? endDate,
-  ) async {
-    try {
-      final secureStorage = Get.find<SecureStorageService>();
-      final exactKey = _profitabilityCacheKey(startDate, endDate);
-      final exactData = await secureStorage.read(exactKey);
-      if (exactData != null) {
-        final jsonMap = json.decode(exactData) as Map<String, dynamic>;
-        return ProfitabilityStatsModel.fromJson(jsonMap);
-      }
-    } catch (e) {
-    }
-    return null;
-  }
-
-  /// Leer ultimo cache de profitability (cualquier rango) solo para COGS/margenes
-  Future<ProfitabilityStatsModel?> _getFallbackProfitabilityStats() async {
-    try {
-      final secureStorage = Get.find<SecureStorageService>();
-      final latestData = await secureStorage.read(_profitabilityLatestKey);
-      if (latestData != null) {
-        final metadata = json.decode(latestData) as Map<String, dynamic>;
-        final data = metadata['data'] as Map<String, dynamic>;
-        return ProfitabilityStatsModel.fromJson(data);
-      }
-    } catch (e) {
-    }
-    return null;
-  }
-
-  /// Leer datos de rentabilidad: primero exacto, luego fallback
-  Future<ProfitabilityStatsModel?> _getCachedProfitabilityStats(
-    DateTime? startDate, DateTime? endDate,
-  ) async {
-    return await _getExactCachedProfitabilityStats(startDate, endDate) ??
-           await _getFallbackProfitabilityStats();
-  }
+  /// Última rentabilidad del servidor por organización y rango (incluye
+  /// pérdidas). Ver [ProfitabilityCache].
+  late final ProfitabilityCache _profitabilityCache = ProfitabilityCache(
+    read: (key) => Get.find<SecureStorageService>().read(key),
+    write: (key, value) => Get.find<SecureStorageService>().write(key, value),
+  );
 
   // Helper methods for chart data
   Map<String, double> get expensesByCategory {

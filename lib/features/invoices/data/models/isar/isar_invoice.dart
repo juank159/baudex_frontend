@@ -364,6 +364,8 @@ class IsarInvoice {
         if (item.presentationId != null) 'presentationId': item.presentationId,
         if (item.presentationFactor != null)
           'presentationFactor': item.presentationFactor,
+        if (item.unitCost != null) 'unitCost': item.unitCost,
+        if (item.totalCost != null) 'totalCost': item.totalCost,
         'createdAt': item.createdAt.toIso8601String(),
         'updatedAt': item.updatedAt.toIso8601String(),
       }).toList();
@@ -397,6 +399,8 @@ class IsarInvoice {
             if (item.presentationId != null) 'presentationId': item.presentationId,
             if (item.presentationFactor != null)
               'presentationFactor': item.presentationFactor,
+            if (item.unitCost != null) 'unitCost': item.unitCost,
+            if (item.totalCost != null) 'totalCost': item.totalCost,
             'createdAt': item.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
             'updatedAt': item.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
           };
@@ -438,6 +442,8 @@ class IsarInvoice {
                 : (map['presentationFactor'] is num
                     ? (map['presentationFactor'] as num).toDouble()
                     : double.tryParse(map['presentationFactor'].toString())),
+            unitCost: _costOrNull(map['unitCost']),
+            totalCost: _costOrNull(map['totalCost']),
             createdAt: map['createdAt'] != null
                 ? DateTime.parse(map['createdAt'])
                 : DateTime.now(),
@@ -451,6 +457,13 @@ class IsarInvoice {
     } catch (e) {
       return [];
     }
+  }
+
+  /// Costo guardado en la línea (número o texto); `null` si no viene.
+  static double? _costOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   // Helpers para payments
@@ -471,6 +484,7 @@ class IsarInvoice {
         'paymentCurrency': payment.paymentCurrency,
         'paymentCurrencyAmount': payment.paymentCurrencyAmount,
         'exchangeRate': payment.exchangeRate,
+        if (payment.channel != null) 'channel': payment.channel,
         'createdAt': payment.createdAt.toIso8601String(),
         'updatedAt': payment.updatedAt.toIso8601String(),
       }).toList();
@@ -503,6 +517,7 @@ class IsarInvoice {
             'paymentCurrency': payment.paymentCurrency,
             'paymentCurrencyAmount': payment.paymentCurrencyAmount,
             'exchangeRate': payment.exchangeRate,
+            if (payment.channel != null) 'channel': payment.channel,
             'createdAt': payment.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
             'updatedAt': payment.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
           };
@@ -544,6 +559,7 @@ class IsarInvoice {
             exchangeRate: map['exchangeRate'] != null
                 ? (map['exchangeRate'] as num).toDouble()
                 : null,
+            channel: map['channel']?.toString(),
             createdAt: map['createdAt'] != null
                 ? DateTime.parse(map['createdAt'])
                 : DateTime.now(),

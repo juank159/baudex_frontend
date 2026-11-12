@@ -105,9 +105,15 @@ void main() {
         inv('i1', 'INV-001', customer: 'c1', date: DateTime(2026, 10, 10, 9), total: 6000),
         inv('i2', 'INV-002', customer: 'c2', date: DateTime(2026, 10, 10, 18),
             total: 3500, balance: 3500, status: IsarInvoiceStatus.pending,
-            method: IsarPaymentMethod.credit, due: DateTime(2026, 10, 1)),
+            method: IsarPaymentMethod.credit,
+            // Siempre vencida, sea cual sea la fecha en que corra la prueba.
+            due: DateTime.now().subtract(const Duration(days: 10))),
         inv('i3', 'INV-003', customer: 'c1', date: DateTime(2026, 10, 12, 15),
             total: 120000, balance: 20000, status: IsarInvoiceStatus.partiallyPaid,
+            // Vencimiento relativo a hoy: con una fecha fija (antes quedaba en
+            // el 11-nov-2026) la factura pasa a vencida al llegar ese día y
+            // la prueba de estadísticas empezaba a fallar.
+            due: DateTime.now().add(const Duration(days: 30)),
             payments: '[{"amount":100000,"bankAccountId":"bank-nequi"}]'),
         inv('i4', 'INV-004', customer: 'c2', date: DateTime(2026, 10, 13),
             total: 9000, status: IsarInvoiceStatus.cancelled),

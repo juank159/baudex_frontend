@@ -30,6 +30,15 @@ class InvoicePayment extends Equatable {
   final double? paymentCurrencyAmount; // monto en la moneda del pago
   final double? exchangeRate;          // 1 moneda extranjera = X moneda base
 
+  /// Canal por el que entró el pago cuando hay que distinguirlo del método
+  /// (igual que `payments.channel` en el servidor): `breb` o
+  /// `breb_adjustment`. Vacío en los demás pagos.
+  final String? channel;
+
+  /// Valor de [channel] del ajuste de redondeo de Bre-B: pesos que se dejaron
+  /// de cobrar para cuadrar el monto único. No es dinero recibido.
+  static const String brebAdjustmentChannel = 'breb_adjustment';
+
   const InvoicePayment({
     required this.id,
     required this.amount,
@@ -48,6 +57,7 @@ class InvoicePayment extends Equatable {
     this.paymentCurrency,
     this.paymentCurrencyAmount,
     this.exchangeRate,
+    this.channel,
   });
 
   @override
@@ -69,6 +79,7 @@ class InvoicePayment extends Equatable {
     paymentCurrency,
     paymentCurrencyAmount,
     exchangeRate,
+    channel,
   ];
 
   /// Nombre para mostrar del método de pago con cuenta bancaria
@@ -83,6 +94,9 @@ class InvoicePayment extends Equatable {
 
   /// Si el pago fue realizado en una moneda diferente a la base
   bool get isForeignCurrency => paymentCurrency != null;
+
+  /// Ajuste de redondeo de Bre-B (no es dinero recibido).
+  bool get isBrebAdjustment => channel == brebAdjustmentChannel;
 
   DateTime get effectivePaymentDate => paymentDate;
 
@@ -139,6 +153,7 @@ class InvoicePayment extends Equatable {
     String? paymentCurrency,
     double? paymentCurrencyAmount,
     double? exchangeRate,
+    String? channel,
   }) {
     return InvoicePayment(
       id: id ?? this.id,
@@ -158,6 +173,7 @@ class InvoicePayment extends Equatable {
       paymentCurrency: paymentCurrency ?? this.paymentCurrency,
       paymentCurrencyAmount: paymentCurrencyAmount ?? this.paymentCurrencyAmount,
       exchangeRate: exchangeRate ?? this.exchangeRate,
+      channel: channel ?? this.channel,
     );
   }
 
