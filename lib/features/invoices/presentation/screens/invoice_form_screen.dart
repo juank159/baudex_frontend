@@ -9,6 +9,7 @@ import 'package:baudex_desktop/app/core/theme/elegant_light_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../breb/presentation/widgets/breb_payment_dialog.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../controllers/invoice_tabs_controller.dart';
 import '../widgets/product_search_widget.dart';
@@ -1166,6 +1167,20 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               ),
             ),
             _buildTotalRow(context, 'TOTAL', controller.total, isTotal: true),
+            if (controller.canChargeWithBreb) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('breb-charge-button'),
+                  onPressed: controller.canSave && !controller.isSaving
+                      ? () => _chargeWithBreb(context, controller)
+                      : null,
+                  icon: const Icon(Icons.qr_code_2, size: 18),
+                  label: const Text('Cobrar con Bre-B (QR)'),
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -1249,6 +1264,59 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     );
   }
 
+  /// Después de una venta: cierra la pestaña (si hay más de una) o limpia la
+  /// factura y devuelve el cursor al buscador, para seguir escaneando.
+  void _leaveReadyForNextSale(InvoiceFormController controller) {
+    final tabsController = Get.find<InvoiceTabsController>();
+    if (tabsController.currentTab == null) return;
+    // Solo cerrar si hay más de una pestaña abierta.
+    if (tabsController.tabs.length > 1) {
+      tabsController.closeTab(tabsController.currentTab!.id, forceClose: true);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.clearFormForNewSale();
+      // Segundo callback: el foco se pide DESPUÉS del redibujo que dispara la
+      // limpieza (antes, el campo aún no está listo y el foco se pierde).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _productSearchKey.currentState?.requestFocus();
+      });
+    });
+  }
+
+  /// Cobro por Bre-B: muestra el QR con el total y espera el aviso del banco.
+  /// La venta se guarda en el servidor solo cuando el cliente paga; si cancela
+  /// o vence, la factura sigue abierta en pantalla para cobrarla de otra forma.
+  Future<void> _chargeWithBreb(
+    BuildContext context,
+    InvoiceFormController controller,
+  ) async {
+    final draft = await controller.buildBrebDraft();
+    if (draft == null || !context.mounted) return;
+
+    final invoiceId = await BrebPaymentDialog.showForSale(
+      context,
+      draft: draft,
+      amount: controller.total,
+    );
+    if (invoiceId == null) return;
+
+    final invoice = await controller.completeBrebSale(invoiceId);
+    if (!mounted) return;
+    _leaveReadyForNextSale(controller);
+    Get.snackbar(
+      'Venta pagada por Bre-B',
+      invoice != null
+          ? 'Factura ${invoice.number} registrada y pagada.'
+          : 'El pago se confirmó y la venta quedó registrada. Aparecerá en la lista al sincronizar.',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.green.shade100,
+      colorText: Colors.green.shade800,
+      icon: const Icon(Icons.check_circle, color: Colors.green),
+      duration: const Duration(seconds: 4),
+    );
+  }
+
   void _showPaymentDialog(
     BuildContext context,
     InvoiceFormController controller,
@@ -1305,31 +1373,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   // ✅ NUEVO: Cerrar la pestaña automáticamente después de procesar venta
                   // Solo cerrar si no es borrador Y si hay más de una pestaña abierta
                   if (status != InvoiceStatus.draft) {
-                    final tabsController = Get.find<InvoiceTabsController>();
-                    if (tabsController.currentTab != null) {
-                      // ✅ NUEVA VALIDACIÓN: Solo cerrar si hay más de una pestaña
-                      if (tabsController.tabs.length > 1) {
-                        tabsController.closeTab(
-                          tabsController.currentTab!.id,
-                          forceClose: true,
-                        );
-                      } else {
-                        // ✅ Limpiar la factura actual para una nueva venta
-                        // y devolver el focus al campo de búsqueda — así
-                        // el cajero puede empezar a escanear el siguiente
-                        // pedido sin tocar el mouse/pantalla.
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          controller.clearFormForNewSale();
-                          // Segundo callback para que el focus se solicite
-                          // DESPUÉS del rebuild que dispara la limpieza
-                          // (de lo contrario el TextField aún no está
-                          // listo y el requestFocus se pierde).
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _productSearchKey.currentState?.requestFocus();
-                          });
-                        });
-                      }
-                    }
+                    _leaveReadyForNextSale(controller);
                   }
 
                   // ✅ MOSTRAR MENSAJE DE ÉXITO SOLO SI LA OPERACIÓN FUE EXITOSA

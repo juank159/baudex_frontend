@@ -19,6 +19,9 @@ import 'package:baudex_desktop/features/invoices/presentation/controllers/therma
 import 'package:baudex_desktop/features/invoices/presentation/widgets/enhanced_payment_dialog.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
+import '../../data/models/create_invoice_request_model.dart';
+import '../../../breb/domain/breb_charge.dart';
+import '../../../breb/data/breb_local_stock.dart';
 import '../../../../app/core/network/network_info.dart';
 
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
@@ -208,6 +211,20 @@ class InvoiceFormController extends GetxController {
   // ✅ NUEVO: Getters de observables para reactividad externa
   Rxn<int> get lastUpdatedItemIndexObs => _lastUpdatedItemIndex;
   RxBool get shouldHighlightUpdatedItemObs => _shouldHighlightUpdatedItem;
+
+  /// ¿Se puede cobrar esta venta por Bre-B? Solo ventas nuevas y negocios
+  /// con al menos una llave configurada (Configuración → Bre-B).
+  bool get canChargeWithBreb {
+    if (isEditMode) return false;
+    try {
+      if (!Get.isRegistered<OrganizationController>()) return false;
+      return brebEnabled(
+        Get.find<OrganizationController>().currentOrganization?.settings,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
 
   // Validación del formulario
   bool get canSave =>
@@ -2116,6 +2133,111 @@ class InvoiceFormController extends GetxController {
         return invoice; // ✅ RETORNAR LA FACTURA CREADA
       },
     );
+  }
+
+  // ==================== COBRO POR BRE-B ====================
+
+  /// Borrador de la venta para cobrarla por Bre-B: el mismo cuerpo con el que
+  /// se crea una factura. La factura NO se guarda aquí: la crea el servidor,
+  /// ya pagada, cuando llega el aviso del banco. `null` si la venta no se
+  /// puede cobrar así (ya se mostró el motivo).
+  Future<Map<String, dynamic>?> buildBrebDraft() async {
+    if (!_validateForm()) return null;
+
+    final canCreate = await SubscriptionValidationService.canCreateInvoiceAsync();
+    if (!canCreate) return null;
+
+    final validCustomer = await _ensureValidCustomer();
+    if (validCustomer == null) {
+      _showError(
+        'No se pudo cargar el Consumidor Final',
+        'Revise la conexión con el servidor e intente de nuevo, o seleccione un cliente.',
+      );
+      return null;
+    }
+    // El servidor crea la venta: el cliente y los productos deben existir allá.
+    if (!_isValidUUID(validCustomer.id)) {
+      _showError(
+        'Cliente sin sincronizar',
+        'Este cliente se creó sin conexión y aún no ha subido al servidor. '
+            'Espere la sincronización o cobre con otro método.',
+      );
+      return null;
+    }
+    final unsynced = _invoiceItems.where(
+      (item) => item.productId != null && !_isValidUUID(item.productId!),
+    );
+    if (unsynced.isNotEmpty) {
+      _showError(
+        'Producto sin sincronizar',
+        '"${unsynced.first.description}" se creó sin conexión y aún no ha subido al servidor. '
+            'Espere la sincronización o cobre con otro método.',
+      );
+      return null;
+    }
+
+    final items = _invoiceItems
+        .map(
+          (item) => CreateInvoiceItemParams(
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercentage: item.discountPercentage,
+            discountAmount: item.discountAmount,
+            unit: item.unit,
+            notes: item.notes,
+            productId: item.productId,
+            presentationId: item.presentationId,
+          ),
+        )
+        .toList();
+
+    return CreateInvoiceRequestModel.fromParams(
+      customerId: validCustomer.id,
+      items: items,
+      date: invoiceDate,
+      dueDate: invoiceDate,
+      paymentMethod: PaymentMethod.bankTransfer.value,
+      taxPercentage: taxPercentage,
+      discountPercentage: discountPercentage,
+      discountAmount: discountAmount,
+      terms: termsController.text.isNotEmpty ? termsController.text : null,
+    ).toJson();
+  }
+
+  /// La venta ya quedó creada y pagada en el servidor (cobro Bre-B confirmado):
+  /// se trae la factura, se imprime si se pide y se deja el formulario listo
+  /// para la siguiente venta. Si no se puede traer la factura (se cayó la
+  /// conexión), la venta igual existe: se avisa y se sigue.
+  Future<Invoice?> completeBrebSale(String invoiceId, {bool shouldPrint = true}) async {
+    // La venta la creó el servidor: se trae su stock para verlo ya en el equipo
+    // (sin esperar la sincronización). No bloquea el cierre de la venta.
+    final soldProductIds = _invoiceItems
+        .map((item) => item.productId)
+        .whereType<String>()
+        .where(_isValidUUID)
+        .toList();
+    unawaited(refreshLocalStockFromServer(soldProductIds));
+
+    Invoice? invoice;
+    try {
+      final result = await _getInvoiceByIdUseCase(GetInvoiceByIdParams(id: invoiceId));
+      invoice = result.fold((_) => null, (found) => found);
+    } catch (_) {
+      invoice = null;
+    }
+
+    if (invoice != null && shouldPrint) {
+      await _printInvoiceAutomatically(invoice);
+    }
+    try {
+      if (Get.isRegistered<DashboardController>()) {
+        Get.find<DashboardController>().requestSyncRefresh();
+      }
+    } catch (_) {}
+
+    _prepareForNewSale();
+    return invoice;
   }
 
   // ✅ MODIFICADO: Retornar la factura actualizada
