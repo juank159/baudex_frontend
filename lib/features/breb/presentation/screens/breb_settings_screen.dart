@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../app/core/network/dio_client.dart';
+import '../../../bank_accounts/domain/entities/bank_account.dart';
+import '../../../bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../data/breb_api.dart';
 import '../../domain/breb_charge.dart';
@@ -267,6 +269,28 @@ class _LlaveDialogState extends State<_LlaveDialog> {
   String? _formError;
   bool _checking = false;
 
+  /// Cuenta bancaria de Baudex donde entra la plata de esta llave (opcional).
+  late String? _bankAccountId = widget.initial?['bankAccountId']?.toString();
+  List<BankAccount> _accounts = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccounts();
+  }
+
+  /// Cuentas bancarias del negocio, si el módulo está disponible.
+  Future<void> _loadAccounts() async {
+    try {
+      if (!Get.isRegistered<BankAccountsController>()) return;
+      final accounts = Get.find<BankAccountsController>();
+      if (accounts.bankAccounts.isEmpty) await accounts.loadBankAccounts();
+      if (mounted) setState(() => _accounts = accounts.activeAccounts);
+    } catch (_) {
+      // Sin cuentas: la llave se guarda sin cuenta asociada.
+    }
+  }
+
   @override
   void dispose() {
     _label.dispose();
@@ -322,7 +346,7 @@ class _LlaveDialogState extends State<_LlaveDialog> {
       'label': label,
       'llave': llave,
       if (_template.text.trim().isNotEmpty) 'qrTemplate': _template.text.trim(),
-      if (widget.initial?['bankAccountId'] != null) 'bankAccountId': widget.initial!['bankAccountId'],
+      if (_bankAccountId != null) 'bankAccountId': _bankAccountId,
     });
   }
 
@@ -355,6 +379,24 @@ class _LlaveDialogState extends State<_LlaveDialog> {
                   hintText: 'Escanea el QR de tu llave con cualquier lector y pega aquí el texto',
                 ),
               ),
+              if (_accounts.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  key: const Key('breb-llave-account'),
+                  value: _accounts.any((a) => a.id == _bankAccountId) ? _bankAccountId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Cuenta donde entra la plata (opcional)',
+                    helperText: 'Los pagos de esta llave suman al saldo de esa cuenta.',
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Sin cuenta')),
+                    for (final account in _accounts)
+                      DropdownMenuItem<String?>(value: account.id, child: Text(account.name)),
+                  ],
+                  onChanged: (value) => setState(() => _bankAccountId = value),
+                ),
+              ],
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,

@@ -2,6 +2,9 @@
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../breb/domain/breb_charge.dart';
+import '../../../breb/presentation/widgets/breb_payment_dialog.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
@@ -2322,6 +2325,9 @@ class InvoiceDetailScreen extends StatelessWidget {
                     : 24,
           ),
 
+          // Cobro por Bre-B de una factura que se debe (cartera)
+          ..._brebChargeAction(context, controller),
+
           // Acciones para facturas con pagos pendientes
           if (controller.canAddPayment) ...[
             Container(
@@ -3331,6 +3337,45 @@ class InvoiceDetailScreen extends StatelessWidget {
   // ==================== PANEL DE ACCIONES MEJORADO ====================
   // Reemplazar el método _buildActionsContent en invoice_detail_screen.dart
 
+  /// Botón "Cobrar con Bre-B (QR)" para una factura con saldo. Aparece solo si
+  /// el negocio tiene llaves Bre-B y la factura ya está en el servidor (una
+  /// factura creada sin conexión y aún sin subir no se puede cobrar así).
+  List<Widget> _brebChargeAction(
+    BuildContext context,
+    InvoiceDetailController controller,
+  ) {
+    final invoice = controller.invoice;
+    if (invoice == null || !controller.canAddPayment) return const [];
+    final synced = RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(invoice.id);
+    final enabled = Get.isRegistered<OrganizationController>() &&
+        brebEnabled(Get.find<OrganizationController>().currentOrganization?.settings);
+    if (!synced || !enabled) return const [];
+
+    return [
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          key: const Key('breb-invoice-charge-button'),
+          icon: const Icon(Icons.qr_code_2, size: 18),
+          label: Text('Cobrar ${AppFormatters.formatCurrency(invoice.balanceDue)} con Bre-B (QR)'),
+          onPressed: () async {
+            final paidInvoiceId = await BrebPaymentDialog.showForInvoice(context, invoice.id);
+            if (paidInvoiceId == null) return;
+            await controller.refreshInvoice();
+            Get.snackbar(
+              'Pago Bre-B recibido',
+              'El pago quedó registrado en la factura ${invoice.number}.',
+              snackPosition: SnackPosition.TOP,
+              backgroundColor: Colors.green.shade100,
+              colorText: Colors.green.shade800,
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 12),
+    ];
+  }
+
   Widget _buildActionsContent(
     BuildContext context,
     InvoiceDetailController controller,
@@ -3346,6 +3391,9 @@ class InvoiceDetailScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+
+        // Cobro por Bre-B de una factura que se debe (cartera)
+        ..._brebChargeAction(context, controller),
 
         // ✅ ACCIONES PARA FACTURAS CON PAGOS PENDIENTES (PENDING O PARTIALLY_PAID)
         if (controller.canAddPayment) ...[

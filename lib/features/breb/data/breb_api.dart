@@ -42,6 +42,27 @@ class BrebApi {
   Future<void> cancel(String chargeId) =>
       _send(() => _dio.post('/breb/cancel/$chargeId'), (_) {});
 
+  /// Pagos recibidos (últimas 24 h) que no se unieron solos a un cobro.
+  Future<List<BrebReceivedPayment>> unassigned() async {
+    try {
+      final response = await _dio.get('/breb/unassigned');
+      final data = _unwrap(response.data);
+      if (data is! List) return [];
+      return data
+          .whereType<Map>()
+          .map((e) => BrebReceivedPayment.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } on DioException catch (e) {
+      throw _toException(e);
+    }
+  }
+
+  /// Asigna a mano un pago recibido a un cobro. Devuelve la factura que quedó
+  /// pagada (creada en ese momento si era una venta nueva).
+  Future<String?> assign({required String chargeId, required String emailId}) => _send(
+      () => _dio.post('/breb/assign', data: {'chargeId': chargeId, 'emailId': emailId}),
+      (data) => data['invoiceId']?.toString());
+
   /// Dirección de correo del negocio a la que debe reenviar los avisos del banco.
   Future<String> inboundAddress() =>
       _send(() => _dio.get('/breb/inbound-address'),

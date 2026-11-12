@@ -59,6 +59,21 @@ class _FakeApi implements BrebApi {
     }
   }
 
+  List<BrebReceivedPayment> received = const [];
+  BrebException? failOnAssign;
+  String? assignedEmail;
+
+  @override
+  Future<List<BrebReceivedPayment>> unassigned() async => received;
+
+  @override
+  Future<String?> assign({required String chargeId, required String emailId}) async {
+    if (failOnAssign != null) throw failOnAssign!;
+    assignedEmail = emailId;
+    serverState = const BrebChargeState(status: BrebChargeStatus.matched, invoiceId: 'factura-2');
+    return 'factura-2';
+  }
+
   @override
   Future<String> inboundAddress() async => 'pagos-bx000000000000@notificaciones.baudity.com';
   @override
@@ -150,6 +165,34 @@ void main() {
       expect(controller.errorMessage.value, contains('llaves'));
     });
 
+    const late = BrebReceivedPayment(id: 'correo-1', amount: 14990, payerName: 'ANA RUIZ', bankLabel: 'Nequi');
+
+    test('asignar a mano un pago recibido: queda confirmado con su factura', () async {
+      await controller.startForSale(draft: {}, amount: 15000);
+      expect(await controller.assignReceived(late), isNull);
+      expect(api.assignedEmail, 'correo-1');
+      expect(controller.phase.value, BrebPaymentPhase.confirmed);
+      expect(controller.invoiceId, 'factura-2');
+      expect(controller.state.value!.payerName, 'ANA RUIZ');
+    });
+
+    test('también sirve cuando el cobro ya venció (el aviso llegó tarde)', () async {
+      await controller.startForSale(draft: {}, amount: 15000);
+      api.serverState = const BrebChargeState(status: BrebChargeStatus.expired);
+      await wait();
+      expect(controller.phase.value, BrebPaymentPhase.expired);
+      expect(await controller.assignReceived(late), isNull);
+      expect(controller.phase.value, BrebPaymentPhase.confirmed);
+    });
+
+    test('si el servidor no lo permite (el pago no cubre la venta), se muestra el motivo y sigue esperando', () async {
+      await controller.startForSale(draft: {}, amount: 15000);
+      api.failOnAssign = const BrebException('El pago recibido no cubre la venta');
+      expect(await controller.assignReceived(late), contains('no cubre'));
+      expect(controller.phase.value, BrebPaymentPhase.waiting);
+      expect(controller.invoiceId, isNull);
+    });
+
     test('cartera: cobro de una factura que ya existe', () async {
       await controller.startForInvoice('factura-9');
       expect(api.invoiceSent, 'factura-9');
@@ -200,6 +243,32 @@ void main() {
         expect(find.textContaining('@tiendademo'), findsOneWidget);
         await controller.cancel();
         await tester.pump();
+      });
+    });
+
+    testWidgets('pagos recibidos: lista los que llegaron y al tocar uno lo asigna', (tester) async {
+      await tester.runAsync(() async {
+        api.received = const [
+          BrebReceivedPayment(id: 'correo-1', amount: 14990, payerName: 'ANA RUIZ', bankLabel: 'Nequi'),
+        ];
+        await open(tester);
+        await wait(1);
+        await tester.pump();
+        await tester.ensureVisible(find.byKey(const Key('breb-received')));
+        await tester.tap(find.byKey(const Key('breb-received')));
+        await tester.pump();
+        await wait(1);
+        await tester.pump();
+        expect(find.text('Pagos Bre-B recibidos'), findsOneWidget);
+        expect(find.textContaining('ANA RUIZ'), findsOneWidget);
+
+        await tester.tap(find.textContaining('ANA RUIZ'));
+        await tester.pump();
+        await wait(1);
+        await tester.pump();
+        expect(api.assignedEmail, 'correo-1');
+        expect(controller.phase.value, BrebPaymentPhase.confirmed);
+        expect(find.text('¡Pago recibido!'), findsOneWidget);
       });
     });
 

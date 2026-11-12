@@ -122,6 +122,36 @@ class BrebChargeState {
       );
 }
 
+/// Un pago que SÍ llegó al banco pero no se pudo unir solo a un cobro (el
+/// cliente transfirió otro valor, o el aviso llegó después de vencer el
+/// cobro). El cajero lo puede asignar a mano.
+class BrebReceivedPayment {
+  final String id;
+  final double amount;
+  final String? payerName;
+  final String? bankLabel;
+  final String? reference;
+  final DateTime? receivedAt;
+
+  const BrebReceivedPayment({
+    required this.id,
+    required this.amount,
+    this.payerName,
+    this.bankLabel,
+    this.reference,
+    this.receivedAt,
+  });
+
+  factory BrebReceivedPayment.fromJson(Map<String, dynamic> json) => BrebReceivedPayment(
+        id: json['id'].toString(),
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        payerName: json['payerName']?.toString(),
+        bankLabel: json['bankLabel']?.toString(),
+        reference: json['reference']?.toString(),
+        receivedAt: DateTime.tryParse(json['receivedAt']?.toString() ?? '')?.toLocal(),
+      );
+}
+
 /// Diferencia entre lo que vale la venta y lo que se cobra (nunca negativa).
 double brebAdjustment(double requested, double charged) {
   final d = ((requested - charged) * 100).round() / 100;

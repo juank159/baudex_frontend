@@ -129,6 +129,35 @@ class BrebPaymentController extends GetxController {
     return true;
   }
 
+  /// Pagos que llegaron al banco y no se unieron solos a un cobro.
+  Future<List<BrebReceivedPayment>> receivedPayments() => _api.unassigned();
+
+  /// El cajero asigna a este cobro un pago que sí llegó (otro valor, o llegó
+  /// tarde). Sirve mientras se espera y también si el cobro ya venció.
+  /// Devuelve `null` si quedó confirmado, o el motivo si el servidor no lo
+  /// permitió (por ejemplo, el pago no cubre la venta).
+  Future<String?> assignReceived(BrebReceivedPayment payment) async {
+    final current = charge.value;
+    if (current == null) return 'No hay un cobro al cual asignar el pago.';
+    if (phase.value == BrebPaymentPhase.confirmed) return null;
+    try {
+      final invoiceId = await _api.assign(chargeId: current.chargeId, emailId: payment.id);
+      _stopTimers();
+      state.value = BrebChargeState(
+        status: BrebChargeStatus.matched,
+        invoiceId: invoiceId,
+        payerName: payment.payerName,
+        bankLabel: payment.bankLabel,
+      );
+      phase.value = BrebPaymentPhase.confirmed;
+      return null;
+    } on BrebException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'No se pudo asignar el pago.';
+    }
+  }
+
   void _stopTimers() {
     _poll?.cancel();
     _clock?.cancel();

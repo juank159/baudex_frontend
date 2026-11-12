@@ -161,7 +161,7 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
                     title: 'El cobro venció',
                     detail: 'No llegó el aviso del banco a tiempo. Si el cliente sí pagó, '
                         'el pago aparece en "Pagos Bre-B recibidos" para asignarlo.',
-                    actions: [_closeButton(), _retryButton()],
+                    actions: [_closeButton(), _receivedButton(), _retryButton()],
                   );
                 case BrebPaymentPhase.cancelled:
                   return _message(
@@ -281,7 +281,12 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          TextButton(
+            key: const Key('breb-received'),
+            onPressed: _showReceivedPayments,
+            child: const Text('¿Ya pagó y no se confirma? Ver pagos recibidos'),
+          ),
+          const SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
@@ -316,7 +321,137 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     );
   }
 
+  Widget _receivedButton() =>
+      OutlinedButton(onPressed: _showReceivedPayments, child: const Text('Ver pagos recibidos'));
+
+  /// Lista de pagos que llegaron y no se unieron solos; al tocar uno se asigna
+  /// a este cobro.
+  Future<void> _showReceivedPayments() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ReceivedPaymentsDialog(controller: _controller),
+    );
+  }
+
   Widget _closeButton() => TextButton(onPressed: () => _close(null), child: const Text('Cerrar'));
 
   Widget _retryButton() => FilledButton(onPressed: _start, child: const Text('Intentar de nuevo'));
+}
+
+/// Pagos Bre-B recibidos sin asignar; el cajero elige cuál es el de este cobro.
+class _ReceivedPaymentsDialog extends StatefulWidget {
+  final BrebPaymentController controller;
+  const _ReceivedPaymentsDialog({required this.controller});
+
+  @override
+  State<_ReceivedPaymentsDialog> createState() => _ReceivedPaymentsDialogState();
+}
+
+class _ReceivedPaymentsDialogState extends State<_ReceivedPaymentsDialog> {
+  List<BrebReceivedPayment>? _payments;
+  String? _error;
+  String? _assigningId;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _payments = null;
+      _error = null;
+    });
+    try {
+      final payments = await widget.controller.receivedPayments();
+      if (mounted) setState(() => _payments = payments);
+    } on BrebException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'No se pudieron consultar los pagos recibidos.');
+    }
+  }
+
+  Future<void> _assign(BrebReceivedPayment payment) async {
+    setState(() {
+      _assigningId = payment.id;
+      _error = null;
+    });
+    final problem = await widget.controller.assignReceived(payment);
+    if (!mounted) return;
+    if (problem == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _assigningId = null;
+      _error = problem;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final payments = _payments;
+    return AlertDialog(
+      title: const Text('Pagos Bre-B recibidos'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pagos que llegaron al banco en las últimas 24 horas y no se unieron solos a una venta. '
+              'Toca el de este cliente para asignarlo.',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 8),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(_error!, key: const Key('breb-assign-error'), style: TextStyle(color: Colors.red.shade700)),
+              ),
+            if (payments == null && _error == null)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (payments != null && payments.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('No hay pagos recibidos sin asignar.'),
+              )
+            else if (payments != null)
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final payment in payments)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.payments_outlined),
+                        title: Text(AppFormatters.formatCurrency(payment.amount)),
+                        subtitle: Text([
+                          if ((payment.payerName ?? '').isNotEmpty) payment.payerName,
+                          if ((payment.bankLabel ?? '').isNotEmpty) payment.bankLabel,
+                          if (payment.receivedAt != null) AppFormatters.formatDateTime(payment.receivedAt),
+                        ].join(' · ')),
+                        trailing: _assigningId == payment.id
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.chevron_right),
+                        onTap: _assigningId == null ? () => _assign(payment) : null,
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _assigningId == null ? _load : null, child: const Text('Actualizar')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cerrar')),
+      ],
+    );
+  }
 }

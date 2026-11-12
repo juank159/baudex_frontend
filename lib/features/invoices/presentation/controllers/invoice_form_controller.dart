@@ -21,6 +21,7 @@ import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
 import '../../data/models/create_invoice_request_model.dart';
 import '../../../breb/domain/breb_charge.dart';
+import '../../../breb/data/breb_local_stock.dart';
 import '../../../../app/core/network/network_info.dart';
 
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
@@ -2209,6 +2210,15 @@ class InvoiceFormController extends GetxController {
   /// para la siguiente venta. Si no se puede traer la factura (se cayó la
   /// conexión), la venta igual existe: se avisa y se sigue.
   Future<Invoice?> completeBrebSale(String invoiceId, {bool shouldPrint = true}) async {
+    // La venta la creó el servidor: se trae su stock para verlo ya en el equipo
+    // (sin esperar la sincronización). No bloquea el cierre de la venta.
+    final soldProductIds = _invoiceItems
+        .map((item) => item.productId)
+        .whereType<String>()
+        .where(_isValidUUID)
+        .toList();
+    unawaited(refreshLocalStockFromServer(soldProductIds));
+
     Invoice? invoice;
     try {
       final result = await _getInvoiceByIdUseCase(GetInvoiceByIdParams(id: invoiceId));
