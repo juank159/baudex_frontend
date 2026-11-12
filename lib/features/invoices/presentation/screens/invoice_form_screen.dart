@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../breb/presentation/widgets/breb_payment_dialog.dart';
-import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../controllers/invoice_tabs_controller.dart';
 import '../widgets/product_search_widget.dart';
@@ -1168,21 +1167,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               ),
             ),
             _buildTotalRow(context, 'TOTAL', controller.total, isTotal: true),
-            if (controller.canChargeWithBreb) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  key: const Key('breb-charge-button'),
-                  style: brebSecondaryButtonStyle(),
-                  onPressed: controller.canSave && !controller.isSaving
-                      ? () => _chargeWithBreb(context, controller)
-                      : null,
-                  icon: const Icon(Icons.qr_code_2, size: 18),
-                  label: const Text('Cobrar con Bre-B (QR)'),
-                ),
-              ),
-            ],
           ],
         ),
       );
@@ -1286,9 +1270,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     });
   }
 
-  /// Cobro por Bre-B: muestra el QR con el total y espera el aviso del banco.
-  /// La venta se guarda en el servidor solo cuando el cliente paga; si cancela
-  /// o vence, la factura sigue abierta en pantalla para cobrarla de otra forma.
+  /// Cobro por Bre-B (se elige dentro del diálogo de pago): muestra el QR con
+  /// el total y espera el aviso del banco. La venta se guarda en el servidor
+  /// solo cuando el cliente paga; si cancela o vence, se vuelve al diálogo de
+  /// pago con la misma venta.
   Future<void> _chargeWithBreb(
     BuildContext context,
     InvoiceFormController controller,
@@ -1301,7 +1286,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       draft: draft,
       amount: controller.total,
     );
-    if (invoiceId == null) return;
+    if (invoiceId == null) {
+      // No se pagó (canceló o venció): se vuelve al diálogo de pago para
+      // cobrar la misma venta de otra forma.
+      if (mounted && context.mounted) _showPaymentDialog(context, controller);
+      return;
+    }
 
     final invoice = await controller.completeBrebSale(invoiceId);
     if (!mounted) return;
@@ -1424,6 +1414,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             onCancel: () {
               Navigator.of(context).pop();
             },
+            // Bre-B es una opción más del diálogo de pago (solo si el negocio
+            // tiene llaves configuradas y es una venta nueva).
+            onBrebRequested: controller.canChargeWithBreb
+                ? () => _chargeWithBreb(context, controller)
+                : null,
           ),
     );
   }

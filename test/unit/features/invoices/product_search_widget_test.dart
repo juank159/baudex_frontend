@@ -38,6 +38,11 @@ void main() {
               p.sku.toLowerCase().contains(q))
           .toList();
     });
+    // El Enter con un valor busca el código EXACTO (ya no la búsqueda "que contenga").
+    when(() => controller.findProductBySku(any())).thenAnswer((inv) async {
+      final sku = (inv.positionalArguments.first as String).toLowerCase();
+      return [arroz, leche, huevo].firstWhereOrNull((p) => p.sku.toLowerCase() == sku);
+    });
     when(() => controller.findProductByBarcode(any())).thenAnswer((inv) async {
       final code = inv.positionalArguments.first as String;
       return [arroz, leche].firstWhereOrNull((p) => p.barcode == code);

@@ -941,11 +941,9 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
 
   Future<Product?> _searchBySku(String sku) async {
     try {
-      // Search ISAR via controller (covers full catalog, not just first-50 page)
-      final results = await widget.controller.searchProducts(sku);
-      return results.firstWhereOrNull(
-        (p) => p.sku.toLowerCase() == sku.toLowerCase(),
-      );
+      // Coincidencia exacta en la base local (instantáneo); si el catálogo
+      // aún está bajando, el controlador hace la búsqueda completa de siempre.
+      return await widget.controller.findProductBySku(sku);
     } catch (e) {
 AppLogger.e('❌ Error en búsqueda por SKU: $e');
       return null;

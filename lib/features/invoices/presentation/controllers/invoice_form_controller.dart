@@ -1060,6 +1060,35 @@ class InvoiceFormController extends GetxController {
         results.first;
   }
 
+  /// Producto cuyo código (SKU) es EXACTAMENTE [sku]. Lo usa el Enter con un
+  /// valor: si existe un producto con ese código se agrega ese; si no, es un
+  /// producto no registrado.
+  ///
+  /// Va directo a la base local por coincidencia exacta (instantáneo). Antes
+  /// hacía la búsqueda completa "que contenga", con espera al servidor de
+  /// hasta 2,5 s mientras el catálogo no había terminado de bajar: por eso
+  /// tardaban en salir la voz y el diálogo del producto no registrado.
+  Future<Product?> findProductBySku(String sku) async {
+    final trimmed = sku.trim();
+    if (trimmed.isEmpty) return null;
+    try {
+      if (Get.isRegistered<ProductOfflineRepository>()) {
+        final exact = await Get.find<ProductOfflineRepository>().getProductBySku(trimmed);
+        final product = exact.fold((_) => null, (p) => p);
+        if (product != null && product.status == ProductStatus.active) return product;
+        // Con el catálogo completo en el equipo, si no está aquí no existe.
+        if (await localCollectionReady((IsarDatabase.instance.database as Isar).isarProducts)) {
+          return null;
+        }
+      }
+    } catch (_) {
+      // Cualquier problema con la base local: se usa la búsqueda de siempre.
+    }
+    // Catálogo aún bajando (o sin base local): búsqueda completa, como antes.
+    final results = await searchProducts(trimmed);
+    return results.firstWhereOrNull((p) => p.sku.toLowerCase() == trimmed.toLowerCase());
+  }
+
   Future<List<Product>> searchProducts(String query) async {
     if (query.trim().isEmpty) return [];
 
@@ -1101,7 +1130,10 @@ class InvoiceFormController extends GetxController {
         // Lo resuelve la base; antes se recorría todo el catálogo en
         // memoria quitando tildes, y eso frenaba cada búsqueda sin
         // resultados (por ejemplo, el precio de un producto no registrado).
-        if (isarAvailable && results.isEmpty) {
+        // Un valor o código (solo números) no tiene tildes que ignorar: esa
+        // segunda pasada por el catálogo sobraba cada vez que el cajero
+        // digitaba el precio de un producto no registrado.
+        if (isarAvailable && results.isEmpty && RegExp(r'[^\d.,\s]').hasMatch(query)) {
           final loose = await repo.searchProductsIgnoringAccents(query);
           loose.fold(
             (failure) => AppLogger.w('ISAR search falló: ${failure.message}'),
@@ -2164,8 +2196,15 @@ class InvoiceFormController extends GetxController {
       );
       return null;
     }
+    // Los productos NO registrados (el cajero escribe el valor y un nombre,
+    // p. ej. "verduras") son válidos: el servidor los recibe como temporales,
+    // igual que en cualquier venta. Solo estorba un producto registrado que
+    // se creó sin conexión y todavía no ha subido.
     final unsynced = _invoiceItems.where(
-      (item) => item.productId != null && !_isValidUUID(item.productId!),
+      (item) =>
+          item.productId != null &&
+          !_isValidUUID(item.productId!) &&
+          !isTemporaryProductId(item.productId),
     );
     if (unsynced.isNotEmpty) {
       _showError(
