@@ -11,6 +11,8 @@ import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../domain/entities/cash_register.dart';
+import '../../domain/services/cash_register_receipt.dart';
+import '../widgets/cash_register_print_button.dart';
 import '../controllers/cash_register_controller.dart';
 
 /// Pantalla principal de Caja Registradora.
@@ -312,6 +314,16 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                       ),
                     ),
                   ),
+                  if (controller.lastClosed.value != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: CashRegisterPrintButton(
+                        register: controller.lastClosed.value!,
+                        label: 'Imprimir recibo del último cierre',
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -336,6 +348,8 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
         const SizedBox(height: AppDimensions.spacingMedium),
         _buildBreakdownCard(reg, s, expected),
         const SizedBox(height: AppDimensions.spacingMedium),
+        CashRegisterPrintButton(register: reg, summary: s, expected: expected),
+        const SizedBox(height: AppDimensions.spacingSmall),
         _buildCloseButton(context),
         const SizedBox(height: AppDimensions.spacingLarge),
       ],
@@ -667,6 +681,14 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                     gradient: ElegantLightTheme.warningGradient,
                   ),
                 ],
+                if ((s.brebAdjustmentsTotal ?? 0) > 0) ...[
+                  const SizedBox(height: 10),
+                  _buildEmptyNote(
+                    'Ajustes Bre-B: ${AppFormatters.formatCurrency(s.brebAdjustmentsTotal)} '
+                    'en ${_countLabel(s.brebAdjustmentsCount ?? 0, 'cobro', 'cobros')}. '
+                    'Son los pesos que se bajan para que cada cobro tenga un valor único; no es dinero recibido.',
+                  ),
+                ],
               ],
               if (s.creditNotesTotal > 0) ...[
                 const SizedBox(height: 8),
@@ -691,21 +713,12 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
 
   /// Nombre a mostrar de un cobro por otro medio: la cuenta si existe
   /// ("Nequi"), o el nombre del método en español.
-  String _otherMethodLabel(OtherMethodTotal m) {
-    const names = <String, String>{
-      'bank_transfer': 'Transferencia',
-      'credit_card': 'Tarjeta de crédito',
-      'debit_card': 'Tarjeta débito',
-      'check': 'Cheque',
-      'other': 'Otro medio',
-    };
-    final methodName = names[m.method] ?? m.method;
-    if (m.label.isEmpty || m.label == m.method) return methodName;
-    return '${m.label} · $methodName';
-  }
+  String _otherMethodLabel(OtherMethodTotal m) => otherMethodDisplayName(m);
 
   IconData _otherMethodIcon(String method) {
     switch (method) {
+      case 'breb':
+        return Icons.qr_code_2_rounded;
       case 'credit_card':
       case 'debit_card':
         return Icons.credit_card_rounded;

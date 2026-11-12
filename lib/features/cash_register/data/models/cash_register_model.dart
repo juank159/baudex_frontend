@@ -22,6 +22,10 @@ class CashRegisterSummaryModel extends CashRegisterSummary {
     super.totalCollected,
     super.creditSalesTotal,
     super.creditSalesCount,
+    super.brebTotal,
+    super.brebCount,
+    super.brebAdjustmentsTotal,
+    super.brebAdjustmentsCount,
   });
 
   factory CashRegisterSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -64,6 +68,10 @@ class CashRegisterSummaryModel extends CashRegisterSummary {
       totalCollected: optDouble('totalCollected'),
       creditSalesTotal: optDouble('creditSalesTotal'),
       creditSalesCount: optInt('creditSalesCount'),
+      brebTotal: optDouble('brebTotal'),
+      brebCount: optInt('brebCount'),
+      brebAdjustmentsTotal: optDouble('brebAdjustmentsTotal'),
+      brebAdjustmentsCount: optInt('brebAdjustmentsCount'),
     );
   }
 
@@ -97,6 +105,12 @@ class CashRegisterSummaryModel extends CashRegisterSummary {
         if (totalCollected != null) 'totalCollected': totalCollected,
         if (creditSalesTotal != null) 'creditSalesTotal': creditSalesTotal,
         if (creditSalesCount != null) 'creditSalesCount': creditSalesCount,
+        if (brebTotal != null) 'brebTotal': brebTotal,
+        if (brebCount != null) 'brebCount': brebCount,
+        if (brebAdjustmentsTotal != null)
+          'brebAdjustmentsTotal': brebAdjustmentsTotal,
+        if (brebAdjustmentsCount != null)
+          'brebAdjustmentsCount': brebAdjustmentsCount,
       };
 }
 
