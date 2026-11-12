@@ -2114,7 +2114,17 @@ class _CreditDetailPageState extends State<CreditDetailPage>
 
   /// Obtener nombre legible del método de pago
   /// Si hay bankAccountName, lo usa. Si no, traduce el paymentMethod
-  String _getPaymentMethodDisplayName(String? method, String? bankAccountName) {
+  String _getPaymentMethodDisplayName(
+    String? method,
+    String? bankAccountName, {
+    String? description,
+  }) {
+    // Abono recibido por Bre-B: el servidor lo marca al inicio de la descripción.
+    if ((description ?? '').startsWith('Bre-B')) {
+      return bankAccountName != null && bankAccountName.isNotEmpty
+          ? 'Bre-B · $bankAccountName'
+          : 'Bre-B';
+    }
     // Si hay nombre de cuenta bancaria, usarlo directamente
     if (bankAccountName != null && bankAccountName.isNotEmpty) {
       return bankAccountName;
@@ -2346,6 +2356,7 @@ class _CreditDetailPageState extends State<CreditDetailPage>
                                 _getPaymentMethodDisplayName(
                                   transaction.paymentMethod,
                                   transaction.bankAccountName,
+                                  description: transaction.description,
                                 ),
                                 style: TextStyle(
                                   color: ElegantLightTheme.primaryBlue,

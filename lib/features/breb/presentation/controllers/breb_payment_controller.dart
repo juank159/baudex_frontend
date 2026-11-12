@@ -1,6 +1,7 @@
 // lib/features/breb/presentation/controllers/breb_payment_controller.dart
 import 'dart:async';
 import 'package:get/get.dart';
+import '../../../../app/core/services/audio_notification_service.dart';
 import '../../data/breb_api.dart';
 import '../../domain/breb_charge.dart';
 
@@ -16,7 +17,35 @@ class BrebPaymentController extends GetxController {
   /// Cada cuánto se pregunta por el cobro. Igual que La Bomba.
   final Duration pollEvery;
 
-  BrebPaymentController(this._api, {this.pollEvery = const Duration(seconds: 3)});
+  /// Dice una frase en voz alta. Se puede reemplazar en las pruebas.
+  final void Function(String text) _speak;
+
+  BrebPaymentController(
+    this._api, {
+    this.pollEvery = const Duration(seconds: 3),
+    void Function(String text)? speak,
+  }) : _speak = speak ?? _speakWithTts {
+    // Cada vez que el cobro queda confirmado (solo, al cancelar o asignado a
+    // mano) se anuncia en voz alta, una sola vez.
+    ever<BrebPaymentPhase>(phase, (value) {
+      if (value == BrebPaymentPhase.confirmed) _announcePaid();
+    });
+  }
+
+  static void _speakWithTts(String text) {
+    final audio = AudioNotificationService.instance;
+    unawaited(audio.initialize().then((_) => audio.announceCustom(text)).catchError((_) {}));
+  }
+
+  bool _announced = false;
+
+  /// "Recibiste 2000 pesos en Nequi", como La Bomba y Food App. Habla en este
+  /// equipo apenas se confirma el pago.
+  void _announcePaid() {
+    if (_announced) return;
+    _announced = true;
+    _speak(brebPaidAnnouncement(amount: charge.value?.amount, bank: state.value?.bankLabel));
+  }
 
   final phase = BrebPaymentPhase.creating.obs;
   final charge = Rxn<BrebCharge>();
@@ -49,6 +78,7 @@ class BrebPaymentController extends GetxController {
 
   Future<void> _start(Future<BrebCharge> Function() create) async {
     _stopTimers();
+    _announced = false;
     phase.value = BrebPaymentPhase.creating;
     errorMessage.value = null;
     try {

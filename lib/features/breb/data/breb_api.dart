@@ -134,10 +134,17 @@ class BrebApi {
           '',
         )
         .trim();
+    // Un servidor anterior a esta función rechaza el campo que no conoce.
+    if (message.contains('should not exist')) return _serverTooOld;
     return BrebException(
       message.isNotEmpty ? message : 'El servidor no pudo procesar el cobro Bre-B.',
     );
   }
+
+  static const _serverTooOld = BrebException(
+    'Este cobro por Bre-B todavía no está disponible: falta actualizar el servidor de Baudex. '
+    'Mientras tanto, registra el abono con otro medio de pago.',
+  );
 
   static const _offline = BrebException(
     'Sin conexión con el servidor. Bre-B necesita internet para confirmar el pago con el banco. '

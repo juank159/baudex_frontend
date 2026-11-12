@@ -452,7 +452,7 @@ class PaymentHistoryWidget extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          payment.paymentMethod.icon,
+          payment.isBreb ? Icons.qr_code_2_rounded : payment.paymentMethod.icon,
           color: ElegantLightTheme.primaryBlue,
           size: 18,
         ),
@@ -512,7 +512,7 @@ class PaymentHistoryWidget extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          payment.paymentMethod.icon,
+          payment.isBreb ? Icons.qr_code_2_rounded : payment.paymentMethod.icon,
           color: ElegantLightTheme.primaryBlue,
           size: isTablet ? 20 : 22,
         ),
