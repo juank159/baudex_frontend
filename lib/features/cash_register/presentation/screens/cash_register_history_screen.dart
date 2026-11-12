@@ -10,6 +10,8 @@ import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/services/cash_register_receipt.dart';
 import '../widgets/cash_register_print_button.dart';
+import '../widgets/cash_register_movements_dialog.dart';
+import '../../domain/services/cash_register_movements.dart';
 import '../controllers/cash_register_controller.dart';
 
 /// Pantalla de historial de cajas registradoras (turnos cerrados).
@@ -686,6 +688,8 @@ class _CashRegisterDetailSheet extends StatelessWidget {
                             value: AppFormatters.formatCurrency(
                                 summary.cashSales),
                             gradient: ElegantLightTheme.successGradient,
+                            onTap: () => _showMovements(context,
+                                CashMovementFilter.cashReceived(), Icons.point_of_sale_rounded),
                           ),
                           if (summary.cashExpenses > 0)
                             _buildDetailRow(
@@ -696,6 +700,8 @@ class _CashRegisterDetailSheet extends StatelessWidget {
                                   '−${AppFormatters.formatCurrency(summary.cashExpenses)}',
                               gradient: ElegantLightTheme.warningGradient,
                               isNegative: true,
+                              onTap: () => _showMovements(context,
+                                  CashMovementFilter.expenses(), Icons.receipt_long_rounded),
                             ),
                           if (summary.creditNotesTotal > 0)
                             _buildDetailRow(
@@ -740,6 +746,13 @@ class _CashRegisterDetailSheet extends StatelessWidget {
                                     '${otherMethodDisplayName(m)} (${m.count})',
                                 value: AppFormatters.formatCurrency(m.total),
                                 gradient: ElegantLightTheme.infoGradient,
+                                onTap: () => _showMovements(
+                                  context,
+                                  CashMovementFilter.otherMethod(m, otherMethodDisplayName(m)),
+                                  m.method == 'breb'
+                                      ? Icons.qr_code_2_rounded
+                                      : Icons.account_balance_rounded,
+                                ),
                               ),
                             const SizedBox(height: 8),
                             _buildHighlightRow(
@@ -802,6 +815,34 @@ class _CashRegisterDetailSheet extends StatelessWidget {
     required String value,
     required LinearGradient gradient,
     bool isNegative = false,
+    VoidCallback? onTap,
+  }) {
+    final row = _buildDetailRowContent(
+      icon: icon,
+      label: label,
+      value: value,
+      gradient: gradient,
+      isNegative: isNegative,
+      showChevron: onTap != null,
+    );
+    if (onTap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: row),
+    );
+  }
+
+  /// Abre la trazabilidad de una línea del cierre (cada pago, uno por uno).
+  void _showMovements(BuildContext context, CashMovementFilter filter, IconData icon) =>
+      showCashRegisterMovements(context, cashRegisterId: reg.id, filter: filter, icon: icon);
+
+  Widget _buildDetailRowContent({
+    required IconData icon,
+    required String label,
+    required String value,
+    required LinearGradient gradient,
+    required bool isNegative,
+    required bool showChevron,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -851,6 +892,11 @@ class _CashRegisterDetailSheet extends StatelessWidget {
                   : ElegantLightTheme.textPrimary,
             ),
           ),
+          if (showChevron) ...[
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: ElegantLightTheme.textSecondary),
+          ],
         ],
       ),
     );

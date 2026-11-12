@@ -18,6 +18,7 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../expenses/data/models/isar/isar_expense.dart';
 import '../../../invoices/data/models/isar/isar_invoice.dart';
+import '../../domain/entities/cash_register_movement.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/repositories/cash_register_repository.dart';
 import '../datasources/cash_register_remote_datasource.dart';
@@ -295,6 +296,68 @@ class CashRegisterRepositoryImpl implements CashRegisterRepository {
     final match = cached.where((r) => r.id == id);
     if (match.isNotEmpty) return Right(match.first);
     return Left(NetworkFailure('Sin conexión y esta caja no está guardada en el equipo'));
+  }
+
+  @override
+  Future<Either<Failure, CashRegisterMovements>> movements(String id) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final list = await remoteDataSource.movements(id);
+        await _writeMovements(id, list);
+        return Right(CashRegisterMovements(list));
+      } catch (e) {
+        if (_isRejection(e)) {
+          // Un servidor anterior a esta función no conoce la ruta.
+          final message = _message(e);
+          return Left(ServerFailure(
+            message.contains('Cannot GET')
+                ? 'El detalle del turno todavía no está disponible: falta actualizar el servidor de Baudex.'
+                : message,
+          ));
+        }
+      }
+    }
+    final cached = await _readMovements(id);
+    if (cached != null) return Right(cached);
+    return Left(NetworkFailure(
+      'Sin conexión. El detalle de este turno se podrá ver cuando vuelva el internet.',
+    ));
+  }
+
+  static String _movementsKey(String id) => 'cash_register_movements_v1_$id';
+
+  Future<void> _writeMovements(String id, List<CashRegisterMovement> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _movementsKey(id),
+        jsonEncode({
+          'savedAt': DateTime.now().toUtc().toIso8601String(),
+          'items': list.map((m) => m.toJson()).toList(),
+        }),
+      );
+    } catch (_) {
+      // Sin almacenamiento local el detalle simplemente no queda guardado.
+    }
+  }
+
+  Future<CashRegisterMovements?> _readMovements(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_movementsKey(id));
+      if (raw == null) return null;
+      final json = jsonDecode(raw) as Map;
+      final items = (json['items'] as List)
+          .whereType<Map>()
+          .map((m) => CashRegisterMovement.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      return CashRegisterMovements(
+        items,
+        savedAt: DateTime.tryParse(json['savedAt']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
