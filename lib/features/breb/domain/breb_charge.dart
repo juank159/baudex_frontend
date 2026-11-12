@@ -195,3 +195,12 @@ bool brebEnabled(Map<String, dynamic>? settings) =>
 /// producto temporal de la factura. Misma regla del servidor.
 bool isTemporaryProductId(String? id) =>
     id != null && (id.startsWith('temp_') || id.startsWith('unregistered_'));
+
+/// Frase que se dice en voz alta cuando se confirma un pago Bre-B.
+/// El valor va sin separadores para que la voz lo lea como número.
+String brebPaidAnnouncement({double? amount, String? bank}) {
+  final pesos = amount == null ? null : amount.round();
+  final where = (bank ?? '').trim();
+  if (pesos == null) return where.isEmpty ? 'Pago recibido' : 'Pago recibido en $where';
+  return where.isEmpty ? 'Pago recibido, $pesos pesos' : 'Recibiste $pesos pesos en $where';
+}

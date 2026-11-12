@@ -38,6 +38,7 @@ class InvoicePayment extends Equatable {
   /// Valor de [channel] del ajuste de redondeo de Bre-B: pesos que se dejaron
   /// de cobrar para cuadrar el monto único. No es dinero recibido.
   static const String brebAdjustmentChannel = 'breb_adjustment';
+  static const String brebChannel = 'breb';
 
   const InvoicePayment({
     required this.id,
@@ -85,11 +86,26 @@ class InvoicePayment extends Equatable {
   /// Nombre para mostrar del método de pago con cuenta bancaria
   /// Prioriza mostrar el nombre del banco si existe (Nequi, Daviplata, Bancolombia, etc.)
   String get paymentMethodDisplayName {
+    final breb = _brebName;
+    if (breb != null) return breb;
     if (bankAccount != null && bankAccount!.name.isNotEmpty) {
       // Si tiene cuenta bancaria, mostrar el nombre del banco directamente
       return bankAccount!.name;
     }
     return paymentMethod.displayName;
+  }
+
+  /// Pago recibido por Bre-B (en el servidor es una transferencia con canal).
+  bool get isBreb => channel == brebChannel;
+
+  /// Nombre del pago cuando es de Bre-B: "Bre-B", "Bre-B · Nequi" o
+  /// "Ajuste Bre-B" (los pesos que se bajaron al cobro; no es dinero).
+  /// `null` si el pago no es de Bre-B.
+  String? get _brebName {
+    if (isBrebAdjustment) return 'Ajuste Bre-B';
+    if (!isBreb) return null;
+    final bank = bankAccount?.name ?? '';
+    return bank.isEmpty ? 'Bre-B' : 'Bre-B · $bank';
   }
 
   /// Si el pago fue realizado en una moneda diferente a la base
@@ -103,6 +119,8 @@ class InvoicePayment extends Equatable {
   /// Nombre completo para mostrar del método de pago con cuenta bancaria
   /// Formato: "Transferencia Bancaria - Nequi"
   String get displayName {
+    final breb = _brebName;
+    if (breb != null) return breb;
     if (bankAccount != null && bankAccount!.name.isNotEmpty) {
       return '${paymentMethod.displayName} - ${bankAccount!.name}';
     }
@@ -111,6 +129,8 @@ class InvoicePayment extends Equatable {
 
   /// Nombre corto del método de pago (solo el banco si existe)
   String get shortDisplayName {
+    final breb = _brebName;
+    if (breb != null) return breb;
     if (bankAccount != null && bankAccount!.name.isNotEmpty) {
       return bankAccount!.name;
     }

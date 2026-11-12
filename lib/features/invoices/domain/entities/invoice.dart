@@ -276,9 +276,22 @@ class Invoice extends Equatable {
 
   String get statusDisplayName => status.displayName;
 
+  /// La venta se cobró por Bre-B (tiene un pago con ese canal).
+  bool get paidWithBreb => payments.any((p) => p.isBreb);
+
+  /// "Bre-B" o "Bre-B · Nequi" si la venta se cobró por Bre-B; si no, `null`.
+  String? get _brebPaymentName {
+    for (final payment in payments) {
+      if (payment.isBreb) return payment.paymentMethodDisplayName;
+    }
+    return null;
+  }
+
   /// Nombre para mostrar del método de pago
   /// Prioriza mostrar el nombre del banco si existe (Nequi, Daviplata, Bancolombia, etc.)
   String get paymentMethodDisplayName {
+    final breb = _brebPaymentName;
+    if (breb != null) return breb;
     // Si hay pagos con cuenta bancaria, mostrar directamente el nombre del banco
     if (payments.isNotEmpty) {
       final firstPayment = payments.first;
@@ -292,6 +305,8 @@ class Invoice extends Equatable {
   /// Nombre completo del método de pago (incluye tipo + banco si existe)
   /// Formato: "Transferencia Bancaria (Nequi)"
   String get fullPaymentMethodDisplayName {
+    final breb = _brebPaymentName;
+    if (breb != null) return breb;
     if (payments.isNotEmpty) {
       final firstPayment = payments.first;
       if (firstPayment.bankAccount != null && firstPayment.bankAccount!.name.isNotEmpty) {
@@ -304,6 +319,8 @@ class Invoice extends Equatable {
   /// Nombre corto del método de pago para mostrar en cards
   /// Prioriza mostrar el nombre del banco si existe (Nequi, Daviplata, etc.)
   String get shortPaymentMethodName {
+    final breb = _brebPaymentName;
+    if (breb != null) return breb;
     // Si hay pagos con cuenta bancaria, mostrar SOLO el nombre del banco
     if (payments.isNotEmpty) {
       final firstPayment = payments.first;
@@ -335,6 +352,7 @@ class Invoice extends Equatable {
   /// Obtiene el ícono apropiado para el método de pago
   /// Si tiene cuenta bancaria, usa el ícono de banco
   IconData get paymentMethodIcon {
+    if (paidWithBreb) return Icons.qr_code_2_rounded;
     if (payments.isNotEmpty && payments.first.bankAccount != null) {
       return Icons.account_balance;
     }
