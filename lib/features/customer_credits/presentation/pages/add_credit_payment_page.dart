@@ -8,6 +8,7 @@ import '../../../bank_accounts/domain/entities/bank_account.dart';
 import '../../../bank_accounts/presentation/bindings/bank_accounts_binding.dart';
 import '../../../bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import '../../domain/entities/customer_credit.dart';
+import '../../../breb/presentation/widgets/breb_credit_charge_button.dart';
 import '../controllers/customer_credit_controller.dart';
 
 /// Página para agregar un abono a un crédito
@@ -141,6 +142,23 @@ class _AddCreditPaymentPageState extends State<AddCreditPaymentPage> {
               _buildAdditionalInfoCard(),
 
               const SizedBox(height: 24),
+
+              // Cobro por Bre-B: el cliente escanea y paga; el abono lo
+              // registra el servidor al confirmarse.
+              if (canChargeCreditWithBreb(widget.credit.id)) ...[
+                BrebCreditChargeButton(
+                  creditId: widget.credit.id,
+                  balance: widget.credit.balanceDue,
+                  // Igual que el resto de esta página: el campo guarda el número tal cual.
+                  amount: () => double.tryParse(_amountController.text.trim()),
+                  onPaid: () async {
+                    await Get.find<CustomerCreditController>()
+                        .refreshAfterServerPayment(widget.credit.id);
+                    Get.back(result: true);
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Botón de acción
               _buildSubmitButton(),

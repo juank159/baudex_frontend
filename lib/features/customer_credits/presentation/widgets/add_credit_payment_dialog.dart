@@ -11,6 +11,7 @@ import '../../../bank_accounts/domain/entities/bank_account.dart';
 import '../../../bank_accounts/presentation/bindings/bank_accounts_binding.dart';
 import '../../../bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import '../../domain/entities/customer_credit.dart';
+import '../../../breb/presentation/widgets/breb_credit_charge_button.dart';
 import '../controllers/customer_credit_controller.dart';
 
 /// Diálogo elegante para agregar un abono a un crédito
@@ -211,6 +212,21 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
                                 ],
                                 _buildPayFullAmountOption(),
                                 const SizedBox(height: 14),
+                                // Cobro por Bre-B: el cliente escanea y paga; el
+                                // abono lo registra el servidor al confirmarse.
+                                if (canChargeCreditWithBreb(widget.credit.id)) ...[
+                                  BrebCreditChargeButton(
+                                    creditId: widget.credit.id,
+                                    balance: widget.credit.balanceDue,
+                                    amount: () => NumberInputFormatter.getNumericValue(_amountController.text),
+                                    onPaid: () async {
+                                      await Get.find<CustomerCreditController>()
+                                          .refreshAfterServerPayment(widget.credit.id);
+                                      if (mounted) Navigator.of(context).pop(true);
+                                    },
+                                  ),
+                                  const SizedBox(height: 14),
+                                ],
                                 _buildBankAccountSelector(),
                                 const SizedBox(height: 12),
                                 _buildDatePicker(),

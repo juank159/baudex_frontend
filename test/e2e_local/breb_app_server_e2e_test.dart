@@ -191,6 +191,81 @@ void main() {
     expect(row, 'paid|15000|0');
   });
 
+  Future<void> waitConfirmed(BrebPaymentController controller) async {
+    for (var i = 0; i < 40 && controller.phase.value == BrebPaymentPhase.waiting; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  test('producto NO registrado (el cajero digita el valor): se cobra y la venta queda pagada', () async {
+    final address = await api.inboundAddress();
+    final controller = BrebPaymentController(api, pollEvery: const Duration(milliseconds: 300))..onInit();
+    addTearDown(controller.onClose);
+
+    // Así lo arma la app: un producto temporal con su identificador `temp_…`.
+    final draftWithTemp = CreateInvoiceRequestModel.fromParams(
+      customerId: finalConsumerId,
+      items: [
+        CreateInvoiceItemParams(
+          description: 'Verduras',
+          quantity: 1,
+          unitPrice: 2137,
+          productId: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        ),
+      ],
+      date: DateTime.now(),
+      dueDate: DateTime.now(),
+      paymentMethod: 'bank_transfer',
+    ).toJson();
+
+    await controller.startForSale(draft: draftWithTemp, amount: 2137);
+    expect(controller.phase.value, BrebPaymentPhase.waiting, reason: controller.errorMessage.value);
+    expect(await _bankNotice(address, controller.charge.value!.amount.toInt(), 'TMP$run'), 200);
+    await waitConfirmed(controller);
+
+    expect(controller.phase.value, BrebPaymentPhase.confirmed);
+    final row = await _sql(
+      "select i.status, i.total::float, it.description, it.\"productId\" is null from invoices i "
+      "join invoice_items it on it.\"invoiceId\" = i.id where i.id='${controller.invoiceId}'",
+    );
+    expect(row, 'paid|2137|Verduras|t');
+  });
+
+  test('crédito: abono por Bre-B desde la app y luego el saldo completo', () async {
+    final address = await api.inboundAddress();
+    final customer = _unwrap((await client.post('/customers', data: {
+      'firstName': 'Cliente', 'lastName': 'App $run', 'documentType': 'cc',
+      'documentNumber': '5${DateTime.now().millisecondsSinceEpoch % 100000000}',
+      'email': 'app$run@baudex.test', 'creditLimit': 5000000, 'paymentTerms': 30,
+    })).data);
+    final invoice = _unwrap((await client.post('/invoices', data: {
+      'customerId': customer['id'], 'paymentMethod': 'credit', 'status': 'pending',
+      'items': [{'description': 'Gaseosa de prueba', 'quantity': 3, 'unitPrice': 5000, 'productId': productId}],
+    })).data);
+    final creditId = await _sql("select id from customer_credits where invoice_id='${invoice['id']}'");
+    expect(creditId, hasLength(36));
+
+    final abono = BrebPaymentController(api, pollEvery: const Duration(milliseconds: 300))..onInit();
+    addTearDown(abono.onClose);
+    await abono.startForCredit(creditId, amount: 6000);
+    expect(abono.phase.value, BrebPaymentPhase.waiting, reason: abono.errorMessage.value);
+    expect(await _bankNotice(address, abono.charge.value!.amount.toInt(), 'CRA$run'), 200);
+    await waitConfirmed(abono);
+    expect(abono.phase.value, BrebPaymentPhase.confirmed);
+    expect(abono.settledId, isNotNull);
+    expect(await _sql("select status, balance_due::float from customer_credits where id='$creditId'"), 'partially_paid|9000');
+
+    final resto = BrebPaymentController(api, pollEvery: const Duration(milliseconds: 300))..onInit();
+    addTearDown(resto.onClose);
+    await resto.startForCredit(creditId);
+    expect(resto.charge.value!.requestedAmount, 9000);
+    expect(await _bankNotice(address, resto.charge.value!.amount.toInt(), 'CRB$run'), 200);
+    await waitConfirmed(resto);
+    expect(resto.phase.value, BrebPaymentPhase.confirmed);
+    expect(await _sql("select status, balance_due::float from customer_credits where id='$creditId'"), 'paid|0');
+    expect(await _sql("select status from invoices where id='${invoice['id']}'"), 'paid');
+  });
+
   test('el motivo de un rechazo del servidor llega tal cual a la app', () async {
     final controller = BrebPaymentController(api)..onInit();
     addTearDown(controller.onClose);

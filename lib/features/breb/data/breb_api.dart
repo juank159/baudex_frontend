@@ -36,6 +36,12 @@ class BrebApi {
       _send(() => _dio.post('/breb/charge', data: {'invoiceId': invoiceId}),
           (data) => BrebCharge.fromJson(data));
 
+  /// Cobro de un crédito del cliente (directo o de factura). Con [amount]
+  /// menor al saldo es un abono; sin [amount], el saldo completo.
+  Future<BrebCharge> createChargeForCredit(String creditId, {double? amount}) => _send(
+      () => _dio.post('/breb/charge', data: {'creditId': creditId, if (amount != null) 'amount': amount}),
+      (data) => BrebCharge.fromJson(data));
+
   Future<BrebChargeState> status(String chargeId) =>
       _send(() => _dio.get('/breb/status/$chargeId'),
           (data) => BrebChargeState.fromJson(data));
@@ -64,7 +70,7 @@ class BrebApi {
   /// pagada (creada en ese momento si era una venta nueva).
   Future<String?> assign({required String chargeId, required String emailId}) => _send(
       () => _dio.post('/breb/assign', data: {'chargeId': chargeId, 'emailId': emailId}),
-      (data) => data['invoiceId']?.toString());
+      (data) => (data['invoiceId'] ?? data['creditId'])?.toString());
 
   /// Dirección de correo del negocio a la que debe reenviar los avisos del banco.
   Future<String> inboundAddress() =>

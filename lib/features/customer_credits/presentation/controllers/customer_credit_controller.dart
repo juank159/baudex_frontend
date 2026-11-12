@@ -97,6 +97,21 @@ class CustomerCreditController extends GetxController
     ]);
   }
 
+  /// Un abono que registró el SERVIDOR (cobro por Bre-B confirmado por el
+  /// banco): se trae de allá el crédito actualizado y se refrescan la lista,
+  /// los totales y la cuenta del cliente que esté abierta.
+  Future<void> refreshAfterServerPayment(String creditId) async {
+    try {
+      await getCreditById(creditId);
+    } catch (_) {}
+    try {
+      await Future.wait([loadCredits(), loadStats()]);
+    } catch (_) {}
+    try {
+      await refreshCustomerAccount();
+    } catch (_) {}
+  }
+
   /// Asegura que los datos estén cargados (llamar desde las páginas)
   Future<void> ensureDataLoaded() async {
     if (credits.isEmpty && !isLoading.value && !_isLoadInProgress) {

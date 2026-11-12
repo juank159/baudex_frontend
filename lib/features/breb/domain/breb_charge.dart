@@ -104,12 +104,16 @@ class BrebChargeState {
 
   /// La factura creada (o la que se estaba cobrando), cuando ya hay pago.
   final String? invoiceId;
+
+  /// El crédito al que se abonó, si el cobro era de un crédito.
+  final String? creditId;
   final String? payerName;
   final String? bankLabel;
 
   const BrebChargeState({
     required this.status,
     this.invoiceId,
+    this.creditId,
     this.payerName,
     this.bankLabel,
   });
@@ -117,6 +121,7 @@ class BrebChargeState {
   factory BrebChargeState.fromJson(Map<String, dynamic> json) => BrebChargeState(
         status: parseBrebStatus(json['status']),
         invoiceId: json['invoiceId']?.toString(),
+        creditId: json['creditId']?.toString(),
         payerName: json['payerName']?.toString(),
         bankLabel: json['bankLabel']?.toString(),
       );

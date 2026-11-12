@@ -31,6 +31,10 @@ class BrebPaymentController extends GetxController {
   /// Factura creada (o cobrada) cuando el pago queda confirmado.
   String? get invoiceId => state.value?.invoiceId;
 
+  /// Lo que quedó pagado: la factura, o el crédito si el cobro era de un
+  /// crédito. `null` mientras no haya pago.
+  String? get settledId => state.value?.invoiceId ?? state.value?.creditId;
+
   /// Cobro de una venta nueva del punto de venta.
   Future<void> startForSale({required Map<String, dynamic> draft, required double amount}) =>
       _start(() => _api.createChargeForSale(draft: draft, amount: amount));
@@ -38,6 +42,10 @@ class BrebPaymentController extends GetxController {
   /// Cobro de una factura que ya existe y se debe.
   Future<void> startForInvoice(String invoiceId) =>
       _start(() => _api.createChargeForInvoice(invoiceId));
+
+  /// Abono o pago total de un crédito del cliente.
+  Future<void> startForCredit(String creditId, {double? amount}) =>
+      _start(() => _api.createChargeForCredit(creditId, amount: amount));
 
   Future<void> _start(Future<BrebCharge> Function() create) async {
     _stopTimers();
