@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/errors/server_rejection.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/sync_service.dart';
@@ -668,6 +669,11 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
         return const Right(unit);
       } on ServerException catch (e) {
+        // El servidor se negó a eliminarlo (p. ej. tiene órdenes de compra abiertas): no se
+        // elimina en este equipo ni se deja en la cola; se muestra el motivo.
+        if (isDeleteRejection(e.statusCode)) {
+          return Left(BusinessRuleFailure(e.message));
+        }
         return _deleteSupplierOffline(id);
       } catch (e) {
         return _deleteSupplierOffline(id);

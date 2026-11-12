@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/errors/server_rejection.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
@@ -547,6 +548,11 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
 
         return const Right(null);
       } on ServerException catch (e) {
+        // El servidor se negó a eliminarlo (p. ej. tiene movimientos): no se
+        // elimina en este equipo ni se deja en la cola; se muestra el motivo.
+        if (isDeleteRejection(e.statusCode)) {
+          return Left(BusinessRuleFailure(e.message));
+        }
         return _deleteBankAccountOffline(id);
       } catch (e) {
         return _deleteBankAccountOffline(id);

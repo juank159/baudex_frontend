@@ -1775,7 +1775,7 @@ class ProductRepositoryImpl implements ProductRepository {
       } on ServerException catch (e) {
         // El servidor dijo que no (p. ej. tiene existencias u órdenes de compra
         // abiertas): no se borra en este equipo ni se encola para reintentar.
-        if (isServerRejection(e.statusCode)) {
+        if (isDeleteRejection(e.statusCode)) {
           AppLogger.w(' El servidor rechazó eliminar el producto $id: ${e.message}');
           return Left(BusinessRuleFailure(e.message));
         }

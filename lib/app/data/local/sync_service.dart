@@ -462,6 +462,23 @@ class SyncService extends GetxService {
     }
   }
 
+  /// Deshace en este equipo un borrado hecho sin conexión que el servidor
+  /// rechazó al sincronizar (proveedor con órdenes abiertas, cliente con
+  /// deuda...). [restore] vuelve a dejar visible el registro local.
+  Future<void> _undoRejectedDelete(
+    String label,
+    String id,
+    String reason,
+    Future<void> Function(Isar isar) restore,
+  ) async {
+    AppLogger.w('El servidor rechazó eliminar $label $id: $reason. Se restaura en este equipo.', tag: 'SYNC');
+    try {
+      await restore(IsarDatabase.instance.database);
+    } catch (e) {
+      AppLogger.w('No se pudo restaurar $label $id: $e', tag: 'SYNC');
+    }
+  }
+
   /// Un borrado hecho sin conexión que el servidor rechazó: se deshace en local
   /// para que este equipo muestre lo mismo que el servidor.
   Future<void> _restoreProductAfterRejectedDelete(String productId, String reason) async {
@@ -3944,7 +3961,7 @@ class SyncService extends GetxService {
           try {
             await remoteDataSource.deleteProduct(operation.entityId);
           } on ServerException catch (e) {
-            if (!isServerRejection(e.statusCode) || e.statusCode == 404) rethrow;
+            if (!isDeleteRejection(e.statusCode)) rethrow;
             // El servidor no dejó borrarlo (existencias u órdenes abiertas): el
             // producto sigue existiendo, así que vuelve a aparecer en este equipo.
             await _restoreProductAfterRejectedDelete(operation.entityId, e.message);
@@ -4599,7 +4616,21 @@ class SyncService extends GetxService {
             'Eliminando categoría en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
-          await remoteDataSource.deleteCategory(operation.entityId);
+          try {
+            await remoteDataSource.deleteCategory(operation.entityId);
+          } on ServerException catch (e) {
+            if (!isDeleteRejection(e.statusCode)) rethrow;
+            // El servidor no dejó eliminarlo: sigue existiendo, así que vuelve
+            // a aparecer en este equipo.
+            await _undoRejectedDelete('la categoría', operation.entityId, e.message, (isar) async {
+              final local = await isar.isarCategorys.filter().serverIdEqualTo(operation.entityId).findFirst();
+              if (local == null) return;
+              local.deletedAt = null;
+              local.markAsSynced();
+              await isar.writeTxn(() => isar.isarCategorys.put(local));
+            });
+            return;
+          }
           AppLogger.i('Categoría eliminada en servidor', tag: 'SYNC');
 
           // Limpiar categoría de ISAR después de eliminar en servidor
@@ -4977,7 +5008,21 @@ class SyncService extends GetxService {
             'Eliminando cliente en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
-          await remoteDataSource.deleteCustomer(operation.entityId);
+          try {
+            await remoteDataSource.deleteCustomer(operation.entityId);
+          } on ServerException catch (e) {
+            if (!isDeleteRejection(e.statusCode)) rethrow;
+            // El servidor no dejó eliminarlo: sigue existiendo, así que vuelve
+            // a aparecer en este equipo.
+            await _undoRejectedDelete('el cliente', operation.entityId, e.message, (isar) async {
+              final local = await isar.isarCustomers.filter().serverIdEqualTo(operation.entityId).findFirst();
+              if (local == null) return;
+              local.deletedAt = null;
+              local.markAsSynced();
+              await isar.writeTxn(() => isar.isarCustomers.put(local));
+            });
+            return;
+          }
           AppLogger.i('Cliente eliminado en servidor', tag: 'SYNC');
           break;
 
@@ -5230,7 +5275,21 @@ class SyncService extends GetxService {
             'Eliminando proveedor en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
-          await remoteDataSource.deleteSupplier(operation.entityId);
+          try {
+            await remoteDataSource.deleteSupplier(operation.entityId);
+          } on ServerException catch (e) {
+            if (!isDeleteRejection(e.statusCode)) rethrow;
+            // El servidor no dejó eliminarlo: sigue existiendo, así que vuelve
+            // a aparecer en este equipo.
+            await _undoRejectedDelete('el proveedor', operation.entityId, e.message, (isar) async {
+              final local = await isar.isarSuppliers.filter().serverIdEqualTo(operation.entityId).findFirst();
+              if (local == null) return;
+              local.deletedAt = null;
+              local.markAsSynced();
+              await isar.writeTxn(() => isar.isarSuppliers.put(local));
+            });
+            return;
+          }
           AppLogger.i('Proveedor eliminado en servidor', tag: 'SYNC');
           break;
       }
@@ -5865,7 +5924,21 @@ class SyncService extends GetxService {
             'Eliminando cuenta bancaria en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
-          await remoteDataSource.deleteBankAccount(operation.entityId);
+          try {
+            await remoteDataSource.deleteBankAccount(operation.entityId);
+          } on ServerException catch (e) {
+            if (!isDeleteRejection(e.statusCode)) rethrow;
+            // El servidor no dejó eliminarlo: sigue existiendo, así que vuelve
+            // a aparecer en este equipo.
+            await _undoRejectedDelete('la cuenta bancaria', operation.entityId, e.message, (isar) async {
+              final local = await isar.isarBankAccounts.filter().serverIdEqualTo(operation.entityId).findFirst();
+              if (local == null) return;
+              local.deletedAt = null;
+              local.markAsSynced();
+              await isar.writeTxn(() => isar.isarBankAccounts.put(local));
+            });
+            return;
+          }
           AppLogger.i('Cuenta bancaria eliminada en servidor', tag: 'SYNC');
           break;
       }

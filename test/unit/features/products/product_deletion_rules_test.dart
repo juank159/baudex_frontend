@@ -38,4 +38,21 @@ void main() {
       }
     });
   });
+
+  group('isDeleteRejection', () {
+    test('409 y 400 son un "no" del servidor: no se borra en el equipo', () {
+      expect(isDeleteRejection(409), isTrue);
+      expect(isDeleteRejection(400), isTrue);
+    });
+
+    test('404 no es un rechazo: ya no existe en el servidor y se puede borrar aquí', () {
+      expect(isDeleteRejection(404), isFalse);
+    });
+
+    test('servidor caído o sin sesión no es un rechazo', () {
+      for (final code in [null, 401, 500, 503]) {
+        expect(isDeleteRejection(code), isFalse, reason: '$code');
+      }
+    });
+  });
 }
