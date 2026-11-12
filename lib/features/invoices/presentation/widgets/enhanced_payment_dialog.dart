@@ -142,6 +142,11 @@ class EnhancedPaymentDialog extends StatefulWidget {
   onPaymentConfirmed;
   final VoidCallback onCancel;
 
+  /// Cobro por Bre-B (QR). Si viene, el diálogo muestra esa opción dentro de
+  /// "Tipo de Pago"; al elegirla se cierra este diálogo y quien lo abrió
+  /// muestra el QR. `null` cuando el negocio no tiene llaves Bre-B.
+  final VoidCallback? onBrebRequested;
+
   const EnhancedPaymentDialog({
     super.key,
     required this.total,
@@ -151,6 +156,7 @@ class EnhancedPaymentDialog extends StatefulWidget {
     this.customerCurrentBalance = 0,
     required this.onPaymentConfirmed,
     required this.onCancel,
+    this.onBrebRequested,
   });
 
   /// Verificar si el cliente es "Consumidor Final" o similar
@@ -1761,6 +1767,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             ], // end if (!widget.isDefaultCustomer)
           ],
         ),
+        // Opción: Bre-B (QR). El cliente escanea y paga el valor exacto; la
+        // venta se registra sola cuando el banco confirma.
+        if (widget.onBrebRequested != null) ...[
+          SizedBox(height: config.isMobile ? 8 : 10),
+          _buildBrebOption(config),
+        ],
         // Sección de cupo de crédito — visible cuando se selecciona "A Crédito"
         // para clientes reales (no Consumidor Final).
         if (isCredit && !widget.isDefaultCustomer) ...[
@@ -1880,6 +1892,75 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           ),
         ),
       ],
+    );
+  }
+
+  /// Tercera forma de cobrar, junto a "Pago Inmediato" y "A Crédito".
+  Widget _buildBrebOption(_DialogSizeConfig config) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('breb-payment-option'),
+        borderRadius: BorderRadius.circular(config.radiusMedium),
+        onTap: () {
+          // Se cierra este diálogo y se abre el del QR con el total.
+          Navigator.of(context).pop();
+          widget.onBrebRequested!();
+        },
+        child: Ink(
+          padding: EdgeInsets.symmetric(
+            horizontal: config.isMobile ? 12 : 16,
+            vertical: config.isMobile ? 10 : 12,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(config.radiusMedium),
+            border: Border.all(
+              color: ElegantLightTheme.primaryBlue.withOpacity(0.45),
+              width: 1.5,
+            ),
+            boxShadow: ElegantLightTheme.elevatedShadow,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.qr_code_2, color: Colors.white, size: config.iconMedium),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Bre-B (QR)',
+                      style: TextStyle(
+                        fontSize: config.bodySize,
+                        fontWeight: FontWeight.w600,
+                        color: ElegantLightTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'El cliente escanea y paga; se confirma solo',
+                      style: TextStyle(
+                        fontSize: config.smallSize - 1,
+                        color: ElegantLightTheme.textTertiary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: ElegantLightTheme.primaryBlue, size: config.iconMedium),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

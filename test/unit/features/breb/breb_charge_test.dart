@@ -81,4 +81,17 @@ void main() {
       expect(brebEnabled({'breb': 'x'}), isFalse);
     });
   });
+
+  group('productos no registrados', () {
+    test('los identificadores temporales de la app se reconocen', () {
+      expect(isTemporaryProductId('temp_1731430000000'), isTrue);
+      expect(isTemporaryProductId('temp_price_1731430000000'), isTrue);
+      expect(isTemporaryProductId('unregistered_123'), isTrue);
+    });
+    test('un producto registrado o creado sin conexión no es temporal', () {
+      expect(isTemporaryProductId('3f2b8c1e-0f2a-4d6b-9c1d-2e5f7a8b9c0d'), isFalse);
+      expect(isTemporaryProductId('product_offline_1731430000000'), isFalse);
+      expect(isTemporaryProductId(null), isFalse);
+    });
+  });
 }

@@ -600,11 +600,28 @@ void main() {
 
   group('ProductOfflineRepository - deleteProduct', () {
     test(
+      'no borra un producto con existencias y lo deja intacto',
+      () async {
+        const tProductId = 'prod-con-stock';
+        final product = ProductFixtures.createProductEntity(id: tProductId, stock: 5);
+        await mockIsar.writeTxn(() async {
+          await mockIsar.isarProducts.put(IsarProduct.fromEntity(product));
+        });
+
+        final result = await repository.deleteProduct(tProductId);
+
+        expect(result.isLeft(), true);
+        final kept = await mockIsar.isarProducts.filter().serverIdEqualTo(tProductId).findFirst();
+        expect(kept!.deletedAt, isNull);
+      },
+    );
+
+    test(
       'should soft delete product in ISAR',
       () async {
         // Arrange
         const tProductId = 'prod-001';
-        final product = ProductFixtures.createProductEntity(id: tProductId);
+        final product = ProductFixtures.createProductEntity(id: tProductId, stock: 0);
         final isarProduct = IsarProduct.fromEntity(product);
         await mockIsar.writeTxn(() async {
           await mockIsar.isarProducts.put(isarProduct);
@@ -630,7 +647,7 @@ void main() {
       () async {
         // Arrange
         const tProductId = 'prod-001';
-        final product = ProductFixtures.createProductEntity(id: tProductId);
+        final product = ProductFixtures.createProductEntity(id: tProductId, stock: 0);
         final isarProduct = IsarProduct.fromEntity(product);
         await mockIsar.writeTxn(() async {
           await mockIsar.isarProducts.put(isarProduct);

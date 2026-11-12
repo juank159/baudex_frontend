@@ -78,6 +78,15 @@ class CashRegisterSummary extends Equatable {
   final double? creditSalesTotal;
   final int? creditSalesCount;
 
+  /// Cobrado por Bre-B en el turno (ya incluido en [otherMethods]).
+  final double? brebTotal;
+  final int? brebCount;
+
+  /// Pesos que se dejaron de cobrar en cobros Bre-B para que el monto fuera
+  /// único. No es dinero recibido.
+  final double? brebAdjustmentsTotal;
+  final int? brebAdjustmentsCount;
+
   const CashRegisterSummary({
     this.cashSales = 0,
     this.cashSalesCount = 0,
@@ -98,6 +107,10 @@ class CashRegisterSummary extends Equatable {
     this.totalCollected,
     this.creditSalesTotal,
     this.creditSalesCount,
+    this.brebTotal,
+    this.brebCount,
+    this.brebAdjustmentsTotal,
+    this.brebAdjustmentsCount,
   });
 
   static const empty = CashRegisterSummary();
@@ -132,6 +145,10 @@ class CashRegisterSummary extends Equatable {
         totalCollected,
         creditSalesTotal,
         creditSalesCount,
+        brebTotal,
+        brebCount,
+        brebAdjustmentsTotal,
+        brebAdjustmentsCount,
       ];
 }
 

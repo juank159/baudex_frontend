@@ -44,6 +44,16 @@ class _FakeApi implements BrebApi {
     return _charge(20000, 20000);
   }
 
+  String? creditSent;
+  double? creditAmountSent;
+
+  @override
+  Future<BrebCharge> createChargeForCredit(String creditId, {double? amount}) async {
+    creditSent = creditId;
+    creditAmountSent = amount;
+    return _charge(amount ?? 18000, amount ?? 18000);
+  }
+
   @override
   Future<BrebChargeState> status(String chargeId) async {
     statusCalls++;
@@ -191,6 +201,22 @@ void main() {
       expect(await controller.assignReceived(late), contains('no cubre'));
       expect(controller.phase.value, BrebPaymentPhase.waiting);
       expect(controller.invoiceId, isNull);
+    });
+
+    test('crédito: abono por un valor y confirmación con el crédito pagado', () async {
+      await controller.startForCredit('credito-1', amount: 12000);
+      expect(api.creditSent, 'credito-1');
+      expect(api.creditAmountSent, 12000);
+      api.serverState = const BrebChargeState(status: BrebChargeStatus.matched, creditId: 'credito-1');
+      await wait();
+      expect(controller.phase.value, BrebPaymentPhase.confirmed);
+      expect(controller.settledId, 'credito-1', reason: 'un crédito directo no tiene factura');
+    });
+
+    test('crédito: sin valor se cobra todo el saldo', () async {
+      await controller.startForCredit('credito-1');
+      expect(api.creditAmountSent, isNull);
+      expect(controller.charge.value!.amount, 18000);
     });
 
     test('cartera: cobro de una factura que ya existe', () async {

@@ -16,6 +16,8 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/invoice.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/printing/receipt_escpos.dart';
+import '../../../../app/core/printing/receipt_line.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../settings/presentation/controllers/settings_controller.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
@@ -418,6 +420,111 @@ class ThermalPrinterController extends GetxController {
     await _discoverNetworkPrinters();
   }
   // ==================== IMPRESIÓN PRINCIPAL ====================
+
+  /// Nombre del negocio para encabezar recibos que no son facturas.
+  Future<String> businessNameForReceipts() async {
+    if (_cachedOrganization == null) await _loadOrganizationData();
+    return _cachedOrganization?.businessName ?? 'Mi Negocio';
+  }
+
+  /// Imprime un recibo genérico (caja, arqueos…) en la impresora configurada,
+  /// por USB o por red. Quien llama arma las líneas; aquí solo se imprime.
+  /// Devuelve `false` y deja el motivo en [lastError] si no se pudo.
+  Future<bool> printReceiptLines(String label, List<ReceiptLine> lines) async {
+    if (_isPrinting.value) {
+      _lastError.value = 'Ya hay una impresión en curso';
+      return false;
+    }
+    try {
+      _isPrinting.value = true;
+      _lastError.value = null;
+
+      if (_currentPrinterConfig.value == null) await _loadDefaultPrinterConfig();
+      final config = _currentPrinterConfig.value;
+      final is58 = config?.paperSize == settings.PaperSize.mm58;
+      final paperSize = is58 ? esc_pos.PaperSize.mm58 : esc_pos.PaperSize.mm80;
+      final profile = await esc_pos.CapabilityProfile.load();
+      final generator = esc_pos.Generator(paperSize, profile);
+      final bytes = Uint8List.fromList([
+        ...SATQ22UEConfig.initializeCommands,
+        ...receiptLinesToEscPos(generator, lines, charsPerLine: is58 ? 32 : 48),
+        ...generator.feed(3),
+        ...SATQ22UEConfig.cutCommands,
+      ]);
+
+      final bool success;
+      if (config != null &&
+          config.connectionType == settings.PrinterConnectionType.usb) {
+        success = await _sendRawBytesUSB(config.usbPath, bytes);
+      } else {
+        success = await _sendRawBytesNetwork(config, paperSize, profile, bytes);
+      }
+      _addToPrintHistory(null, success, success ? null : _lastError.value, label);
+      return success;
+    } catch (e) {
+      _lastError.value = e.toString();
+      _addToPrintHistory(null, false, e.toString(), label);
+      return false;
+    } finally {
+      _isPrinting.value = false;
+    }
+  }
+
+  Future<bool> _sendRawBytesUSB(String? usbPath, Uint8List bytes) async {
+    if (usbPath == null || usbPath.isEmpty) {
+      _lastError.value = 'La impresora USB no tiene ruta configurada';
+      return false;
+    }
+    if (Platform.isWindows) return _printToUSBWindows(usbPath, bytes);
+    if (Platform.isLinux) return _printToUSBLinux(usbPath, bytes);
+    if (Platform.isMacOS) return _printToUSBMacOS(usbPath, bytes);
+    _lastError.value = 'Sistema operativo no soportado para impresión USB';
+    return false;
+  }
+
+  Future<bool> _sendRawBytesNetwork(
+    settings.PrinterSettings? config,
+    esc_pos.PaperSize paperSize,
+    esc_pos.CapabilityProfile profile,
+    Uint8List bytes,
+  ) async {
+    String? ip = config?.ipAddress;
+    int? port = config?.port;
+    if (ip == null || ip.isEmpty || port == null || port <= 0) {
+      if (config != null) {
+        _lastError.value = 'La impresora de red no tiene IP o puerto configurado';
+        return false;
+      }
+      if (_networkPrinters.isEmpty) await _discoverNetworkPrinters();
+      if (_networkPrinters.isEmpty) {
+        _lastError.value = 'No hay impresora configurada';
+        return false;
+      }
+      ip = _networkPrinters.first.ip;
+      port = _networkPrinters.first.port;
+    }
+
+    final printer = NetworkPrinter(paperSize, profile);
+    final result = await printer.connect(ip, port: port).timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => PosPrintResult.timeout,
+        );
+    if (result != PosPrintResult.success) {
+      _lastError.value = result == PosPrintResult.timeout
+          ? 'La impresora no responde en $ip:$port'
+          : 'No se pudo conectar con la impresora en $ip:$port (${result.msg})';
+      return false;
+    }
+    try {
+      printer.rawBytes(bytes);
+      await Future.delayed(const Duration(milliseconds: 300));
+      return true;
+    } finally {
+      try {
+        printer.disconnect();
+      } catch (_) {}
+    }
+  }
 
   // ✅ NUEVA FUNCIÓN: Imprimir página de prueba
   Future<bool> printTestPage() async {

@@ -104,12 +104,16 @@ class BrebChargeState {
 
   /// La factura creada (o la que se estaba cobrando), cuando ya hay pago.
   final String? invoiceId;
+
+  /// El crédito al que se abonó, si el cobro era de un crédito.
+  final String? creditId;
   final String? payerName;
   final String? bankLabel;
 
   const BrebChargeState({
     required this.status,
     this.invoiceId,
+    this.creditId,
     this.payerName,
     this.bankLabel,
   });
@@ -117,6 +121,7 @@ class BrebChargeState {
   factory BrebChargeState.fromJson(Map<String, dynamic> json) => BrebChargeState(
         status: parseBrebStatus(json['status']),
         invoiceId: json['invoiceId']?.toString(),
+        creditId: json['creditId']?.toString(),
         payerName: json['payerName']?.toString(),
         bankLabel: json['bankLabel']?.toString(),
       );
@@ -184,3 +189,9 @@ List<Map<String, dynamic>> brebLlavesOf(Map<String, dynamic>? settings) {
 /// ¿El negocio puede cobrar por Bre-B? (tiene al menos una llave).
 bool brebEnabled(Map<String, dynamic>? settings) =>
     brebLlavesOf(settings).isNotEmpty;
+
+/// ¿Es un producto NO registrado? (el cajero escribió el valor y un nombre).
+/// La app le pone un identificador temporal; el servidor lo guarda como
+/// producto temporal de la factura. Misma regla del servidor.
+bool isTemporaryProductId(String? id) =>
+    id != null && (id.startsWith('temp_') || id.startsWith('unregistered_'));

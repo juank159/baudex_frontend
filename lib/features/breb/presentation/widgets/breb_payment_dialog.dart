@@ -27,6 +27,9 @@ class BrebPaymentDialog extends StatefulWidget {
   /// Factura que ya existe y se debe (cartera).
   final String? invoiceId;
 
+  /// Crédito del cliente al que se abona (o se paga completo).
+  final String? creditId;
+
   /// Para pruebas: controlador ya armado.
   final BrebPaymentController? controller;
 
@@ -35,14 +38,25 @@ class BrebPaymentDialog extends StatefulWidget {
     required Map<String, dynamic> this.draft,
     required double this.amount,
     this.controller,
-  }) : invoiceId = null;
+  })  : invoiceId = null,
+        creditId = null;
 
   const BrebPaymentDialog.forInvoice({
     super.key,
     required String this.invoiceId,
     this.controller,
   })  : draft = null,
-        amount = null;
+        amount = null,
+        creditId = null;
+
+  /// Abono a un crédito. [amount] menor al saldo es un abono; `null`, el saldo.
+  const BrebPaymentDialog.forCredit({
+    super.key,
+    required String this.creditId,
+    this.amount,
+    this.controller,
+  })  : draft = null,
+        invoiceId = null;
 
   /// Abre el cobro de una venta nueva. Devuelve el id de la factura creada.
   static Future<String?> showForSale(
@@ -62,6 +76,15 @@ class BrebPaymentDialog extends StatefulWidget {
         context: context,
         barrierDismissible: false,
         builder: (_) => BrebPaymentDialog.forInvoice(invoiceId: invoiceId),
+      );
+
+  /// Abre el cobro de un crédito. Devuelve un valor (el crédito o su factura)
+  /// si el abono quedó registrado; `null` si no se pagó.
+  static Future<String?> showForCredit(BuildContext context, String creditId, {double? amount}) =>
+      showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => BrebPaymentDialog.forCredit(creditId: creditId, amount: amount),
       );
 
   @override
@@ -85,7 +108,10 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     // Pago confirmado: se deja ver un momento y se cierra con la factura.
     _phaseWorker = ever<BrebPaymentPhase>(_controller.phase, (phase) {
       if (phase == BrebPaymentPhase.confirmed) {
-        Future.delayed(const Duration(milliseconds: 1500), () => _close(_controller.invoiceId));
+        Future.delayed(
+          const Duration(milliseconds: 1500),
+          () => _close(_controller.settledId ?? widget.creditId ?? widget.invoiceId),
+        );
       }
     });
     _start();
@@ -93,7 +119,9 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
 
   void _start() {
     setState(() => _selectedLlave = 0);
-    if (widget.invoiceId != null) {
+    if (widget.creditId != null) {
+      _controller.startForCredit(widget.creditId!, amount: widget.amount);
+    } else if (widget.invoiceId != null) {
       _controller.startForInvoice(widget.invoiceId!);
     } else {
       _controller.startForSale(draft: widget.draft!, amount: widget.amount!);

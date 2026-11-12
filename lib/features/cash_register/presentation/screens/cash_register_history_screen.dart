@@ -8,6 +8,8 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../domain/entities/cash_register.dart';
+import '../../domain/services/cash_register_receipt.dart';
+import '../widgets/cash_register_print_button.dart';
 import '../controllers/cash_register_controller.dart';
 
 /// Pantalla de historial de cajas registradoras (turnos cerrados).
@@ -362,7 +364,9 @@ class CashRegisterHistoryScreen extends GetView<CashRegisterController> {
                           _buildMiniStat(
                             label: 'Cobrado',
                             value: AppFormatters.formatCurrency(
-                                reg.closingSummary?.cashSales ?? 0),
+                                reg.closingSummary?.totalCollected ??
+                                    reg.closingSummary?.cashSales ??
+                                    0),
                             color: ElegantLightTheme.successGreen,
                           ),
                           _buildDivider(),
@@ -717,6 +721,36 @@ class _CashRegisterDetailSheet extends StatelessWidget {
                                 reg.closingActualAmount ?? 0),
                             gradient: accentGradient,
                           ),
+                          if (summary.hasBreakdown) ...[
+                            const SizedBox(height: 16),
+                            _buildSectionHeader('Otros medios de pago'),
+                            if (summary.otherMethods!.isEmpty)
+                              _buildDetailRow(
+                                icon: Icons.payments_outlined,
+                                label: 'Sin cobros por otros medios',
+                                value: AppFormatters.formatCurrency(0),
+                                gradient: ElegantLightTheme.infoGradient,
+                              ),
+                            for (final m in summary.otherMethods!)
+                              _buildDetailRow(
+                                icon: m.method == 'breb'
+                                    ? Icons.qr_code_2_rounded
+                                    : Icons.account_balance_rounded,
+                                label:
+                                    '${otherMethodDisplayName(m)} (${m.count})',
+                                value: AppFormatters.formatCurrency(m.total),
+                                gradient: ElegantLightTheme.infoGradient,
+                              ),
+                            const SizedBox(height: 8),
+                            _buildHighlightRow(
+                              label: 'TOTAL COBRADO EN EL TURNO',
+                              value: AppFormatters.formatCurrency(
+                                  summary.totalCollected ?? summary.cashSales),
+                              gradient: ElegantLightTheme.successGradient,
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          CashRegisterPrintButton(register: reg),
                         ],
 
                         if (reg.openingNotes?.isNotEmpty == true ||

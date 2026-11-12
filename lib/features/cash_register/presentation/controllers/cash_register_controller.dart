@@ -30,6 +30,10 @@ class CashRegisterController extends GetxController {
       const CashRegisterCurrentState().obs;
   final RxList<CashRegister> history = <CashRegister>[].obs;
 
+  /// La caja que se acaba de cerrar en esta sesión, para poder imprimir su
+  /// recibo desde la pantalla de "Caja cerrada".
+  final Rxn<CashRegister> lastClosed = Rxn<CashRegister>();
+
   // ===== Getters =====
   CashRegister? get openRegister => currentState.value.cashRegister;
   bool get hasOpenRegister => currentState.value.hasOpenRegister;
@@ -192,6 +196,7 @@ class CashRegisterController extends GetxController {
           return false;
         },
         (closed) async {
+          lastClosed.value = closed;
           final diff = closed.closingDifference ?? 0;
           final diffMsg = diff == 0
               ? '¡Cuadre perfecto!'

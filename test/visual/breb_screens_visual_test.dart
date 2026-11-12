@@ -12,6 +12,10 @@ import 'package:baudex_desktop/features/breb/domain/breb_charge.dart';
 import 'package:baudex_desktop/features/breb/presentation/controllers/breb_payment_controller.dart';
 import 'package:baudex_desktop/features/breb/presentation/screens/breb_settings_screen.dart';
 import 'package:baudex_desktop/features/breb/presentation/widgets/breb_payment_dialog.dart';
+import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
+import 'package:baudex_desktop/features/customer_credits/domain/entities/customer_credit.dart';
+import 'package:baudex_desktop/features/customer_credits/presentation/widgets/add_credit_payment_dialog.dart';
+import 'package:baudex_desktop/features/invoices/presentation/widgets/enhanced_payment_dialog.dart';
 import 'package:baudex_desktop/features/settings/domain/entities/organization.dart';
 import 'package:baudex_desktop/features/settings/domain/repositories/organization_repository.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
@@ -22,6 +26,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
 
 final _out = Platform.environment['BAUDEX_VISUAL_OUT'];
 const _fonts = '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts';
@@ -96,6 +101,9 @@ class _Api implements BrebApi {
 
   @override
   Future<BrebCharge> createChargeForInvoice(String invoiceId) => createChargeForSale(draft: const {}, amount: 20000);
+  @override
+  Future<BrebCharge> createChargeForCredit(String creditId, {double? amount}) =>
+      createChargeForSale(draft: const {}, amount: amount ?? 18000);
   @override
   Future<BrebChargeState> status(String chargeId) async => state;
   @override
@@ -273,6 +281,55 @@ void main() {
 
     await tester.pump(const Duration(seconds: 3));
     controller.onClose();
+    await tester.pumpWidget(const SizedBox());
+    Get.reset();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('diálogo de pago con la opción Bre-B y abono a un crédito', (tester) async {
+    await size(tester, 1180, 1100);
+    await tester.pumpWidget(app(Scaffold(
+      body: Center(
+        child: EnhancedPaymentDialog(
+          total: 15000,
+          customerName: 'Consumidor Final',
+          onPaymentConfirmed: (_, __, ___, ____, _____,
+              {bankAccountId,
+              multiplePayments,
+              createCreditForRemaining,
+              balanceApplied,
+              paymentCurrency,
+              paymentCurrencyAmount,
+              exchangeRate}) {},
+          onCancel: () {},
+          onBrebRequested: () {},
+        ),
+      ),
+    )));
+    await settle(tester);
+    expect(find.textContaining('Bre-B'), findsWidgets);
+    await shot(tester, '9-dialogo-de-pago-con-breb');
+
+    tzdata.initializeTimeZones();
+    Get.put(TenantDateTimeService());
+    final credit = CustomerCredit(
+      id: '11111111-2222-4333-8444-555555555555',
+      originalAmount: 30000,
+      paidAmount: 12000,
+      balanceDue: 18000,
+      status: CreditStatus.partiallyPaid,
+      customerId: 'cu-1',
+      customerName: 'Ana Ruiz',
+      organizationId: 'org-1',
+      createdById: 'u-1',
+      createdAt: DateTime(2026, 11, 10),
+      updatedAt: DateTime(2026, 11, 10),
+    );
+    await tester.pumpWidget(app(Scaffold(body: Center(child: AddCreditPaymentDialog(credit: credit)))));
+    await settle(tester);
+    expect(find.textContaining('Bre-B'), findsWidgets);
+    await shot(tester, '10-abono-a-credito-con-breb');
+
     await tester.pumpWidget(const SizedBox());
     Get.reset();
     await tester.pump(const Duration(seconds: 1));
