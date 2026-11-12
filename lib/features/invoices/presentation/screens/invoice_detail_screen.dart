@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../breb/domain/breb_charge.dart';
 import '../../../breb/presentation/widgets/breb_payment_dialog.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -3356,6 +3357,7 @@ class InvoiceDetailScreen extends StatelessWidget {
         width: double.infinity,
         child: OutlinedButton.icon(
           key: const Key('breb-invoice-charge-button'),
+          style: brebSecondaryButtonStyle(),
           icon: const Icon(Icons.qr_code_2, size: 18),
           label: Text('Cobrar ${AppFormatters.formatCurrency(invoice.balanceDue)} con Bre-B (QR)'),
           onPressed: () async {

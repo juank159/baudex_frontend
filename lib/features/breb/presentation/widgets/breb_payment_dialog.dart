@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../app/core/network/dio_client.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../data/breb_api.dart';
 import '../../domain/breb_charge.dart';
 import '../controllers/breb_payment_controller.dart';
+import 'breb_ui.dart';
 
 /// Cobro por Bre-B: muestra el QR con el monto, espera el aviso del banco y
 /// se cierra sola cuando la venta queda pagada.
@@ -129,24 +131,32 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     return PopScope(
       canPop: false,
       child: Dialog(
+        backgroundColor: ElegantLightTheme.surfaceColor,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: brebDialogShape,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 440),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
             child: Obx(() {
               switch (_controller.phase.value) {
                 case BrebPaymentPhase.creating:
                   return _message(
-                    icon: const SizedBox(width: 36, height: 36, child: CircularProgressIndicator()),
+                    icon: const SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+                      ),
+                    ),
                     title: 'Preparando el cobro Bre-B…',
                   );
                 case BrebPaymentPhase.waiting:
                   return _waiting(_controller.charge.value!);
                 case BrebPaymentPhase.confirmed:
                   return _message(
-                    icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
+                    icon: _statusBadge(Icons.check_rounded, ElegantLightTheme.successGradient),
                     title: '¡Pago recibido!',
                     detail: [
                       if ((_controller.state.value?.payerName ?? '').isNotEmpty)
@@ -157,21 +167,21 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
                   );
                 case BrebPaymentPhase.expired:
                   return _message(
-                    icon: const Icon(Icons.timer_off, color: Colors.orange, size: 56),
+                    icon: _statusBadge(Icons.timer_off_outlined, ElegantLightTheme.warningGradient),
                     title: 'El cobro venció',
                     detail: 'No llegó el aviso del banco a tiempo. Si el cliente sí pagó, '
-                        'el pago aparece en "Pagos Bre-B recibidos" para asignarlo.',
+                        'búscalo en "Ver pagos recibidos" para asignarlo a esta venta.',
                     actions: [_closeButton(), _receivedButton(), _retryButton()],
                   );
                 case BrebPaymentPhase.cancelled:
                   return _message(
-                    icon: const Icon(Icons.cancel, color: Colors.grey, size: 56),
+                    icon: _statusBadge(Icons.close_rounded, ElegantLightTheme.infoGradient),
                     title: 'Cobro cancelado',
                     actions: [_closeButton()],
                   );
                 case BrebPaymentPhase.failed:
                   return _message(
-                    icon: const Icon(Icons.error_outline, color: Colors.red, size: 56),
+                    icon: _statusBadge(Icons.error_outline, ElegantLightTheme.errorGradient),
                     title: 'No se pudo iniciar el cobro',
                     detail: _controller.errorMessage.value,
                     actions: [_closeButton(), _retryButton()],
@@ -184,6 +194,17 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     );
   }
 
+  Widget _statusBadge(IconData icon, LinearGradient gradient) => Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          gradient: gradient,
+          shape: BoxShape.circle,
+          boxShadow: ElegantLightTheme.glowShadow,
+        ),
+        child: Icon(icon, color: Colors.white, size: 40),
+      );
+
   Widget _waiting(BrebCharge charge) {
     final llaves = charge.llaves;
     final index = _selectedLlave.clamp(0, llaves.isEmpty ? 0 : llaves.length - 1);
@@ -193,104 +214,163 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Cobro Bre-B', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
+          brebDialogTitle(Icons.qr_code_2, 'Cobro Bre-B', gradient: ElegantLightTheme.primaryGradient),
+          const SizedBox(height: 16),
+          const Text(
+            'El cliente debe transferir exactamente',
+            style: TextStyle(color: ElegantLightTheme.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 2),
           Text(
             AppFormatters.formatCurrency(charge.amount),
             key: const Key('breb-amount'),
-            style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
-          ),
-          if (charge.adjustment > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'Se cobra ${AppFormatters.formatCurrency(charge.adjustment)} menos de '
-                '${AppFormatters.formatCurrency(charge.requestedAmount)} para identificar este pago. '
-                'El cliente debe transferir el valor exacto.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
-              ),
+            style: const TextStyle(
+              color: ElegantLightTheme.primaryBlueDark,
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
-          const SizedBox(height: 12),
-          if (llaves.length > 1)
+          ),
+          if (charge.adjustment > 0) ...[
+            const SizedBox(height: 8),
+            BrebNotice.warning(
+              'Se cobra ${AppFormatters.formatCurrency(charge.adjustment)} menos de '
+              '${AppFormatters.formatCurrency(charge.requestedAmount)} para identificar este pago. '
+              'El cliente debe transferir el valor exacto.',
+            ),
+          ],
+          if (llaves.length > 1) ...[
+            const SizedBox(height: 14),
             Wrap(
               spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
               children: [
                 for (var i = 0; i < llaves.length; i++)
                   ChoiceChip(
                     label: Text(llaves[i].label),
                     selected: i == index,
+                    showCheckmark: false,
+                    selectedColor: ElegantLightTheme.primaryBlue,
+                    backgroundColor: ElegantLightTheme.cardColor,
+                    side: BorderSide(
+                      color: i == index
+                          ? ElegantLightTheme.primaryBlue
+                          : ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+                    ),
+                    labelStyle: TextStyle(
+                      color: i == index ? Colors.white : ElegantLightTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                     onSelected: (_) => setState(() => _selectedLlave = i),
                   ),
               ],
             ),
-          const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 14),
           if (llave?.qrPayload != null)
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: ElegantLightTheme.elevatedShadow,
               ),
               child: QrImageView(
                 key: const Key('breb-qr'),
                 data: llave!.qrPayload!,
-                size: 230,
+                size: 220,
                 backgroundColor: Colors.white,
               ),
             )
           else
-            Text(
+            const BrebNotice.info(
               'Esta llave no tiene QR configurado. El cliente paga escribiendo la llave y el valor exacto.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
           if (llave != null) ...[
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.key_rounded, size: 18, color: ElegantLightTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SelectableText(
+                      'Llave: ${llave.llave}',
+                      style: const TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Copiar llave',
+                    icon: const Icon(Icons.copy_rounded, size: 18, color: ElegantLightTheme.primaryBlue),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: llave.llave)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(
-                  child: SelectableText(
-                    'Llave: ${llave.llave}',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Copiar llave',
-                  icon: const Icon(Icons.copy, size: 18),
-                  onPressed: () => Clipboard.setData(ClipboardData(text: llave.llave)),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Obx(
+                    () => Text(
+                      'Esperando el pago… vence en ${_controller.remaining.value}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: ElegantLightTheme.primaryBlueDark,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ],
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Obx(
-                  () => Text(
-                    'Esperando el pago… vence en ${_controller.remaining.value}',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
           ),
+          const SizedBox(height: 10),
           TextButton(
             key: const Key('breb-received'),
+            style: brebTextButtonStyle(),
             onPressed: _showReceivedPayments,
-            child: const Text('¿Ya pagó y no se confirma? Ver pagos recibidos'),
+            child: const Text(
+              '¿Ya pagó y no se confirma? Ver pagos recibidos',
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
               key: const Key('breb-cancel'),
+              style: brebSecondaryButtonStyle(color: ElegantLightTheme.errorRed),
               onPressed: _cancel,
               child: const Text('Cancelar cobro'),
             ),
@@ -304,16 +384,28 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         icon,
-        const SizedBox(height: 14),
-        Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 18),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: ElegantLightTheme.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         if (detail != null && detail.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(detail, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
+          Text(
+            detail,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: ElegantLightTheme.textSecondary, fontSize: 14, height: 1.4),
+          ),
         ],
         if (actions.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: actions),
         ],
         const SizedBox(height: 8),
@@ -321,8 +413,11 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     );
   }
 
-  Widget _receivedButton() =>
-      OutlinedButton(onPressed: _showReceivedPayments, child: const Text('Ver pagos recibidos'));
+  Widget _receivedButton() => OutlinedButton(
+        style: brebSecondaryButtonStyle(),
+        onPressed: _showReceivedPayments,
+        child: const Text('Ver pagos recibidos'),
+      );
 
   /// Lista de pagos que llegaron y no se unieron solos; al tocar uno se asigna
   /// a este cobro.
@@ -333,9 +428,13 @@ class _BrebPaymentDialogState extends State<BrebPaymentDialog> {
     );
   }
 
-  Widget _closeButton() => TextButton(onPressed: () => _close(null), child: const Text('Cerrar'));
+  Widget _closeButton() => TextButton(style: brebTextButtonStyle(),onPressed: () => _close(null), child: const Text('Cerrar'));
 
-  Widget _retryButton() => FilledButton(onPressed: _start, child: const Text('Intentar de nuevo'));
+  Widget _retryButton() => ElevatedButton(
+        style: brebPrimaryButtonStyle(),
+        onPressed: _start,
+        child: const Text('Intentar de nuevo'),
+      );
 }
 
 /// Pagos Bre-B recibidos sin asignar; el cajero elige cuál es el de este cobro.
@@ -393,34 +492,31 @@ class _ReceivedPaymentsDialogState extends State<_ReceivedPaymentsDialog> {
   @override
   Widget build(BuildContext context) {
     final payments = _payments;
-    return AlertDialog(
-      title: const Text('Pagos Bre-B recibidos'),
+    return brebAlertDialog(
+      title: brebDialogTitle(Icons.payments_outlined, 'Pagos Bre-B recibidos'),
       content: SizedBox(
-        width: 420,
+        width: 440,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Pagos que llegaron al banco en las últimas 24 horas y no se unieron solos a una venta. '
               'Toca el de este cliente para asignarlo.',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 13, color: ElegantLightTheme.textSecondary, height: 1.4),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(_error!, key: const Key('breb-assign-error'), style: TextStyle(color: Colors.red.shade700)),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: KeyedSubtree(key: const Key('breb-assign-error'), child: BrebNotice.error(_error!)),
               ),
             if (payments == null && _error == null)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const Center(child: BrebInlineLoading('Consultando pagos recibidos…'))
             else if (payments != null && payments.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('No hay pagos recibidos sin asignar.'),
+              const BrebEmptyState(
+                icon: Icons.inbox_outlined,
+                message: 'No hay pagos recibidos sin asignar.',
               )
             else if (payments != null)
               Flexible(
@@ -428,19 +524,30 @@ class _ReceivedPaymentsDialogState extends State<_ReceivedPaymentsDialog> {
                   shrinkWrap: true,
                   children: [
                     for (final payment in payments)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.payments_outlined),
-                        title: Text(AppFormatters.formatCurrency(payment.amount)),
-                        subtitle: Text([
+                      BrebRowTile(
+                        onTap: _assigningId == null ? () => _assign(payment) : null,
+                        leading: const BrebIconBadge(
+                          icon: Icons.payments_outlined,
+                          gradient: ElegantLightTheme.successGradient,
+                          size: 18,
+                          glow: false,
+                        ),
+                        title: AppFormatters.formatCurrency(payment.amount),
+                        subtitle: [
                           if ((payment.payerName ?? '').isNotEmpty) payment.payerName,
                           if ((payment.bankLabel ?? '').isNotEmpty) payment.bankLabel,
                           if (payment.receivedAt != null) AppFormatters.formatDateTime(payment.receivedAt),
-                        ].join(' · ')),
+                        ].join(' · '),
                         trailing: _assigningId == payment.id
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.chevron_right),
-                        onTap: _assigningId == null ? () => _assign(payment) : null,
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+                                ),
+                              )
+                            : const Icon(Icons.chevron_right, color: ElegantLightTheme.textTertiary),
                       ),
                   ],
                 ),
@@ -449,8 +556,17 @@ class _ReceivedPaymentsDialogState extends State<_ReceivedPaymentsDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _assigningId == null ? _load : null, child: const Text('Actualizar')),
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cerrar')),
+        TextButton.icon(
+          style: brebTextButtonStyle(),
+          onPressed: _assigningId == null ? _load : null,
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Actualizar'),
+        ),
+        ElevatedButton(
+          style: brebPrimaryButtonStyle(),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cerrar'),
+        ),
       ],
     );
   }

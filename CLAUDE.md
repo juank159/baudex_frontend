@@ -91,3 +91,32 @@ This is a Flutter desktop application using **Clean Architecture** with **GetX**
 - Widget tests for UI components
 - Integration tests for complete user flows
 - Mock data sources for testing without network dependency
+
+## Diseño de pantallas (obligatorio)
+
+Toda pantalla, diálogo, botón o estado de carga nuevo usa el **tema elegante** de la app. No se entrega
+interfaz con Material por defecto.
+
+- **Página:** `MainLayout` (`lib/app/ui/layouts/main_layout.dart`), no `Scaffold` + `AppBar` sueltos.
+- **Colores, degradados y sombras:** `ElegantLightTheme` (`lib/app/core/theme/elegant_light_theme.dart`).
+  No usar `Colors.blue`, `Colors.grey.shade700`, etc. para elementos principales.
+- **Tarjetas:** `FuturisticContainer`, con encabezado de ícono blanco sobre degradado + título.
+- **Acciones:** botones dentro de la tarjeta o del encabezado. No usar `FloatingActionButton.extended`
+  (se desborda con textos largos).
+- **Diálogos:** blancos, esquinas de 16, título con ícono en degradado, botón principal azul de la app.
+- **Avisos:** `FuturisticNotifications.showSuccess/showError`, no `Get.snackbar` sin estilo.
+- **Cargas y vacíos:** indicador con el azul de la app y un texto; estado vacío con ícono y mensaje.
+- **Botones:** no fijar `textStyle` en `styleFrom` (se pierde la fuente de la app).
+- **Todo lo que se puede tocar debe notarse:** flecha, efecto al pasar el cursor, y que haga algo.
+
+Referencia lista para reutilizar: `lib/features/breb/presentation/widgets/breb_ui.dart`
+(`BrebSectionCard`, `BrebRowTile`, `BrebNotice`, `brebAlertDialog`, `brebInputDecoration`, estilos de botón).
+
+**Antes de entregar una pantalla, mirarla.** Este patrón genera imágenes reales (PNG, con fuentes reales)
+sin abrir la app:
+
+```
+BAUDEX_VISUAL_OUT=/ruta/de/salida flutter test test/visual/breb_screens_visual_test.dart
+```
+
+Para una pantalla nueva, copiar ese archivo y cambiar el widget.
