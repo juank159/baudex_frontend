@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../breb/presentation/widgets/breb_payment_dialog.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../controllers/invoice_tabs_controller.dart';
 import '../widgets/product_search_widget.dart';
@@ -1173,6 +1174,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   key: const Key('breb-charge-button'),
+                  style: brebSecondaryButtonStyle(),
                   onPressed: controller.canSave && !controller.isSaving
                       ? () => _chargeWithBreb(context, controller)
                       : null,
