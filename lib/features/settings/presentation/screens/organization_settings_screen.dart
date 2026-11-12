@@ -1,6 +1,8 @@
 // lib/features/settings/presentation/screens/organization_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../breb/domain/breb_charge.dart';
+import '../../../breb/presentation/screens/breb_settings_screen.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -335,6 +337,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const SizedBox(height: 24),
           _buildCashRegisterModuleCard(),
           const SizedBox(height: 24),
+          _buildBrebCard(),
+          const SizedBox(height: 24),
           _buildQuickActionsCard(),
           const SizedBox(height: 100),
         ],
@@ -357,6 +361,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const SizedBox(height: 32),
           _buildCashRegisterModuleCard(),
           const SizedBox(height: 32),
+          _buildBrebCard(),
+          const SizedBox(height: 32),
           _buildQuickActionsCard(),
           const SizedBox(height: 100),
         ],
@@ -378,6 +384,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           _buildMultiCurrencyCard(),
           const SizedBox(height: 32),
           _buildCashRegisterModuleCard(),
+          const SizedBox(height: 32),
+          _buildBrebCard(),
           const SizedBox(height: 32),
           _buildQuickActionsCard(),
           const SizedBox(height: 40),
@@ -600,6 +608,61 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   /// (para evitar accidentes), ya que apagarlo oculta banners, badge,
   /// item del drawer, guard de facturas y la opción "Caja del día" en
   /// gastos.
+  /// Bre-B: llaves del negocio y correo para los avisos del banco.
+  Widget _buildBrebCard() {
+    final controller = Get.find<OrganizationController>();
+
+    return FuturisticContainer(
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: ElegantLightTheme.glowShadow,
+            ),
+            child: const Icon(Icons.qr_code_2, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Bre-B (cobro con QR)',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Obx(() {
+                  final llaves = brebLlavesOf(controller.currentOrganization?.settings).length;
+                  return Text(
+                    llaves == 0
+                        ? 'Sin llaves configuradas: el punto de venta no muestra el cobro por Bre-B.'
+                        : '$llaves llave(s) configurada(s). El punto de venta puede cobrar con QR.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: () => Get.to(() => const BrebSettingsScreen()),
+            child: const Text('Configurar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCashRegisterModuleCard() {
     final controller = Get.find<OrganizationController>();
 
