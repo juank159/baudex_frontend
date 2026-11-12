@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/features/cash_register/domain/entities/cash_register.dart';
+import 'package:baudex_desktop/features/cash_register/domain/entities/cash_register_movement.dart';
 import 'package:baudex_desktop/features/cash_register/domain/repositories/cash_register_repository.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/controllers/cash_register_controller.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_history_screen.dart';
@@ -76,6 +77,26 @@ class _Repo implements CashRegisterRepository {
   @override
   Future<Either<Failure, List<CashRegister>>> list({CashRegisterStatus? status, int limit = 30, int offset = 0}) async =>
       Right([_register(closed: true)]);
+
+  bool offline = false;
+
+  @override
+  Future<Either<Failure, CashRegisterMovements>> movements(String id) async {
+    CashRegisterMovement m(String id, String method, String label, double amount, int minutesAgo,
+            {CashMovementKind kind = CashMovementKind.sale, String? payer, String? bank, String? customer, String? invoice, String? ref, String? description}) =>
+        CashRegisterMovement(
+          id: id, kind: kind, method: method, label: label, amount: amount,
+          at: DateTime(2026, 11, 12, 15, 29).subtract(Duration(minutes: minutesAgo)),
+          payerName: payer, bankLabel: bank, customerName: customer, invoiceNumber: invoice, bankReference: ref, description: description,
+        );
+    final items = [
+      m('b1', 'breb', 'Bre-B · Nequi tienda', 20000, 4, payer: 'MARIA PEREZ GOMEZ', bank: 'Nequi', customer: 'Consumidor Final', invoice: 'INV-2026-000412', ref: 'M48213907'),
+      m('b2', 'breb', 'Bre-B · Nequi tienda', 19999, 61, kind: CashMovementKind.creditPayment, payer: 'ROSA MORA', bank: 'Bancolombia', customer: 'Ana Ruiz', invoice: 'INV-2026-000398', ref: 'BC77120045'),
+      m('v1', 'cash', 'Efectivo', 70000, 20, customer: 'Consumidor Final', invoice: 'INV-2026-000410'),
+      m('v2', 'cash', 'Efectivo', 50000, 95, customer: 'Pedro Remalas', invoice: 'INV-2026-000401'),
+    ];
+    return Right(CashRegisterMovements(items, savedAt: offline ? DateTime(2026, 11, 12, 15, 30) : null));
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -156,12 +177,30 @@ void main() {
     tester.view.physicalSize = const Size(900, 1700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final controller = Get.put(CashRegisterController(repository: _Repo()));
+    final repo = _Repo();
+    final controller = Get.put(CashRegisterController(repository: repo));
     await tester.pumpWidget(app(const CashRegisterScreen()));
     await settle(tester);
     expect(find.text('Bre-B · Nequi tienda'), findsOneWidget);
     expect(find.text('Imprimir arqueo'), findsOneWidget);
     await shot(tester, 'caja-1-abierta');
+
+    // Trazabilidad: al tocar la línea Bre-B se ve cada pago.
+    await tester.tap(find.text('Bre-B · Nequi tienda'));
+    await settle(tester);
+    expect(find.text('MARIA PEREZ GOMEZ'), findsOneWidget);
+    expect(find.textContaining('2 movimientos'), findsOneWidget);
+    await shot(tester, 'caja-5-detalle-breb');
+    await tester.tap(find.byTooltip('Cerrar'));
+    await settle(tester);
+
+    repo.offline = true;
+    await tester.tap(find.text('Ventas en efectivo'));
+    await settle(tester);
+    expect(find.textContaining('Sin conexión'), findsOneWidget);
+    await shot(tester, 'caja-6-detalle-efectivo-sin-conexion');
+    await tester.tap(find.byTooltip('Cerrar'));
+    await settle(tester);
 
     // Caja recién cerrada: ofrece imprimir el recibo del cierre.
     controller.lastClosed.value = _register(closed: true);

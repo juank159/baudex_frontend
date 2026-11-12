@@ -13,6 +13,8 @@ import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/services/cash_register_receipt.dart';
 import '../widgets/cash_register_print_button.dart';
+import '../widgets/cash_register_movements_dialog.dart';
+import '../../domain/services/cash_register_movements.dart';
 import '../controllers/cash_register_controller.dart';
 
 /// Pantalla principal de Caja Registradora.
@@ -564,6 +566,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                   sub: _countLabel(s.cashFromSalesCount ?? 0, 'pago', 'pagos'),
                   amount: s.cashFromSales ?? 0,
                   gradient: ElegantLightTheme.successGradient,
+                  onTap: () => _showMovements(reg, CashMovementFilter.cashSales(), Icons.point_of_sale_rounded),
                 ),
                 if ((s.cashFromCreditPayments ?? 0) > 0) ...[
                   const SizedBox(height: 8),
@@ -574,6 +577,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                         s.cashFromCreditPaymentsCount ?? 0, 'abono', 'abonos'),
                     amount: s.cashFromCreditPayments ?? 0,
                     gradient: ElegantLightTheme.successGradient,
+                    onTap: () => _showMovements(reg, CashMovementFilter.cashCreditPayments(), Icons.handshake_outlined),
                   ),
                 ],
               ] else
@@ -583,6 +587,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                   sub: _countLabel(s.cashSalesCount, 'pago', 'pagos'),
                   amount: s.cashSales,
                   gradient: ElegantLightTheme.successGradient,
+                  onTap: () => _showMovements(reg, CashMovementFilter.cashReceived(), Icons.point_of_sale_rounded),
                 ),
               if (s.cashDeposits > 0) ...[
                 const SizedBox(height: 8),
@@ -601,6 +606,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                   sub: _countLabel(s.cashExpensesCount, 'gasto', 'gastos'),
                   amount: -s.cashExpenses,
                   gradient: ElegantLightTheme.warningGradient,
+                  onTap: () => _showMovements(reg, CashMovementFilter.expenses(), Icons.receipt_long_rounded),
                 ),
               ],
               if (s.cashWithdrawals > 0) ...[
@@ -638,6 +644,11 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                       sub: _countLabel(m.count, 'pago', 'pagos'),
                       amount: m.total,
                       gradient: ElegantLightTheme.infoGradient,
+                      onTap: () => _showMovements(
+                        reg,
+                        CashMovementFilter.otherMethod(m, _otherMethodLabel(m)),
+                        _otherMethodIcon(m.method),
+                      ),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -862,8 +873,45 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
     String? sub,
     required double amount,
     required LinearGradient gradient,
+    VoidCallback? onTap,
   }) {
     final isNegative = amount < 0;
+    final row = _buildRowContent(
+      icon: icon,
+      label: label,
+      sub: onTap == null ? sub : '${sub == null ? '' : '$sub · '}Toca para ver el detalle',
+      amount: amount,
+      isNegative: isNegative,
+      gradient: gradient,
+      showChevron: onTap != null,
+    );
+    if (onTap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: row,
+      ),
+    );
+  }
+
+  /// Abre la trazabilidad de una línea del desglose (cada pago, uno por uno).
+  void _showMovements(CashRegister reg, CashMovementFilter filter, IconData icon) {
+    final context = Get.context;
+    if (context == null) return;
+    showCashRegisterMovements(context, cashRegisterId: reg.id, filter: filter, icon: icon);
+  }
+
+  Widget _buildRowContent({
+    required IconData icon,
+    required String label,
+    String? sub,
+    required double amount,
+    required bool isNegative,
+    required LinearGradient gradient,
+    required bool showChevron,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -924,6 +972,11 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                   : ElegantLightTheme.textPrimary,
             ),
           ),
+          if (showChevron) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded,
+                size: 20, color: ElegantLightTheme.textSecondary),
+          ],
         ],
       ),
     );

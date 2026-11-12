@@ -1,7 +1,10 @@
 // lib/features/cash_register/presentation/controllers/cash_register_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart' show Color;
+import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/errors/failures.dart';
+import '../../domain/entities/cash_register_movement.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/repositories/cash_register_repository.dart';
 import '../../../../app/core/network/network_info.dart';
@@ -122,6 +125,7 @@ class CashRegisterController extends GetxController {
       },
       (state) {
         currentState.value = state;
+        _keepMovementsOnDevice();
         if (silent) errorMessage.value = ''; // limpiar si refresh exitoso
       },
     );
@@ -221,6 +225,24 @@ class CashRegisterController extends GetxController {
     } finally {
       isSubmitting.value = false;
     }
+  }
+
+  /// Trazabilidad de un turno (abierto o cerrado): cada movimiento, uno por uno.
+  Future<Either<Failure, CashRegisterMovements>> loadMovements(String cashRegisterId) =>
+      repository.movements(cashRegisterId);
+
+  String? _movementsSavedFor;
+
+  /// Deja guardado en el equipo el detalle del turno abierto cada vez que su
+  /// resumen cambia, para poder verlo aunque después no haya internet.
+  void _keepMovementsOnDevice() {
+    final reg = openRegister;
+    if (reg == null) return;
+    final s = summary;
+    final signature = '${reg.id}|${s.cashSalesCount}|${s.cashExpensesCount}|${s.otherMethodsCount}|${s.totalCollected}';
+    if (signature == _movementsSavedFor) return;
+    _movementsSavedFor = signature;
+    unawaited(repository.movements(reg.id).then((_) {}, onError: (_) {}));
   }
 
   Future<void> loadHistory() async {

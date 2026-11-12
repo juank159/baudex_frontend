@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../domain/entities/cash_register.dart';
+import '../../domain/entities/cash_register_movement.dart';
 import '../models/cash_register_model.dart';
 
 abstract class CashRegisterRemoteDataSource {
@@ -24,6 +25,7 @@ abstract class CashRegisterRemoteDataSource {
     DateTime? closedAt,
   });
   Future<CashRegisterModel> findById(String id);
+  Future<List<CashRegisterMovement>> movements(String id);
   Future<List<CashRegisterModel>> list({
     CashRegisterStatus? status,
     int limit,
@@ -125,6 +127,25 @@ class CashRegisterRemoteDataSourceImpl implements CashRegisterRemoteDataSource {
       return itemsRaw
           .whereType<Map>()
           .map((e) => CashRegisterModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } on DioException catch (e) {
+      throw _handle(e);
+    }
+  }
+
+  @override
+  Future<List<CashRegisterMovement>> movements(String id) async {
+    try {
+      final response = await dioClient.get('/cash-register/$id/movements');
+      // La lista llega envuelta en {success, data} (a veces dos veces).
+      dynamic body = response.data;
+      while (body is Map && body['data'] != null && body['success'] == true) {
+        body = body['data'];
+      }
+      if (body is! List) return const [];
+      return body
+          .whereType<Map>()
+          .map((m) => CashRegisterMovement.fromJson(Map<String, dynamic>.from(m)))
           .toList();
     } on DioException catch (e) {
       throw _handle(e);

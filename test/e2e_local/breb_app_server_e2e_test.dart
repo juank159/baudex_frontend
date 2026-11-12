@@ -17,6 +17,9 @@ import 'dart:io';
 import 'package:baudex_desktop/app/core/errors/exceptions.dart';
 import 'package:baudex_desktop/app/core/network/dio_client.dart';
 import 'package:baudex_desktop/features/breb/data/breb_api.dart';
+import 'package:baudex_desktop/features/cash_register/data/datasources/cash_register_remote_datasource.dart';
+import 'package:baudex_desktop/features/cash_register/domain/entities/cash_register.dart';
+import 'package:baudex_desktop/features/cash_register/domain/services/cash_register_movements.dart';
 import 'package:baudex_desktop/features/breb/presentation/controllers/breb_payment_controller.dart';
 import 'package:baudex_desktop/features/invoices/data/models/create_invoice_request_model.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
@@ -283,5 +286,30 @@ void main() {
     final chargeId = controller.charge.value!.chargeId;
     expect(await controller.cancel(), isTrue);
     expect(await _sql("select status from breb_pending_charges where id='$chargeId'"), 'cancelled');
+  });
+
+  test('caja: la app lee la trazabilidad del turno y coincide con el resumen', () async {
+    final datasource = CashRegisterRemoteDataSourceImpl(dioClient: client);
+    final current = await datasource.getCurrent();
+    final register = current.cashRegister;
+    expect(register, isNotNull, reason: 'la simulación deja una caja abierta');
+
+    final movements = await datasource.movements(register!.id);
+    final breb = movements.where((m) => m.isBreb).toList();
+    expect(breb, isNotEmpty);
+    expect(breb.fold<double>(0, (sum, m) => sum + m.amount), closeTo(current.summary.brebTotal ?? 0, 0.01));
+    expect(breb.length, current.summary.brebCount);
+
+    final withBank = breb.where((m) => m.bankReference != null).toList();
+    expect(withBank, isNotEmpty);
+    expect(withBank.every((m) => m.bankLabel != null && m.payerName != null), isTrue);
+    expect(withBank.first.at.year, DateTime.now().year);
+
+    // Cada línea "Bre-B" del resumen tiene exactamente sus movimientos.
+    for (final line in (current.summary.otherMethods ?? const <OtherMethodTotal>[]).where((l) => l.method == 'breb')) {
+      final list = movementsFor(movements, CashMovementFilter.otherMethod(line, line.label));
+      expect(movementsTotal(list), closeTo(line.total, 0.01));
+      expect(list.length, line.count);
+    }
   });
 }
