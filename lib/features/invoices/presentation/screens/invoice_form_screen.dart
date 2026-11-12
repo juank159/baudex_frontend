@@ -41,6 +41,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   final GlobalKey<CustomerSelectorWidgetState> _customerSelectorKey =
       GlobalKey<CustomerSelectorWidgetState>();
 
+  // Escucha del último producto modificado; se libera en dispose().
+  Worker? _updatedItemWorker;
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +59,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final controller = widget.controller;
     if (controller != null) {
       // Usar ever para reaccionar cada vez que cambie lastUpdatedItemIndex
-      ever(controller.lastUpdatedItemIndexObs, (int? index) {
+      _updatedItemWorker = ever(controller.lastUpdatedItemIndexObs, (int? index) {
         if (index != null && mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
@@ -74,6 +77,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   void dispose() {
     // Unregister global keyboard handler
     ServicesBinding.instance.keyboard.removeHandler(_handleGlobalKeyEvent);
+    // Sin esto, cada cambio de pestaña dejaba una escucha viva en el
+    // controlador (y con ella, esta pantalla completa en memoria).
+    _updatedItemWorker?.dispose();
     _productsScrollController.dispose();
     super.dispose();
   }
