@@ -22,6 +22,12 @@ class InvoiceItem extends Equatable {
   final String? presentationId;
   final double? presentationFactor;
 
+  /// Costo con el que se vendió la línea, tal como lo guardó el servidor al
+  /// facturar (`unitCost` por unidad, `totalCost` de toda la línea). Vacío en
+  /// las facturas hechas sin conexión que aún no han subido.
+  final double? unitCost;
+  final double? totalCost;
+
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -41,6 +47,8 @@ class InvoiceItem extends Equatable {
     this.product,
     this.presentationId,
     this.presentationFactor,
+    this.unitCost,
+    this.totalCost,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -61,6 +69,8 @@ class InvoiceItem extends Equatable {
     product,
     presentationId,
     presentationFactor,
+    unitCost,
+    totalCost,
     createdAt,
     updatedAt,
   ];

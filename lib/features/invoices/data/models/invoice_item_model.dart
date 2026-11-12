@@ -20,6 +20,8 @@ class InvoiceItemModel extends InvoiceItem {
     super.product,
     super.presentationId,
     super.presentationFactor,
+    super.unitCost,
+    super.totalCost,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -109,6 +111,12 @@ class InvoiceItemModel extends InvoiceItem {
             ? _parseToDouble(json['presentationFactor'])
             : null,
 
+        // Costo guardado al facturar (lo usa el tablero sin conexión).
+        unitCost:
+            json['unitCost'] != null ? _parseToDouble(json['unitCost']) : null,
+        totalCost:
+            json['totalCost'] != null ? _parseToDouble(json['totalCost']) : null,
+
         // Timestamps
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: _parseDateTime(json['updatedAt']),
@@ -156,6 +164,8 @@ class InvoiceItemModel extends InvoiceItem {
       product: item.product,
       presentationId: item.presentationId,
       presentationFactor: item.presentationFactor,
+      unitCost: item.unitCost,
+      totalCost: item.totalCost,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     );

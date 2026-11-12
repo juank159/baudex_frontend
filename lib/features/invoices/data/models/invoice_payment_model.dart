@@ -40,6 +40,11 @@ class InvoicePaymentModel {
   @ignore
   double? exchangeRate;
 
+  // Canal del pago (`breb`, `breb_adjustment`); igual que multi-moneda, va en
+  // el JSON de la factura y no como columna propia.
+  @ignore
+  String? channel;
+
   InvoicePaymentModel();
 
   InvoicePaymentModel._({
@@ -59,6 +64,7 @@ class InvoicePaymentModel {
     this.paymentCurrency,
     this.paymentCurrencyAmount,
     this.exchangeRate,
+    this.channel,
   });
 
   /// Helper methods for parsing data safely
@@ -124,6 +130,7 @@ class InvoicePaymentModel {
         exchangeRate: json['exchangeRate'] != null
             ? _parseToDouble(json['exchangeRate'])
             : null,
+        channel: json['channel']?.toString(),
       );
     } catch (e) {
       rethrow;
@@ -145,6 +152,7 @@ class InvoicePaymentModel {
       if (paymentCurrency != null) 'paymentCurrency': paymentCurrency,
       if (paymentCurrencyAmount != null) 'paymentCurrencyAmount': paymentCurrencyAmount,
       if (exchangeRate != null) 'exchangeRate': exchangeRate,
+      if (channel != null) 'channel': channel,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -168,6 +176,7 @@ class InvoicePaymentModel {
       paymentCurrency: payment.paymentCurrency,
       paymentCurrencyAmount: payment.paymentCurrencyAmount,
       exchangeRate: payment.exchangeRate,
+      channel: payment.channel,
     );
   }
 
@@ -190,6 +199,7 @@ class InvoicePaymentModel {
       paymentCurrency: paymentCurrency,
       paymentCurrencyAmount: paymentCurrencyAmount,
       exchangeRate: exchangeRate,
+      channel: channel,
     );
   }
 
