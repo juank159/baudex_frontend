@@ -154,11 +154,14 @@ class PurchaseOrderDetailController extends GetxController
     if (purchaseOrder.value != null) {
       receivingItems.value =
           purchaseOrder.value!.items
+              // Solo lo que falta: en una orden recibida a medias, proponer
+              // otra vez la cantidad completa hacía que el servidor
+              // rechazara la segunda recepción.
+              .where((item) => item.pendingQuantity > 0)
               .map(
                 (item) => ReceivePurchaseOrderItemParams(
                   itemId: item.id,
-                  receivedQuantity:
-                      item.quantity, // Use full quantity as default to receive
+                  receivedQuantity: item.pendingQuantity,
                   damagedQuantity: 0,
                   missingQuantity: 0,
                   actualUnitCost: null,

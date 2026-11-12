@@ -14,6 +14,7 @@ import '../models/isar/isar_purchase_order.dart';
 import '../models/isar/isar_purchase_order_item.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
+import '../../domain/services/purchase_order_receipt_rules.dart';
 import '../datasources/purchase_order_local_datasource.dart';
 import '../datasources/purchase_order_remote_datasource.dart';
 import '../models/purchase_order_model.dart';
@@ -603,9 +604,10 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
       // Actualizar status
       final updatedJson = cachedOrder.toJson();
-      updatedJson['status'] = 'received';
       updatedJson['updatedAt'] = DateTime.now().toIso8601String();
-      updatedJson['deliveredDate'] = (params.receivedDate ?? DateTime.now()).toIso8601String();
+      // El estado se decide abajo, según lo que quede por recibir: antes una
+      // recepción parcial sin conexión dejaba la orden como "recibida".
+      var allProcessed = true;
 
       // ✅ Actualizar receivedQuantity de cada item basado en params
       // Esto es CRÍTICO para que el UseCase pueda crear movimientos de inventario
@@ -629,20 +631,38 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
             (p) => p.itemId == itemId || p.itemId == productId,
           ).firstOrNull;
           if (receiveParam != null) {
-            itemJson['receivedQuantity'] = receiveParam.receivedQuantity.toString();
-            if (receiveParam.damagedQuantity != null) {
-              itemJson['damagedQuantity'] = receiveParam.damagedQuantity.toString();
-            }
-            if (receiveParam.missingQuantity != null) {
-              itemJson['missingQuantity'] = receiveParam.missingQuantity.toString();
-            }
-          } else {
-            // Si no hay param específico, asumir recepción completa (comportamiento Quick Receive)
-            itemJson['receivedQuantity'] = itemJson['quantity'] ?? '0';
+            // Las recepciones se acumulan sobre lo que ya llevaba la línea.
+            itemJson['receivedQuantity'] = accumulateReceipt(
+              parseQuantity(itemJson['receivedQuantity']),
+              receiveParam.receivedQuantity,
+            ).toString();
+            itemJson['damagedQuantity'] = accumulateReceipt(
+              parseQuantity(itemJson['damagedQuantity']),
+              receiveParam.damagedQuantity,
+            ).toString();
+            itemJson['missingQuantity'] = accumulateReceipt(
+              parseQuantity(itemJson['missingQuantity']),
+              receiveParam.missingQuantity,
+            ).toString();
+          }
+          // Una línea que no viene en esta recepción se queda como estaba.
+          if (!isLineFullyProcessed(
+            ordered: parseQuantity(itemJson['quantity']),
+            received: parseQuantity(itemJson['receivedQuantity']),
+            damaged: parseQuantity(itemJson['damagedQuantity']),
+            missing: parseQuantity(itemJson['missingQuantity']),
+          )) {
+            allProcessed = false;
           }
           itemMaps.add(itemJson);
         }
         updatedJson['items'] = itemMaps;
+      }
+
+      updatedJson['status'] = allProcessed ? 'received' : 'partially_received';
+      if (allProcessed) {
+        updatedJson['deliveredDate'] =
+            (params.receivedDate ?? DateTime.now()).toIso8601String();
       }
 
       final updatedModel = PurchaseOrderModel.fromJson(updatedJson);
@@ -667,15 +687,20 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
               (p) => p.itemId == isarItem.itemId || p.itemId == isarItem.productId,
             ).firstOrNull;
             if (receiveParam != null) {
-              isarItem.receivedQuantity = receiveParam.receivedQuantity;
-              isarItem.damagedQuantity = receiveParam.damagedQuantity ?? 0;
-              isarItem.missingQuantity = receiveParam.missingQuantity ?? 0;
-            } else {
-              isarItem.receivedQuantity = isarItem.quantity;
+              isarItem.receivedQuantity = accumulateReceipt(
+                  isarItem.receivedQuantity, receiveParam.receivedQuantity);
+              isarItem.damagedQuantity = accumulateReceipt(
+                  isarItem.damagedQuantity, receiveParam.damagedQuantity);
+              isarItem.missingQuantity = accumulateReceipt(
+                  isarItem.missingQuantity, receiveParam.missingQuantity);
             }
           }
-          isarPO.status = IsarPurchaseOrderStatus.received;
-          isarPO.deliveredDate = params.receivedDate ?? DateTime.now();
+          if (allProcessed) {
+            isarPO.status = IsarPurchaseOrderStatus.received;
+            isarPO.deliveredDate = params.receivedDate ?? DateTime.now();
+          } else {
+            isarPO.status = IsarPurchaseOrderStatus.partiallyReceived;
+          }
           isarPO.updatedAt = DateTime.now();
           isarPO.markAsUnsynced();
           await isar.writeTxn(() async {

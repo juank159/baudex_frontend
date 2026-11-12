@@ -171,9 +171,7 @@ class PurchaseOrder extends Equatable {
   // Verificar si está completamente recibida basado en cantidades reales
   bool get isFullyReceived {
     if (items.isEmpty) return false;
-    return items.every((item) => 
-      item.receivedQuantity != null && item.receivedQuantity! >= item.quantity
-    );
+    return items.every((item) => item.isFullyReceived);
   }
 
   bool get canEdit => isDraft || isPending || isRejected;
@@ -385,11 +383,22 @@ class PurchaseOrderItem extends Equatable {
   // Computed properties
   bool get hasDiscount => discountPercentage > 0 || discountAmount > 0;
   bool get hasTax => taxPercentage > 0 || taxAmount > 0;
-  bool get isFullyReceived => receivedQuantity != null && receivedQuantity! >= quantity;
-  bool get isPartiallyReceived => receivedQuantity != null && receivedQuantity! > 0 && receivedQuantity! < quantity;
-  bool get isPendingDelivery => receivedQuantity == null || receivedQuantity! == 0;
+  /// Unidades ya procesadas de esta línea: recibidas en buen estado, más las
+  /// que llegaron dañadas, más las que el proveedor no entregó. Dañados y
+  /// faltantes no entran al inventario, pero ya no se están esperando (misma
+  /// regla del servidor).
+  int get processedQuantity =>
+      (receivedQuantity ?? 0) + (damagedQuantity ?? 0) + (missingQuantity ?? 0);
 
-  int get pendingQuantity => quantity - (receivedQuantity ?? 0);
+  bool get isFullyReceived => processedQuantity >= quantity;
+  bool get isPartiallyReceived => processedQuantity > 0 && processedQuantity < quantity;
+  bool get isPendingDelivery => processedQuantity == 0;
+
+  /// Lo que todavía se puede recibir de esta línea (nunca negativo).
+  int get pendingQuantity {
+    final pending = quantity - processedQuantity;
+    return pending > 0 ? pending : 0;
+  }
   double get receivedPercentage => receivedQuantity == null ? 0.0 : (receivedQuantity! / quantity * 100);
   
   // Propiedades calculadas para dañados y faltantes

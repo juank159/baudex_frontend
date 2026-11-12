@@ -12,6 +12,7 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
+import '../../domain/services/purchase_order_receipt_rules.dart';
 import '../models/isar/isar_purchase_order.dart';
 import '../models/isar/isar_purchase_order_item.dart';
 
@@ -1059,9 +1060,14 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
               .findFirst();
 
           if (item != null) {
-            item.receivedQuantity = receivedItem.receivedQuantity;
-            item.damagedQuantity = receivedItem.damagedQuantity;
-            item.missingQuantity = receivedItem.missingQuantity;
+            // Se acumula sobre lo ya recibido (antes se reemplazaba: una
+            // segunda recepción borraba la primera en este equipo).
+            item.receivedQuantity = accumulateReceipt(
+                item.receivedQuantity, receivedItem.receivedQuantity);
+            item.damagedQuantity = accumulateReceipt(
+                item.damagedQuantity, receivedItem.damagedQuantity);
+            item.missingQuantity = accumulateReceipt(
+                item.missingQuantity, receivedItem.missingQuantity);
             item.updatedAt = DateTime.now();
             await _isar.isarPurchaseOrderItems.put(item);
           }
@@ -1070,7 +1076,12 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
         // Check if fully received
         await isarPurchaseOrder.items.load();
         final allFullyReceived = isarPurchaseOrder.items.every(
-          (item) => item.receivedQuantity != null && item.receivedQuantity! >= item.quantity,
+          (item) => isLineFullyProcessed(
+            ordered: item.quantity,
+            received: item.receivedQuantity,
+            damaged: item.damagedQuantity,
+            missing: item.missingQuantity,
+          ),
         );
 
         if (allFullyReceived) {
