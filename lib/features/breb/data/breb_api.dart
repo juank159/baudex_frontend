@@ -1,5 +1,6 @@
 // lib/features/breb/data/breb_api.dart
 import 'package:dio/dio.dart';
+import '../../../app/core/errors/exceptions.dart';
 import '../../../app/core/network/dio_client.dart';
 import '../domain/breb_charge.dart';
 
@@ -54,6 +55,8 @@ class BrebApi {
           .toList();
     } on DioException catch (e) {
       throw _toException(e);
+    } on AppException catch (e) {
+      throw _fromAppException(e);
     }
   }
 
@@ -82,6 +85,8 @@ class BrebApi {
       return data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
     } on DioException catch (e) {
       throw _toException(e);
+    } on AppException catch (e) {
+      throw _fromAppException(e);
     }
   }
 
@@ -95,6 +100,8 @@ class BrebApi {
       return parse(data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{});
     } on DioException catch (e) {
       throw _toException(e);
+    } on AppException catch (e) {
+      throw _fromAppException(e);
     }
   }
 
@@ -109,6 +116,29 @@ class BrebApi {
     return current;
   }
 
+  /// El cliente HTTP de la app ya convierte los errores del servidor a sus
+  /// propias excepciones (y les antepone "Solicitud incorrecta: ", etc.): aquí
+  /// se recupera el motivo que escribió el servidor, que es el que le sirve
+  /// al cajero.
+  static BrebException _fromAppException(AppException e) {
+    if (e is ConnectionException) return _offline;
+    final message = e.message
+        .replaceFirst(
+          RegExp(r'^(Solicitud incorrecta|Conflicto|Recurso no encontrado|Error interno del servidor|Error): '),
+          '',
+        )
+        .trim();
+    return BrebException(
+      message.isNotEmpty ? message : 'El servidor no pudo procesar el cobro Bre-B.',
+    );
+  }
+
+  static const _offline = BrebException(
+    'Sin conexión con el servidor. Bre-B necesita internet para confirmar el pago con el banco. '
+    'Cobra con otro método.',
+    offline: true,
+  );
+
   static BrebException _toException(DioException e) {
     final body = e.response?.data;
     if (e.response != null) {
@@ -118,10 +148,6 @@ class BrebApi {
         (text != null && text.isNotEmpty) ? text : 'El servidor no pudo procesar el cobro Bre-B.',
       );
     }
-    return const BrebException(
-      'Sin conexión con el servidor. Bre-B necesita internet para confirmar el pago con el banco. '
-      'Cobra con otro método.',
-      offline: true,
-    );
+    return _offline;
   }
 }

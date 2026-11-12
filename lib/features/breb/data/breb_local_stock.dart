@@ -42,7 +42,7 @@ Future<void> refreshLocalStockFromServer(Iterable<String> productIds) async {
     await refreshLocalStock(
       productIds: productIds,
       serverStockOf: (id) async => (await remote.getProductById(id)).stock,
-      isar: IsarDatabase.instance.database as Isar,
+      isar: IsarDatabase.instance.database,
     );
   } catch (_) {
     // Nunca debe interrumpir el cierre de la venta.
