@@ -108,7 +108,16 @@ class _BrebSettingsScreenState extends State<BrebSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bre-B (cobro con QR)')),
+      appBar: AppBar(
+        title: const Text('Bre-B (cobro con QR)'),
+        actions: [
+          IconButton(
+            tooltip: 'Actualizar',
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadServerData,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _saving ? null : () => _editLlave(),
         icon: const Icon(Icons.add),
@@ -181,8 +190,8 @@ class _BrebSettingsScreenState extends State<BrebSettingsScreen> {
           const SizedBox(height: 16),
           _section(
             'Avisos recibidos sin conciliar',
-            'Los últimos avisos que llegaron a tu dirección y no se pudieron unir solos a una venta. '
-                'Sirve para comprobar que el reenvío funciona.',
+            'Los últimos correos que llegaron a tu dirección y no se pudieron unir solos a una venta. '
+                'Aquí llega también el código que Gmail envía para confirmar el reenvío: toca el correo para leerlo.',
             [
               if (_recentEmails.isEmpty)
                 const Padding(
@@ -199,10 +208,43 @@ class _BrebSettingsScreenState extends State<BrebSettingsScreen> {
                     if (email['amount'] != null) '\$${email['amount']}',
                     if ((email['bankLabel'] ?? '').toString().isNotEmpty) email['bankLabel'],
                     if ((email['payerName'] ?? '').toString().isNotEmpty) email['payerName'],
+                    if (_bodyOf(email).isNotEmpty) 'Toca para leer el correo',
                   ].join(' · ')),
+                  trailing: _bodyOf(email).isNotEmpty ? const Icon(Icons.chevron_right) : null,
+                  onTap: _bodyOf(email).isNotEmpty ? () => _showEmailBody(email) : null,
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  static String _bodyOf(Map<String, dynamic> email) => (email['body'] ?? '').toString().trim();
+
+  /// Texto del correo recibido. Aquí se lee, por ejemplo, el código que Gmail
+  /// envía para confirmar el reenvío automático de los avisos del banco.
+  void _showEmailBody(Map<String, dynamic> email) {
+    final body = _bodyOf(email);
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_reasonLabel(email['reason']?.toString())),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: SelectableText(body, key: const Key('breb-email-body')),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: body));
+              Get.snackbar('Copiado', 'Texto del correo copiado.', snackPosition: SnackPosition.TOP);
+            },
+            child: const Text('Copiar'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
         ],
       ),
     );
