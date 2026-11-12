@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/controllers/invoice_tabs_controller.dart
+import 'package:baudex_desktop/features/customers/domain/usecases/create_customer_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/search_customers_usecase.dart';
@@ -284,6 +285,9 @@ class InvoiceTabsController extends GetxController
           getInvoiceByIdUseCase: Get.find(),
           getCustomersUseCase: _tryFindOptional<GetCustomersUseCase>(),
           searchCustomersUseCase: _tryFindOptional<SearchCustomersUseCase>(),
+          // Sin esto, cada pestaña nueva creía que el módulo de clientes no
+          // estaba cargado y lo volvía a registrar completo al abrirse.
+          createCustomerUseCase: _tryFindOptional<CreateCustomerUseCase>(),
           getCustomerByIdUseCase: _tryFindOptional<GetCustomerByIdUseCase>(),
           getProductsUseCase: _tryFindOptional<GetProductsUseCase>(),
           searchProductsUseCase: _tryFindOptional<SearchProductsUseCase>(),

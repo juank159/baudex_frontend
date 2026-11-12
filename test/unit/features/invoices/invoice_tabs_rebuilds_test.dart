@@ -1,4 +1,6 @@
 import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
+import 'package:baudex_desktop/features/customers/data/datasources/customer_remote_datasource.dart';
+import 'package:baudex_desktop/features/customers/domain/usecases/create_customer_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/create_invoice_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/get_invoice_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/update_invoice_usecase.dart';
@@ -13,6 +15,8 @@ class _Create extends Mock implements CreateInvoiceUseCase {}
 class _Update extends Mock implements UpdateInvoiceUseCase {}
 
 class _GetById extends Mock implements GetInvoiceByIdUseCase {}
+
+class _CreateCustomer extends Mock implements CreateCustomerUseCase {}
 
 /// Rendimiento de las pestañas de factura: toda la pantalla (barra, menú y
 /// formulario) se redibuja cada vez que cambia la lista de pestañas. Cambiar
@@ -102,6 +106,16 @@ void main() {
 
     expect(tabs.tabs.length, 2);
     expect(listChanges, 1);
+    await settle(tester);
+  });
+
+  testWidgets('con clientes ya cargados, abrir pestañas no vuelve a registrar el módulo de clientes', (tester) async {
+    Get.put<CreateCustomerUseCase>(_CreateCustomer());
+
+    await open(tester, 3);
+
+    // CustomerBinding registra esta fuente de datos; si aparece, se volvió a ejecutar.
+    expect(Get.isRegistered<CustomerRemoteDataSource>(), isFalse);
     await settle(tester);
   });
 }
