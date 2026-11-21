@@ -163,11 +163,12 @@ void main() {
       getWarehousesUseCase: _Wh(),
       resolveTempId: (_) async => null,
     );
-    c.purchaseOrderId.value = '9605083f-19ff-4acc-ad1d-5a323518ab6e';
-    Get.put(c);
+    const poId = '9605083f-19ff-4acc-ad1d-5a323518ab6e';
+    c.purchaseOrderId.value = poId;
+    Get.put(c, tag: poId);
     await c.loadPurchaseOrder();
     if (notFound) c.error.value = '';
-    await t.pumpWidget(app(const FuturisticPurchaseOrderDetailScreen()));
+    await t.pumpWidget(app(FuturisticPurchaseOrderDetailScreen(purchaseOrderId: poId)));
     await settle(t);
     await shot(t, '${notFound ? 'orden-compra-no-existe' : 'orden-compra-error'}-${size.key}-v2');
   });

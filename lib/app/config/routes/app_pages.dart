@@ -656,7 +656,7 @@ class AppPages {
 
     GetPage(
       name: '${AppRoutes.purchaseOrdersDetail}/:id',
-      page: () => const FuturisticPurchaseOrderDetailScreen(),
+      page: () => FuturisticPurchaseOrderDetailScreen(),
       binding: PurchaseOrderDetailBinding(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 500),

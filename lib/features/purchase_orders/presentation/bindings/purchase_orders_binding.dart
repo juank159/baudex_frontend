@@ -145,8 +145,13 @@ class PurchaseOrderDetailBinding extends Bindings {
     // Ensure all required dependencies are registered
     _ensurePurchaseOrderDependencies();
 
-    // Detail Controller
-    Get.lazyPut(() => PurchaseOrderDetailController(
+    // Un controlador POR ORDEN (etiqueta = id de la ruta). Sin etiqueta, al
+    // abrir el detalle de otra orden con la anterior aún abierta debajo, GetX
+    // devolvía el controlador de la anterior y se mostraba la orden
+    // equivocada (6 de 6 en la prueba de estrés).
+    final id = purchaseOrderDetailTag(Get.parameters['id']);
+    Get.lazyPut(tag: id, () => PurchaseOrderDetailController(
+      routePurchaseOrderId: id,
       getPurchaseOrderByIdUseCase: Get.find(),
       deletePurchaseOrderUseCase: Get.find(),
       updatePurchaseOrderUseCase: Get.find(),
@@ -261,3 +266,6 @@ class PurchaseOrderDetailBinding extends Bindings {
   }
 }
 
+/// Etiqueta del controlador de detalle de una orden de compra (su id).
+String purchaseOrderDetailTag(String? id) =>
+    (id == null || id.isEmpty) ? 'sin-id' : id;

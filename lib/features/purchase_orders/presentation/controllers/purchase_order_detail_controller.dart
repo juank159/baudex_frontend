@@ -38,7 +38,11 @@ class PurchaseOrderDetailController extends GetxController
   final CancelPurchaseOrderUseCase cancelPurchaseOrderUseCase;
   final GetWarehousesUseCase getWarehousesUseCase;
 
+  /// Orden de la ruta que abrió esta pantalla (uno por orden abierta).
+  final String? routePurchaseOrderId;
+
   PurchaseOrderDetailController({
+    this.routePurchaseOrderId,
     required this.getPurchaseOrderByIdUseCase,
     required this.deletePurchaseOrderUseCase,
     required this.updatePurchaseOrderUseCase,
@@ -99,10 +103,15 @@ class PurchaseOrderDetailController extends GetxController
 
   void _initializeData() {
     // Obtener el ID de la orden desde los argumentos o parámetros de ruta
-    final args = Get.arguments as Map<String, dynamic>?;
+    final args = Get.arguments is Map ? Get.arguments as Map : null;
     final paramId = Get.parameters['id'];
+    final routeId = routePurchaseOrderId;
 
-    if (args != null && args.containsKey('purchaseOrderId')) {
+    // El id de SU ruta primero: `Get.parameters` y `Get.arguments` son los de
+    // la última ruta abierta, no necesariamente los de esta pantalla.
+    if (routeId != null && routeId.isNotEmpty && routeId != 'sin-id') {
+      purchaseOrderId.value = routeId;
+    } else if (args != null && args.containsKey('purchaseOrderId')) {
       purchaseOrderId.value = args['purchaseOrderId'] as String;
     } else if (paramId != null) {
       purchaseOrderId.value = paramId;
@@ -228,7 +237,7 @@ class PurchaseOrderDetailController extends GetxController
 
           // Navegar de vuelta a la lista de órdenes de compra y refrescar
           Future.delayed(const Duration(milliseconds: 500), () {
-            if (Get.isRegistered<PurchaseOrderDetailController>()) {
+            if (!isClosed) {
               // Refrescar el controlador de la lista si existe
               try {
                 final listController = Get.find<PurchaseOrdersController>();
@@ -447,7 +456,7 @@ class PurchaseOrderDetailController extends GetxController
           // Navegar de vuelta al listado de órdenes de compra con un pequeño delay
           // para asegurar que los snackbars se muestren correctamente
           Future.delayed(const Duration(milliseconds: 1500), () {
-            if (Get.isRegistered<PurchaseOrderDetailController>()) {
+            if (!isClosed) {
               Get.back();
             }
           });

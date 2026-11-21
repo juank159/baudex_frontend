@@ -20,10 +20,19 @@ import '../widgets/purchase_order_skeleton_widget.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../bindings/purchase_orders_binding.dart' show purchaseOrderDetailTag;
 
 class FuturisticPurchaseOrderDetailScreen
     extends GetView<PurchaseOrderDetailController> {
-  const FuturisticPurchaseOrderDetailScreen({super.key});
+  /// La pantalla guarda el id de SU orden al abrirse (la ruta lo trae) y
+  /// busca el controlador de esa orden, no "el último que se creó".
+  FuturisticPurchaseOrderDetailScreen({super.key, String? purchaseOrderId})
+      : _tag = purchaseOrderDetailTag(purchaseOrderId ?? Get.parameters['id']);
+
+  final String _tag;
+
+  @override
+  String? get tag => _tag;
 
   @override
   Widget build(BuildContext context) {
