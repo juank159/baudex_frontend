@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
+import '../../core/navigation/navigation_guard.dart';
 import '../models/drawer_menu_item.dart';
 
 /// Controlador independiente para el drawer de la aplicación
@@ -456,52 +457,52 @@ class AppDrawerController extends GetxController {
 
   /// Navegación rápida a dashboard
   void goToDashboard() {
-    Get.offAllNamed(AppRoutes.dashboard);
+    AppNav.openModule(AppRoutes.dashboard);
   }
 
   /// Navegación rápida a facturas
   void goToInvoices() {
-    Get.toNamed(AppRoutes.invoices);
+    AppNav.openModule(AppRoutes.invoices);
   }
 
   /// Navegación rápida a crear factura
   void goToCreateInvoice() {
-    Get.toNamed(AppRoutes.invoicesWithTabs);
+    AppNav.openModule(AppRoutes.invoicesWithTabs);
   }
 
   /// Navegación rápida a productos
   void goToProducts() {
-    Get.toNamed(AppRoutes.products);
+    AppNav.openModule(AppRoutes.products);
   }
 
   /// Navegación rápida a clientes
   void goToCustomers() {
-    Get.toNamed(AppRoutes.customers);
+    AppNav.openModule(AppRoutes.customers);
   }
 
   /// Navegación rápida a categorías
   void goToCategories() {
-    Get.toNamed(AppRoutes.categories);
+    AppNav.openModule(AppRoutes.categories);
   }
 
   /// Navegación rápida a gastos
   void goToExpenses() {
-    Get.toNamed(AppRoutes.expenses);
+    AppNav.openModule(AppRoutes.expenses);
   }
 
   /// Navegación rápida a proveedores
   void goToSuppliers() {
-    Get.toNamed(AppRoutes.suppliers);
+    AppNav.openModule(AppRoutes.suppliers);
   }
 
   /// Navegación rápida a órdenes de compra
   void goToPurchaseOrders() {
-    Get.toNamed(AppRoutes.purchaseOrders);
+    AppNav.openModule(AppRoutes.purchaseOrders);
   }
 
   /// Navegación rápida a inventario
   void goToInventory() {
-    Get.toNamed(AppRoutes.inventory);
+    AppNav.openModule(AppRoutes.inventory);
   }
 
   // ==================== STATISTICS METHODS ====================

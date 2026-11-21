@@ -15,6 +15,7 @@ import 'app/config/themes/app_theme.dart';
 import 'app/shared/utils/global_shortcuts.dart';
 import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
+import 'app/core/navigation/route_stack_observer.dart';
 import 'app/core/ops/ops_reporter.dart';
 import 'app/core/ops/ops_health_watcher.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -212,6 +213,10 @@ class _MyAppState extends State<MyApp> {
       // RouteObserver deshabilitado: causa crash nativo de FocusScopeNode en macOS desktop
       // El auto-refresh se maneja via cache del controller (checkAndRefreshIfNeeded)
       // navigatorObservers: [appRouteObserver],
+      // Solo anota qué pantallas están abiertas (no avisa a ninguna): la
+      // navegación lo usa para volver a una pantalla abierta en vez de
+      // crear una segunda copia.
+      navigatorObservers: [RouteStackObserver.instance],
 
       initialBinding: InitialBinding(),
 

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-import '../../config/routes/app_routes.dart';
+import '../../core/navigation/navigation_guard.dart';
 import '../../core/theme/elegant_light_theme.dart';
 import '../controllers/app_drawer_controller.dart';
 import '../models/drawer_menu_item.dart';
@@ -192,9 +192,9 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
     if (_filtered.isEmpty) return;
     final entry = _filtered[_selectedIndex];
     Navigator.of(context).pop();
-    // toNamed es más seguro que offNamed: si la ruta no existe, no
-    // tumba la sesión. El usuario puede volver con back.
-    Get.toNamed(entry.route);
+    // Igual que el menú lateral (las entradas son las del menú): reemplaza la
+    // pila. Con toNamed cada módulo abierto quedaba vivo debajo.
+    AppNav.openModule(entry.route);
   }
 
   // ──────────────────────────────────────────────────────────────────
@@ -842,11 +842,5 @@ class CommandPalette {
   }
 
   /// Navegación por ID de ruta — usado por los atajos `Alt + N`.
-  static void navigateToRoute(String route) {
-    if (route == AppRoutes.dashboard) {
-      Get.offAllNamed(route);
-    } else {
-      Get.toNamed(route);
-    }
-  }
+  static void navigateToRoute(String route) => AppNav.openModule(route);
 }

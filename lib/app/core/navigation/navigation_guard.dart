@@ -4,6 +4,9 @@ import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 
 import '../../data/local/sync_service.dart';
+import 'route_stack_observer.dart';
+import 'cash_register_guard.dart';
+import '../../config/routes/app_routes.dart';
 
 /// Guard centralizado de navegación.
 ///
@@ -169,7 +172,19 @@ class NavigationGuard {
     scheduleMicrotask(() {
       switch (nav.kind) {
         case 'offAllNamed':
-          Get.offAllNamed(nav.route, arguments: nav.arguments);
+          if (shouldReturnToOpenScreen(
+            route: nav.route,
+            currentRoute: Get.currentRoute,
+            hasArguments: nav.arguments != null,
+            isOpen: RouteStackObserver.instance.contains,
+          )) {
+            // La pantalla ya está abierta debajo: se vuelve a ELLA (con su
+            // estado) en vez de crear otra copia. Con dos copias, GetX
+            // cerraba el controlador de la nueva al cerrar la vieja.
+            Get.until((r) => r.settings.name == nav.route);
+          } else {
+            Get.offAllNamed(nav.route, arguments: nav.arguments);
+          }
           break;
         case 'toNamed':
           Get.toNamed(nav.route, arguments: nav.arguments);
@@ -239,6 +254,17 @@ class NavigationGuard {
   }
 }
 
+/// ¿Ir a [route] debe volver a la pantalla que ya está abierta más abajo?
+/// Solo sin argumentos (con argumentos es otra consulta de esa pantalla) y si
+/// no es la pantalla de arriba (ahí no hay nada que hacer).
+bool shouldReturnToOpenScreen({
+  required String route,
+  required String currentRoute,
+  required bool hasArguments,
+  required bool Function(String route) isOpen,
+}) =>
+    !hasArguments && currentRoute != route && isOpen(route);
+
 class _PendingNav {
   final String kind;
   final String route;
@@ -264,4 +290,23 @@ class AppNav {
       NavigationGuard.instance.offNamed(r, arguments: arguments);
   static bool back({dynamic result}) =>
       NavigationGuard.instance.back(result: result);
+
+  /// Abrir un módulo (menú lateral, paleta de comandos, atajos Alt+número):
+  /// siempre reemplaza la pila, como el menú. Antes la paleta y los atajos
+  /// apilaban pantallas (Get.toNamed): cada módulo visitado quedaba vivo
+  /// debajo, con sus controladores, escuchas de teclado y recargas por
+  /// sincronización, y volver a uno abierto creaba una segunda copia.
+  static Future<void> openModule(String route) async {
+    if (Get.currentRoute == route) return;
+    if (_routeRequiresOpenCashRegister(route)) {
+      final ctx = Get.context;
+      if (ctx != null && !await CashRegisterGuard.requireOpen(ctx)) return;
+    }
+    offAllNamed(route);
+  }
+
+  /// Rutas que exigen una caja abierta antes de entrar: arrancar una venta
+  /// sin caja perdía el carrito al ir a abrirla.
+  static bool _routeRequiresOpenCashRegister(String route) =>
+      route == AppRoutes.invoicesWithTabs || route == AppRoutes.invoicesCreate;
 }

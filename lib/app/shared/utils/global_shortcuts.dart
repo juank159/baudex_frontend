@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../config/routes/app_routes.dart';
+import '../../core/navigation/navigation_guard.dart';
 import '../../core/services/permissions_service.dart';
 import '../../core/theme/elegant_light_theme.dart';
 import '../../../features/employees/domain/entities/module_permission.dart';
@@ -150,11 +151,8 @@ class _GlobalShortcutsScope extends StatelessWidget {
       }
     }
 
-    if (route == AppRoutes.dashboard) {
-      Get.offAllNamed(route);
-    } else {
-      Get.toNamed(route);
-    }
+    // Como el menú: reemplaza la pila (antes apilaba con toNamed).
+    AppNav.openModule(route);
   }
 
   /// Mapea cada ruta destino de los atajos `Alt+N` al `ModuleCode` que
