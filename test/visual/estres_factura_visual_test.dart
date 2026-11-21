@@ -120,7 +120,15 @@ void main() {
         key: boundaryKey,
         child: GetMaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
+          // Título de la barra con la fuente cargada en la prueba (el tema
+          // global no se toca).
+          theme: AppTheme.lightTheme.copyWith(
+            appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+              titleTextStyle:
+                  (AppTheme.lightTheme.appBarTheme.titleTextStyle ?? const TextStyle())
+                      .copyWith(fontFamily: 'Roboto'),
+            ),
+          ),
           home: const InvoiceFormTabsScreen(),
         ),
       ));
