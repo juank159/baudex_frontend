@@ -794,6 +794,42 @@ class FullSyncService extends GetxService {
     return applied;
   }
 
+  /// Cuántos registros tiene el equipo de cada módulo incremental.
+  late final Map<String, Future<int> Function()> _localCounts = {
+    'products': () => _isar.isarProducts.count(),
+    'product_presentations': () => _isar.isarProductPresentations.count(),
+    'customers': () => _isar.isarCustomers.count(),
+    'suppliers': () => _isar.isarSuppliers.count(),
+    'invoices': () => _isar.isarInvoices.count(),
+    'expenses': () => _isar.isarExpenses.count(),
+    'purchase_orders': () => _isar.isarPurchaseOrders.count(),
+    'credit_notes': () => _isar.isarCreditNotes.count(),
+    'customer_credits': () => _isar.isarCustomerCredits.count(),
+    'inventory_batches': () => _isar.isarInventoryBatchs.count(),
+    'inventory_movements': () => _isar.isarInventoryMovements.count(),
+    'notifications': () => _isar.isarNotifications.count(),
+  };
+
+  /// Módulos ya revisados en esta sesión (base local vacía con marca).
+  final Set<String> _emptyLocalChecked = {};
+
+  /// Solo para pruebas: conteo local de reemplazo por módulo.
+  @visibleForTesting
+  Map<String, Future<int> Function()>? debugLocalCounts;
+
+  /// ¿El equipo no tiene NINGÚN registro de [entity]? Ante cualquier duda
+  /// (base no disponible), `false`: se sigue con la marca como antes.
+  Future<bool> _localIsEmpty(String entity) async {
+    final count = debugLocalCounts?[entity] ??
+        (debugChangeHandlers != null ? null : _localCounts[entity]);
+    if (count == null) return false;
+    try {
+      return await count() == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Descargas incrementales a medias (por tiempo agotado); el siguiente pull
   /// sigue desde aquí.
   final Map<String, _ChangesProgress> _changesProgress = {};
@@ -1023,7 +1059,21 @@ class FullSyncService extends GetxService {
       final saved = await _watermarks.getProgress(organization, entity);
       progress = saved == null ? null : _ChangesProgress.fromJson(saved);
       if (progress == null || progress.organization != organization) {
-        final watermark = await _watermarks.get(organization, entity);
+        var watermark = await _watermarks.get(organization, entity);
+        // Base local nueva (reinstalación, carpeta borrada, base dañada) con
+        // las marcas viejas en las preferencias: la app creía tener todo y
+        // solo bajaba lo nuevo (0 productos y 0 facturas en la prueba).
+        // Una vez por sesión y módulo: un módulo que el negocio no usa
+        // (0 en el servidor) seguiría vacío y no debe bajarse en cada pull.
+        if (watermark != null &&
+            _emptyLocalChecked.add('$organization|$entity') &&
+            await _localIsEmpty(entity)) {
+          debugPrint(
+            '[FULL_SYNC] $entity: el equipo no tiene registros pero había marca — se descarga todo',
+          );
+          await _watermarks.remove(organization, entity);
+          watermark = null;
+        }
         progress = _ChangesProgress(
           organization: organization,
           since: watermark ?? SyncChangesClient.epoch,

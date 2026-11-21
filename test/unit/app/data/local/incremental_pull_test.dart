@@ -153,6 +153,28 @@ void main() {
     expect(server.requests, 1);
   });
 
+  test('base local nueva con marca vieja: vuelve a bajar todo', () async {
+    for (var i = 1; i <= 30; i++) {
+      server.put(uuid(i), at(i % 60));
+    }
+    sync.debugLocalCounts = {'invoices': () async => local.length};
+    await sync.debugPullChanges('invoices');
+    expect(local.length, 30);
+
+    // Se pierde la base local (reinstalar, carpeta borrada) y las marcas de
+    // las preferencias quedan: antes solo bajaba lo nuevo → 0 registros.
+    local.clear();
+    server.sinceLog.clear();
+    await sync.debugPullChanges('invoices');
+    expect(server.sinceLog, contains(SyncChangesClient.epoch));
+    expect(local.length, 30);
+
+    // Con registros en el equipo sigue siendo incremental.
+    server.sinceLog.clear();
+    await sync.debugPullChanges('invoices');
+    expect(server.sinceLog, isNot(contains(SyncChangesClient.epoch)));
+  });
+
   test('descarga completa: lo de los últimos días llega primero', () async {
     final now = DateTime.now().toUtc();
     String ago(Duration d) => now.subtract(d).toIso8601String();
