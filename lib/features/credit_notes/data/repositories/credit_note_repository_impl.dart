@@ -1,5 +1,6 @@
 // lib/features/credit_notes/data/repositories/credit_note_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
@@ -35,6 +36,18 @@ bool isAlreadyConfirmedRejection(ServerException e) {
 }
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
+  /// La nota según el servidor, solo si ya está confirmada (si no, o si no
+  /// se puede consultar: `null`).
+  @visibleForTesting
+  Future<CreditNoteModel?> confirmedOnServer(String id) async {
+    try {
+      final current = await remoteDataSource.getCreditNoteById(id);
+      return current.status == CreditNoteStatus.confirmed ? current : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   final CreditNoteRemoteDataSource remoteDataSource;
   final CreditNoteLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
@@ -379,7 +392,17 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
     try {
       AppLogger.i('Confirmando nota de crédito $id', tag: 'CREDIT_NOTE');
-      final creditNote = await remoteDataSource.confirmCreditNote(id);
+      CreditNoteModel creditNote;
+      try {
+        creditNote = await remoteDataSource.confirmCreditNote(id);
+      } on RequestTimeoutException {
+        // Se agotó la espera, pero el servidor pudo terminarla (pasó: la app
+        // decía "error" y la nota aparecía confirmada 11 s después). Se le
+        // pregunta el estado real antes de decidir.
+        final current = await confirmedOnServer(id);
+        if (current == null) rethrow;
+        creditNote = current;
+      }
       AppLogger.i('Nota de crédito confirmada exitosamente', tag: 'CREDIT_NOTE');
 
       // La copia del equipo pasa a confirmada: la lista y el detalle leen

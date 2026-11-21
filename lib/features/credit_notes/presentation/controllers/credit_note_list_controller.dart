@@ -1,5 +1,6 @@
 // lib/features/credit_notes/presentation/controllers/credit_note_list_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -201,6 +202,7 @@ class CreditNoteListController extends GetxController
 
     result.fold(
       (failure) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Error',
           failure.message,
@@ -404,6 +406,7 @@ class CreditNoteListController extends GetxController
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -417,6 +420,7 @@ class CreditNoteListController extends GetxController
           _creditNotes.removeWhere((cn) => cn.id == id);
           invalidateCache();
 
+          replacePreviousSnackbar();
           Get.snackbar(
             'Eliminada',
             'Nota de crédito eliminada exitosamente',
@@ -427,6 +431,7 @@ class CreditNoteListController extends GetxController
         },
       );
     } catch (e) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Error',
         'Error al eliminar: $e',
@@ -441,6 +446,7 @@ class CreditNoteListController extends GetxController
 
   Future<void> downloadPdf(String id) async {
     try {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Descargando',
         'Generando PDF...',
@@ -454,6 +460,7 @@ class CreditNoteListController extends GetxController
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -475,6 +482,7 @@ class CreditNoteListController extends GetxController
           final file = File(filePath);
           await file.writeAsBytes(pdfBytes);
 
+          replacePreviousSnackbar();
           Get.snackbar(
             'Descarga Completa',
             'PDF guardado en: $filePath',
@@ -486,6 +494,7 @@ class CreditNoteListController extends GetxController
         },
       );
     } catch (e) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Error',
         'Error al descargar PDF: $e',

@@ -1,5 +1,6 @@
 // lib/features/credit_notes/presentation/controllers/credit_note_detail_controller.dart
 import 'dart:io';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
@@ -22,7 +23,11 @@ class CreditNoteDetailController extends GetxController
   final DeleteCreditNote _deleteCreditNoteUseCase;
   final DownloadCreditNotePdf _downloadCreditNotePdfUseCase;
 
+  /// Nota que muestra este controlador (uno por nota abierta).
+  final String? creditNoteId;
+
   CreditNoteDetailController({
+    this.creditNoteId,
     required GetCreditNoteById getCreditNoteByIdUseCase,
     required ConfirmCreditNote confirmCreditNoteUseCase,
     required CancelCreditNote cancelCreditNoteUseCase,
@@ -55,15 +60,23 @@ class CreditNoteDetailController extends GetxController
   void onInit() {
     super.onInit();
     setupSyncListener();
-    final id = Get.parameters['id'];
+    final id = _routeId;
     if (id != null) {
       loadCreditNote(id);
     }
   }
 
+  /// Id de la nota de esta pantalla. NUNCA `Get.parameters` después de abrir:
+  /// ese mapa es el de la última ruta abierta, no el de esta.
+  String? get _routeId {
+    final id = creditNoteId;
+    if (id != null && id.isNotEmpty && id != 'sin-id') return id;
+    return null;
+  }
+
   @override
   Future<void> onSyncCompleted() async {
-    final id = _creditNote.value?.id ?? Get.parameters['id'];
+    final id = _creditNote.value?.id ?? _routeId;
     if (id != null && id.isNotEmpty) {
       await loadCreditNote(id);
     }
@@ -79,6 +92,7 @@ class CreditNoteDetailController extends GetxController
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -233,6 +247,7 @@ class CreditNoteDetailController extends GetxController
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -267,6 +282,7 @@ class CreditNoteDetailController extends GetxController
 
       await result.fold(
         (failure) async {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -283,6 +299,7 @@ class CreditNoteDetailController extends GetxController
           );
           await file.writeAsBytes(pdfBytes);
 
+          replacePreviousSnackbar();
           Get.snackbar(
             'Descarga Completa',
             'PDF guardado en: ${file.path}',

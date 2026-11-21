@@ -1,5 +1,6 @@
 // lib/features/credit_notes/presentation/controllers/credit_note_form_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -174,6 +175,7 @@ class CreditNoteFormController extends GetxController {
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -204,6 +206,7 @@ class CreditNoteFormController extends GetxController {
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -231,6 +234,7 @@ class CreditNoteFormController extends GetxController {
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             'No se pudieron cargar las cantidades disponibles: ${failure.message}',
@@ -246,6 +250,7 @@ class CreditNoteFormController extends GetxController {
           // Mostrar mensaje informativo si hay notas en borrador
           if (response.hasDraftCreditNotes) {
             final draftNumbers = response.draftCreditNotes.map((d) => d.number).join(', ');
+            replacePreviousSnackbar();
             Get.snackbar(
               'Notas de Crédito en Borrador',
               'Existen notas de crédito en borrador ($draftNumbers) que afectan las cantidades disponibles.',
@@ -258,6 +263,7 @@ class CreditNoteFormController extends GetxController {
 
           // Mostrar mensaje si no se puede crear nota de crédito
           if (!response.canCreatePartialCreditNote) {
+            replacePreviousSnackbar();
             Get.snackbar(
               'No Disponible',
               response.message ?? 'No hay cantidades disponibles para crear notas de crédito.',
@@ -311,6 +317,7 @@ class CreditNoteFormController extends GetxController {
   void setType(CreditNoteType type) {
     // Verificar si se puede crear nota de crédito completa
     if (type == CreditNoteType.full && !canCreateFullCreditNote) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'No Disponible',
         _availableQuantities.value == null
@@ -428,6 +435,7 @@ class CreditNoteFormController extends GetxController {
 
   Future<void> save() async {
     if (!formKey.currentState!.validate()) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Formulario Incompleto',
         'Por favor complete todos los campos requeridos',
@@ -439,6 +447,7 @@ class CreditNoteFormController extends GetxController {
     }
 
     if (_items.isEmpty) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Items Requeridos',
         'Debe agregar al menos un item a la nota de crédito',
@@ -450,6 +459,7 @@ class CreditNoteFormController extends GetxController {
     }
 
     if (!isEditMode && invoice == null) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Factura Requerida',
         'Debe seleccionar una factura',
@@ -463,6 +473,7 @@ class CreditNoteFormController extends GetxController {
     // Validar que el total no exceda el monto acreditable restante
     if (!isEditMode && hasAvailableQuantities) {
       if (total > remainingCreditableAmount) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Monto Excedido',
           'El total de la nota de crédito (\$${total.toStringAsFixed(0)}) excede el monto acreditable restante (\$${remainingCreditableAmount.toStringAsFixed(0)})',
@@ -479,6 +490,7 @@ class CreditNoteFormController extends GetxController {
         if (item.invoiceItemId != null) {
           final availableItem = getAvailableQuantityForItem(item.invoiceItemId!);
           if (availableItem != null && item.quantity > availableItem.availableQuantity) {
+            replacePreviousSnackbar();
             Get.snackbar(
               'Cantidad Excedida',
               'El item "${item.description}" tiene cantidad ${item.quantity} pero solo hay ${availableItem.availableQuantity} disponible',
@@ -539,6 +551,7 @@ class CreditNoteFormController extends GetxController {
 
     result.fold(
       (failure) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Error',
           failure.message,
@@ -549,6 +562,7 @@ class CreditNoteFormController extends GetxController {
       },
       (creditNote) {
         Get.back(result: creditNote);
+        replacePreviousSnackbar();
         Get.snackbar(
           'Creada',
           'Nota de crédito creada exitosamente',
@@ -580,6 +594,7 @@ class CreditNoteFormController extends GetxController {
 
     result.fold(
       (failure) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Error',
           failure.message,
@@ -590,6 +605,7 @@ class CreditNoteFormController extends GetxController {
       },
       (updatedCreditNote) {
         Get.back(result: updatedCreditNote);
+        replacePreviousSnackbar();
         Get.snackbar(
           'Actualizada',
           'Nota de crédito actualizada exitosamente',

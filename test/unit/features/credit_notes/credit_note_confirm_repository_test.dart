@@ -96,4 +96,32 @@ void main() {
     expect((await repo.confirmCreditNote(id)).isRight(), isTrue);
     expect((await repo.confirmCreditNote(id)).isRight(), isTrue);
   });
+
+  test('tiempo agotado pero el servidor SÍ la confirmó: es éxito, no "error"',
+      () async {
+    final confirmed = CreditNoteModel.fromEntity(
+        CreditNoteFixtures.createConfirmedCreditNote(id: id));
+    when(() => remote.confirmCreditNote(id))
+        .thenThrow(const RequestTimeoutException());
+    when(() => remote.getCreditNoteById(id)).thenAnswer((_) async => confirmed);
+
+    final result = await repo.confirmCreditNote(id);
+
+    expect(result.isRight(), isTrue);
+    expect(result.getOrElse(() => throw 'x').status, CreditNoteStatus.confirmed);
+    verify(() => local.cacheCreditNote(any())).called(1);
+  });
+
+  test('tiempo agotado y el servidor no la tiene confirmada: se pregunta y no se inventa éxito',
+      () async {
+    final draft = CreditNoteModel.fromEntity(
+        CreditNoteFixtures.createConfirmedCreditNote(id: id)
+            .copyWith(status: CreditNoteStatus.draft));
+    when(() => remote.confirmCreditNote(id))
+        .thenThrow(const RequestTimeoutException());
+    when(() => remote.getCreditNoteById(id)).thenAnswer((_) async => draft);
+
+    expect(await repo.confirmedOnServer(id), isNull);
+    verify(() => remote.getCreditNoteById(id)).called(1);
+  });
 }

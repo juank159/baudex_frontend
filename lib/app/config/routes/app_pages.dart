@@ -1653,7 +1653,7 @@ class AppPages {
     // 👁️ DETALLE DE NOTA DE CRÉDITO
     GetPage(
       name: '${AppRoutes.creditNotesDetail}/:id',
-      page: () => const CreditNoteDetailScreen(),
+      page: () => CreditNoteDetailScreen(),
       binding: CreditNoteDetailBinding(),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
