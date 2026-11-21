@@ -25,7 +25,13 @@ class InvoiceFormScreen extends StatefulWidget {
 }
 
 class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
-  int _selectedIndex = -1;
+  // Fila seleccionada (a la que van los atajos Ctrl+número). Vive en un
+  // ValueNotifier que escucha SOLO la tabla: antes era estado de toda la
+  // pantalla y cada escaneo o flecha redibujaba cliente, buscador, tabla y
+  // totales (con 50+ líneas el lector se sentía trabado).
+  final ValueNotifier<int> _selection = ValueNotifier<int>(-1);
+  int get _selectedIndex => _selection.value;
+  set _selectedIndex(int value) => _selection.value = value;
   bool _isShiftPressed = false;
   bool _isCtrlPressed = false;
   final bool _isProductSearchActive =
@@ -60,15 +66,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final controller = widget.controller;
     if (controller != null) {
       // Usar ever para reaccionar cada vez que cambie lastUpdatedItemIndex
-      _updatedItemWorker = ever(controller.lastUpdatedItemIndexObs, (int? index) {
+      _updatedItemWorker = ever(controller.lastUpdatedItemIndexObs, (
+        int? index,
+      ) {
         if (index != null && mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() {
-              _selectedIndex = index;
-            });
-            // ✅ MEJORADO: Hacer scroll suave al item seleccionado con delay
-            _scrollToSelectedWithDelay();
-          });
+          _selectedIndex = index;
+          _scrollToSelectedWithDelay();
         }
       });
     }
@@ -82,6 +85,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     // controlador (y con ella, esta pantalla completa en memoria).
     _updatedItemWorker?.dispose();
     _productsScrollController.dispose();
+    _selection.dispose();
     super.dispose();
   }
 
@@ -183,7 +187,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
           // Ctrl + Enter para procesar venta - NATIVO
           if (event.logicalKey == LogicalKeyboardKey.enter) {
-
             // ✅ VERIFICACIÓN: Asegurar que no haya focus en TextField
             final focusedWidget =
                 FocusManager.instance.primaryFocus?.context?.widget;
@@ -243,12 +246,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   void _moveSelection(int direction, InvoiceFormController controller) {
     if (controller.invoiceItems.isEmpty) return;
 
-    setState(() {
-      _selectedIndex = (_selectedIndex + direction).clamp(
-        0,
-        controller.invoiceItems.length - 1,
-      );
-    });
+    _selectedIndex = (_selectedIndex + direction).clamp(
+      0,
+      controller.invoiceItems.length - 1,
+    );
 
     // Hacer scroll automático para que el elemento seleccionado sea visible
     _scrollToSelected();
@@ -256,18 +257,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
   void _moveToFirst(InvoiceFormController controller) {
     if (controller.invoiceItems.isNotEmpty) {
-      setState(() {
-        _selectedIndex = 0;
-      });
+      _selectedIndex = 0;
       _scrollToSelected();
     }
   }
 
   void _moveToLast(InvoiceFormController controller) {
     if (controller.invoiceItems.isNotEmpty) {
-      setState(() {
-        _selectedIndex = controller.invoiceItems.length - 1;
-      });
+      _selectedIndex = controller.invoiceItems.length - 1;
       _scrollToSelected();
     }
   }
@@ -437,16 +434,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
       // Ajustar selección después de eliminar
       if (controller.invoiceItems.isNotEmpty) {
-        setState(() {
-          _selectedIndex = _selectedIndex.clamp(
-            0,
-            controller.invoiceItems.length - 1,
-          );
-        });
+        _selectedIndex = _selectedIndex.clamp(
+          0,
+          controller.invoiceItems.length - 1,
+        );
       } else {
-        setState(() {
-          _selectedIndex = -1;
-        });
+        _selectedIndex = -1;
       }
     }
   }
@@ -557,7 +550,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                ElegantLightTheme.primaryBlue,
+              ),
             ),
           ),
         ],
@@ -596,29 +591,26 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             controller: controller,
             autoFocus: true,
             onProductSelected: (product, quantity) {
-              controller.handleProductSelection(
-                product,
-                quantity: quantity,
-              );
+              controller.handleProductSelection(product, quantity: quantity);
               // ✅ MODIFICADO: No forzar selección aquí, dejar que el controlador maneje la selección automática
               // La selección se manejará automáticamente por el listener
             },
           ),
           SizedBox(height: context.verticalSpacing * 0.4),
-          ModernInvoiceItemsTable(
-            controller: controller,
-            selectedIndex: _selectedIndex,
-            onSelectionChanged: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            // Tras +/-/eliminar/seleccionar fila, regresar el cursor al
-            // searchbox para el siguiente escaneo o búsqueda.
-            onItemModified: () {
-              _productSearchKey.currentState?.requestFocus();
-            },
-            height: 250,
+          ValueListenableBuilder<int>(
+            valueListenable: _selection,
+            builder:
+                (context, selected, _) => ModernInvoiceItemsTable(
+                  controller: controller,
+                  selectedIndex: selected,
+                  onSelectionChanged: (index) => _selectedIndex = index,
+                  // Tras +/-/eliminar/seleccionar fila, regresar el cursor al
+                  // searchbox para el siguiente escaneo o búsqueda.
+                  onItemModified: () {
+                    _productSearchKey.currentState?.requestFocus();
+                  },
+                  height: 250,
+                ),
           ),
           SizedBox(height: context.verticalSpacing * 0.4),
           _buildTotalsSection(context, controller),
@@ -666,30 +658,30 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       product,
                       quantity: quantity,
                     );
-                    setState(() {
-                      _selectedIndex = 0;
-                    });
+                    // La fila la elige el controlador (nueva arriba o la
+                    // que se actualizó): forzar la 0 mandaba el siguiente
+                    // Ctrl+número a otro producto.
                   },
                 ),
                 SizedBox(height: context.verticalSpacing * 0.4),
                 // La tabla de productos con altura dinámica para desktop
                 SizedBox(
                   height: MediaQuery.of(context).size.height * 0.5,
-                  child: ModernInvoiceItemsTable(
-                    controller: controller,
-                    selectedIndex: _selectedIndex,
-                    onSelectionChanged: (index) {
-                      setState(() {
-                        _selectedIndex = index;
-                      });
-                    },
-                    // Tras +/-/eliminar/seleccionar fila, devolver el
-                    // cursor al searchbox.
-                    onItemModified: () {
-                      _productSearchKey.currentState?.requestFocus();
-                    },
-                    scrollController:
-                        _productsScrollController, // Para scroll automático
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: _selection,
+                    builder:
+                        (context, selected, _) => ModernInvoiceItemsTable(
+                          controller: controller,
+                          selectedIndex: selected,
+                          onSelectionChanged: (index) => _selectedIndex = index,
+                          // Tras +/-/eliminar/seleccionar fila, devolver el
+                          // cursor al searchbox.
+                          onItemModified: () {
+                            _productSearchKey.currentState?.requestFocus();
+                          },
+                          scrollController:
+                              _productsScrollController, // Para scroll automático
+                        ),
                   ),
                 ),
               ],
@@ -748,11 +740,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(
-            Icons.point_of_sale,
-            color: Colors.white,
-            size: 18,
-          ),
+          child: const Icon(Icons.point_of_sale, color: Colors.white, size: 18),
         ),
         const SizedBox(width: 10),
         Column(
@@ -776,7 +764,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.accentOrange.withValues(alpha: 0.4),
+                      color: ElegantLightTheme.accentOrange.withValues(
+                        alpha: 0.4,
+                      ),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -816,11 +806,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               width: 1,
             ),
           ),
-          child: const Icon(
-            Icons.point_of_sale,
-            color: Colors.white,
-            size: 20,
-          ),
+          child: const Icon(Icons.point_of_sale, color: Colors.white, size: 20),
         ),
         const SizedBox(width: 12),
         Text(
@@ -850,11 +836,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(
-                  Icons.edit_note,
-                  color: Colors.white,
-                  size: 14,
-                ),
+                Icon(Icons.edit_note, color: Colors.white, size: 14),
                 SizedBox(width: 4),
                 Text(
                   'BORRADOR',
@@ -941,39 +923,42 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     BuildContext context,
     InvoiceFormController controller,
   ) {
-    return Obx(
-      () {
-        final canSave = controller.canSave && !controller.isSaving;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: canSave
-                ? ElegantLightTheme.successGradient
-                : LinearGradient(
+    return Obx(() {
+      final canSave = controller.canSave && !controller.isSaving;
+      return Container(
+        decoration: BoxDecoration(
+          gradient:
+              canSave
+                  ? ElegantLightTheme.successGradient
+                  : LinearGradient(
                     colors: [
                       Colors.white.withValues(alpha: 0.2),
                       Colors.white.withValues(alpha: 0.1),
                     ],
                   ),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: canSave
-                ? [
+          borderRadius: BorderRadius.circular(10),
+          boxShadow:
+              canSave
+                  ? [
                     BoxShadow(
                       color: const Color(0xFF10B981).withValues(alpha: 0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ]
-                : null,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: canSave ? () => _showPaymentDialog(context, controller) : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: controller.isSaving
-                    ? const SizedBox(
+                  : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap:
+                canSave ? () => _showPaymentDialog(context, controller) : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child:
+                  controller.isSaving
+                      ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
@@ -981,98 +966,106 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(
+                      : const Icon(
                         Icons.shopping_cart_checkout,
                         color: Colors.white,
                         size: 20,
                       ),
-              ),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
   }
 
   Widget _buildDesktopSaveButton(
     BuildContext context,
     InvoiceFormController controller,
   ) {
-    return Obx(
-      () {
-        final canSave = controller.canSave && !controller.isSaving;
-        return Tooltip(
-          message: 'Procesar Venta (Ctrl+Enter)',
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: canSave
-                  ? ElegantLightTheme.successGradient
-                  : LinearGradient(
+    return Obx(() {
+      final canSave = controller.canSave && !controller.isSaving;
+      return Tooltip(
+        message: 'Procesar Venta (Ctrl+Enter)',
+        child: Container(
+          decoration: BoxDecoration(
+            gradient:
+                canSave
+                    ? ElegantLightTheme.successGradient
+                    : LinearGradient(
                       colors: [
                         Colors.white.withValues(alpha: 0.2),
                         Colors.white.withValues(alpha: 0.1),
                       ],
                     ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: canSave
-                  ? [
+            borderRadius: BorderRadius.circular(12),
+            boxShadow:
+                canSave
+                    ? [
                       BoxShadow(
                         color: const Color(0xFF10B981).withValues(alpha: 0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
                     ]
-                  : null,
-              border: Border.all(
-                color: canSave
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.1),
-                width: 1,
-              ),
+                    : null,
+            border: Border.all(
+              color:
+                  canSave
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : Colors.white.withValues(alpha: 0.1),
+              width: 1,
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: canSave ? () => _showPaymentDialog(context, controller) : null,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      controller.isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.shopping_cart_checkout,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                      const SizedBox(width: 8),
-                      Text(
-                        controller.isSaving ? 'Procesando...' : controller.saveButtonText,
-                        style: TextStyle(
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap:
+                  canSave
+                      ? () => _showPaymentDialog(context, controller)
+                      : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    controller.isSaving
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                        : const Icon(
+                          Icons.shopping_cart_checkout,
                           color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          letterSpacing: 0.3,
+                          size: 20,
                         ),
+                    const SizedBox(width: 8),
+                    Text(
+                      controller.isSaving
+                          ? 'Procesando...'
+                          : controller.saveButtonText,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        letterSpacing: 0.3,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
   }
 
   Widget _buildTotalsSection(
@@ -1120,7 +1113,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     gradient: ElegantLightTheme.primaryGradient,
                     borderRadius: BorderRadius.circular(10),
@@ -1180,9 +1176,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     bool isTotal = false,
     bool isDiscount = false,
   }) {
-    final Color amountColor = isTotal
-        ? const Color(0xFF10B981) // Verde elegante
-        : isDiscount
+    final Color amountColor =
+        isTotal
+            ? const Color(0xFF10B981) // Verde elegante
+            : isDiscount
             ? const Color(0xFFEF4444) // Rojo elegante
             : ElegantLightTheme.textPrimary;
 
@@ -1201,49 +1198,54 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         ? (context.isMobile ? 12 : 14)
                         : (context.isMobile ? 10 : 11),
                 fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
-                color: isTotal
-                    ? ElegantLightTheme.textPrimary
-                    : ElegantLightTheme.textSecondary,
+                color:
+                    isTotal
+                        ? ElegantLightTheme.textPrimary
+                        : ElegantLightTheme.textSecondary,
               ),
             ),
           ),
           Expanded(
             flex: 2,
-            child: isTotal
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.successGradient,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withOpacity(0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+            child:
+                isTotal
+                    ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.successGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        AppFormatters.formatCurrency(amount.abs()),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: context.isMobile ? 13 : 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      AppFormatters.formatCurrency(amount.abs()),
-                      textAlign: TextAlign.center,
+                      ),
+                    )
+                    : Text(
+                      isDiscount
+                          ? '-${AppFormatters.formatCurrency(amount.abs())}'
+                          : AppFormatters.formatCurrency(amount.abs()),
+                      textAlign: TextAlign.right,
                       style: TextStyle(
-                        fontSize: context.isMobile ? 13 : 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        fontSize: context.isMobile ? 10 : 12,
+                        fontWeight: FontWeight.w600,
+                        color: amountColor,
                       ),
                     ),
-                  )
-                : Text(
-                    isDiscount
-                        ? '-${AppFormatters.formatCurrency(amount.abs())}'
-                        : AppFormatters.formatCurrency(amount.abs()),
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: context.isMobile ? 10 : 12,
-                      fontWeight: FontWeight.w600,
-                      color: amountColor,
-                    ),
-                  ),
           ),
         ],
       ),
@@ -1322,7 +1324,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             customerName: controller.selectedCustomer?.displayName,
             customerId: controller.selectedCustomer?.id,
             customerCreditLimit: controller.selectedCustomer?.creditLimit ?? 0,
-            customerCurrentBalance: controller.selectedCustomer?.currentBalance ?? 0,
+            customerCurrentBalance:
+                controller.selectedCustomer?.currentBalance ?? 0,
             onPaymentConfirmed: (
               amount,
               change,
@@ -1337,8 +1340,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               double? paymentCurrencyAmount,
               double? exchangeRate,
             }) async {
-              if (paymentCurrency != null) {
-              }
+              if (paymentCurrency != null) {}
 
               try {
                 // Guardar la factura con el estado y método de pago correctos
@@ -1359,7 +1361,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
                 // ✅ SOLO CONTINUAR SI LA OPERACIÓN FUE EXITOSA
                 if (success) {
-
                   // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
 
                   // ✅ NUEVO: Cerrar la pestaña automáticamente después de procesar venta
@@ -1416,9 +1417,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             },
             // Bre-B es una opción más del diálogo de pago (solo si el negocio
             // tiene llaves configuradas y es una venta nueva).
-            onBrebRequested: controller.canChargeWithBreb
-                ? () => _chargeWithBreb(context, controller)
-                : null,
+            onBrebRequested:
+                controller.canChargeWithBreb
+                    ? () => _chargeWithBreb(context, controller)
+                    : null,
           ),
     );
   }

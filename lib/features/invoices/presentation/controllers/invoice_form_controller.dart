@@ -930,7 +930,9 @@ class InvoiceFormController extends GetxController {
         _shouldHighlightUpdatedItem.value = false;
       });
 
-      _showProductUpdatedMessage(product.name, newQuantity);
+      // Sin aviso flotante: la fila resaltada ya muestra la nueva cantidad.
+      // Cada escaneo repetido dejaba un aviso de 2,4 s en cola (con animación
+      // continua): 20 escaneos = casi un minuto de avisos y la caja trabada.
     } else {
       // Solo validar stock si la preferencia está activa
       if (!isTemporary && shouldValidateStock && quantity > product.stock) {
@@ -2516,24 +2518,6 @@ class InvoiceFormController extends GetxController {
       icon: Icon(statusIcon, color: iconColor),
       duration: Duration(seconds: status == InvoiceStatus.draft ? 5 : 4),
       margin: const EdgeInsets.all(8),
-    );
-  }
-
-  void _showProductUpdatedMessage(String productName, double newQuantity) {
-    Get.snackbar(
-      '🎯 Producto Actualizado',
-      '$productName → ${AppFormatters.formatStock(newQuantity)} unidades',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: Icon(Icons.trending_up, color: Colors.green.shade600, size: 24),
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(8),
-      borderColor: Colors.green.shade300,
-      borderWidth: 1.5,
-      borderRadius: 12,
-      shouldIconPulse: true,
-      animationDuration: const Duration(milliseconds: 400),
     );
   }
 
