@@ -1,5 +1,6 @@
 // lib/features/products/presentation/controllers/product_waste_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 
@@ -127,6 +128,7 @@ class ProductWasteController extends GetxController {
       'Merma registrada online: producto=${productId.value} qty=$quantity',
       tag: 'ProductWasteController',
     );
+    replacePreviousSnackbar();
     Get.snackbar(
       'Merma registrada',
       'Se descontaron $quantity del stock.',
@@ -161,6 +163,7 @@ class ProductWasteController extends GetxController {
       'Merma encolada offline: producto=${productId.value} qty=$quantity tempId=$tempId',
       tag: 'ProductWasteController',
     );
+    replacePreviousSnackbar();
     Get.snackbar(
       'Merma guardada offline',
       'Se descontaron $quantity del stock localmente. Se enviará al servidor cuando recuperes conexión.',
@@ -205,6 +208,7 @@ class ProductWasteController extends GetxController {
   }
 
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/widgets/customer_selector_widget.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -739,6 +740,7 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     _closeSearch();
 
     // Feedback visual
+    replacePreviousSnackbar();
     Get.snackbar(
       'Cliente Seleccionado',
       customer.displayName,

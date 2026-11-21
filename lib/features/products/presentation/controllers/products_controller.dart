@@ -1,5 +1,6 @@
 // lib/features/products/presentation/controllers/products_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_stats.dart';
 import 'package:flutter/material.dart';
@@ -801,6 +802,7 @@ class ProductsController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message, {Duration? duration}) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -816,6 +818,7 @@ class ProductsController extends GetxController
 
   /// Mostrar mensaje de éxito
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,

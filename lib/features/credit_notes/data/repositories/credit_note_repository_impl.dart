@@ -1,5 +1,6 @@
 // lib/features/credit_notes/data/repositories/credit_note_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
@@ -26,7 +27,27 @@ import 'credit_note_offline_repository.dart';
 import '../credit_note_local_effects.dart';
 import '../credit_note_pdf_builder.dart';
 
+/// ¿El servidor rechazó la confirmación porque la nota YA estaba confirmada?
+bool isAlreadyConfirmedRejection(ServerException e) {
+  if (e.statusCode != 400) return false;
+  final m = e.message.toLowerCase();
+  return m.contains('estado actual: confirmed') || m.contains('ya está confirmada') ||
+      m.contains('ya esta confirmada');
+}
+
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
+  /// La nota según el servidor, solo si ya está confirmada (si no, o si no
+  /// se puede consultar: `null`).
+  @visibleForTesting
+  Future<CreditNoteModel?> confirmedOnServer(String id) async {
+    try {
+      final current = await remoteDataSource.getCreditNoteById(id);
+      return current.status == CreditNoteStatus.confirmed ? current : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   final CreditNoteRemoteDataSource remoteDataSource;
   final CreditNoteLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
@@ -371,8 +392,27 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
     try {
       AppLogger.i('Confirmando nota de crédito $id', tag: 'CREDIT_NOTE');
-      final creditNote = await remoteDataSource.confirmCreditNote(id);
+      CreditNoteModel creditNote;
+      try {
+        creditNote = await remoteDataSource.confirmCreditNote(id);
+      } on RequestTimeoutException {
+        // Se agotó la espera, pero el servidor pudo terminarla (pasó: la app
+        // decía "error" y la nota aparecía confirmada 11 s después). Se le
+        // pregunta el estado real antes de decidir.
+        final current = await confirmedOnServer(id);
+        if (current == null) rethrow;
+        creditNote = current;
+      }
       AppLogger.i('Nota de crédito confirmada exitosamente', tag: 'CREDIT_NOTE');
+
+      // La copia del equipo pasa a confirmada: la lista y el detalle leen
+      // primero del equipo y, sin esto, la seguían mostrando en borrador
+      // (y otro "Confirmar" la habría confirmado de nuevo sin conexión).
+      try {
+        await localDataSource.cacheCreditNote(creditNote);
+      } catch (e) {
+        AppLogger.w('No se pudo guardar la nota confirmada en el equipo: $e', tag: 'CREDIT_NOTE');
+      }
 
       // ✅ CRÍTICO: backend ya restauró inventario en /confirm
       // (restoreToBatchesIntelligent + customer balance). Aplicamos el mismo
@@ -442,6 +482,22 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       if (e is ConnectionException) {
         networkInfo.markServerUnreachable();
         return _localCreditNotes.confirmCreditNote(id);
+      }
+      // Servidor anterior a la confirmación idempotente: un segundo intento
+      // (o el primero que tardó) responde 400 "Estado actual: confirmed"
+      // aunque la nota SÍ quedó confirmada. Se consulta y se da por hecha.
+      if (e is ServerException && isAlreadyConfirmedRejection(e)) {
+        try {
+          final current = await remoteDataSource.getCreditNoteById(id);
+          if (current.status == CreditNoteStatus.confirmed) {
+            try {
+              await localDataSource.cacheCreditNote(current);
+            } catch (_) {}
+            return Right(current);
+          }
+        } catch (_) {
+          // Sin poder consultarla: se muestra el motivo del servidor.
+        }
       }
       AppLogger.e('Error al confirmar nota de crédito: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));

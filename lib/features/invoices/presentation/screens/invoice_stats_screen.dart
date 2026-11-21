@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/screens/invoice_stats_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -2925,6 +2926,7 @@ class InvoiceStatsScreen extends StatelessWidget {
   }
 
   void _showInfo(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/controllers/auth_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../app/config/routes/app_routes.dart';
@@ -634,7 +635,7 @@ class AuthController extends GetxController {
           _clearLoginForm();
 
           // Navegar al dashboard
-          Get.offAllNamed(AppRoutes.dashboard);
+          AppNav.offAllNamed(AppRoutes.dashboard);
           Get.snackbar(
             'Bienvenido',
             'Sesión iniciada exitosamente',
@@ -698,7 +699,7 @@ class AuthController extends GetxController {
           _clearRegisterForm();
 
           // Navegar primero, luego snackbar
-          Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
+          AppNav.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
           Get.snackbar(
             'Registro Exitoso',
             '¡Cuenta creada! Verifica tu correo electrónico para continuar.',
@@ -830,7 +831,7 @@ class AuthController extends GetxController {
         _clearAllForms();
 
         if (navigate) {
-          Get.offAllNamed(AppRoutes.login);
+          AppNav.offAllNamed(AppRoutes.login);
         }
       }
 
@@ -918,7 +919,7 @@ class AuthController extends GetxController {
     _clearAllForms();
 
     // 7. Navegar al login
-    Get.offAllNamed(AppRoutes.login);
+    AppNav.offAllNamed(AppRoutes.login);
 
     // 8. Snackbar profesional (delay para que la navegación ocurra primero)
     Future.delayed(const Duration(milliseconds: 500), () {

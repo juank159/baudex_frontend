@@ -73,6 +73,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener productos: $e');
     }
@@ -95,6 +99,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener producto: $e');
     }
@@ -117,6 +125,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener producto por SKU: $e');
     }
@@ -139,6 +151,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener producto por código de barras: $e',
@@ -148,24 +164,14 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
 
   @override
   Future<ProductModel> findBySkuOrBarcode(String code) async {
+    // El servidor no tiene "/products/find/:code" (siempre respondía 404):
+    // se usa el código de barras y, si no existe, el SKU.
     try {
-      // Nota: Ajusta esta ruta según tu backend - podría ser diferente
-      final response = await dioClient.get('/products/find/$code');
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['success'] == true && responseData['data'] != null) {
-          return ProductModel.fromJson(responseData['data']);
-        } else {
-          throw ServerException('Respuesta inválida del servidor');
-        }
-      } else {
-        throw _handleErrorResponse(response);
-      }
-    } on DioException catch (e) {
-      throw _handleDioException(e);
-    } catch (e) {
-      throw ServerException('Error inesperado al buscar producto: $e');
+      return await getProductByBarcode(code);
+    } on ServerException catch (e) {
+      final notFound = e.statusCode == 404 || e.message.contains('no encontrado');
+      if (!notFound) rethrow;
+      return getProductBySku(code);
     }
   }
 
@@ -196,6 +202,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado en búsqueda: $e');
     }
@@ -222,6 +232,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener productos con stock bajo: $e',
@@ -250,6 +264,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener productos sin stock: $e',
@@ -278,6 +296,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener productos por categoría: $e',
@@ -350,6 +372,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener valor del inventario: $e',
@@ -441,6 +467,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e, stackTrace) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
@@ -546,6 +576,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e, stackTrace) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
@@ -575,6 +609,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar estado: $e');
     }
@@ -604,6 +642,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar stock: $e');
     }
@@ -619,6 +661,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al eliminar producto: $e');
     }
@@ -641,6 +687,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al restaurar producto: $e');
     }
@@ -664,6 +714,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al validar stock: $e');
     }
@@ -682,6 +736,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al reducir stock: $e');
     }
@@ -805,6 +863,10 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al registrar merma: $e');

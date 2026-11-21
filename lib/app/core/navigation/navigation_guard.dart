@@ -4,6 +4,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 
 import '../../data/local/sync_service.dart';
+import 'route_stack_observer.dart';
+import '../utils/snackbar_policy.dart';
+import 'cash_register_guard.dart';
+import '../../config/routes/app_routes.dart';
 
 /// Guard centralizado de navegación.
 ///
@@ -88,6 +92,23 @@ class NavigationGuard {
   bool offAllNamed(String route, {dynamic arguments}) =>
       _enqueue(_PendingNav._offAll(route, arguments));
 
+  /// Abrir un módulo (menú, atajos Alt+número, paleta): reemplaza la pila
+  /// pero conserva las pantallas con trabajo sin guardar (ver
+  /// [registerKeepAlive]).
+  bool openModule(String route) =>
+      _enqueue(_PendingNav._raw('openModule', route, null));
+
+  /// Pantallas que no se cierran al abrir otro módulo mientras [keep]
+  /// devuelva `true` (p. ej. Facturación con una venta a medias).
+  final Map<String, bool Function()> _keepAlive = {};
+
+  void registerKeepAlive(String route, bool Function() keep) =>
+      _keepAlive[route] = keep;
+
+  void unregisterKeepAlive(String route, bool Function() keep) {
+    if (_keepAlive[route] == keep) _keepAlive.remove(route);
+  }
+
   /// Reemplazo seguro de `Get.toNamed`.
   bool toNamed(String route, {dynamic arguments}) =>
       _enqueue(_PendingNav._to(route, arguments));
@@ -96,13 +117,21 @@ class NavigationGuard {
   bool offNamed(String route, {dynamic arguments}) =>
       _enqueue(_PendingNav._off(route, arguments));
 
-  /// `Get.back()` no necesita guard pero lo exponemos para uniformidad.
+  /// Volver (botón "Volver" de las pantallas).
+  ///
+  /// `Get.back()` de GetX 4.7, si hay un aviso (snackbar) en pantalla, SOLO
+  /// cierra el aviso y no vuelve: con avisos en fila el botón "no hacía nada"
+  /// durante minutos (volver a la factura tardó 42 s). Aquí se cierran los
+  /// avisos y se vuelve de una vez.
   bool back({dynamic result}) {
     if (_inFlight) {
       _log('back DESCARTADO (navegación en curso a $_currentRoute)');
       return false;
     }
-    Get.back<dynamic>(result: result);
+    dismissAllSnackbars();
+    final navigator = Get.key.currentState;
+    if (navigator == null || !navigator.canPop()) return false;
+    navigator.pop<dynamic>(result);
     return true;
   }
 
@@ -169,7 +198,57 @@ class NavigationGuard {
     scheduleMicrotask(() {
       switch (nav.kind) {
         case 'offAllNamed':
-          Get.offAllNamed(nav.route, arguments: nav.arguments);
+          if (shouldReturnToOpenScreen(
+            route: nav.route,
+            currentRoute: Get.currentRoute,
+            hasArguments: nav.arguments != null,
+            isOpen: RouteStackObserver.instance.contains,
+          )) {
+            // La pantalla ya está abierta debajo: se vuelve a ELLA (con su
+            // estado) en vez de crear otra copia. Con dos copias, GetX
+            // cerraba el controlador de la nueva al cerrar la vieja.
+            Get.until((r) => r.settings.name == nav.route);
+          } else {
+            Get.offAllNamed(nav.route, arguments: nav.arguments);
+          }
+          break;
+        case 'openModule':
+          final action = moduleNavigation(
+            route: nav.route,
+            currentRoute: Get.currentRoute,
+            openRoutes: RouteStackObserver.instance.names.whereType<String>().toList(),
+            mustKeep: (r) {
+              final keep = _keepAlive[r];
+              if (keep == null) return false;
+              try {
+                return keep();
+              } catch (_) {
+                return false;
+              }
+            },
+          );
+          switch (action.kind) {
+            case ModuleNavKind.returnToOpen:
+              Get.until((r) => r.settings.name == nav.route);
+            case ModuleNavKind.pushKeeping:
+              // Se cierra lo de encima de la pantalla que se conserva y se
+              // abre el módulo sobre ella (la venta a medias sigue viva).
+              // Si el módulo ya estaba abierto DEBAJO, esa copia se quita:
+              // dos copias de la misma pantalla se pisan los controladores.
+              final navigator = Get.key.currentState;
+              if (navigator != null) {
+                for (final old
+                    in RouteStackObserver.instance.routesNamed(nav.route)) {
+                  if (!old.isCurrent) navigator.removeRoute(old);
+                }
+              }
+              Get.offNamedUntil(
+                nav.route,
+                (r) => r.settings.name == action.keep,
+              );
+            case ModuleNavKind.replaceAll:
+              Get.offAllNamed(nav.route);
+          }
           break;
         case 'toNamed':
           Get.toNamed(nav.route, arguments: nav.arguments);
@@ -239,6 +318,64 @@ class NavigationGuard {
   }
 }
 
+/// ¿Ir a [route] debe volver a la pantalla que ya está abierta más abajo?
+/// Solo sin argumentos (con argumentos es otra consulta de esa pantalla) y si
+/// no es la pantalla de arriba (ahí no hay nada que hacer).
+bool shouldReturnToOpenScreen({
+  required String route,
+  required String currentRoute,
+  required bool hasArguments,
+  required bool Function(String route) isOpen,
+}) =>
+    !hasArguments && currentRoute != route && isOpen(route);
+
+enum ModuleNavKind { returnToOpen, pushKeeping, replaceAll }
+
+class ModuleNav {
+  final ModuleNavKind kind;
+
+  /// Pantalla que se conserva debajo (solo con [ModuleNavKind.pushKeeping]).
+  final String? keep;
+  const ModuleNav(this.kind, [this.keep]);
+
+  @override
+  String toString() => 'ModuleNav($kind, $keep)';
+}
+
+/// Qué hacer al abrir el módulo [route] desde el menú o un atajo.
+///
+/// - Si ya está abierto más abajo: volver a él (con su estado).
+/// - Si hay abierta una pantalla que [mustKeep] (Facturación con una venta a
+///   medias): abrir el módulo encima de ella, cerrando lo que haya en medio.
+///   Antes Alt+6 → Alt+2 reemplazaba la pila y la venta en curso se perdía.
+/// - Si no: reemplazar la pila, como el menú (no se acumulan pantallas).
+///
+/// [openRoutes] van de abajo hacia arriba.
+ModuleNav moduleNavigation({
+  required String route,
+  required String currentRoute,
+  required List<String> openRoutes,
+  required bool Function(String route) mustKeep,
+}) {
+  // La pantalla a conservar más alta (volver a algo que está DEBAJO de ella
+  // la cerraría).
+  String? keep;
+  var keepIndex = -1;
+  for (var i = openRoutes.length - 1; i >= 0; i--) {
+    if (openRoutes[i] != route && mustKeep(openRoutes[i])) {
+      keep = openRoutes[i];
+      keepIndex = i;
+      break;
+    }
+  }
+  final targetIndex = openRoutes.lastIndexOf(route);
+  if (currentRoute != route && targetIndex != -1 && targetIndex > keepIndex) {
+    return const ModuleNav(ModuleNavKind.returnToOpen);
+  }
+  if (keep != null) return ModuleNav(ModuleNavKind.pushKeeping, keep);
+  return const ModuleNav(ModuleNavKind.replaceAll);
+}
+
 class _PendingNav {
   final String kind;
   final String route;
@@ -264,4 +401,23 @@ class AppNav {
       NavigationGuard.instance.offNamed(r, arguments: arguments);
   static bool back({dynamic result}) =>
       NavigationGuard.instance.back(result: result);
+
+  /// Abrir un módulo (menú lateral, paleta de comandos, atajos Alt+número):
+  /// siempre reemplaza la pila, como el menú. Antes la paleta y los atajos
+  /// apilaban pantallas (Get.toNamed): cada módulo visitado quedaba vivo
+  /// debajo, con sus controladores, escuchas de teclado y recargas por
+  /// sincronización, y volver a uno abierto creaba una segunda copia.
+  static Future<void> openModule(String route) async {
+    if (Get.currentRoute == route) return;
+    if (_routeRequiresOpenCashRegister(route)) {
+      final ctx = Get.context;
+      if (ctx != null && !await CashRegisterGuard.requireOpen(ctx)) return;
+    }
+    NavigationGuard.instance.openModule(route);
+  }
+
+  /// Rutas que exigen una caja abierta antes de entrar: arrancar una venta
+  /// sin caja perdía el carrito al ir a abrirla.
+  static bool _routeRequiresOpenCashRegister(String route) =>
+      route == AppRoutes.invoicesWithTabs || route == AppRoutes.invoicesCreate;
 }

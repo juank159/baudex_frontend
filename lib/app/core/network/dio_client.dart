@@ -1,3 +1,4 @@
+import 'dart:convert';
 // // lib/app/core/network/dio_client.dart
 // import 'package:dio/dio.dart';
 // import 'package:get/get.dart' as getx;
@@ -412,7 +413,7 @@ class DioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return const ConnectionException(
+        return const RequestTimeoutException(
           'Tiempo de conexión agotado. Verifica tu conexión a internet.',
         );
 
@@ -507,6 +508,15 @@ class DioClient {
     }
     if (data is String && data.isNotEmpty) {
       return data;
+    }
+    // Peticiones que piden la respuesta en bytes (descarga de cambios).
+    if (data is List<int> && data.isNotEmpty) {
+      try {
+        return _extractErrorMessage(
+            jsonDecode(utf8.decode(data)), defaultMessage);
+      } catch (_) {
+        return defaultMessage;
+      }
     }
     return defaultMessage;
   }

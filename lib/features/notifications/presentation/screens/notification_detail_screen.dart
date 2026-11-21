@@ -1,5 +1,6 @@
 // lib/features/notifications/presentation/screens/notification_detail_screen.dart
 import 'dart:ui';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -943,7 +944,7 @@ class NotificationDetailScreen extends GetView<NotificationsController> {
                 icon: Icons.arrow_back_rounded,
                 label: 'Volver',
                 gradient: ElegantLightTheme.primaryGradient,
-                onPressed: () => Get.back(),
+                onPressed: () => AppNav.back(),
               ),
             ],
           ),

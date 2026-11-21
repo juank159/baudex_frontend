@@ -1,5 +1,7 @@
 // lib/features/credit_notes/presentation/screens/credit_note_form_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -53,7 +55,7 @@ class CreditNoteFormScreen extends GetView<CreditNoteFormController> {
           ),
           child: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Get.back(),
+            onPressed: () => AppNav.back(),
           ),
         ),
       ),
@@ -1139,6 +1141,7 @@ class CreditNoteFormScreen extends GetView<CreditNoteFormController> {
   void _addItem() async {
     // Verificar si hay cantidades disponibles
     if (controller.hasAvailableQuantities && !controller.canCreatePartialCreditNote) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Sin disponibilidad',
         'No hay cantidades disponibles para crear notas de crédito. Todos los productos ya han sido acreditados.',

@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_tabs_controller.dart
 import 'package:baudex_desktop/features/customers/domain/usecases/create_customer_usecase.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/search_customers_usecase.dart';
@@ -8,6 +9,8 @@ import 'package:baudex_desktop/features/products/domain/usecases/search_products
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'invoice_form_controller.dart';
+import '../../../../app/config/routes/app_routes.dart';
+import '../../../../app/core/navigation/navigation_guard.dart';
 
 class InvoiceTab {
   final String id;
@@ -74,7 +77,16 @@ class InvoiceTabsController extends GetxController
     _cleanupGlobalController();
 
     _initializeWithFirstTab();
+
+    // Con una venta a medias, ir a otro módulo (Alt+6, menú) no cierra
+    // Facturación: queda debajo y Alt+2 vuelve a ella con la venta.
+    NavigationGuard.instance
+        .registerKeepAlive(AppRoutes.invoicesWithTabs, hasSaleInProgress);
   }
+
+  /// Alguna pestaña tiene productos sin facturar.
+  bool hasSaleInProgress() =>
+      _tabs.any((tab) => tab.controller.invoiceItems.isNotEmpty);
 
   /// Limpiar controlador global sin tag que pueda causar conflictos
   void _cleanupGlobalController() {
@@ -88,6 +100,8 @@ class InvoiceTabsController extends GetxController
 
   @override
   void onClose() {
+    NavigationGuard.instance
+        .unregisterKeepAlive(AppRoutes.invoicesWithTabs, hasSaleInProgress);
     _disposeAllTabs();
     _tabController?.dispose();
     super.onClose();
@@ -360,6 +374,7 @@ class InvoiceTabsController extends GetxController
   void _showMaxTabsError() {
     // Programar para el siguiente frame para evitar errores durante build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Límite alcanzado',
         'No puedes tener más de $maxTabs pestañas abiertas al mismo tiempo',
@@ -374,6 +389,7 @@ class InvoiceTabsController extends GetxController
   void _showError(String title, String message) {
     // Programar para el siguiente frame para evitar errores durante build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      replacePreviousSnackbar();
       Get.snackbar(
         title,
         message,

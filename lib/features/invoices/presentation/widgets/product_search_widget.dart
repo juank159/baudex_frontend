@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/widgets/product_search_widget.dart
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 import 'dart:async';
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../../../products/domain/entities/product_price.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../controllers/invoice_form_controller.dart';
 import 'barcode_scan_queue.dart';
+import 'scanner_focus.dart';
 
 class ProductSearchWidget extends StatefulWidget {
   final InvoiceFormController controller;
@@ -102,18 +104,25 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
 
     // Si OTRO widget (otro TextField, botón con focus) tiene primary focus,
     // no robarlo. Solo restaurar si nadie más lo tiene.
-    final primary = FocusManager.instance.primaryFocus;
-    if (primary != null && primary != _focusNode) return;
+    if (!_nobodyElseHasFocus()) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _pauseFocusRestoration) return;
       if (_focusNode.hasFocus) return;
       if (_hasModalRouteAbove()) return;
-      if (FocusManager.instance.primaryFocus != null &&
-          FocusManager.instance.primaryFocus != _focusNode) return;
+      if (!_nobodyElseHasFocus()) return;
       _focusNode.requestFocus();
     });
   }
+
+  /// ¿El foco quedó "en nadie"? Al reconstruirse la pantalla (sincronización,
+  /// avisos) el foco cae al ámbito (`FocusScopeNode`), no a null: antes eso
+  /// contaba como "otro lo tiene" y la caja no lo recuperaba nunca, así que
+  /// las teclas del lector se perdían.
+  bool _nobodyElseHasFocus() => scannerFocusIsFree(
+        FocusManager.instance.primaryFocus,
+        own: [_focusNode, _keyboardFocusNode],
+      );
 
   /// ✅ NUEVO: Inicializar servicio de notificaciones de audio
   Future<void> _initializeAudioService() async {
@@ -299,8 +308,20 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
       child: Focus(
         onKeyEvent: (FocusNode node, KeyEvent event) {
           // ✅ CRÍTICO: Interceptar Enter ANTES de que llegue al TextField
-          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-            if (_showResults && _searchResults.isNotEmpty && _selectedResultIndex >= 0) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+            // Solo se usa el resultado resaltado si es de lo que hay escrito
+            // AHORA y no es un código de barras: con el lector, un resultado
+            // viejo se quedaba con el Enter y el código siguiente se pegaba
+            // al anterior en la caja.
+            final text = _searchController.text.trim();
+            if (_showResults &&
+                _searchResults.isNotEmpty &&
+                _selectedResultIndex >= 0 &&
+                _selectedResultIndex < _searchResults.length &&
+                text == _lastSearchTerm &&
+                !_isBarcodeQuery(text)) {
               final selectedProduct = _searchResults[_selectedResultIndex];
               if (!widget.controller.shouldValidateStock || selectedProduct.stock > 0) {
                 _selectProduct(selectedProduct);
@@ -372,7 +393,11 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
             ),
             onSubmitted: (value) {
               // ✅ CRÍTICO: Solo procesar onSubmitted si no hay selección activa
-              if (_selectedResultIndex < 0) {
+              final text = value.trim();
+              if (_selectedResultIndex < 0 ||
+                  _selectedResultIndex >= _searchResults.length ||
+                  text != _lastSearchTerm ||
+                  _isBarcodeQuery(text)) {
                 _handleDirectSearch(value);
               } else {
                 // Si hay selección activa, procesar ese producto en lugar de buscar
@@ -1273,13 +1298,9 @@ AppLogger.e('❌ Error al abrir escáner: $e');
     // Audio TTS — async, no bloquea UI. Servicio offline (no requiere red).
     AudioNotificationService.instance.announceOutOfStock();
 
-    Get.snackbar(
+    FuturisticNotifications.showError(
       'Sin stock',
       '${product.name} no tiene unidades disponibles',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.block, color: Colors.red),
       duration: const Duration(milliseconds: 2500),
     );
   }
@@ -1311,15 +1332,10 @@ AppLogger.e('❌ Error al abrir escáner: $e');
   }
 
   void _showError(String title, String message) {
-    Get.snackbar(
+    FuturisticNotifications.showError(
       title,
       message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.error, color: Colors.red),
       duration: const Duration(seconds: 3),
-      margin: const EdgeInsets.all(8),
     );
   }
 }

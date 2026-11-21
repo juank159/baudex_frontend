@@ -1,10 +1,13 @@
 // lib/features/credit_notes/presentation/controllers/credit_note_detail_controller.dart
 import 'dart:io';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/credit_note.dart';
+import '../../../../app/core/errors/server_rejection.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../domain/usecases/get_credit_note_by_id.dart';
 import '../../domain/usecases/confirm_credit_note.dart';
 import '../../domain/usecases/cancel_credit_note.dart';
@@ -20,7 +23,11 @@ class CreditNoteDetailController extends GetxController
   final DeleteCreditNote _deleteCreditNoteUseCase;
   final DownloadCreditNotePdf _downloadCreditNotePdfUseCase;
 
+  /// Nota que muestra este controlador (uno por nota abierta).
+  final String? creditNoteId;
+
   CreditNoteDetailController({
+    this.creditNoteId,
     required GetCreditNoteById getCreditNoteByIdUseCase,
     required ConfirmCreditNote confirmCreditNoteUseCase,
     required CancelCreditNote cancelCreditNoteUseCase,
@@ -53,15 +60,23 @@ class CreditNoteDetailController extends GetxController
   void onInit() {
     super.onInit();
     setupSyncListener();
-    final id = Get.parameters['id'];
+    final id = _routeId;
     if (id != null) {
       loadCreditNote(id);
     }
   }
 
+  /// Id de la nota de esta pantalla. NUNCA `Get.parameters` después de abrir:
+  /// ese mapa es el de la última ruta abierta, no el de esta.
+  String? get _routeId {
+    final id = creditNoteId;
+    if (id != null && id.isNotEmpty && id != 'sin-id') return id;
+    return null;
+  }
+
   @override
   Future<void> onSyncCompleted() async {
-    final id = _creditNote.value?.id ?? Get.parameters['id'];
+    final id = _creditNote.value?.id ?? _routeId;
     if (id != null && id.isNotEmpty) {
       await loadCreditNote(id);
     }
@@ -77,6 +92,7 @@ class CreditNoteDetailController extends GetxController
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -103,7 +119,7 @@ class CreditNoteDetailController extends GetxController
   // ==================== ACTIONS ====================
 
   Future<void> confirmCreditNote() async {
-    if (creditNote == null) return;
+    if (creditNote == null || _isProcessing.value) return;
 
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
@@ -132,33 +148,26 @@ class CreditNoteDetailController extends GetxController
       final result = await _confirmCreditNoteUseCase(creditNote!.id);
 
       result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
+        (failure) => FuturisticNotifications.showError(
+          'No se pudo confirmar',
+          reasonForUser(failure.message),
+        ),
         (updatedCreditNote) {
           _creditNote.value = updatedCreditNote;
-          Get.snackbar(
-            'Confirmada',
-            'Nota de crédito confirmada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green,
-            colorText: Colors.white,
-          );
+          FuturisticNotifications.showSuccess('Confirmada', 'Nota de crédito confirmada');
         },
       );
+    } catch (e) {
+      FuturisticNotifications.showError('No se pudo confirmar', reasonForUser('$e'));
     } finally {
       _isProcessing.value = false;
+      // Estado real: el servidor pudo terminar aunque la respuesta fallara.
+      if (!isClosed) await refreshCreditNote();
     }
   }
 
   Future<void> cancelCreditNote() async {
-    if (creditNote == null) return;
+    if (creditNote == null || _isProcessing.value) return;
 
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
@@ -188,28 +197,21 @@ class CreditNoteDetailController extends GetxController
       final result = await _cancelCreditNoteUseCase(creditNote!.id);
 
       result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
+        (failure) => FuturisticNotifications.showError(
+          'No se pudo anular',
+          reasonForUser(failure.message),
+        ),
         (updatedCreditNote) {
           _creditNote.value = updatedCreditNote;
-          Get.snackbar(
-            'Cancelada',
-            'Nota de crédito cancelada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.orange,
-            colorText: Colors.white,
-          );
+          FuturisticNotifications.showSuccess('Anulada', 'Nota de crédito anulada');
         },
       );
+    } catch (e) {
+      FuturisticNotifications.showError('No se pudo anular', reasonForUser('$e'));
     } finally {
       _isProcessing.value = false;
+      // Estado real: el servidor pudo terminar aunque la respuesta fallara.
+      if (!isClosed) await refreshCreditNote();
     }
   }
 
@@ -245,6 +247,7 @@ class CreditNoteDetailController extends GetxController
 
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -279,6 +282,7 @@ class CreditNoteDetailController extends GetxController
 
       await result.fold(
         (failure) async {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             failure.message,
@@ -295,6 +299,7 @@ class CreditNoteDetailController extends GetxController
           );
           await file.writeAsBytes(pdfBytes);
 
+          replacePreviousSnackbar();
           Get.snackbar(
             'Descarga Completa',
             'PDF guardado en: ${file.path}',

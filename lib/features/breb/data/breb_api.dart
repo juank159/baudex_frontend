@@ -1,6 +1,7 @@
 // lib/features/breb/data/breb_api.dart
 import 'package:dio/dio.dart';
 import '../../../app/core/errors/exceptions.dart';
+import '../../../app/core/errors/server_rejection.dart';
 import '../../../app/core/network/dio_client.dart';
 import '../domain/breb_charge.dart';
 
@@ -128,12 +129,7 @@ class BrebApi {
   /// al cajero.
   static BrebException _fromAppException(AppException e) {
     if (e is ConnectionException) return _offline;
-    final message = e.message
-        .replaceFirst(
-          RegExp(r'^(Solicitud incorrecta|Conflicto|Recurso no encontrado|Error interno del servidor|Error): '),
-          '',
-        )
-        .trim();
+    final message = reasonForUser(e.message, fallback: '');
     // Un servidor anterior a esta función rechaza el campo que no conoce.
     if (message.contains('should not exist')) return _serverTooOld;
     return BrebException(

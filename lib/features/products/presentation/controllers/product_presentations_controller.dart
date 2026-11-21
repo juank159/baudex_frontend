@@ -1,5 +1,6 @@
 // lib/features/products/presentation/controllers/product_presentations_controller.dart
 import 'package:get/get.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/product_presentation.dart';
 import '../../domain/usecases/get_product_presentations_usecase.dart';
@@ -119,6 +120,7 @@ class ProductPresentationsController extends GetxController
 
     return result.fold(
       (failure) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Error',
           failure.message,
@@ -137,6 +139,7 @@ class ProductPresentationsController extends GetxController
           presentations.assignAll(updated);
         }
         presentations.add(presentation);
+        replacePreviousSnackbar();
         Get.snackbar(
           'Creada',
           'Presentación "${presentation.name}" creada correctamente',
@@ -181,6 +184,7 @@ class ProductPresentationsController extends GetxController
 
     return result.fold(
       (failure) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Error',
           failure.message,
@@ -205,6 +209,7 @@ class ProductPresentationsController extends GetxController
             presentations[index] = presentation;
           }
         }
+        replacePreviousSnackbar();
         Get.snackbar(
           'Actualizada',
           'Presentación "${presentation.name}" actualizada',
@@ -229,6 +234,7 @@ class ProductPresentationsController extends GetxController
 
     return result.fold(
       (failure) {
+        replacePreviousSnackbar();
         Get.snackbar(
           'Error',
           failure.message,
@@ -238,6 +244,7 @@ class ProductPresentationsController extends GetxController
       },
       (_) {
         presentations.removeWhere((p) => p.id == id);
+        replacePreviousSnackbar();
         Get.snackbar(
           'Eliminada',
           'Presentación eliminada correctamente',

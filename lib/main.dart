@@ -15,8 +15,10 @@ import 'app/config/themes/app_theme.dart';
 import 'app/shared/utils/global_shortcuts.dart';
 import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
+import 'app/core/navigation/route_stack_observer.dart';
 import 'app/core/ops/ops_reporter.dart';
 import 'app/core/ops/ops_health_watcher.dart';
+import 'app/core/navigation/getx_route_janitor.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
@@ -50,9 +52,6 @@ void main() async {
     }
     if (message.contains('Invalid state transition') &&
         message.contains('AppLifecycleState')) {
-      return true;
-    }
-    if (message.contains('disposed') || message.contains('unmounted')) {
       return true;
     }
     // Suprimir error de GetX Obx dispose en navegación desktop (removeSubscription null check)
@@ -212,6 +211,14 @@ class _MyAppState extends State<MyApp> {
       // RouteObserver deshabilitado: causa crash nativo de FocusScopeNode en macOS desktop
       // El auto-refresh se maneja via cache del controller (checkAndRefreshIfNeeded)
       // navigatorObservers: [appRouteObserver],
+      // Solo anota qué pantallas están abiertas (no avisa a ninguna): la
+      // navegación lo usa para volver a una pantalla abierta en vez de
+      // crear una segunda copia.
+      // GetxRouteJanitor: libera las pantallas cerradas que GetX retiene.
+      navigatorObservers: [
+        RouteStackObserver.instance,
+        GetxRouteJanitor.instance,
+      ],
 
       initialBinding: InitialBinding(),
 

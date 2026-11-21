@@ -1,5 +1,6 @@
 // lib/app/shared/screens/splash_screen.dart
 import 'dart:math' as math;
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -88,13 +89,13 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       if (isAuthenticated) {
-        Get.offAllNamed(AppRoutes.dashboard);
+        AppNav.offAllNamed(AppRoutes.dashboard);
       } else {
-        Get.offAllNamed(AppRoutes.login);
+        AppNav.offAllNamed(AppRoutes.login);
       }
     } catch (e) {
       if (mounted) {
-        Get.offAllNamed(AppRoutes.login);
+        AppNav.offAllNamed(AppRoutes.login);
       }
     }
   }

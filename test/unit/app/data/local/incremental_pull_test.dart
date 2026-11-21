@@ -28,7 +28,7 @@ class FakeServer implements SyncChangesClient {
 
   @override
   Future<SyncChangesPage> fetch(String entity,
-      {required String since, String? afterId, int limit = 200}) async {
+      {required String since, String? afterId, int limit = 200, SyncRowConverter? convert}) async {
     requests++;
     if (!supported) throw const SyncChangesUnsupportedException();
     if (delay > Duration.zero) await Future.delayed(delay);
@@ -79,7 +79,7 @@ class SlowServer extends FakeServer {
 
   @override
   Future<SyncChangesPage> fetch(String entity,
-      {required String since, String? afterId, int limit = 200}) {
+      {required String since, String? afterId, int limit = 200, SyncRowConverter? convert}) {
     limits.add(limit);
     if (limit > maxLimit) {
       throw Exception('DioException [receive timeout]: tiempo de espera agotado');
@@ -151,6 +151,28 @@ void main() {
     await sync.debugPullChanges('invoices');
     expect(server.sinceLog.last, server.now);
     expect(server.requests, 1);
+  });
+
+  test('base local nueva con marca vieja: vuelve a bajar todo', () async {
+    for (var i = 1; i <= 30; i++) {
+      server.put(uuid(i), at(i % 60));
+    }
+    sync.debugLocalCounts = {'invoices': () async => local.length};
+    await sync.debugPullChanges('invoices');
+    expect(local.length, 30);
+
+    // Se pierde la base local (reinstalar, carpeta borrada) y las marcas de
+    // las preferencias quedan: antes solo bajaba lo nuevo → 0 registros.
+    local.clear();
+    server.sinceLog.clear();
+    await sync.debugPullChanges('invoices');
+    expect(server.sinceLog, contains(SyncChangesClient.epoch));
+    expect(local.length, 30);
+
+    // Con registros en el equipo sigue siendo incremental.
+    server.sinceLog.clear();
+    await sync.debugPullChanges('invoices');
+    expect(server.sinceLog, isNot(contains(SyncChangesClient.epoch)));
   });
 
   test('descarga completa: lo de los últimos días llega primero', () async {
@@ -325,7 +347,7 @@ void main() {
       'invoices': FullSyncService.debugHandler(
         apply: (items) async {
           applies += items.length;
-          return (real as dynamic).apply(items) as Future<Set<String>>;
+          return (real as dynamic).apply(items, null) as Future<Set<String>>;
         },
         delete: (ids) async => 0,
         sweep: (seen) async => 0,

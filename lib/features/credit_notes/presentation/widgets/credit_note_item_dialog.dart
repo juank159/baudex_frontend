@@ -1,5 +1,6 @@
 // lib/features/credit_notes/presentation/widgets/credit_note_item_dialog.dart
 import 'package:baudex_desktop/app/core/theme/elegant_light_theme.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/app/core/utils/number_input_formatter.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +100,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     }
 
     if (_descriptionController.text.trim().isEmpty) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Campo requerido',
         'La descripción es obligatoria',
@@ -116,6 +118,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
         double.tryParse(_discountPercentageController.text) ?? 0.0;
 
     if (quantity <= 0) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Cantidad inválida',
         'La cantidad debe ser mayor a 0',
@@ -128,6 +131,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
 
     // Validar que no exceda la cantidad máxima disponible
     if (_maxQuantity != double.infinity && quantity > _maxQuantity) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Cantidad excedida',
         'La cantidad máxima disponible es ${_maxQuantity.toStringAsFixed(_maxQuantity.truncateToDouble() == _maxQuantity ? 0 : 2)}',
@@ -139,6 +143,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     }
 
     if (unitPrice <= 0) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Precio inválido',
         'El precio debe ser mayor a 0',
@@ -650,6 +655,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
         .toList() ?? [];
 
     if (useAvailableItems && availableItemsWithQuantity.isEmpty) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Sin disponibilidad',
         'No hay productos con cantidad disponible para acreditar. Todos los productos ya han sido acreditados.',
@@ -662,6 +668,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     }
 
     if (!useAvailableItems && (widget.invoiceItems == null || widget.invoiceItems!.isEmpty)) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'No hay productos',
         'No hay productos en esta factura para seleccionar',
@@ -1083,6 +1090,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     });
     _calculateSubtotal();
 
+    replacePreviousSnackbar();
     Get.snackbar(
       'Producto seleccionado',
       'Cantidad máxima disponible: ${availableItem.availableQuantity.toStringAsFixed(availableItem.availableQuantity.truncateToDouble() == availableItem.availableQuantity ? 0 : 2)} ${availableItem.unit}',
@@ -1123,6 +1131,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
     // DEBUG: Verificar subtotal calculado
 
     // Mostrar feedback visual
+    replacePreviousSnackbar();
     Get.snackbar(
       'Producto seleccionado',
       invoiceItem.description ?? 'Producto cargado correctamente',
@@ -1214,6 +1223,7 @@ class _CreditNoteItemDialogState extends State<CreditNoteItemDialog> {
             );
 
             // Mostrar mensaje informativo
+            replacePreviousSnackbar();
             Get.snackbar(
               'Cantidad ajustada',
               'La cantidad máxima disponible es $maxQtyStr',

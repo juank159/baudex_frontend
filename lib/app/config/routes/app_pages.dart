@@ -656,7 +656,7 @@ class AppPages {
 
     GetPage(
       name: '${AppRoutes.purchaseOrdersDetail}/:id',
-      page: () => const FuturisticPurchaseOrderDetailScreen(),
+      page: () => FuturisticPurchaseOrderDetailScreen(),
       binding: PurchaseOrderDetailBinding(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 500),
@@ -1653,7 +1653,7 @@ class AppPages {
     // 👁️ DETALLE DE NOTA DE CRÉDITO
     GetPage(
       name: '${AppRoutes.creditNotesDetail}/:id',
-      page: () => const CreditNoteDetailScreen(),
+      page: () => CreditNoteDetailScreen(),
       binding: CreditNoteDetailBinding(),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),

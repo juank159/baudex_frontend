@@ -1,5 +1,6 @@
 // lib/app/core/theme/futuristic_notifications.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import 'elegant_light_theme.dart';
 
@@ -10,6 +11,7 @@ class FuturisticNotifications {
     Duration? duration,
     VoidCallback? onTap,
   }) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '',
       '',
@@ -39,6 +41,7 @@ class FuturisticNotifications {
     Duration? duration,
     VoidCallback? onTap,
   }) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '',
       '',
@@ -68,6 +71,7 @@ class FuturisticNotifications {
     Duration? duration,
     VoidCallback? onTap,
   }) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '',
       '',
@@ -97,6 +101,7 @@ class FuturisticNotifications {
     Duration? duration,
     VoidCallback? onTap,
   }) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '',
       '',
@@ -125,6 +130,7 @@ class FuturisticNotifications {
     String message, {
     Duration? duration,
   }) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '',
       '',

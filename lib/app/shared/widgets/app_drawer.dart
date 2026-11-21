@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
 import '../../config/routes/app_routes.dart';
-import '../../core/navigation/cash_register_guard.dart';
 import '../../core/navigation/navigation_guard.dart';
 import '../controllers/app_drawer_controller.dart';
 import '../models/drawer_menu_item.dart';
@@ -897,14 +896,6 @@ class AppDrawer extends GetWidget<AppDrawerController> {
     );
   }
 
-  /// Rutas que exigen una caja registradora abierta antes de entrar.
-  /// Mantener esta lista corta y específica — solo flujos donde
-  /// arrancar sin caja causa pérdida de datos (carrito de factura).
-  static bool _routeRequiresOpenCashRegister(String route) {
-    return route == AppRoutes.invoicesWithTabs ||
-        route == AppRoutes.invoicesCreate;
-  }
-
   void _handleMenuTap(BuildContext context, DrawerMenuItem item) {
     // Si es un item con submenú, alternar expansión
     if (item.hasSubmenu && (item.route == null || item.route!.isEmpty)) {
@@ -945,20 +936,9 @@ class AppDrawer extends GetWidget<AppDrawerController> {
       // navegación encima.
       final route = item.route!;
       Navigator.pop(context);
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        // Si la ruta es de creación de facturas, validar caja antes.
-        // Sin esto el usuario podía entrar al form sin caja abierta,
-        // agregar ítems, intentar procesar y al ir a abrir la caja
-        // perdía todos los ítems del carrito.
-        if (_routeRequiresOpenCashRegister(route)) {
-          final ctx = Get.context;
-          if (ctx != null) {
-            final canProceed = await CashRegisterGuard.requireOpen(ctx);
-            if (!canProceed) return;
-          }
-        }
-        AppNav.offAllNamed(route);
-      });
+      // La caja abierta (para vender) la exige AppNav.openModule, igual
+      // que en la paleta de comandos y los atajos Alt+número.
+      WidgetsBinding.instance.addPostFrameCallback((_) => AppNav.openModule(route));
     } else {
       Navigator.pop(context);
       Get.snackbar(

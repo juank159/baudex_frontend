@@ -1,6 +1,6 @@
 // lib/app/ui/layouts/main_layout.dart
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import '../../core/navigation/navigation_guard.dart';
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/elegant_light_theme.dart';
 
@@ -67,7 +67,7 @@ class MainLayout extends StatelessWidget {
                 color: Colors.white,
                 size: 20,
               ),
-              onPressed: () => Get.back(),
+              onPressed: () => AppNav.back(),
               tooltip: 'Volver',
             )
           : (showDrawer

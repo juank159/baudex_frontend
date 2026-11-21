@@ -736,6 +736,9 @@ class FullSyncService extends GetxService {
     return await _watermarks.get(organization, entity) != null;
   }
 
+  /// IDs locales revisados por tanda en la limpieza final de una descarga.
+  static const int _sweepPageSize = 5000;
+
   static final RegExp _uuidPattern = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   );
@@ -762,7 +765,7 @@ class FullSyncService extends GetxService {
     required Future<int> Function(Set<String>) sweep,
   }) =>
       _ChangeHandler(
-        apply: apply,
+        apply: (items, _) => apply(items),
         delete: delete,
         sweep: (seen, _) => sweep(seen),
       );
@@ -789,6 +792,42 @@ class FullSyncService extends GetxService {
     final applied = await _pullChanges(entity);
     await _healMissingRows(entity);
     return applied;
+  }
+
+  /// Cuántos registros tiene el equipo de cada módulo incremental.
+  late final Map<String, Future<int> Function()> _localCounts = {
+    'products': () => _isar.isarProducts.count(),
+    'product_presentations': () => _isar.isarProductPresentations.count(),
+    'customers': () => _isar.isarCustomers.count(),
+    'suppliers': () => _isar.isarSuppliers.count(),
+    'invoices': () => _isar.isarInvoices.count(),
+    'expenses': () => _isar.isarExpenses.count(),
+    'purchase_orders': () => _isar.isarPurchaseOrders.count(),
+    'credit_notes': () => _isar.isarCreditNotes.count(),
+    'customer_credits': () => _isar.isarCustomerCredits.count(),
+    'inventory_batches': () => _isar.isarInventoryBatchs.count(),
+    'inventory_movements': () => _isar.isarInventoryMovements.count(),
+    'notifications': () => _isar.isarNotifications.count(),
+  };
+
+  /// Módulos ya revisados en esta sesión (base local vacía con marca).
+  final Set<String> _emptyLocalChecked = {};
+
+  /// Solo para pruebas: conteo local de reemplazo por módulo.
+  @visibleForTesting
+  Map<String, Future<int> Function()>? debugLocalCounts;
+
+  /// ¿El equipo no tiene NINGÚN registro de [entity]? Ante cualquier duda
+  /// (base no disponible), `false`: se sigue con la marca como antes.
+  Future<bool> _localIsEmpty(String entity) async {
+    final count = debugLocalCounts?[entity] ??
+        (debugChangeHandlers != null ? null : _localCounts[entity]);
+    if (count == null) return false;
+    try {
+      return await count() == 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Descargas incrementales a medias (por tiempo agotado); el siguiente pull
@@ -1020,7 +1059,21 @@ class FullSyncService extends GetxService {
       final saved = await _watermarks.getProgress(organization, entity);
       progress = saved == null ? null : _ChangesProgress.fromJson(saved);
       if (progress == null || progress.organization != organization) {
-        final watermark = await _watermarks.get(organization, entity);
+        var watermark = await _watermarks.get(organization, entity);
+        // Base local nueva (reinstalación, carpeta borrada, base dañada) con
+        // las marcas viejas en las preferencias: la app creía tener todo y
+        // solo bajaba lo nuevo (0 productos y 0 facturas en la prueba).
+        // Una vez por sesión y módulo: un módulo que el negocio no usa
+        // (0 en el servidor) seguiría vacío y no debe bajarse en cada pull.
+        if (watermark != null &&
+            _emptyLocalChecked.add('$organization|$entity') &&
+            await _localIsEmpty(entity)) {
+          debugPrint(
+            '[FULL_SYNC] $entity: el equipo no tiene registros pero había marca — se descarga todo',
+          );
+          await _watermarks.remove(organization, entity);
+          watermark = null;
+        }
         progress = _ChangesProgress(
           organization: organization,
           since: watermark ?? SyncChangesClient.epoch,
@@ -1042,15 +1095,20 @@ class FullSyncService extends GetxService {
     Future<int> applyFresh(SyncChangesPage page) async {
       final fresh = <Map<String, dynamic>>[];
       final freshStamps = <String?>[];
+      final pageRows = page.rows != null && page.rows!.length == page.items.length
+          ? page.rows
+          : null;
+      final freshRows = pageRows == null ? null : <Object?>[];
       for (var i = 0; i < page.items.length; i++) {
         final stamp = i < page.stamps.length ? page.stamps[i] : null;
         final id = page.items[i]['id']?.toString();
         if (id != null && stamp != null && recent[id] == stamp) continue;
         fresh.add(page.items[i]);
         freshStamps.add(stamp);
+        freshRows?.add(pageRows![i]);
       }
       if (fresh.isEmpty) return 0;
-      final skipped = await handler.apply(fresh);
+      final skipped = await handler.apply(fresh, freshRows);
       for (var i = 0; i < fresh.length; i++) {
         final id = fresh[i]['id']?.toString();
         final stamp = freshStamps[i];
@@ -1076,6 +1134,7 @@ class FullSyncService extends GetxService {
             since: since,
             afterId: afterId,
             limit: size,
+            convert: handler.convert,
           );
         } catch (e) {
           if (!_isSlowNetworkError(e) || size <= _minChangesPageSize) rethrow;
@@ -1232,16 +1291,26 @@ class FullSyncService extends GetxService {
     Set<String> seen,
     DateTime cutoff,
     IsarCollection<dynamic> collection,
-    Future<List<String>> Function() localServerIds,
+    Future<List<String>> Function(int offset, int limit) localServerIds,
     Future<int> Function(List<String> ids) deleteAll,
   ) async {
     final queued = await _queuedEntityIds();
-    final candidates = (await localServerIds())
-        .where((id) =>
-            _uuidPattern.hasMatch(id) &&
-            !seen.contains(id) &&
-            !queued.contains(id))
-        .toList();
+    // Por tandas y cediendo el hilo: con 90 mil movimientos de inventario,
+    // leer y revisar todos los IDs de una vez trababa la pantalla al final
+    // de la descarga.
+    final candidates = <String>[];
+    for (var offset = 0;; offset += _sweepPageSize) {
+      final ids = await localServerIds(offset, _sweepPageSize);
+      for (final id in ids) {
+        if (!seen.contains(id) &&
+            !queued.contains(id) &&
+            _uuidPattern.hasMatch(id)) {
+          candidates.add(id);
+        }
+      }
+      if (ids.length < _sweepPageSize) break;
+      await yieldToFrames();
+    }
     if (candidates.isEmpty) return 0;
     final stale = await _unchangedSince(collection, candidates, cutoff);
     if (stale.isEmpty) return 0;
@@ -1318,14 +1387,42 @@ class FullSyncService extends GetxService {
     );
   }
 
+  /// Filas ya convertidas en otro isolate, o convertidas aquí si la página
+  /// llegó sin ellas (servidor de prueba, respuesta ya leída).
+  static List<T> _rowsOf<T>(
+    List<Map<String, dynamic>> items,
+    List<Object?>? rows,
+    SyncRowConverter convert,
+  ) =>
+      (rows ?? convert(items)).cast<T>();
+
+  /// Escribe [rows] en tandas chicas, cada una en su propia transacción
+  /// asíncrona, y cede el hilo entre tandas. Antes cada página (200
+  /// facturas con sus ítems) iba en una sola transacción y la pantalla no
+  /// pintaba hasta que terminaba. Si una tanda falla, la página no se da
+  /// por aplicada y se vuelve a pedir: guardar por serverId es idempotente.
+  Future<void> _putInBatches<T>(
+    List<T> rows,
+    Future<void> Function(List<T> batch) put,
+  ) async {
+    for (var start = 0; start < rows.length; start += syncWriteBatchSize) {
+      final end = start + syncWriteBatchSize < rows.length
+          ? start + syncWriteBatchSize
+          : rows.length;
+      final batch = rows.sublist(start, end);
+      await _isar.writeTxn(() => put(batch));
+      await yieldToFrames();
+    }
+  }
+
   late final Map<String, _ChangeHandler> _changeHandlers = {
     'invoices': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) => IsarInvoice.fromModel(InvoiceModel.fromJson(json)))
-            .toList();
+      convert: syncInvoiceRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarInvoice>(items, converted, syncInvoiceRows);
         final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
-        await _isar.writeTxn(() => _isar.isarInvoices.putAllByServerId(safe));
+        await _putInBatches<IsarInvoice>(
+            safe, (b) => _isar.isarInvoices.putAllByServerId(b));
         return _skippedIds(
             rows.map((m) => m.serverId), safe.map((m) => m.serverId));
       },
@@ -1335,12 +1432,18 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarInvoices,
-        () => _isar.isarInvoices.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarInvoices
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarInvoices.deleteAllByServerId,
       ),
     ),
     'products': _ChangeHandler(
-      apply: (items) async {
+      convert: syncProductRows,
+      apply: (items, converted) async {
         // Misma protección que la descarga completa: productos con stock
         // descontado sin conexión (aún sin subir) no se pisan.
         await _healStuckProducts();
@@ -1352,19 +1455,16 @@ class FullSyncService extends GetxService {
             .toSet();
         final skipped = <String>{};
         final rows = <IsarProduct>[];
-        for (final json in items) {
-          final model = ProductModel.fromJson(json);
-          if (protected.contains(model.id)) {
-            skipped.add(model.id);
+        for (final row
+            in _rowsOf<IsarProduct>(items, converted, syncProductRows)) {
+          if (protected.contains(row.serverId)) {
+            skipped.add(row.serverId);
             continue;
           }
-          rows.add(IsarProduct.fromModel(model));
+          rows.add(row);
         }
-        await _isar.writeTxn(() async {
-          for (final row in rows) {
-            await _isar.isarProducts.putByServerId(row);
-          }
-        });
+        await _putInBatches<IsarProduct>(
+            rows, (b) => _isar.isarProducts.putAllByServerId(b));
         return skipped;
       },
       delete: (ids) =>
@@ -1373,12 +1473,18 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarProducts,
-        () => _isar.isarProducts.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarProducts
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarProducts.deleteAllByServerId,
       ),
     ),
     'product_presentations': _ChangeHandler(
-      apply: (items) async {
+      convert: syncPresentationRows,
+      apply: (items, converted) async {
         final unsynced = (await _isar.isarProductPresentations
                 .filter()
                 .isSyncedEqualTo(false)
@@ -1386,17 +1492,17 @@ class FullSyncService extends GetxService {
             .map((p) => p.serverId)
             .toSet();
         final skipped = <String>{};
-        await _isar.writeTxn(() async {
-          for (final json in items) {
-            final model = ProductPresentationModel.fromJson(json);
-            if (unsynced.contains(model.id)) {
-              skipped.add(model.id);
-              continue;
-            }
-            await _isar.isarProductPresentations
-                .putByServerId(IsarProductPresentation.fromModel(model));
+        final rows = <IsarProductPresentation>[];
+        for (final row in _rowsOf<IsarProductPresentation>(
+            items, converted, syncPresentationRows)) {
+          if (unsynced.contains(row.serverId)) {
+            skipped.add(row.serverId);
+            continue;
           }
-        });
+          rows.add(row);
+        }
+        await _putInBatches<IsarProductPresentation>(
+            rows, (b) => _isar.isarProductPresentations.putAllByServerId(b));
         return skipped;
       },
       delete: (ids) => _deleteServerRows(
@@ -1405,18 +1511,22 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarProductPresentations,
-        () =>
-            _isar.isarProductPresentations.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarProductPresentations
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarProductPresentations.deleteAllByServerId,
       ),
     ),
     'customers': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) => IsarCustomer.fromModel(CustomerModel.fromJson(json)))
-            .toList();
+      convert: syncCustomerRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarCustomer>(items, converted, syncCustomerRows);
         final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
-        await _isar.writeTxn(() => _isar.isarCustomers.putAllByServerId(safe));
+        await _putInBatches<IsarCustomer>(
+            safe, (b) => _isar.isarCustomers.putAllByServerId(b));
         return _skippedIds(
             rows.map((m) => m.serverId), safe.map((m) => m.serverId));
       },
@@ -1426,17 +1536,22 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarCustomers,
-        () => _isar.isarCustomers.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarCustomers
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarCustomers.deleteAllByServerId,
       ),
     ),
     'suppliers': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) => IsarSupplier.fromModel(SupplierModel.fromJson(json)))
-            .toList();
+      convert: syncSupplierRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarSupplier>(items, converted, syncSupplierRows);
         final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
-        await _isar.writeTxn(() => _isar.isarSuppliers.putAllByServerId(safe));
+        await _putInBatches<IsarSupplier>(
+            safe, (b) => _isar.isarSuppliers.putAllByServerId(b));
         return _skippedIds(
             rows.map((m) => m.serverId), safe.map((m) => m.serverId));
       },
@@ -1446,18 +1561,22 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarSuppliers,
-        () => _isar.isarSuppliers.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarSuppliers
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarSuppliers.deleteAllByServerId,
       ),
     ),
     'expenses': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) =>
-                IsarExpense.fromEntity(ExpenseModel.fromJson(json).toEntity()))
-            .toList();
+      convert: syncExpenseRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarExpense>(items, converted, syncExpenseRows);
         final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
-        await _isar.writeTxn(() => _isar.isarExpenses.putAllByServerId(safe));
+        await _putInBatches<IsarExpense>(
+            safe, (b) => _isar.isarExpenses.putAllByServerId(b));
         return _skippedIds(
             rows.map((m) => m.serverId), safe.map((m) => m.serverId));
       },
@@ -1467,17 +1586,23 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarExpenses,
-        () => _isar.isarExpenses.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarExpenses
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarExpenses.deleteAllByServerId,
       ),
     ),
     'purchase_orders': _ChangeHandler(
-      apply: (items) async {
+      convert: syncPurchaseOrderRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarPurchaseOrder>(
+            items, converted, syncPurchaseOrderRows);
         final skipped = <String>{};
-        await _isar.writeTxn(() async {
-          for (final json in items) {
-            final serverPO =
-                IsarPurchaseOrder.fromModel(PurchaseOrderModel.fromJson(json));
+        await _putInBatches<IsarPurchaseOrder>(rows, (batch) async {
+          for (final serverPO in batch) {
             final existing = await _isar.isarPurchaseOrders
                 .filter()
                 .serverIdEqualTo(serverPO.serverId)
@@ -1497,18 +1622,23 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarPurchaseOrders,
-        () => _isar.isarPurchaseOrders.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarPurchaseOrders
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarPurchaseOrders.deleteAllByServerId,
       ),
     ),
     'credit_notes': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) =>
-                IsarCreditNote.fromModel(CreditNoteModel.fromJson(json)))
-            .toList();
+      convert: syncCreditNoteRows,
+      apply: (items, converted) async {
+        final rows =
+            _rowsOf<IsarCreditNote>(items, converted, syncCreditNoteRows);
         final safe = await _withoutQueuedLocalChanges(rows, (m) => m.serverId);
-        await _isar.writeTxn(() => _isar.isarCreditNotes.putAllByServerId(safe));
+        await _putInBatches<IsarCreditNote>(
+            safe, (b) => _isar.isarCreditNotes.putAllByServerId(b));
         return _skippedIds(
             rows.map((m) => m.serverId), safe.map((m) => m.serverId));
       },
@@ -1518,17 +1648,23 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarCreditNotes,
-        () => _isar.isarCreditNotes.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarCreditNotes
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarCreditNotes.deleteAllByServerId,
       ),
     ),
     'customer_credits': _ChangeHandler(
-      apply: (items) async {
+      convert: syncCustomerCreditModels,
+      apply: (items, converted) async {
         final queued = await _queuedEntityIds();
         final skipped = <String>{};
         final credits = <CustomerCreditModel>[];
-        for (final json in items) {
-          final credit = CustomerCreditModel.fromJson(json);
+        for (final credit in _rowsOf<CustomerCreditModel>(
+            items, converted, syncCustomerCreditModels)) {
           if (queued.contains(credit.id)) {
             skipped.add(credit.id);
             continue;
@@ -1569,12 +1705,13 @@ class FullSyncService extends GetxService {
                 !queued.contains(c.serverId))
             .map((c) => c.id)
             .toList();
-        await _isar.writeTxn(() async {
-          await _isar.isarCustomerCredits.putAllByServerId(rows);
-          if (replaced.isNotEmpty) {
-            await _isar.isarCustomerCredits.deleteAll(replaced);
-          }
-        });
+        await _putInBatches<IsarCustomerCredit>(
+            rows, (b) => _isar.isarCustomerCredits.putAllByServerId(b));
+        // El provisional se quita solo después de guardar el real.
+        if (replaced.isNotEmpty) {
+          await _isar.writeTxn(
+              () => _isar.isarCustomerCredits.deleteAll(replaced));
+        }
         return skipped;
       },
       delete: (ids) => _deleteServerRows(
@@ -1583,12 +1720,18 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarCustomerCredits,
-        () => _isar.isarCustomerCredits.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarCustomerCredits
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarCustomerCredits.deleteAllByServerId,
       ),
     ),
     'inventory_batches': _ChangeHandler(
-      apply: (items) async {
+      convert: syncInventoryBatchRows,
+      apply: (items, converted) async {
         // Igual que la descarga completa: si hay ventas/movimientos sin
         // subir, los lotes modificados localmente no se pisan.
         final pendingOps = await IsarDatabase.instance.getPendingSyncOperations();
@@ -1613,19 +1756,16 @@ class FullSyncService extends GetxService {
             : <String>{};
         final skipped = <String>{};
         final rows = <IsarInventoryBatch>[];
-        for (final json in items) {
-          final batch = IsarInventoryBatch.fromEntity(
-              InventoryBatchModel.fromJson(json).toEntity());
+        for (final batch in _rowsOf<IsarInventoryBatch>(
+            items, converted, syncInventoryBatchRows)) {
           if (protected.contains(batch.serverId)) {
             skipped.add(batch.serverId);
             continue;
           }
           rows.add(batch);
         }
-        if (rows.isNotEmpty) {
-          await _isar.writeTxn(
-              () => _isar.isarInventoryBatchs.putAllByServerId(rows));
-        }
+        await _putInBatches<IsarInventoryBatch>(
+            rows, (b) => _isar.isarInventoryBatchs.putAllByServerId(b));
         return skipped;
       },
       delete: (ids) => _deleteServerRows(
@@ -1634,18 +1774,22 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarInventoryBatchs,
-        () => _isar.isarInventoryBatchs.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarInventoryBatchs
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarInventoryBatchs.deleteAllByServerId,
       ),
     ),
     'inventory_movements': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) => IsarInventoryMovement.fromModel(
-                InventoryMovementModel.fromJson(json)))
-            .toList();
-        await _isar.writeTxn(
-            () => _isar.isarInventoryMovements.putAllByServerId(rows));
+      convert: syncInventoryMovementRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarInventoryMovement>(
+            items, converted, syncInventoryMovementRows);
+        await _putInBatches<IsarInventoryMovement>(
+            rows, (b) => _isar.isarInventoryMovements.putAllByServerId(b));
         return <String>{};
       },
       delete: (ids) => _deleteServerRows(
@@ -1654,18 +1798,22 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarInventoryMovements,
-        () => _isar.isarInventoryMovements.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarInventoryMovements
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarInventoryMovements.deleteAllByServerId,
       ),
     ),
     'notifications': _ChangeHandler(
-      apply: (items) async {
-        final rows = items
-            .map((json) =>
-                IsarNotification.fromEntity(NotificationModel.fromJson(json)))
-            .toList();
-        await _isar.writeTxn(
-            () => _isar.isarNotifications.putAllByServerId(rows));
+      convert: syncNotificationRows,
+      apply: (items, converted) async {
+        final rows = _rowsOf<IsarNotification>(
+            items, converted, syncNotificationRows);
+        await _putInBatches<IsarNotification>(
+            rows, (b) => _isar.isarNotifications.putAllByServerId(b));
         return <String>{};
       },
       delete: (ids) =>
@@ -1674,12 +1822,16 @@ class FullSyncService extends GetxService {
         seen,
         cutoff,
         _isar.isarNotifications,
-        () => _isar.isarNotifications.where().serverIdProperty().findAll(),
+        (offset, limit) => _isar.isarNotifications
+            .where()
+            .offset(offset)
+            .limit(limit)
+            .serverIdProperty()
+            .findAll(),
         _isar.isarNotifications.deleteAllByServerId,
       ),
     ),
   };
-
   /// Solo para pruebas: corre [syncFn] como el módulo [entityName] de una
   /// sincronización (pull periódico si se pasa [deadline]).
   @visibleForTesting
@@ -2959,7 +3111,16 @@ class _EntityPass {
 class _ChangeHandler {
   /// Guarda los registros recibidos; devuelve los IDs que NO se guardaron
   /// por tener cambios locales sin subir.
-  final Future<Set<String>> Function(List<Map<String, dynamic>> items) apply;
+  ///
+  /// [rows] son los mismos items ya convertidos con [convert] fuera del hilo
+  /// de la pantalla (uno por item, mismo orden); `null` si no se pudieron
+  /// convertir antes y hay que hacerlo aquí.
+  final Future<Set<String>> Function(
+      List<Map<String, dynamic>> items, List<Object?>? rows) apply;
+
+  /// Convierte los items del servidor en registros locales. Corre en otro
+  /// isolate junto con la lectura de la página (ver [SyncRowConverter]).
+  final SyncRowConverter? convert;
 
   /// Quita las copias locales de registros borrados en el servidor.
   final Future<int> Function(List<String> ids) delete;
@@ -2972,6 +3133,7 @@ class _ChangeHandler {
     required this.apply,
     required this.delete,
     required this.sweep,
+    this.convert,
   });
 }
 
@@ -3089,3 +3251,75 @@ class ModuleDownloadStatus {
 
   bool get slowNetwork => pageSize < defaultPageSize;
 }
+
+// ==================== DESCARGA FUERA DEL HILO DE LA PANTALLA ====================
+//
+// Convertidores de la descarga incremental: pasan los items del servidor a
+// registros locales. Son funciones sueltas (sin `this`, sin GetX ni Isar)
+// porque corren en otro isolate junto con la lectura del JSON; el hilo de la
+// pantalla solo recibe los registros listos para guardar.
+
+/// Registros por transacción al guardar una página descargada.
+const int syncWriteBatchSize = 50;
+
+/// Cede el turno para que la pantalla pinte entre una tanda y la siguiente.
+Future<void> yieldToFrames() => Future<void>.delayed(Duration.zero);
+
+List<Object?> syncInvoiceRows(List<Map<String, dynamic>> items) => [
+      for (final json in items) IsarInvoice.fromModel(InvoiceModel.fromJson(json))
+    ];
+
+List<Object?> syncProductRows(List<Map<String, dynamic>> items) => [
+      for (final json in items) IsarProduct.fromModel(ProductModel.fromJson(json))
+    ];
+
+List<Object?> syncPresentationRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarProductPresentation.fromModel(ProductPresentationModel.fromJson(json))
+    ];
+
+List<Object?> syncCustomerRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarCustomer.fromModel(CustomerModel.fromJson(json))
+    ];
+
+List<Object?> syncSupplierRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarSupplier.fromModel(SupplierModel.fromJson(json))
+    ];
+
+List<Object?> syncExpenseRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarExpense.fromEntity(ExpenseModel.fromJson(json).toEntity())
+    ];
+
+List<Object?> syncPurchaseOrderRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarPurchaseOrder.fromModel(PurchaseOrderModel.fromJson(json))
+    ];
+
+List<Object?> syncCreditNoteRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarCreditNote.fromModel(CreditNoteModel.fromJson(json))
+    ];
+
+/// Solo el modelo: el registro local se arma con lo que ya hay en el equipo.
+List<Object?> syncCustomerCreditModels(List<Map<String, dynamic>> items) => [
+      for (final json in items) CustomerCreditModel.fromJson(json)
+    ];
+
+List<Object?> syncInventoryBatchRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarInventoryBatch.fromEntity(
+            InventoryBatchModel.fromJson(json).toEntity())
+    ];
+
+List<Object?> syncInventoryMovementRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarInventoryMovement.fromModel(InventoryMovementModel.fromJson(json))
+    ];
+
+List<Object?> syncNotificationRows(List<Map<String, dynamic>> items) => [
+      for (final json in items)
+        IsarNotification.fromEntity(NotificationModel.fromJson(json))
+    ];

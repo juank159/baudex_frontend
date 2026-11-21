@@ -1,5 +1,6 @@
 // lib/features/cash_register/presentation/screens/cash_register_history_screen.dart
 import 'dart:ui';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -86,7 +87,7 @@ class CashRegisterHistoryScreen extends GetView<CashRegisterController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
         tooltip: 'Volver',
       ),
       actions: [

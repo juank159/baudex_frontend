@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/screens/forgot_password_screen.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -818,7 +819,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       children: [
         TextButton(
-          onPressed: () => Get.offAllNamed('/login'),
+          onPressed: () => AppNav.offAllNamed('/login'),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

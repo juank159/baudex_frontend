@@ -30,6 +30,9 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   final DioClient dioClient;
   static const String _baseEndpoint = '/credit-notes';
 
+  /// Espera máxima de la confirmación (operación pesada en el servidor).
+  static const Duration confirmTimeout = Duration(seconds: 120);
+
   const CreditNoteRemoteDataSourceImpl({required this.dioClient});
 
   @override
@@ -77,6 +80,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al crear nota de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al crear nota de crédito: $e');
     }
@@ -115,6 +122,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al obtener nota de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener nota de crédito');
     }
@@ -138,6 +149,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener notas de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener notas de crédito');
     }
@@ -176,6 +191,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al obtener notas de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener notas de crédito');
     }
@@ -223,6 +242,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al actualizar nota de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar nota de crédito');
     }
@@ -231,7 +254,16 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
   @override
   Future<CreditNoteModel> confirmCreditNote(String id) async {
     try {
-      final response = await dioClient.post('$_baseEndpoint/$id/confirm');
+      // Confirmar devuelve inventario y ajusta saldos en el servidor: puede
+      // tardar más que una consulta normal. Con la espera corta la app daba
+      // error mientras el servidor sí terminaba de confirmarla.
+      final response = await dioClient.post(
+        '$_baseEndpoint/$id/confirm',
+        options: Options(
+          receiveTimeout: confirmTimeout,
+          sendTimeout: confirmTimeout,
+        ),
+      );
 
       // La respuesta puede venir envuelta en {success: true, data: {...}}
       final responseData = response.data;
@@ -264,6 +296,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al confirmar nota de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al confirmar nota de crédito');
     }
@@ -305,6 +341,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al cancelar nota de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al cancelar nota de crédito');
     }
@@ -328,6 +368,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al eliminar nota de crédito',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al eliminar nota de crédito');
     }
@@ -363,6 +407,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al obtener monto acreditable',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener monto acreditable');
     }
@@ -386,6 +434,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al descargar PDF',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al descargar PDF');
     }
@@ -422,6 +474,10 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       throw ServerException(
         errMsg ?? 'Error al obtener cantidades disponibles',
       );
+    } on AppException {
+      // Ya viene convertido por el cliente HTTP (sin conexión, rechazo con
+      // su código): se pasa tal cual para que el repositorio decida bien.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener cantidades disponibles');
     }

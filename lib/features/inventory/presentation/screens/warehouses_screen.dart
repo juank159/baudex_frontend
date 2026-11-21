@@ -1,5 +1,6 @@
 // lib/features/inventory/presentation/screens/warehouses_screen.dart
 import 'package:baudex_desktop/features/inventory/domain/entities/warehouse_with_stats.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
@@ -59,7 +60,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
           actions: _buildAppBarActions(context),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Get.back(),
+            onPressed: () => AppNav.back(),
             tooltip: 'Volver',
           ),
           flexibleSpace: Container(
@@ -1739,7 +1740,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Get.back(),
+          onPressed: () => AppNav.back(),
           tooltip: 'Volver',
         ),
         flexibleSpace: Container(

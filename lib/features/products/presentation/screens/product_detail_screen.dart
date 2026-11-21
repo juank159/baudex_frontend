@@ -1,5 +1,6 @@
 // lib/features/products/presentation/screens/product_detail_screen.dart
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
@@ -109,7 +110,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, size: 20),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
       ),
       actions: [
         if (controller.hasProduct) ...[
@@ -2046,7 +2047,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             ElegantButton(
               text: 'Volver a Productos',
               icon: Icons.arrow_back,
-              onPressed: () => Get.back(),
+              onPressed: () => AppNav.back(),
             ),
           ],
         ),

@@ -1,5 +1,6 @@
 // lib/features/credit_notes/presentation/screens/credit_note_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
@@ -8,11 +9,20 @@ import '../../../../app/core/services/permissions_service.dart';
 import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/credit_note.dart';
 import '../controllers/credit_note_detail_controller.dart';
+import '../bindings/credit_note_binding.dart' show creditNoteDetailTag;
 import '../widgets/credit_note_status_widget.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
-  const CreditNoteDetailScreen({super.key});
+  /// La pantalla guarda el id de SU nota al abrirse (la ruta lo trae) y busca
+  /// el controlador de esa nota, no "el último que se creó".
+  CreditNoteDetailScreen({super.key, String? creditNoteId})
+      : _tag = creditNoteDetailTag(creditNoteId ?? Get.parameters['id']);
+
+  final String _tag;
+
+  @override
+  String? get tag => _tag;
 
   // ✅ Usar ResponsiveHelper para consistencia con el resto de la app
   bool _isDesktop(BuildContext context) => ResponsiveHelper.isDesktop(context);
@@ -61,7 +71,7 @@ class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
           ],
         ),
       ),
-      leading: _buildAppBarButton(Icons.arrow_back, () => Get.back(), isSmall),
+      leading: _buildAppBarButton(Icons.arrow_back, () => AppNav.back(), isSmall),
       title: Obx(() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -188,7 +198,7 @@ class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
             const SizedBox(height: 8),
             Text('La nota de crédito no existe', style: TextStyle(fontSize: 14, color: ElegantLightTheme.textSecondary)),
             const SizedBox(height: 24),
-            _buildActionButton('Volver', Icons.arrow_back, () => Get.back(), ElegantLightTheme.primaryGradient),
+            _buildActionButton('Volver', Icons.arrow_back, () => AppNav.back(), ElegantLightTheme.primaryGradient),
           ],
         ),
       ),

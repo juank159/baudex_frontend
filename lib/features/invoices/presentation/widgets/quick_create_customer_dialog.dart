@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/widgets/quick_create_customer_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
@@ -143,6 +144,7 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
   }
 
   void _showSnack(String title, String message, {required bool isError}) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

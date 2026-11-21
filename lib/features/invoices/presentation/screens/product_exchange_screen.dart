@@ -15,6 +15,7 @@
 //     impresora térmica si está disponible)
 
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -703,6 +704,7 @@ class _ProductPickerDialogState extends State<_ProductPickerDialog> {
     final qty = double.tryParse(_qtyCtrl.text) ?? 0;
     final price = double.tryParse(_priceCtrl.text) ?? 0;
     if (qty <= 0 || price <= 0 || _selectedProduct == null) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Datos incompletos',
         'Cantidad y precio deben ser mayores a 0',

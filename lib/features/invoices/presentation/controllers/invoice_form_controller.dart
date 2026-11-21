@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:isar/isar.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/local_first.dart';
@@ -13,6 +14,7 @@ import 'package:baudex_desktop/features/cash_register/presentation/controllers/c
 import 'package:baudex_desktop/features/cash_register/presentation/widgets/open_cash_register_dialog.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
 import 'package:baudex_desktop/features/invoices/presentation/controllers/thermal_printer_controller.dart';
@@ -29,6 +31,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
+import '../widgets/scan_code_cache.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -864,7 +867,7 @@ class InvoiceFormController extends GetxController {
 
       // Solo validar stock si la preferencia está activa y no permite sobreventa
       if (shouldValidateStock && product.stock <= 0) {
-        _showError('Sin Stock', '${product.name} no tiene stock disponible');
+        _showError('Sin stock', '${product.name} no tiene unidades disponibles');
         AudioNotificationService.instance.announceOutOfStock();
         return;
       }
@@ -909,8 +912,8 @@ class InvoiceFormController extends GetxController {
       // Solo validar stock si la preferencia está activa
       if (!isTemporary && shouldValidateStock && newQuantity > product.stock) {
         _showError(
-          'Stock Insuficiente',
-          'Solo hay ${product.stock} unidades disponibles de ${product.name}',
+          'Sin unidades suficientes',
+          'Solo hay ${AppFormatters.formatStock(product.stock)} unidades disponibles de ${product.name}',
         );
         AudioNotificationService.instance.announceOutOfStock();
         return;
@@ -930,13 +933,15 @@ class InvoiceFormController extends GetxController {
         _shouldHighlightUpdatedItem.value = false;
       });
 
-      _showProductUpdatedMessage(product.name, newQuantity);
+      // Sin aviso flotante: la fila resaltada ya muestra la nueva cantidad.
+      // Cada escaneo repetido dejaba un aviso de 2,4 s en cola (con animación
+      // continua): 20 escaneos = casi un minuto de avisos y la caja trabada.
     } else {
       // Solo validar stock si la preferencia está activa
       if (!isTemporary && shouldValidateStock && quantity > product.stock) {
         _showError(
-          'Stock Insuficiente',
-          'Solo hay ${product.stock} unidades disponibles de ${product.name}',
+          'Sin unidades suficientes',
+          'Solo hay ${AppFormatters.formatStock(product.stock)} unidades disponibles de ${product.name}',
         );
         AudioNotificationService.instance.announceOutOfStock();
         return;
@@ -1044,21 +1049,38 @@ class InvoiceFormController extends GetxController {
   Future<Product?> findProductByBarcode(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return null;
+    // Re-escaneo de un producto que YA está en la factura: se resuelve en
+    // memoria. Con el catálogo completo y la sincronización escribiendo en
+    // la base local, cada consulta podía esperar segundos y la cola de
+    // escaneos se atrasaba (43 de 100 re-escaneos no entraban en 15 s).
+    final cached = _scanCache.lookup(
+      trimmed,
+      isInInvoice: (id) => _invoiceItems.any((i) => i.productId == id),
+    );
+    if (cached != null) return cached;
     if (Get.isRegistered<ProductOfflineRepository>()) {
       final exact = await Get.find<ProductOfflineRepository>()
           .getProductByBarcode(trimmed);
       final product = exact.fold((_) => null, (p) => p);
       if (product != null && product.status == ProductStatus.active) {
+        _scanCache.remember(trimmed, product);
         return product;
       }
     }
     final results = await searchProducts(trimmed);
     if (results.isEmpty) return null;
-    return results.firstWhereOrNull(
+    final found = results.firstWhereOrNull(
           (p) => p.barcode?.toLowerCase() == trimmed.toLowerCase(),
         ) ??
         results.first;
+    if (found.barcode?.toLowerCase() == trimmed.toLowerCase()) {
+      _scanCache.remember(trimmed, found);
+    }
+    return found;
   }
+
+  /// Códigos ya escaneados en esta factura (ver [ScanCodeCache]).
+  final ScanCodeCache _scanCache = ScanCodeCache();
 
   /// Producto cuyo código (SKU) es EXACTAMENTE [sku]. Lo usa el Enter con un
   /// valor: si existe un producto con ese código se agrega ese; si no, es un
@@ -1437,15 +1459,10 @@ class InvoiceFormController extends GetxController {
       final removedItem = _invoiceItems.removeAt(index);
       _recalculateTotals();
 
-      Get.snackbar(
-        'Producto Eliminado',
+      FuturisticNotifications.showWarning(
+        'Producto quitado',
         removedItem.description,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        icon: const Icon(Icons.remove_circle, color: Colors.orange),
         duration: const Duration(seconds: 1),
-        margin: const EdgeInsets.all(8),
       );
     }
   }
@@ -1741,7 +1758,10 @@ class InvoiceFormController extends GetxController {
   Future<void> printInvoice(Invoice invoice) async {
     if (_isPrinting.value) {
       //_showError('Ya hay una impresión en curso');
-      _showError('Título del Error', 'Mensaje descriptivo del error');
+      _showError(
+        'Impresión en curso',
+        'Espera a que termine la impresión anterior',
+      );
       return;
     }
 
@@ -2507,6 +2527,7 @@ class InvoiceFormController extends GetxController {
         statusMessage = 'Procesada exitosamente';
     }
 
+    replacePreviousSnackbar();
     Get.snackbar(
       status == InvoiceStatus.draft ? '¡Borrador Guardado!' : '¡Éxito!',
       statusMessage,
@@ -2519,26 +2540,9 @@ class InvoiceFormController extends GetxController {
     );
   }
 
-  void _showProductUpdatedMessage(String productName, double newQuantity) {
-    Get.snackbar(
-      '🎯 Producto Actualizado',
-      '$productName → ${AppFormatters.formatStock(newQuantity)} unidades',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: Icon(Icons.trending_up, color: Colors.green.shade600, size: 24),
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(8),
-      borderColor: Colors.green.shade300,
-      borderWidth: 1.5,
-      borderRadius: 12,
-      shouldIconPulse: true,
-      animationDuration: const Duration(milliseconds: 400),
-    );
-  }
-
   // ✅ NUEVOS MENSAJES PARA IMPRESIÓN
   void _showPrintSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '🖨️ Impresión Exitosa',
       message,
@@ -2552,6 +2556,7 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showPrintError(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '🖨️ Error de Impresión',
       message,
@@ -2565,19 +2570,15 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showError(String title, String message) {
-    Get.snackbar(
+    FuturisticNotifications.showError(
       title,
       message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.error, color: Colors.red),
       duration: const Duration(seconds: 4),
-      margin: const EdgeInsets.all(8),
     );
   }
 
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '¡Éxito!',
       message,
@@ -2591,13 +2592,9 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showInfo(String title, String message) {
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       title,
       message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      icon: const Icon(Icons.info, color: Colors.blue),
       duration: const Duration(seconds: 3),
     );
   }

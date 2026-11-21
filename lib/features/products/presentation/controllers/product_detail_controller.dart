@@ -1,5 +1,6 @@
 // lib/features/products/presentation/controllers/product_detail_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
 
@@ -1092,6 +1093,7 @@ class ProductDetailController extends GetxController
   /// - [title]: Título del mensaje de error
   /// - [message]: Descripción detallada del error
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -1112,6 +1114,7 @@ class ProductDetailController extends GetxController
   /// Parámetros:
   /// - [message]: Mensaje de éxito a mostrar
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,
@@ -1133,6 +1136,7 @@ class ProductDetailController extends GetxController
   /// - [title]: Título del mensaje informativo
   /// - [message]: Contenido del mensaje
   void _showInfo(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

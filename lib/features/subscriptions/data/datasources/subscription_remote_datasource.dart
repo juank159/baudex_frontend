@@ -56,6 +56,10 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
       }
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado: $e');
@@ -80,6 +84,10 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
       }
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado: $e');
@@ -120,6 +128,10 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
       }
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado: $e');
@@ -152,6 +164,10 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
       }
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado: $e');

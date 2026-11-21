@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_list_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
@@ -1158,6 +1159,7 @@ class InvoiceListController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -1171,6 +1173,7 @@ class InvoiceListController extends GetxController
 
   /// Mostrar mensaje de éxito
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,

@@ -25,3 +25,16 @@ bool isServerRejection(int? statusCode) {
 /// servidor, así que eliminarlo aquí es lo correcto).
 bool isDeleteRejection(int? statusCode) =>
     statusCode != 404 && isServerRejection(statusCode);
+
+/// Motivo para mostrarle a un cajero: sin el prefijo técnico que el cliente
+/// HTTP le antepone al mensaje del servidor ("Solicitud incorrecta: …").
+String reasonForUser(String message, {String fallback = 'No se pudo completar la operación.'}) {
+  final clean = message
+      .replaceFirst(
+        RegExp(r'^(Solicitud incorrecta|Conflicto|Recurso no encontrado|'
+            r'Error interno del servidor|Datos inválidos|No encontrado|Error del servidor|Error): '),
+        '',
+      )
+      .trim();
+  return clean.isEmpty ? fallback : clean;
+}

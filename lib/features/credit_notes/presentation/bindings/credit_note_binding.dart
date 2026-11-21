@@ -165,8 +165,15 @@ class CreditNoteDetailBinding extends Bindings {
       CreditNoteBinding().dependencies();
     }
 
+    // Un controlador POR NOTA (etiqueta = id de la ruta). Sin etiqueta, al
+    // abrir otra nota con la anterior aún abierta debajo, GetX devolvía el
+    // controlador de la anterior: la pantalla mostraba la nota equivocada y
+    // "Confirmar" actuaba sobre ella.
+    final id = creditNoteDetailTag(Get.parameters['id']);
     Get.lazyPut<CreditNoteDetailController>(
+      tag: id,
       () => CreditNoteDetailController(
+        creditNoteId: id,
         getCreditNoteByIdUseCase: Get.find<GetCreditNoteById>(),
         confirmCreditNoteUseCase: Get.find<ConfirmCreditNote>(),
         cancelCreditNoteUseCase: Get.find<CancelCreditNote>(),
@@ -200,3 +207,7 @@ class CreditNoteFormBinding extends Bindings {
     );
   }
 }
+
+/// Etiqueta del controlador de detalle de una nota (su id).
+String creditNoteDetailTag(String? id) =>
+    (id == null || id.isEmpty) ? 'sin-id' : id;

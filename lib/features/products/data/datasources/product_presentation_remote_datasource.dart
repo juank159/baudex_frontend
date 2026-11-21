@@ -56,6 +56,10 @@ class ProductPresentationRemoteDataSourceImpl
       throw _handleErrorResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al obtener presentaciones: $e');
@@ -79,6 +83,10 @@ class ProductPresentationRemoteDataSourceImpl
       throw _handleErrorResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al obtener presentación: $e');
@@ -103,6 +111,10 @@ class ProductPresentationRemoteDataSourceImpl
       throw _handleErrorResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al crear presentación: $e');
@@ -128,6 +140,10 @@ class ProductPresentationRemoteDataSourceImpl
       throw _handleErrorResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al actualizar presentación: $e');
@@ -145,6 +161,10 @@ class ProductPresentationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al eliminar presentación: $e');
@@ -168,6 +188,10 @@ class ProductPresentationRemoteDataSourceImpl
       throw _handleErrorResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al restaurar presentación: $e');

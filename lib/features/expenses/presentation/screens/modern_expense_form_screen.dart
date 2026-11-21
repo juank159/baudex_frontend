@@ -1,5 +1,6 @@
 // lib/features/expenses/presentation/screens/modern_expense_form_screen.dart
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -1547,7 +1548,7 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
     if (success) {
       // Navegar al listado de gastos (offAllNamed porque el drawer usa offAllNamed
       // y /expenses puede no estar en el stack para Get.back())
-      Get.offAllNamed(AppRoutes.expenses);
+      AppNav.offAllNamed(AppRoutes.expenses);
     }
   }
 

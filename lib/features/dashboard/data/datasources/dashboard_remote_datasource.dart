@@ -131,6 +131,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener estadísticas del dashboard',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas del dashboard: $e',
@@ -160,6 +164,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener actividad reciente',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener actividad reciente: $e',
@@ -189,6 +197,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener notificaciones',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener notificaciones: $e',
@@ -214,6 +226,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al marcar notificación como leída',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar notificación como leída: $e',
@@ -237,6 +253,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al marcar todas las notificaciones como leídas',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar todas las notificaciones como leídas: $e',
@@ -259,6 +279,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar notificación',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al eliminar notificación: $e',
@@ -279,6 +303,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener conteo de notificaciones',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener conteo de notificaciones: $e',
@@ -315,6 +343,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener estadísticas de ventas',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas de ventas: $e',
@@ -353,6 +385,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener estadísticas de facturas',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas de facturas: $e',
@@ -376,6 +412,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener estadísticas de productos',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas de productos: $e',
@@ -414,6 +454,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener estadísticas de clientes',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas de clientes: $e',
@@ -450,6 +494,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener estadísticas de gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas de gastos: $e',
@@ -710,6 +758,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             'Error al obtener métricas de rentabilidad',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener métricas de rentabilidad: $e',

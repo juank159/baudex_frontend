@@ -1,5 +1,6 @@
 // lib/features/inventory/data/datasources/inventory_remote_datasource.dart
 import 'package:dio/dio.dart';
+import '../../../../app/core/errors/exceptions.dart' show AppException;
 import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../models/inventory_movement_model.dart';
@@ -198,6 +199,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return PaginatedResult(data: movements, meta: meta);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener movimientos: $e');
     }
@@ -210,6 +215,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener movimiento: $e');
     }
@@ -236,6 +245,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al crear movimiento: $e');
     }
@@ -254,6 +267,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al actualizar movimiento: $e');
     }
@@ -265,6 +282,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       await dio.delete('${ApiConstants.inventoryMovements}/$id');
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al eliminar movimiento: $e');
     }
@@ -279,6 +300,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al confirmar movimiento: $e');
     }
@@ -293,6 +318,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al cancelar movimiento: $e');
     }
@@ -321,6 +350,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryMovementModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado en búsqueda de movimientos: $e');
     }
@@ -379,6 +412,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return PaginatedResult(data: balances, meta: meta);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener balances: $e');
     }
@@ -486,6 +523,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener balance del producto: $e');
     }
@@ -509,6 +550,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception(
         'Error inesperado al obtener productos con stock bajo: $e',
@@ -535,6 +580,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => FifoConsumptionModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al calcular consumo FIFO: $e');
     }
@@ -587,6 +636,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception(
         'Error inesperado al obtener estadísticas de inventario: $e',
@@ -613,6 +666,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener balances de productos: $e');
     }
@@ -636,6 +693,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener productos sin stock: $e');
     }
@@ -659,6 +720,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener productos vencidos: $e');
     }
@@ -684,6 +749,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception(
         'Error inesperado al obtener productos próximos a vencer: $e',
@@ -703,6 +772,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al procesar movimiento FIFO: $e');
     }
@@ -721,6 +794,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return data.map((json) => InventoryMovementModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception(
         'Error inesperado al procesar movimientos FIFO en lote: $e',
@@ -743,6 +820,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al crear ajuste de stock: $e');
     }
@@ -796,6 +877,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return results;
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al crear ajustes de stock en lote: $e');
     }
@@ -844,6 +929,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return mainTransfer!;
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al crear transferencia: $e');
     }
@@ -858,6 +947,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al confirmar transferencia: $e');
     }
@@ -883,6 +976,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       return Map<String, double>.from(data);
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception(
         'Error inesperado al obtener valoración de inventario: $e',
@@ -925,6 +1022,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener reporte kardex: $e');
     }
@@ -970,6 +1071,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       }).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener reporte de antigüedad: $e');
     }
@@ -1032,6 +1137,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener lotes: $e');
     }
@@ -1053,6 +1162,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw Exception('Error inesperado al obtener lote: $e');
     }

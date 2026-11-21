@@ -1,5 +1,6 @@
 // lib/app/shared/screens/simple_dashboard_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../controllers/simple_auth_controller.dart';
 
@@ -229,7 +230,7 @@ class SimpleDashboardScreen extends GetView<SimpleAuthController> {
             onPressed: () {
               Get.back();
               controller.logout();
-              Get.offAllNamed('/login');
+              AppNav.offAllNamed('/login');
             },
             child: const Text('Cerrar Sesión'),
           ),
