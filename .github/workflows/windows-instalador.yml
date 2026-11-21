@@ -1,0 +1,104 @@
+# Instalador de Baudex para Windows.
+#
+# Uso: GitHub → Actions → "Instalador Windows" → Run workflow.
+# Al terminar, en "Artifacts" del run queda:
+#   - Baudex-Setup-<versión>.exe  (instalador, se instala sin administrador)
+#   - Baudex-windows-<versión>.zip (la misma app sin instalador)
+#
+# Los .env no están en git. Aquí se crean con valores de producción que NO
+# son secretos (dirección del servidor). La llave de la Ops API sí es secreta:
+# si existe el secreto OPS_KEY del repositorio se usa; si no, la app funciona
+# igual pero no reporta errores a Telegram.
+name: Instalador Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión que verá el cliente (vacío = la de pubspec.yaml)'
+        required: false
+        default: ''
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      # Visual Studio 18 rompe plugins que aún usan <experimental/coroutine>
+      # (pasó con Food el 2026-11-18). Esta bandera lo deja compilar.
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+      OPS_KEY: ${{ secrets.OPS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+
+      - name: Versión
+        id: ver
+        shell: pwsh
+        run: |
+          $v = '${{ inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($v)) {
+            $line = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0]
+            $v = $line.Groups[1].Value
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Versión: $v"
+
+      - name: Crear .env de producción (sin secretos)
+        shell: pwsh
+        run: |
+          $c = @(
+            'SERVER_IP=baudex.baudity.tech',
+            'SERVER_PORT=443',
+            'APP_ENV=production',
+            'API_TIMEOUT=30000',
+            'DEBUG_MODE=false',
+            'SHOW_LOGS=false'
+          ) -join "`n"
+          foreach ($f in '.env', '.env.production', '.env.development', '.env.staging') {
+            Set-Content -Path $f -Value $c -NoNewline -Encoding utf8NoBOM
+          }
+
+      - run: flutter pub get
+
+      - name: Compilar
+        shell: pwsh
+        run: |
+          $fa = @('build', 'windows', '--release', '--dart-define=FLAVOR=production')
+          if ($env:OPS_KEY) {
+            $fa += '--dart-define=OPS_URL=https://ops.baudity.tech'
+            $fa += "--dart-define=OPS_KEY=$env:OPS_KEY"
+            Write-Host 'Ops API: activada'
+          } else {
+            Write-Host '::warning::Sin secreto OPS_KEY: esta compilación no reporta errores a la Ops API'
+          }
+          flutter @args
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Instalar Inno Setup si falta
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Empaquetar
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          New-Item -ItemType Directory -Force dist | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" windows\installer\baudex.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "dist\Baudex-windows-$v.zip"
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baudex-windows-${{ steps.ver.outputs.version }}
+          path: dist/*
+          retention-days: 30
