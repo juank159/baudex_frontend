@@ -19,6 +19,12 @@ import '../../../inventory/domain/entities/warehouse.dart';
 import '../../../inventory/data/models/warehouse_model.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 import 'purchase_orders_controller.dart';
+import '../../../../app/data/local/sync_service.dart';
+
+/// ¿Id temporal de una orden creada sin conexión (aún sin id del servidor)?
+bool isTemporaryPurchaseOrderId(String id) => !RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(id);
 
 class PurchaseOrderDetailController extends GetxController
     with SyncAutoRefreshMixin {
@@ -41,7 +47,11 @@ class PurchaseOrderDetailController extends GetxController
     required this.receivePurchaseOrderAndUpdateInventoryUseCase,
     required this.cancelPurchaseOrderUseCase,
     required this.getWarehousesUseCase,
-  });
+    Future<String?> Function(String tempId)? resolveTempId,
+  }) : _resolveTempId = resolveTempId ?? SyncService.lookupTempIdMapping;
+
+  /// Id real de una orden creada sin conexión (la subida le cambia el id).
+  final Future<String?> Function(String tempId) _resolveTempId;
 
   // ==================== REACTIVE VARIABLES ====================
 
@@ -78,7 +88,10 @@ class PurchaseOrderDetailController extends GetxController
   @override
   Future<void> onSyncCompleted() async {
     if (purchaseOrderId.value.isNotEmpty) {
-      await loadPurchaseOrder();
+      // En segundo plano: sin esqueleto ni avisos. Antes cada sincronización
+      // cambiaba TODA la pantalla por el esqueleto de carga y la volvía a
+      // armar (justo después de crear una orden hay varias seguidas).
+      await loadPurchaseOrder(silent: true);
     }
   }
 
@@ -106,43 +119,44 @@ class PurchaseOrderDetailController extends GetxController
 
   // ==================== DATA LOADING ====================
 
-  Future<void> loadPurchaseOrder() async {
+  Future<void> loadPurchaseOrder({bool silent = false}) async {
+    // El esqueleto solo cuando aún no hay nada que mostrar.
+    final showSkeleton = !silent || purchaseOrder.value == null;
     try {
-      isLoading.value = true;
-      error.value = '';
+      if (showSkeleton) isLoading.value = true;
+      if (!silent) error.value = '';
 
-      final result = await getPurchaseOrderByIdUseCase(purchaseOrderId.value);
+      var result = await getPurchaseOrderByIdUseCase(purchaseOrderId.value);
+
+      // Orden creada sin conexión que ya subió: la lista aún tenía el id
+      // temporal y la búsqueda no la encontraba (la pantalla quedaba en
+      // "Error al cargar" sin forma de salir).
+      if (result.isLeft() && isTemporaryPurchaseOrderId(purchaseOrderId.value)) {
+        final realId = await _resolveTempId(purchaseOrderId.value);
+        if (realId != null && realId.isNotEmpty) {
+          purchaseOrderId.value = realId;
+          result = await getPurchaseOrderByIdUseCase(realId);
+        }
+      }
 
       result.fold(
         (failure) {
+          // Si ya se está mostrando la orden, un refresco fallido no la tapa.
+          if (silent && purchaseOrder.value != null) return;
           error.value = failure.message;
-          Get.snackbar(
-            'Error al cargar orden',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-          );
         },
         (loadedPurchaseOrder) {
-          for (int i = 0; i < loadedPurchaseOrder.items.length; i++) {
-            final item = loadedPurchaseOrder.items[i];
-          }
+          error.value = '';
           purchaseOrder.value = loadedPurchaseOrder;
           _initializeReceivingItems();
         },
       );
     } catch (e) {
-      error.value = 'Error inesperado: $e';
-      Get.snackbar(
-        'Error al cargar orden',
-        'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      if (!(silent && purchaseOrder.value != null)) {
+        error.value = 'Error inesperado: $e';
+      }
     } finally {
-      isLoading.value = false;
+      if (showSkeleton) isLoading.value = false;
     }
   }
 

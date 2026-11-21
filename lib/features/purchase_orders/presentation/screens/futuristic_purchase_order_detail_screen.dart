@@ -28,7 +28,9 @@ class FuturisticPurchaseOrderDetailScreen
           controller.isLoading.value
               ? _buildLoadingState()
               : controller.error.value.isNotEmpty
-              ? _buildErrorState()
+              // Con su barra y botón de volver: antes era un recuadro suelto,
+              // sin forma de salir (había que cerrar la app).
+              ? _buildMessagePage(_buildErrorState())
               : controller.hasPurchaseOrder
               ? MainLayout(
                 title: controller.displayTitle,
@@ -37,7 +39,7 @@ class FuturisticPurchaseOrderDetailScreen
                 actions: _buildAppBarActions(context),
                 body: _buildFuturisticContent(context),
               )
-              : _buildNotFoundState(),
+              : _buildMessagePage(_buildNotFoundState()),
     );
   }
 
@@ -484,6 +486,15 @@ class FuturisticPurchaseOrderDetailScreen
     );
   }
 
+  Widget _buildMessagePage(Widget child) {
+    return MainLayout(
+      title: 'Orden de compra',
+      showBackButton: true,
+      showDrawer: false,
+      body: child,
+    );
+  }
+
   Widget _buildErrorState() {
     return Center(
       child: FuturisticContainer(
@@ -524,10 +535,22 @@ class FuturisticPurchaseOrderDetailScreen
               ),
             ),
             const SizedBox(height: 20),
-            FuturisticButton(
-              text: 'Reintentar',
-              icon: Icons.refresh,
-              onPressed: controller.refreshPurchaseOrder,
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                FuturisticButton(
+                  text: 'Reintentar',
+                  icon: Icons.refresh,
+                  onPressed: controller.refreshPurchaseOrder,
+                ),
+                FuturisticButton(
+                  text: 'Volver al listado',
+                  icon: Icons.arrow_back,
+                  onPressed: () => Get.back(),
+                ),
+              ],
             ),
           ],
         ),
