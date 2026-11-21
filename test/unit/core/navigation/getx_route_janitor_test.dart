@@ -39,27 +39,31 @@ void main() {
       expect(splitRegistryKeys(''), isEmpty);
     });
 
-    test('toma las llaves de las pantallas abiertas', () {
-      final plan = planRelink(
-        dump: '{R1: [A, B], R2: [], R3: [C]}',
-        live: ['R3'],
-        closed: ['R1', 'R2'],
-      );
-      expect(plan, {0: ['C']});
+    test('lee las entradas en orden aunque todas las rutas se impriman igual', () {
+      // Así imprime GetX en las versiones compiladas (no en las pruebas).
+      const r = "Instance of 'GetPageRoute<dynamic>'";
+      expect(parseRegistryEntries('{$r: [A, B<C, D>], $r: [], $r: [E]}'), [
+        ['A', 'B<C, D>'],
+        <String>[],
+        ['E'],
+      ]);
+      expect(parseRegistryEntries('{}'), isEmpty);
+      expect(parseRegistryEntries('basura'), isNull);
     });
 
-    test('no toca nada si hay una entrada desconocida', () {
-      expect(
-        planRelink(dump: '{R1: [A], X: [B]}', live: ['R1'], closed: []),
-        isNull,
+    test('vuelve a anotar solo lo de las pantallas que se conservan', () {
+      final plan = relinkPlan(
+        owners: ['muerta', 'viva', 'muerta2', 'viva'],
+        keys: [
+          ['A'],
+          ['B'],
+          ['C'],
+          ['D'],
+        ],
+        keep: {'viva'},
       );
-    });
-
-    test('no toca nada si una pantalla abierta aparece dos veces', () {
-      expect(
-        planRelink(dump: '{R1: [A], R1: [B]}', live: ['R1'], closed: []),
-        isNull,
-      );
+      expect(plan.single.owner, 'viva');
+      expect(plan.single.keys, ['B', 'D']);
     });
   });
 
@@ -129,8 +133,17 @@ void main() {
         expect(Get.isRegistered<_CtrlB>(), isFalse);
         expect(Get.isRegistered<_CtrlA>(), isTrue);
       }
+      // Navegar rápido (sin dejar limpiar entre pantallas), como el menú.
+      for (var i = 0; i < 20; i++) {
+        Get.toNamed('/b');
+        await tester.pump(const Duration(milliseconds: 400));
+        Get.back();
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 5));
       final j = GetxRouteJanitor.instance;
+      expect(j.closingCount, 0, reason: 'no guarda pantallas ya desechadas');
       expect(_entries(), 1, reason: 'sw=${j.sweeps} sk=${j.skipped} ${j.lastSkip}');
       // /a debajo conserva su anotación (repositorio y controlador).
       expect(_dump(), contains('_Repo'));
