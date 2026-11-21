@@ -18,6 +18,11 @@ on:
         description: 'Versión que verá el cliente (vacío = la de pubspec.yaml)'
         required: false
         default: ''
+  # GitHub solo deja lanzar a mano workflows que ya están en main; mientras
+  # tanto se compila con cada push a esta rama.
+  push:
+    branches:
+      - chore/instalador-windows
 
 jobs:
   windows:
