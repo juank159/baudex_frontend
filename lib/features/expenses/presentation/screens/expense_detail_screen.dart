@@ -1,5 +1,6 @@
 // lib/features/expenses/presentation/screens/expense_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -103,7 +104,7 @@ class ExpenseDetailScreen extends GetView<ExpenseDetailController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, size: 20),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
       ),
       actions: [
         if (controller.expense.value != null) ...[

@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/screens/verify_email_screen.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -91,7 +92,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       await authController.verifyEmail(_email, code);
 
       // Navegar primero, luego snackbar
-      Get.offAllNamed('/login');
+      AppNav.offAllNamed('/login');
       Get.snackbar(
         'Verificación exitosa',
         'Tu correo ha sido verificado correctamente',
@@ -467,7 +468,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     return Column(
       children: [
         TextButton(
-          onPressed: () => Get.offAllNamed('/login'),
+          onPressed: () => AppNav.offAllNamed('/login'),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

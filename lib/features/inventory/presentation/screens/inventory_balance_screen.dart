@@ -1,5 +1,6 @@
 // lib/features/inventory/presentation/screens/inventory_balance_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 // import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
@@ -49,7 +50,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             // Limpiar historial y volver atrás para refrescar datos
-            Get.back();
+            AppNav.back();
             // Forzar limpieza del controlador para próxima navegación
             if (Get.isRegistered<InventoryBalanceController>()) {
               Get.delete<InventoryBalanceController>();

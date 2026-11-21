@@ -1,5 +1,6 @@
 // lib/features/inventory/presentation/screens/warehouse_form_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -68,7 +69,7 @@ class _WarehouseFormScreenState extends State<WarehouseFormScreen> {
               onPressed: () async {
                 final canLeave = await warehouseFormController.confirmDiscardChanges();
                 if (canLeave) {
-                  Get.back();
+                  AppNav.back();
                 }
               },
               tooltip: 'Volver',
@@ -973,7 +974,7 @@ class _WarehouseFormScreenState extends State<WarehouseFormScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Get.back(),
+          onPressed: () => AppNav.back(),
           tooltip: 'Volver',
         ),
         flexibleSpace: Container(

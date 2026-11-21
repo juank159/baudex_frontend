@@ -1,5 +1,6 @@
 // lib/app/shared/screens/not_found_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
 import '../../core/utils/responsive.dart';
@@ -386,7 +387,7 @@ class _NotFoundScreenState extends State<NotFoundScreen>
       CustomButton(
         text: 'Ir al Inicio',
         icon: Icons.home,
-        onPressed: () => Get.offAllNamed(AppRoutes.login),
+        onPressed: () => AppNav.offAllNamed(AppRoutes.login),
         width: context.isMobile ? double.infinity : null,
       ),
       if (!context.isMobile) const SizedBox(width: 16),
@@ -397,9 +398,9 @@ class _NotFoundScreenState extends State<NotFoundScreen>
         type: ButtonType.outline,
         onPressed: () {
           if (Get.routing.previous.isNotEmpty) {
-            Get.back();
+            AppNav.back();
           } else {
-            Get.offAllNamed(AppRoutes.login);
+            AppNav.offAllNamed(AppRoutes.login);
           }
         },
         width: context.isMobile ? double.infinity : null,
@@ -436,7 +437,7 @@ class Simple404Screen extends StatelessWidget {
             const SizedBox(height: 32),
             CustomButton(
               text: 'Ir al inicio',
-              onPressed: () => Get.offAllNamed(AppRoutes.login),
+              onPressed: () => AppNav.offAllNamed(AppRoutes.login),
             ),
           ],
         ),

@@ -99,13 +99,21 @@ class NavigationGuard {
   bool offNamed(String route, {dynamic arguments}) =>
       _enqueue(_PendingNav._off(route, arguments));
 
-  /// `Get.back()` no necesita guard pero lo exponemos para uniformidad.
+  /// Volver (botón "Volver" de las pantallas).
+  ///
+  /// `Get.back()` de GetX 4.7, si hay un aviso (snackbar) en pantalla, SOLO
+  /// cierra el aviso y no vuelve: con avisos en fila el botón "no hacía nada"
+  /// durante minutos (volver a la factura tardó 42 s). Aquí se cierran los
+  /// avisos y se vuelve de una vez.
   bool back({dynamic result}) {
     if (_inFlight) {
       _log('back DESCARTADO (navegación en curso a $_currentRoute)');
       return false;
     }
-    Get.back<dynamic>(result: result);
+    if (Get.isSnackbarOpen) Get.closeAllSnackbars();
+    final navigator = Get.key.currentState;
+    if (navigator == null || !navigator.canPop()) return false;
+    navigator.pop<dynamic>(result);
     return true;
   }
 

@@ -1,5 +1,6 @@
 // lib/features/categories/presentation/screens/category_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -297,7 +298,7 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
               FuturisticButton(
                 text: 'Volver a Categorías',
                 icon: Icons.arrow_back,
-                onPressed: () => Get.back(),
+                onPressed: () => AppNav.back(),
               ),
             ],
           ),

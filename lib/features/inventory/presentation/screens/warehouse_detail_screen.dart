@@ -1,5 +1,6 @@
 // lib/features/inventory/presentation/screens/warehouse_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/permission_gate.dart';
@@ -59,7 +60,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
           actions: _buildAppBarActions(context),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Get.back(),
+            onPressed: () => AppNav.back(),
             tooltip: 'Volver',
           ),
           flexibleSpace: Container(
@@ -1080,7 +1081,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Get.back(),
+          onPressed: () => AppNav.back(),
           tooltip: 'Volver',
         ),
         flexibleSpace: Container(

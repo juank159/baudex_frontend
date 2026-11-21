@@ -1,5 +1,6 @@
 // lib/app/shared/screens/barcode_scanner_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:get/get.dart';
 import '../../core/theme/elegant_light_theme.dart';
@@ -123,7 +124,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
           try {
             Navigator.of(context).pop();
           } catch (e) {
-            Get.back();
+            AppNav.back();
           }
         },
       ),

@@ -1,5 +1,6 @@
 // lib/features/customers/presentation/screens/customer_detail_screen.dart
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
@@ -112,7 +113,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, size: 20),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
       ),
       actions: [
         const SyncStatusIcon(),
@@ -2226,7 +2227,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
             CustomButton(
               text: 'Volver a Clientes',
               icon: Icons.arrow_back,
-              onPressed: () => Get.back(),
+              onPressed: () => AppNav.back(),
             ),
           ],
         ),

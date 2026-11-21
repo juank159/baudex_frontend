@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -175,7 +176,7 @@ class _Header extends StatelessWidget {
           children: [
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Get.back(),
+              onPressed: () => AppNav.back(),
             ),
             const SizedBox(width: 4),
             Container(

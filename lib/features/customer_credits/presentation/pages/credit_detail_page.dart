@@ -1,6 +1,7 @@
 // lib/features/customer_credits/presentation/pages/credit_detail_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -163,7 +164,7 @@ class _CreditDetailPageState extends State<CreditDetailPage>
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
       ),
       flexibleSpace: Container(
         decoration: BoxDecoration(

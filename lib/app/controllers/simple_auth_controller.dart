@@ -1,5 +1,6 @@
 // lib/app/controllers/simple_auth_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 
 /// Simple AuthController for basic functionality
@@ -62,7 +63,7 @@ class SimpleAuthController extends GetxController {
       );
       
       // Navigate to dashboard or home
-      Get.offAllNamed('/dashboard');
+      AppNav.offAllNamed('/dashboard');
     } catch (e) {
       Get.snackbar(
         'Error de Login',

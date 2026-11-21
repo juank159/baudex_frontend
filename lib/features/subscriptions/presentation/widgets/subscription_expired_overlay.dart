@@ -1,6 +1,7 @@
 // lib/features/subscriptions/presentation/widgets/subscription_expired_overlay.dart
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 
@@ -473,7 +474,7 @@ class SubscriptionExpiredOverlay extends StatelessWidget {
               if (Get.isRegistered<SubscriptionController>()) {
                 Get.find<SubscriptionController>();
               }
-              Get.offAllNamed('/login');
+              AppNav.offAllNamed('/login');
             },
             child: const Text('Cerrar Sesión'),
           ),
