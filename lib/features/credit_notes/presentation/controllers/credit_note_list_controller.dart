@@ -14,6 +14,10 @@ import '../../domain/usecases/confirm_credit_note.dart';
 import '../../domain/usecases/cancel_credit_note.dart';
 import '../../domain/usecases/download_credit_note_pdf.dart';
 import '../../domain/repositories/credit_note_repository.dart';
+import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/errors/server_rejection.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
+import 'package:dartz/dartz.dart';
 
 class CreditNoteListController extends GetxController
     with CacheFirstMixin<CreditNote>, SyncAutoRefreshMixin {
@@ -312,89 +316,62 @@ class CreditNoteListController extends GetxController
 
   // ==================== ACTIONS ====================
 
-  Future<void> confirmCreditNote(String id) async {
+  /// Notas con una acción en curso (confirmar o anular). El botón se
+  /// deshabilita y muestra que está trabajando: antes no había ninguna señal
+  /// y el cajero volvía a tocar "Confirmar" mientras el servidor terminaba.
+  final _busyIds = <String>{}.obs;
+  bool isBusy(String id) => _busyIds.contains(id);
+
+  Future<void> confirmCreditNote(String id) => _runStatusChange(
+        id,
+        action: () => _confirmCreditNoteUseCase(id),
+        doneTitle: 'Confirmada',
+        doneMessage: 'Nota de crédito confirmada',
+        errorTitle: 'No se pudo confirmar',
+      );
+
+  Future<void> cancelCreditNote(String id) => _runStatusChange(
+        id,
+        action: () => _cancelCreditNoteUseCase(id),
+        doneTitle: 'Anulada',
+        doneMessage: 'Nota de crédito anulada',
+        errorTitle: 'No se pudo anular',
+      );
+
+  /// Un solo camino para confirmar/anular: una vez por nota, con estado de
+  /// carga, y al terminar (bien o mal) se vuelve a leer la lista para mostrar
+  /// el estado real (el servidor pudo terminarla aunque la respuesta fallara).
+  Future<void> _runStatusChange(
+    String id, {
+    required Future<Either<Failure, CreditNote>> Function() action,
+    required String doneTitle,
+    required String doneMessage,
+    required String errorTitle,
+  }) async {
+    if (_busyIds.contains(id)) return;
+    _busyIds.add(id);
     try {
-      final result = await _confirmCreditNoteUseCase(id);
-
+      final result = await action();
       result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
+        (failure) => FuturisticNotifications.showError(
+          errorTitle,
+          reasonForUser(failure.message),
+        ),
         (creditNote) {
-          // Actualizar la lista
           final index = _creditNotes.indexWhere((cn) => cn.id == id);
-          if (index != -1) {
-            _creditNotes[index] = creditNote;
-            _creditNotes.refresh();
-          }
-          invalidateCache();
-
-          Get.snackbar(
-            'Confirmada',
-            'Nota de crédito confirmada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green,
-            colorText: Colors.white,
+          if (index != -1) _creditNotes[index] = creditNote;
+          FuturisticNotifications.showSuccess(
+            doneTitle,
+            '$doneMessage${creditNote.number.isNotEmpty ? ' (${creditNote.number})' : ''}',
           );
         },
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Error al confirmar: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  Future<void> cancelCreditNote(String id) async {
-    try {
-      final result = await _cancelCreditNoteUseCase(id);
-
-      result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
-        (creditNote) {
-          // Actualizar la lista
-          final index = _creditNotes.indexWhere((cn) => cn.id == id);
-          if (index != -1) {
-            _creditNotes[index] = creditNote;
-            _creditNotes.refresh();
-          }
-          invalidateCache();
-
-          Get.snackbar(
-            'Cancelada',
-            'Nota de crédito cancelada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.orange,
-            colorText: Colors.white,
-          );
-        },
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Error al cancelar: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      FuturisticNotifications.showError(errorTitle, reasonForUser('$e'));
+    } finally {
+      _busyIds.remove(id);
+      invalidateCache();
+      if (!isClosed) await loadCreditNotes(showLoading: false, forceRefresh: true);
     }
   }
 

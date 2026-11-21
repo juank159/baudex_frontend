@@ -471,27 +471,75 @@ class CreditNoteListScreen extends GetView<CreditNoteListController> {
   }
 
   Widget _buildDesktopActions(CreditNote creditNote, bool isSmall) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (creditNote.canBeConfirmed)
-          _buildActionButton(
-            Icons.check,
-            'Confirmar',
-            const Color(0xFF059669), // Verde más intenso
-            isSmall,
-            () => controller.confirmCreditNote(creditNote.id),
-          ),
-        if (creditNote.canBeCancelled)
-          _buildActionButton(
-            Icons.close,
-            'Cancelar',
-            const Color(0xFFEA580C), // Naranja más intenso
-            isSmall,
-            () => controller.cancelCreditNote(creditNote.id),
-          ),
-        _buildMoreMenu(creditNote, isSmall),
-      ],
+    return Obx(() {
+      final busy = controller.isBusy(creditNote.id);
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (busy)
+            _buildBusyIndicator(isSmall)
+          else ...[
+            if (creditNote.canBeConfirmed)
+              _buildActionButton(
+                Icons.check,
+                'Confirmar',
+                const Color(0xFF059669), // Verde más intenso
+                isSmall,
+                () => controller.confirmCreditNote(creditNote.id),
+              ),
+            if (creditNote.canBeCancelled)
+              _buildActionButton(
+                Icons.close,
+                'Cancelar',
+                const Color(0xFFEA580C), // Naranja más intenso
+                isSmall,
+                () => controller.cancelCreditNote(creditNote.id),
+              ),
+          ],
+          _buildMoreMenu(creditNote, isSmall),
+        ],
+      );
+    });
+  }
+
+  /// Mientras el servidor confirma o anula la nota: la acción no se puede
+  /// repetir y se ve que está trabajando.
+  Widget _buildBusyIndicator(bool isSmall) {
+    return Tooltip(
+      message: 'Procesando…',
+      child: Container(
+        margin: EdgeInsets.only(left: isSmall ? 4 : 6),
+        padding: EdgeInsets.symmetric(horizontal: isSmall ? 8 : 10, vertical: isSmall ? 7 : 9),
+        decoration: BoxDecoration(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: isSmall ? 14 : 16,
+              height: isSmall ? 14 : 16,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+              ),
+            ),
+            if (!isSmall) ...[
+              const SizedBox(width: 8),
+              const Text(
+                'Procesando…',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: ElegantLightTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

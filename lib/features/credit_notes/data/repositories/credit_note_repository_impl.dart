@@ -374,6 +374,15 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       final creditNote = await remoteDataSource.confirmCreditNote(id);
       AppLogger.i('Nota de crédito confirmada exitosamente', tag: 'CREDIT_NOTE');
 
+      // La copia del equipo pasa a confirmada: la lista y el detalle leen
+      // primero del equipo y, sin esto, la seguían mostrando en borrador
+      // (y otro "Confirmar" la habría confirmado de nuevo sin conexión).
+      try {
+        await localDataSource.cacheCreditNote(creditNote);
+      } catch (e) {
+        AppLogger.w('No se pudo guardar la nota confirmada en el equipo: $e', tag: 'CREDIT_NOTE');
+      }
+
       // ✅ CRÍTICO: backend ya restauró inventario en /confirm
       // (restoreToBatchesIntelligent + customer balance). Aplicamos el mismo
       // efecto en ISAR local PARA QUE LA UI VEA EL CAMBIO INMEDIATO sin

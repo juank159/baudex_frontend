@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/credit_note.dart';
+import '../../../../app/core/errors/server_rejection.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../domain/usecases/get_credit_note_by_id.dart';
 import '../../domain/usecases/confirm_credit_note.dart';
 import '../../domain/usecases/cancel_credit_note.dart';
@@ -103,7 +105,7 @@ class CreditNoteDetailController extends GetxController
   // ==================== ACTIONS ====================
 
   Future<void> confirmCreditNote() async {
-    if (creditNote == null) return;
+    if (creditNote == null || _isProcessing.value) return;
 
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
@@ -132,33 +134,26 @@ class CreditNoteDetailController extends GetxController
       final result = await _confirmCreditNoteUseCase(creditNote!.id);
 
       result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
+        (failure) => FuturisticNotifications.showError(
+          'No se pudo confirmar',
+          reasonForUser(failure.message),
+        ),
         (updatedCreditNote) {
           _creditNote.value = updatedCreditNote;
-          Get.snackbar(
-            'Confirmada',
-            'Nota de crédito confirmada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green,
-            colorText: Colors.white,
-          );
+          FuturisticNotifications.showSuccess('Confirmada', 'Nota de crédito confirmada');
         },
       );
+    } catch (e) {
+      FuturisticNotifications.showError('No se pudo confirmar', reasonForUser('$e'));
     } finally {
       _isProcessing.value = false;
+      // Estado real: el servidor pudo terminar aunque la respuesta fallara.
+      if (!isClosed) await refreshCreditNote();
     }
   }
 
   Future<void> cancelCreditNote() async {
-    if (creditNote == null) return;
+    if (creditNote == null || _isProcessing.value) return;
 
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
@@ -188,28 +183,21 @@ class CreditNoteDetailController extends GetxController
       final result = await _cancelCreditNoteUseCase(creditNote!.id);
 
       result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
+        (failure) => FuturisticNotifications.showError(
+          'No se pudo anular',
+          reasonForUser(failure.message),
+        ),
         (updatedCreditNote) {
           _creditNote.value = updatedCreditNote;
-          Get.snackbar(
-            'Cancelada',
-            'Nota de crédito cancelada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.orange,
-            colorText: Colors.white,
-          );
+          FuturisticNotifications.showSuccess('Anulada', 'Nota de crédito anulada');
         },
       );
+    } catch (e) {
+      FuturisticNotifications.showError('No se pudo anular', reasonForUser('$e'));
     } finally {
       _isProcessing.value = false;
+      // Estado real: el servidor pudo terminar aunque la respuesta fallara.
+      if (!isClosed) await refreshCreditNote();
     }
   }
 
