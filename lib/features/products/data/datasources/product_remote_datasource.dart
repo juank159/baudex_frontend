@@ -148,24 +148,14 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
 
   @override
   Future<ProductModel> findBySkuOrBarcode(String code) async {
+    // El servidor no tiene "/products/find/:code" (siempre respondía 404):
+    // se usa el código de barras y, si no existe, el SKU.
     try {
-      // Nota: Ajusta esta ruta según tu backend - podría ser diferente
-      final response = await dioClient.get('/products/find/$code');
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['success'] == true && responseData['data'] != null) {
-          return ProductModel.fromJson(responseData['data']);
-        } else {
-          throw ServerException('Respuesta inválida del servidor');
-        }
-      } else {
-        throw _handleErrorResponse(response);
-      }
-    } on DioException catch (e) {
-      throw _handleDioException(e);
-    } catch (e) {
-      throw ServerException('Error inesperado al buscar producto: $e');
+      return await getProductByBarcode(code);
+    } on ServerException catch (e) {
+      final notFound = e.statusCode == 404 || e.message.contains('no encontrado');
+      if (!notFound) rethrow;
+      return getProductBySku(code);
     }
   }
 

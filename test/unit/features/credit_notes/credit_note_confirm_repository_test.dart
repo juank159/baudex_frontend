@@ -72,4 +72,28 @@ void main() {
     expect(failure.message, contains('Solo borradores'));
     verifyNever(() => local.cacheCreditNote(any()));
   });
+
+  test('servidor anterior: 400 "Estado actual: confirmed" se consulta y se da por confirmada',
+      () async {
+    final confirmed = CreditNoteModel.fromEntity(
+        CreditNoteFixtures.createConfirmedCreditNote(id: id));
+    when(() => remote.confirmCreditNote(id)).thenThrow(const ServerException(
+        'Solicitud incorrecta: Solo se pueden confirmar notas de crédito en estado DRAFT. Estado actual: confirmed',
+        statusCode: 400));
+    when(() => remote.getCreditNoteById(id)).thenAnswer((_) async => confirmed);
+
+    final result = await repo.confirmCreditNote(id);
+
+    expect(result.isRight(), isTrue, reason: 'la nota sí quedó confirmada');
+    expect(result.getOrElse(() => throw 'x').status, CreditNoteStatus.confirmed);
+    verify(() => local.cacheCreditNote(any())).called(1);
+  });
+
+  test('servidor nuevo (idempotente): repetir confirmar responde 200 y es éxito', () async {
+    final confirmed = CreditNoteModel.fromEntity(
+        CreditNoteFixtures.createConfirmedCreditNote(id: id));
+    when(() => remote.confirmCreditNote(id)).thenAnswer((_) async => confirmed);
+    expect((await repo.confirmCreditNote(id)).isRight(), isTrue);
+    expect((await repo.confirmCreditNote(id)).isRight(), isTrue);
+  });
 }

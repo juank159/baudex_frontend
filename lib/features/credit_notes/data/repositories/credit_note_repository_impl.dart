@@ -26,6 +26,14 @@ import 'credit_note_offline_repository.dart';
 import '../credit_note_local_effects.dart';
 import '../credit_note_pdf_builder.dart';
 
+/// ¿El servidor rechazó la confirmación porque la nota YA estaba confirmada?
+bool isAlreadyConfirmedRejection(ServerException e) {
+  if (e.statusCode != 400) return false;
+  final m = e.message.toLowerCase();
+  return m.contains('estado actual: confirmed') || m.contains('ya está confirmada') ||
+      m.contains('ya esta confirmada');
+}
+
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
   final CreditNoteLocalDataSource localDataSource;
@@ -451,6 +459,22 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       if (e is ConnectionException) {
         networkInfo.markServerUnreachable();
         return _localCreditNotes.confirmCreditNote(id);
+      }
+      // Servidor anterior a la confirmación idempotente: un segundo intento
+      // (o el primero que tardó) responde 400 "Estado actual: confirmed"
+      // aunque la nota SÍ quedó confirmada. Se consulta y se da por hecha.
+      if (e is ServerException && isAlreadyConfirmedRejection(e)) {
+        try {
+          final current = await remoteDataSource.getCreditNoteById(id);
+          if (current.status == CreditNoteStatus.confirmed) {
+            try {
+              await localDataSource.cacheCreditNote(current);
+            } catch (_) {}
+            return Right(current);
+          }
+        } catch (_) {
+          // Sin poder consultarla: se muestra el motivo del servidor.
+        }
       }
       AppLogger.e('Error al confirmar nota de crédito: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
