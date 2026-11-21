@@ -382,7 +382,19 @@ Future<int> back() async {
 InvoiceFormController? get form =>
     Get.isRegistered<InvoiceTabsController>() ? Get.find<InvoiceTabsController>().currentTab?.controller : null;
 
-double qtySum() => form?.invoiceItems.fold<double>(0, (a, i) => a + i.quantity) ?? 0;
+/// Suma de cantidades de la factura abierta. Se guarda el controlador para no
+/// llamar Get.isRegistered/Get.find cada 20 ms (eso solo ya gastaba ~25 % del
+/// hilo principal en la corrida 4 y falseaba la medición).
+InvoiceFormController? _qtyForm;
+double qtySum() {
+  final f = (_qtyForm != null && !_qtyForm!.isClosed) ? _qtyForm : (_qtyForm = form);
+  if (f == null) return 0;
+  var t = 0.0;
+  for (final i in f.invoiceItems) {
+    t += i.quantity;
+  }
+  return t;
+}
 
 List<String> _barcodes = [];
 Future<List<String>> barcodes(int n) async {

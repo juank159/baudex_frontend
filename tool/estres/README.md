@@ -32,6 +32,13 @@ QA_SNAPS=<salida>/fotos QA_NAV_N=100 tool/estres/run_stress.sh <salida>
   estados, temporizadores, avisos) y perfil de CPU por escenario (`cpu_<escenario>.txt`).
 - Salida: `resultados.json` (una fila por escenario), `memoria.jsonl`, `rss_ps.txt`, `fotos/`.
 - `vm_eval.dart <uri> [s]`: qué está haciendo la app ahora (CPU de los últimos s segundos).
+- `vm_count.dart <uri> Clase1,Clase2`: instancias vivas tras recolección (p. ej. `GetPageRoute,AnimationController`).
+- `vm_retain.dart <uri> <Clase>`: quién retiene esas instancias (camino hasta la raíz; así se halló
+  `RouterReportManager._routesKey`).
+- `hold_inventory_lock.sh <marca> <organization_id> [s]`: ocupa el candado de inventario del negocio al empezar el
+  escenario de notas crédito (reproduce "error y luego confirmada").
+- Aislamiento: HOME propio (Isar), llavero en memoria y preferencias con prefijo `qaestres.` (las preferencias de
+  macOS NO respetan el HOME aislado y comparten archivo con la app real del Mac).
 
 ## 4. Servidor
 - `api_load.py [concurrencia] [n]`: p50/p95/peor y tamaño de los endpoints que usan las pantallas.
