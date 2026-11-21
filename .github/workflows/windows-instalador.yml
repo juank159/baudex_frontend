@@ -77,7 +77,7 @@ jobs:
           } else {
             Write-Host '::warning::Sin secreto OPS_KEY: esta compilación no reporta errores a la Ops API'
           }
-          flutter @args
+          flutter @fa
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Instalar Inno Setup si falta
