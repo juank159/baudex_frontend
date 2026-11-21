@@ -110,6 +110,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -147,6 +151,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -180,6 +188,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -212,6 +224,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -253,6 +269,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -293,6 +313,10 @@ class PurchaseOrderRemoteDataSourceImpl
       if (e.response?.data != null) {
       }
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -313,6 +337,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -349,6 +377,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -385,6 +417,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -421,6 +457,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -458,6 +498,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -494,6 +538,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -528,6 +576,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -560,6 +612,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -592,6 +648,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -625,6 +685,10 @@ class PurchaseOrderRemoteDataSourceImpl
       rethrow;
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e), statusCode: e.response?.statusCode);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }

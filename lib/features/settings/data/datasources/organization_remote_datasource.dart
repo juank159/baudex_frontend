@@ -25,6 +25,10 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e, 'obtener organización actual');
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener organización actual: $e',
@@ -45,6 +49,10 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e, 'actualizar organización');
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al actualizar organización: $e',
@@ -60,6 +68,10 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw _handleDioException(e, 'obtener organización');
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener organización: $e',
@@ -78,6 +90,10 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
       return response.data['success'] as bool? ?? false;
     } on DioException catch (e) {
       throw _handleDioException(e, 'actualizar margen de ganancia');
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al actualizar margen de ganancia: $e',

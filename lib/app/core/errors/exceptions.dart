@@ -66,6 +66,16 @@ class ConnectionException extends AppException {
   static const socketException = ConnectionException('Error de red');
 }
 
+/// Se agotó la espera de la respuesta. Es "de conexión" (el repositorio puede
+/// guardar en el equipo), pero la petición PUDO llegar al servidor y
+/// terminar allá: antes de dar por fallida una operación que cambia datos,
+/// conviene preguntar al servidor su estado real.
+class RequestTimeoutException extends ConnectionException {
+  const RequestTimeoutException([
+    super.message = 'El servidor tardó demasiado en responder.',
+  ]);
+}
+
 /// Excepción de cache/almacenamiento local
 class CacheException extends AppException {
   const CacheException([super.message = 'Error de cache']);

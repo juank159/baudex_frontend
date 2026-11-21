@@ -27,6 +27,10 @@ class UserPreferencesRemoteDataSourceImpl implements UserPreferencesRemoteDataSo
       }
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -51,6 +55,10 @@ class UserPreferencesRemoteDataSourceImpl implements UserPreferencesRemoteDataSo
       }
     } on DioException catch (e) {
       throw ServerException(_handleDioError(e));
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }

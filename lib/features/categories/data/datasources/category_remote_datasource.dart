@@ -53,6 +53,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener categorías: $e');
     }
@@ -75,6 +79,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener categoría: $e');
     }
@@ -99,6 +107,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener categoría: $e');
     }
@@ -180,6 +192,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener estadísticas: $e');
     }
@@ -212,6 +228,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado en búsqueda: $e');
     }
@@ -239,6 +259,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e, stackTrace) {
       // 🔒 CRITICAL: Preservar statusCode original si es ServerException
       if (e is ServerException) {
@@ -271,6 +295,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar categoría: $e');
     }
@@ -296,6 +324,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar estado: $e');
     }
@@ -311,6 +343,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al eliminar categoría: $e');
     }
@@ -335,6 +371,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al restaurar categoría: $e');
     }
@@ -361,6 +401,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al verificar slug: $e');
     }
@@ -382,6 +426,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al generar slug: $e');
     }
@@ -400,6 +448,10 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al reordenar categorías: $e');
     }

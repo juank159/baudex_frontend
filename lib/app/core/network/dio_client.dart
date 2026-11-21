@@ -412,7 +412,7 @@ class DioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return const ConnectionException(
+        return const RequestTimeoutException(
           'Tiempo de conexión agotado. Verifica tu conexión a internet.',
         );
 

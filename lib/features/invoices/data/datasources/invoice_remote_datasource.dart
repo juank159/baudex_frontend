@@ -124,6 +124,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener facturas: $e');
     }
@@ -147,6 +151,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener factura: $e');
     }
@@ -170,6 +178,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener factura por número: $e',
@@ -199,6 +211,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener facturas vencidas: $e',
@@ -242,6 +258,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener estadísticas: $e');
     }
@@ -275,6 +295,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener facturas del cliente: $e',
@@ -309,6 +333,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al buscar facturas: $e');
     }
@@ -355,6 +383,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
@@ -397,6 +429,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
@@ -424,6 +460,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al confirmar factura: $e');
     }
@@ -447,6 +487,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al cancelar factura: $e');
     }
@@ -481,6 +525,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
@@ -514,6 +562,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al agregar pagos múltiples: $e');
@@ -538,6 +590,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al obtener pagos: $e');
@@ -563,6 +619,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error inesperado al eliminar pago: $e');
@@ -580,6 +640,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al eliminar factura: $e');
     }
@@ -693,6 +757,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al descargar PDF: $e');
     }
@@ -723,6 +791,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al aplicar saldo: $e');
     }

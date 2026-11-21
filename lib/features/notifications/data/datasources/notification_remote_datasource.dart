@@ -116,6 +116,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener notificaciones: $e',
@@ -176,6 +180,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener notificación: $e',
@@ -205,6 +213,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener notificaciones no leídas: $e',
@@ -268,6 +280,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener contador de no leídas: $e',
@@ -328,6 +344,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas: $e',
@@ -362,6 +382,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al buscar notificaciones: $e');
     }
@@ -396,6 +420,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ValidationException) rethrow;
       throw ServerException('Error inesperado al crear notificación: $e');
@@ -419,6 +447,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar como leída: $e',
@@ -443,6 +475,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar como no leída: $e',
@@ -460,6 +496,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar todas como leídas: $e',
@@ -477,6 +517,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al eliminar notificación: $e');
     }
@@ -492,6 +536,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al eliminar notificaciones leídas: $e',
@@ -689,6 +737,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener IDs de notificaciones dinámicas leídas: $e',
@@ -712,6 +764,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al sincronizar estado de notificación dinámica: $e',
@@ -736,6 +792,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al sincronizar estados de notificaciones dinámicas: $e',
@@ -755,6 +815,10 @@ class NotificationRemoteDataSourceImpl
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar todas las notificaciones dinámicas como leídas: $e',

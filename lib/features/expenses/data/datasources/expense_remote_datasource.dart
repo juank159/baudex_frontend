@@ -125,6 +125,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener gastos: $e',
@@ -150,6 +154,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener el gasto: $e',
@@ -181,6 +189,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al crear el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al crear el gasto: $e',
@@ -215,6 +227,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al actualizar el gasto: $e',
@@ -233,6 +249,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al eliminar el gasto: $e',
@@ -263,6 +283,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al enviar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al enviar el gasto: $e',
@@ -297,6 +321,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al aprobar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al aprobar el gasto: $e',
@@ -328,6 +356,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al rechazar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al rechazar el gasto: $e',
@@ -358,6 +390,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al marcar como pagado',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al marcar como pagado: $e',
@@ -382,6 +418,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al buscar gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al buscar gastos: $e',
@@ -413,6 +453,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener estadísticas',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener estadísticas: $e',
@@ -451,6 +495,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener categorías',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener categorías: $e',
@@ -490,6 +538,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
             'Error al obtener categorías con estadísticas',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener categorías con estadísticas: $e',
@@ -511,6 +563,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener la categoría: $e',
@@ -536,6 +592,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al crear la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al crear la categoría: $e',
@@ -562,6 +622,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al actualizar la categoría: $e',
@@ -580,6 +644,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al eliminar la categoría: $e',
@@ -608,6 +676,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al buscar categorías',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al buscar categorías: $e',
@@ -641,6 +713,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al subir adjuntos',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al subir adjuntos: $e',
@@ -661,6 +737,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar adjunto',
         statusCode: e.response?.statusCode ?? 500,
       );
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException(
         'Error inesperado al eliminar adjunto: $e',

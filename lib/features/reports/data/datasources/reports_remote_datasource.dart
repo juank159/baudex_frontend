@@ -84,6 +84,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -128,6 +132,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -166,6 +174,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -185,6 +197,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       );
       
       return await getTopProfitableProducts(modifiedParams);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -222,6 +238,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -257,6 +277,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -302,6 +326,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -338,6 +366,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -378,6 +410,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -418,6 +454,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -456,6 +496,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -502,6 +546,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -539,6 +587,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }
@@ -576,6 +628,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       } else {
         throw ServerException('Error del servidor: ${e.message}');
       }
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado: $e');
     }

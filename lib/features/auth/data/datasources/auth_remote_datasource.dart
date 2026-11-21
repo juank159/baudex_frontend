@@ -66,6 +66,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado durante el login: $e');
@@ -95,6 +99,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado durante el registro: $e');
     }
@@ -111,6 +119,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return authResponse;
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado durante el registro con onboarding: $e');
     }
@@ -128,6 +140,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al obtener perfil: $e');
     }
@@ -145,6 +161,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al refrescar token: $e');
     }
@@ -182,6 +202,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar perfil: $e');
     }
@@ -201,6 +225,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       // Si llega aquí, el cambio fue exitoso
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al cambiar contraseña: $e');
     }
@@ -231,6 +259,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado al verificar email: $e');
@@ -259,6 +291,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado al reenviar código: $e');
@@ -287,6 +323,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado al solicitar recuperación: $e');
@@ -319,6 +359,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado al restablecer contraseña: $e');
@@ -368,6 +412,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw ServerException('Error al obtener sesiones activas');
     } on DioException catch (e) {
       throw _handleDioException(e);
+    } on AppException {
+      // Ya viene tipado por el cliente HTTP (sin conexión, tiempo agotado,
+      // rechazo con el mensaje del servidor): se pasa tal cual.
+      rethrow;
     } catch (e) {
       if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado al obtener sesiones: $e');
