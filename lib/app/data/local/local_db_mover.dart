@@ -47,6 +47,14 @@ typedef LocalDbProblem = void Function(
   Map<String, dynamic> context,
 );
 
+/// Operaciones de la cola de la base `<name>.isar` en [directory]: clave
+/// `tipo|id|operación|creada` → true si sigue sin subir. Abre y cierra la base;
+/// lanza si no abre.
+typedef LocalDbQueueReader = Future<Map<String, bool>> Function(
+  String directory,
+  String name,
+);
+
 class LocalDbMoveException implements Exception {
   LocalDbMoveException(this.message);
   final String message;
@@ -67,14 +75,23 @@ class LocalDbMoveException implements Exception {
 /// - La vieja no se borra: se renombra a `<name>.isar.migrado-AAAAMMDD`.
 /// - Ante cualquier error devuelve la carpeta vieja: nunca se abre una base
 ///   vacía si existía una con datos.
-/// - El `.isar.lock` viejo no se copia (Isar lo recrea).
+/// - El candado de Isar 3 (`<name>.isar-lck`) no se copia (Isar lo recrea) y
+///   el de Documentos se borra al archivar la vieja.
+/// - Todo pasa con un candado entre procesos (`.traslado.lock` en la carpeta
+///   nueva): dos arranques a la vez no se pisan la copia temporal.
+/// - Si la nueva ya existe y la vieja sigue con su nombre, solo se archiva si
+///   no tiene operaciones sin subir que la nueva no tenga. Si las tiene, se
+///   deja con su nombre y se reporta: ninguna venta queda escondida en un
+///   `.migrado-*`.
 class LocalDbMover {
   LocalDbMover({
     required this.legacyDirectory,
     required this.newDirectory,
     required this.counter,
+    this.queueReader,
     this.name = 'baudex_offline',
     this.onProblem,
+    this.lockTimeout = const Duration(seconds: 60),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -82,10 +99,16 @@ class LocalDbMover {
   final String newDirectory;
   final String name;
   final LocalDbCounter counter;
+
+  /// Para revisar una vieja que sigue viva junto a la nueva. Sin él, esa
+  /// vieja nunca se archiva (solo se reporta).
+  final LocalDbQueueReader? queueReader;
   final LocalDbProblem? onProblem;
+  final Duration lockTimeout;
   final DateTime Function() _now;
 
   static const stagingFolder = '.traslado';
+  static const lockFileName = '.traslado.lock';
 
   /// Tamaño mínimo para tratar el archivo como una base de Isar.
   static const minDbBytes = 64 * 1024;
@@ -95,14 +118,70 @@ class LocalDbMover {
   File get _newFile => File(_join(newDirectory, _dbFile));
   Directory get _staging => Directory(_join(newDirectory, stagingFolder));
 
-  Future<LocalDbLocation> resolve() async {
+  /// Fila dentro del mismo proceso (el candado de archivo del sistema no
+  /// separa a dos llamadas del mismo proceso en macOS/Linux).
+  static final Map<String, Future<void>> _inProcess = {};
+
+  Future<LocalDbLocation> resolve() {
+    final key = _join(newDirectory, lockFileName);
+    final previous = _inProcess[key] ?? Future<void>.value();
+    final result = previous.then((_) => _resolveWithFileLock());
+    _inProcess[key] = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
+  Future<LocalDbLocation> _resolveWithFileLock() async {
+    RandomAccessFile? lock;
+    try {
+      lock = await _acquireLock();
+    } catch (e, st) {
+      // Sin candado no se toca nada: si la nueva ya está se usa, si no la
+      // vieja, sin copiar ni archivar.
+      _report(e, st, {'step': 'lock'});
+      if (await _newFile.exists()) {
+        return LocalDbLocation(newDirectory, LocalDbMoveOutcome.alreadyMoved);
+      }
+      return LocalDbLocation(legacyDirectory, LocalDbMoveOutcome.keptLegacy, error: e);
+    }
+    try {
+      return await _resolveLocked();
+    } finally {
+      try {
+        await lock.unlock();
+      } catch (_) {}
+      try {
+        await lock.close();
+      } catch (_) {}
+    }
+  }
+
+  Future<RandomAccessFile> _acquireLock() async {
+    await Directory(newDirectory).create(recursive: true);
+    final raf = await File(_join(newDirectory, lockFileName)).open(mode: FileMode.append);
+    final deadline = DateTime.now().add(lockTimeout);
+    while (true) {
+      try {
+        await raf.lock(FileLock.exclusive);
+        return raf;
+      } on FileSystemException {
+        if (DateTime.now().isAfter(deadline)) {
+          await raf.close();
+          throw LocalDbMoveException('otro arranque tiene el traslado ocupado');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    }
+  }
+
+  Future<LocalDbLocation> _resolveLocked() async {
     final legacy = _legacyFile;
 
     if (await _newFile.exists()) {
-      // Traslado hecho. Si la vieja sigue con su nombre, la app se cerró
-      // justo antes de renombrarla: se termina ese paso.
+      // Traslado hecho. Si la vieja sigue con su nombre (la app se cerró
+      // antes de renombrarla, el antivirus la tenía abierta, o una versión
+      // vieja de la app volvió a usarla) se revisa antes de archivarla.
       if (await legacy.exists()) {
-        await _archiveLegacy(legacy, reason: 'leftover');
+        await _settleLeftover(legacy);
       }
       await _deleteStaging();
       return LocalDbLocation(newDirectory, LocalDbMoveOutcome.alreadyMoved);
@@ -125,7 +204,9 @@ class LocalDbMover {
     try {
       step = 'prepare';
       await Directory(newDirectory).create(recursive: true);
-      await _deleteStaging(); // restos de un traslado cortado a mitad
+      // Restos de un traslado cortado a mitad (con el candado tomado, nadie
+      // más está copiando).
+      await _deleteStaging();
       await _staging.create(recursive: true);
 
       // Un archivo diminuto no es una base de Isar (la más pequeña mide 1 MiB)
@@ -178,6 +259,45 @@ class LocalDbMover {
     return '$_dbFile.migrado-${d.year}${two(d.month)}${two(d.day)}';
   }
 
+  /// Vieja y nueva conviven: se archiva la vieja solo si todo lo que tiene
+  /// sin subir ya está en la cola de la nueva.
+  Future<void> _settleLeftover(File legacy) async {
+    final reader = queueReader;
+    if (reader == null) {
+      _report(LocalDbMoveException('base vieja junto a la nueva, sin revisar'), null,
+          {'step': 'leftover_unchecked'}, level: 'warning');
+      return;
+    }
+    final Map<String, bool> oldOps;
+    final Map<String, bool> newOps;
+    try {
+      oldOps = await reader(legacyDirectory, name);
+      newOps = await reader(newDirectory, name);
+    } catch (e, st) {
+      // No se pudo leer (en uso, dañada): se deja como está.
+      _report(e, st, {'step': 'leftover_read'}, level: 'warning');
+      return;
+    }
+    final missing = oldOps.entries
+        .where((e) => e.value && !newOps.containsKey(e.key))
+        .map((e) => e.key)
+        .toList();
+    if (missing.isNotEmpty) {
+      _report(
+        LocalDbMoveException(
+            'la base vieja tiene ${missing.length} operaciones sin subir que la nueva no tiene'),
+        null,
+        {
+          'step': 'leftover_pending',
+          'missing': missing.length,
+          'types': missing.map((k) => k.split('|').first).toSet().toList(),
+        },
+      );
+      return;
+    }
+    await _archiveLegacy(legacy, reason: 'leftover');
+  }
+
   Future<void> _archiveLegacy(File legacy, {required String reason}) async {
     try {
       var target = File(_join(legacyDirectory, backupName()));
@@ -190,7 +310,13 @@ class LocalDbMover {
     } catch (e, st) {
       // No es grave: la app ya usa la nueva y el próximo arranque lo reintenta.
       _report(e, st, {'step': 'archive', 'reason': reason}, level: 'warning');
+      return;
     }
+    // Candado de Isar 3 de la vieja: ya no sirve y no se deja suelto.
+    try {
+      final lck = File(_join(legacyDirectory, '$_dbFile-lck'));
+      if (await lck.exists()) await lck.delete();
+    } catch (_) {}
   }
 
   Future<void> _deleteStaging() async {

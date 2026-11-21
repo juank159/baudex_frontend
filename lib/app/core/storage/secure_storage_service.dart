@@ -141,6 +141,37 @@ class SecureStorageService {
   /// En Windows: true = seguir con preferencias (se decide una vez).
   static Future<bool>? _windowsDecision;
 
+  /// Windows, primer arranque tras el traslado: cada cambio también se
+  /// guarda en preferencias, para volver a ellas sin perder la sesión si el
+  /// almacén seguro falla antes de confirmarse.
+  static bool _mirrorToPrefs = false;
+
+  /// Solo para pruebas: simula un arranque nuevo de la app.
+  @visibleForTesting
+  static void debugSimulateRestart() {
+    _windowsDecision = null;
+    _useSharedPreferences = false;
+    _keychainTested = false;
+    _mirrorToPrefs = false;
+    _decryptedCache.clear();
+  }
+
+  static Future<void> _mirrorWrite(String key, String value) async {
+    if (!_mirrorToPrefs) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('secure_$key', _isSensitive(key) ? _TokenCipher.encrypt(value) : value);
+    } catch (_) {}
+  }
+
+  static Future<void> _mirrorDelete(String key) async {
+    if (!_mirrorToPrefs) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('secure_$key');
+    } catch (_) {}
+  }
+
   static Future<bool> _decideWindowsStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -156,10 +187,9 @@ class SecureStorageService {
           context: context,
         ),
       ).run();
-      final usePrefs = outcome == SecureMigrationOutcome.storeUnavailable ||
-          outcome == SecureMigrationOutcome.failed;
-      _useSharedPreferences = usePrefs;
-      return usePrefs;
+      _useSharedPreferences = outcome.usePrefs;
+      _mirrorToPrefs = outcome.mirrorToPrefs;
+      return outcome.usePrefs;
     } catch (e, st) {
       OpsReporter.capture(e, st,
           errorType: 'SecureStoreMigration', fingerprint: 'secure_store_migration|unexpected');
@@ -244,6 +274,7 @@ class SecureStorageService {
       }
     } else {
       await _storage.write(key, value);
+      await _mirrorWrite(key, value);
     }
   }
 
@@ -304,6 +335,7 @@ class SecureStorageService {
       }
     } else {
       await _storage.delete(key);
+      await _mirrorDelete(key);
     }
   }
 

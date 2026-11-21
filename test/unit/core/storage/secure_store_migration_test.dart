@@ -61,11 +61,13 @@ void main() {
     problems = [];
   });
 
-  test('caso normal: pasa todo descifrado, verifica y borra de preferencias', () async {
+  test('caso normal, arranque 1: copia descifrado y verifica, pero conserva preferencias', () async {
     SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
     final outcome = await (await migration()).run();
 
-    expect(outcome, SecureMigrationOutcome.migrated);
+    expect(outcome, SecureMigrationOutcome.copied);
+    expect(outcome.usePrefs, isFalse);
+    expect(outcome.mirrorToPrefs, isTrue);
     expect(store.data, {
       'auth_token': 'TOKEN',
       'refresh_token': 'REFRESH',
@@ -75,10 +77,72 @@ void main() {
       'device_id': 'dev-1',
     });
     final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('secure_auth_token'), 'enc:TOKEN', reason: 'respaldo hasta confirmar');
+    expect(prefs.getBool(PrefsToSecureStoreMigration.copiedFlag), isTrue);
+    expect(prefs.getBool(PrefsToSecureStoreMigration.doneFlag), isNot(true));
+    expect(problems, isEmpty);
+  });
+
+  test('caso normal, arranque 2: el almacén lee bien y se borra de preferencias', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    await (await migration()).run();
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.confirmed);
+    expect(outcome.mirrorToPrefs, isFalse);
+    final prefs = await SharedPreferences.getInstance();
     expect(prefs.getKeys().where((k) => k.startsWith('secure_')), isEmpty);
     expect(prefs.getString('theme'), 'light');
     expect(prefs.getBool(PrefsToSecureStoreMigration.doneFlag), isTrue);
-    expect(problems, isEmpty);
+    expect(prefs.getBool(PrefsToSecureStoreMigration.copiedFlag), isFalse);
+    expect(store.data['auth_token'], 'TOKEN');
+    // Arranque 3: ya migrado.
+    expect(await (await migration()).run(), SecureMigrationOutcome.alreadyMigrated);
+  });
+
+  test('DPAPI falla en el arranque 2: vuelve a preferencias sin perder la sesión', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    await (await migration()).run(); // copiado
+    // Durante el arranque 1 la app renovó el token: se guardó en ambos lados.
+    store.data['auth_token'] = 'TOKEN_RENOVADO';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('secure_auth_token', 'enc:TOKEN_RENOVADO');
+
+    store.failProbe = true;
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.storeUnavailable);
+    expect(outcome.usePrefs, isTrue);
+    expect(prefs.getString('secure_auth_token'), 'enc:TOKEN_RENOVADO',
+        reason: 'la sesión vigente sigue en preferencias');
+    expect(prefs.getString('secure_offline_credentials'), 'enc:{"email":"a@b.co"}');
+    expect(prefs.getBool(PrefsToSecureStoreMigration.copiedFlag), isFalse);
+    expect(problems.single['step'], 'probe');
+
+    // Vuelve DPAPI: se copia otra vez desde preferencias, ya al día.
+    store.failProbe = false;
+    store.data.clear();
+    expect(await (await migration()).run(), SecureMigrationOutcome.copied);
+    expect(store.data['auth_token'], 'TOKEN_RENOVADO');
+  });
+
+  test('arranque 2 con una clave que falta en el almacén: se repone desde preferencias', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    await (await migration()).run();
+    store.data.remove('offline_credentials');
+    expect(await (await migration()).run(), SecureMigrationOutcome.confirmed);
+    expect(store.data['offline_credentials'], '{"email":"a@b.co"}');
+  });
+
+  test('arranque 2 con el almacén que falla al leer: no se borra nada', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    await (await migration()).run();
+    store.data.remove('user_data');
+    store.failWriteOn = 'user_data';
+    expect(await (await migration()).run(), SecureMigrationOutcome.failed);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('secure_user_data'), 'enc:{"id":"u1"}');
+    expect(problems.single['step'], 'confirm');
   });
 
   test('almacén que no funciona: preferencias intactas, se sigue con ellas y se reporta', () async {
@@ -123,7 +187,7 @@ void main() {
     store.failWriteOn = 'user_data';
     await (await migration()).run();
     store.failWriteOn = null;
-    expect(await (await migration()).run(), SecureMigrationOutcome.migrated);
+    expect(await (await migration()).run(), SecureMigrationOutcome.copied);
     expect(store.data['user_data'], '{"id":"u1"}');
   });
 
@@ -151,7 +215,7 @@ void main() {
     // La app escribió en preferencias mientras tanto; al volver el almacén se traslada.
     await prefs.setString('secure_auth_token', 'enc:TOKEN_FALLBACK');
     store.failProbe = false;
-    expect(await (await migration()).run(), SecureMigrationOutcome.migrated);
+    expect(await (await migration()).run(), SecureMigrationOutcome.copied);
     expect(store.data['auth_token'], 'TOKEN_FALLBACK');
   });
 
@@ -160,7 +224,7 @@ void main() {
       'secure_auth_token': 'enc:ROTO',
       'secure_device_id': 'dev-1',
     });
-    expect(await (await migration()).run(), SecureMigrationOutcome.migrated);
+    expect(await (await migration()).run(), SecureMigrationOutcome.copied);
     expect(store.data, {'device_id': 'dev-1'});
   });
 

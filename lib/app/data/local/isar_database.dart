@@ -141,6 +141,7 @@ class IsarDatabase implements IIsarDatabase {
         newDirectory: target,
         name: databaseName,
         counter: countRecords,
+        queueReader: readQueue,
         onProblem: (e, st, context) => OpsReporter.capture(
           e,
           st,
@@ -156,6 +157,31 @@ class IsarDatabase implements IIsarDatabase {
         return LocalDbLocation(legacy, LocalDbMoveOutcome.keptLegacy, error: e);
       }
       rethrow;
+    }
+  }
+
+  /// Cola de la base en [directory]: `tipo|id|operación|creada` → true si sigue sin
+  /// subir. Abre y cierra la base.
+  static Future<Map<String, bool>> readQueue(String directory, String name) async {
+    final isar = await Isar.open(
+      schemas,
+      directory: directory,
+      name: name,
+      inspector: false,
+    );
+    try {
+      final ops = await isar.syncOperations.where().findAll();
+      final out = <String, bool>{};
+      for (final o in ops) {
+        // La fecha de creación distingue la misma operación copiada (igual
+        // en las dos bases) de una nueva sobre la misma entidad.
+        final key = '${o.entityType}|${o.entityId}|${o.operationType.name}|'
+            '${o.createdAt.microsecondsSinceEpoch}';
+        out[key] = (out[key] ?? false) || o.status != SyncStatus.completed;
+      }
+      return out;
+    } finally {
+      await isar.close();
     }
   }
 

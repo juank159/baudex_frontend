@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
@@ -10,6 +9,8 @@ import 'package:baudex_desktop/features/products/data/models/isar/isar_product.d
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 
+import '../../helpers/isar_core.dart';
+
 /// Traslado de la base local de Documentos (OneDrive en Windows) a la carpeta
 /// interna de la app. Todo en carpetas temporales: nunca se toca la base real.
 void main() {
@@ -19,11 +20,7 @@ void main() {
   late String data; // carpeta nueva (AppData)
   final today = DateTime(2026, 11, 21, 9, 30, 15);
 
-  setUpAll(() async {
-    final lib = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev/'
-        'isar_flutter_libs-3.1.0+1/macos/libisar.dylib';
-    await Isar.initializeIsarCore(libraries: {Abi.current(): lib});
-  });
+  setUpAll(initIsarCore);
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('baudex_db_move');
@@ -97,18 +94,39 @@ void main() {
       }
     });
     await isar.close();
-    // Isar deja el candado; la app vieja también lo dejaría al cerrarse mal.
-    await File('$docs/$name.isar.lock').writeAsString('x');
+    // Isar 3 deja su candado `<name>.isar-lck` junto a la base en Windows
+    // (en macOS lo borra al cerrar): se deja como en Windows.
+    final lck = File('$docs/$name.isar-lck');
+    if (!await lck.exists()) await lck.writeAsBytes(List.filled(64, 0));
+  }
+
+  /// Agrega una venta sin subir a la base de [dir] (como la haría la app).
+  Future<void> addPendingSale(String dir, String id) async {
+    final isar = await Isar.open(IsarDatabase.schemas,
+        directory: dir, name: name, inspector: false);
+    await isar.writeTxn(() async {
+      await isar.isarInvoices.put(sale(id));
+      await isar.syncOperations.put(SyncOperation.create(
+        entityType: 'Invoice',
+        entityId: id,
+        operationType: SyncOperationType.create,
+        payload: '{"id":"$id"}',
+        organizationId: 'org',
+      ));
+    });
+    await isar.close();
   }
 
   final problems = <Map<String, dynamic>>[];
-  LocalDbMover mover({LocalDbCounter? counter}) {
+  LocalDbMover mover({LocalDbCounter? counter, Duration? lockTimeout}) {
     problems.clear();
     return LocalDbMover(
       legacyDirectory: docs,
       newDirectory: data,
       name: name,
       counter: counter ?? IsarDatabase.countRecords,
+      queueReader: IsarDatabase.readQueue,
+      lockTimeout: lockTimeout ?? const Duration(seconds: 60),
       onProblem: (e, st, ctx) => problems.add({...ctx, 'error': '$e'}),
       now: () => today,
     );
@@ -126,8 +144,10 @@ void main() {
     expect(await newDb().length(), size);
     expect(await oldDb().exists(), isFalse, reason: 'la vieja se renombra');
     expect(await backup().exists(), isTrue, reason: 'respaldo con fecha');
-    expect(await File('$data/$name.isar.lock').exists(), isFalse,
-        reason: 'el candado viejo no se copia');
+    expect(await File('$data/$name.isar-lck').exists(), isFalse,
+        reason: 'el candado de Isar no se copia');
+    expect(await File('$docs/$name.isar-lck').exists(), isFalse,
+        reason: 'ni se deja suelto en Documentos');
     expect(await Directory('$data/${LocalDbMover.stagingFolder}').exists(), isFalse);
     final counts = await IsarDatabase.countRecords(data, name);
     expect(counts['products'], 4);
@@ -255,6 +275,94 @@ void main() {
     expect(await newDb().exists(), isFalse);
   });
 
+  test('vieja viva con una venta nueva que la nueva no tiene: no se archiva y se reporta', () async {
+    await seedLegacy(products: 1, pendingSales: 2);
+    await mover().resolve(); // traslado normal
+    // Una copia vieja de la app (o un segundo arranque) siguió vendiendo en
+    // Documentos: se restaura el archivo y se anota una venta ahí.
+    await backup().rename(oldDb().path);
+    await addPendingSale(docs, 'inv_offline_solo_en_la_vieja');
+
+    final loc = await mover().resolve();
+
+    expect(loc.outcome, LocalDbMoveOutcome.alreadyMoved);
+    expect(await oldDb().exists(), isTrue, reason: 'la venta no queda escondida en un respaldo');
+    expect(await backup().exists(), isFalse);
+    expect(problems.single['step'], 'leftover_pending');
+    expect(problems.single['missing'], 1);
+    expect(problems.single['level'], 'error');
+  });
+
+  test('vieja viva sin nada nuevo (antivirus impidió renombrarla): se archiva después', () async {
+    await seedLegacy(products: 1, pendingSales: 2);
+    await mover().resolve();
+    await backup().rename(oldDb().path); // como si el rename hubiera fallado
+    // La app ya vendió en la nueva: eso no impide archivar la vieja.
+    await addPendingSale(data, 'inv_offline_en_la_nueva');
+
+    final loc = await mover().resolve();
+
+    expect(loc.outcome, LocalDbMoveOutcome.alreadyMoved);
+    expect(await oldDb().exists(), isFalse);
+    expect(await backup().exists(), isTrue);
+    expect(problems, isEmpty);
+  });
+
+  test('vieja viva que no se puede leer: no se archiva', () async {
+    await seedLegacy();
+    await mover().resolve();
+    await backup().delete();
+    await oldDb().writeAsBytes(List.filled(3 * 1024 * 1024, 7)); // dañada
+    final loc = await mover().resolve();
+    expect(loc.outcome, LocalDbMoveOutcome.alreadyMoved);
+    expect(await oldDb().exists(), isTrue);
+    expect(problems.single['step'], 'leftover_read');
+  });
+
+  test('doble arranque a la vez: un solo traslado, nadie usa la vieja ni pierde ventas', () async {
+    await seedLegacy(products: 3, pendingSales: 4);
+    final a = mover();
+    final b = LocalDbMover(
+      legacyDirectory: docs,
+      newDirectory: data,
+      name: name,
+      counter: IsarDatabase.countRecords,
+      queueReader: IsarDatabase.readQueue,
+      now: () => today,
+    );
+    final results = await Future.wait([a.resolve(), b.resolve()]);
+
+    expect(results.map((r) => r.directory).toSet(), {data});
+    expect(results.map((r) => r.outcome).toSet(),
+        {LocalDbMoveOutcome.moved, LocalDbMoveOutcome.alreadyMoved});
+    expect((await IsarDatabase.countRecords(data, name))['pendingSync'], 4);
+    expect(await backup().exists(), isTrue);
+  });
+
+  test('candado ocupado por otro proceso: no copia ni archiva y sigue con la vieja', () async {
+    final dart = _dartExecutable();
+    if (dart == null) {
+      markTestSkipped('sin dart en PATH');
+      return;
+    }
+    await seedLegacy(pendingSales: 1);
+    await Directory(data).create(recursive: true);
+    final holder = await _holdLockInOtherProcess(dart, root.path, '$data/${LocalDbMover.lockFileName}');
+    try {
+      final loc = await mover(lockTimeout: const Duration(milliseconds: 800)).resolve();
+      expect(loc.outcome, LocalDbMoveOutcome.keptLegacy);
+      expect(loc.directory, docs);
+      expect(await newDb().exists(), isFalse);
+      expect(await oldDb().exists(), isTrue);
+      expect(problems.single['step'], 'lock');
+    } finally {
+      holder.kill();
+      await holder.exitCode;
+    }
+    // Suelto el candado, el siguiente arranque sí traslada.
+    expect((await mover().resolve()).outcome, LocalDbMoveOutcome.moved);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
   test('respaldo del mismo día ya existe: usa la hora', () async {
     await seedLegacy();
     await backup().writeAsString('respaldo anterior');
@@ -288,4 +396,44 @@ void main() {
           isNull);
     });
   });
+}
+
+/// El `dart` del mismo Flutter que corre la prueba (ejecutable real, no el
+/// `.bat`, para poder cerrarlo con kill en Windows).
+String? _dartExecutable() {
+  final exe = Platform.isWindows ? 'dart.exe' : 'dart';
+  final sep = Platform.pathSeparator;
+  final tester = Platform.resolvedExecutable;
+  final at = tester.indexOf('${sep}bin${sep}cache$sep');
+  if (at > 0) {
+    final f = File('${tester.substring(0, at)}${sep}bin${sep}cache${sep}dart-sdk${sep}bin$sep$exe');
+    if (f.existsSync()) return f.path;
+  }
+  for (final dir in (Platform.environment['PATH'] ?? '').split(Platform.isWindows ? ';' : ':')) {
+    final f = File('$dir$sep$exe');
+    if (f.existsSync()) return f.path;
+  }
+  return null;
+}
+
+/// Otro proceso de verdad que toma el candado de [path] y espera; avisa por
+/// su salida cuando ya lo tiene.
+Future<Process> _holdLockInOtherProcess(String dart, String scratch, String path) async {
+  final script = File('$scratch${Platform.pathSeparator}hold_lock.dart');
+  await script.writeAsString('''
+import 'dart:io';
+Future<void> main(List<String> a) async {
+  final raf = await File(a[0]).open(mode: FileMode.append);
+  await raf.lock(FileLock.exclusive);
+  stdout.writeln('LISTO');
+  await stdout.flush();
+  await Future<void>.delayed(const Duration(minutes: 2));
+}
+''');
+  final p = await Process.start(dart, [script.path, path]);
+  final ready = p.stdout
+      .transform(const SystemEncoding().decoder)
+      .firstWhere((l) => l.contains('LISTO'));
+  await ready.timeout(const Duration(seconds: 60));
+  return p;
 }

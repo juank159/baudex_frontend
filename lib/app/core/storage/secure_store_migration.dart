@@ -24,11 +24,16 @@ class SerialQueue {
 }
 
 enum SecureMigrationOutcome {
-  /// Ya se había trasladado antes (solo se limpian restos).
+  /// Ya estaba confirmado antes (solo se limpian restos).
   alreadyMigrated,
 
-  /// Se trasladó en este arranque y quedó verificado.
-  migrated,
+  /// Primer arranque: copiado y verificado en el almacén seguro, pero
+  /// preferencias se conservan (y se siguen actualizando) hasta confirmar.
+  copied,
+
+  /// Segundo arranque: el almacén seguro se leyó bien otra vez; se borró
+  /// todo de preferencias.
+  confirmed,
 
   /// El almacén seguro no funciona: se sigue con preferencias.
   storeUnavailable,
@@ -37,16 +42,26 @@ enum SecureMigrationOutcome {
   failed,
 }
 
+extension SecureMigrationOutcomeX on SecureMigrationOutcome {
+  /// true = la app debe seguir leyendo y escribiendo en preferencias.
+  bool get usePrefs =>
+      this == SecureMigrationOutcome.storeUnavailable || this == SecureMigrationOutcome.failed;
+
+  /// true = escribir también en preferencias (respaldo hasta confirmar).
+  bool get mirrorToPrefs => this == SecureMigrationOutcome.copied;
+}
+
 /// Lleva los valores `secure_*` de SharedPreferences (donde Windows los
-/// guardaba con un cifrado casero) al almacén seguro del sistema.
+/// guardaba con un cifrado casero) al almacén seguro del sistema, en dos
+/// arranques para que un fallo de DPAPI nunca obligue a volver a entrar:
 ///
-/// Orden (no puede hacer perder la sesión):
-/// 1. Prueba que el almacén escribe y lee.
-/// 2. Escribe cada valor, ya descifrado.
-/// 3. Lee cada uno de vuelta y compara.
-/// 4. Solo entonces los borra de preferencias y marca el traslado.
-/// Si algo falla en 1-3, preferencias quedan como estaban y la app sigue
-/// usándolas; el próximo arranque lo reintenta.
+/// Arranque 1: prueba el almacén, escribe cada valor descifrado, lo lee de
+///   vuelta y compara. Preferencias NO se borran: la app usa el almacén y
+///   además sigue copiando cada cambio en preferencias ([mirrorToPrefs]).
+/// Arranque 2: si el almacén vuelve a leer bien todas las claves, se borran
+///   de preferencias y queda confirmado.
+/// Si el almacén falla en cualquier momento antes de confirmar, preferencias
+///   siguen al día y la app vuelve a ellas sin perder la sesión.
 class PrefsToSecureStoreMigration {
   PrefsToSecureStoreMigration({
     required this.prefs,
@@ -55,9 +70,12 @@ class PrefsToSecureStoreMigration {
     this.onProblem,
   });
 
-  /// Bandera en preferencias. No empieza por `secure_` para que
-  /// `clearAll()` (cerrar sesión) no la borre.
+  /// Traslado confirmado (preferencias limpias). No empieza por `secure_`
+  /// para que `clearAll()` (cerrar sesión) no lo borre.
   static const doneFlag = 'baudex_secure_store_migrated_v1';
+
+  /// Copiado y verificado una vez; falta el arranque de confirmación.
+  static const copiedFlag = 'baudex_secure_store_copied_v1';
   static const keyPrefix = 'secure_';
   static const _probeKey = 'baudex_secure_store_probe';
 
@@ -71,17 +89,18 @@ class PrefsToSecureStoreMigration {
 
   final void Function(Object error, StackTrace? stack, Map<String, dynamic> context)? onProblem;
 
-  /// Marca que el traslado ya no vale (la app volvió a preferencias porque el
-  /// almacén falló): lo que se escriba ahora en preferencias se trasladará
-  /// de nuevo en el próximo arranque que funcione el almacén.
+  /// La app volvió a preferencias porque el almacén falló: lo que se escriba
+  /// ahora en preferencias se trasladará de nuevo cuando el almacén funcione.
   static Future<void> markPending(SharedPreferences prefs) async {
     try {
       await prefs.setBool(doneFlag, false);
+      await prefs.setBool(copiedFlag, false);
     } catch (_) {}
   }
 
   Future<SecureMigrationOutcome> run() async {
     String step = 'probe';
+    final wasDone = prefs.getBool(doneFlag) == true;
     try {
       final probe = DateTime.now().microsecondsSinceEpoch.toString();
       await store.write(_probeKey, probe);
@@ -89,32 +108,30 @@ class PrefsToSecureStoreMigration {
       await store.delete(_probeKey);
       if (back != probe) throw StateError('el almacén seguro no devolvió lo escrito');
     } catch (e, st) {
-      _report(e, st, {'step': step});
+      _report(e, st, {'step': step, 'confirmed_before': wasDone});
       await markPending(prefs);
       return SecureMigrationOutcome.storeUnavailable;
     }
 
     final keys = prefs.getKeys().where((k) => k.startsWith(keyPrefix)).toList();
 
-    if (prefs.getBool(doneFlag) == true) {
+    if (wasDone) {
       // Restos de un borrado que falló: ya no son la fuente de verdad.
-      for (final k in keys) {
-        try {
-          await prefs.remove(k);
-        } catch (_) {}
-      }
+      await _removeAll(keys);
       return SecureMigrationOutcome.alreadyMigrated;
+    }
+
+    if (prefs.getBool(copiedFlag) == true) {
+      return _confirm(keys);
     }
 
     final values = <String, String>{};
     try {
       step = 'write';
       for (final fullKey in keys) {
-        final stored = prefs.getString(fullKey);
-        if (stored == null) continue;
-        final key = fullKey.substring(keyPrefix.length);
-        final value = decode(key, stored);
+        final value = _decoded(fullKey);
         if (value == null) continue;
+        final key = fullKey.substring(keyPrefix.length);
         await store.write(key, value);
         values[key] = value;
       }
@@ -130,13 +147,47 @@ class PrefsToSecureStoreMigration {
       return SecureMigrationOutcome.failed;
     }
 
+    await prefs.setBool(copiedFlag, true);
+    return SecureMigrationOutcome.copied;
+  }
+
+  /// Segundo arranque: el almacén debe tener (y leer bien) cada clave que
+  /// sigue en preferencias. Si falta alguna se repone desde preferencias.
+  Future<SecureMigrationOutcome> _confirm(List<String> keys) async {
+    try {
+      for (final fullKey in keys) {
+        final key = fullKey.substring(keyPrefix.length);
+        final inStore = await store.read(key);
+        if (inStore != null) continue; // el almacén es la fuente de verdad
+        final value = _decoded(fullKey);
+        if (value == null) continue;
+        await store.write(key, value);
+        if (await store.read(key) != value) {
+          throw StateError('la clave $key no quedó igual');
+        }
+      }
+    } catch (e, st) {
+      _report(e, st, {'step': 'confirm', 'keys': keys.length});
+      return SecureMigrationOutcome.failed;
+    }
+    await _removeAll(keys);
+    await prefs.setBool(doneFlag, true);
+    await prefs.setBool(copiedFlag, false);
+    return SecureMigrationOutcome.confirmed;
+  }
+
+  String? _decoded(String fullKey) {
+    final stored = prefs.getString(fullKey);
+    if (stored == null) return null;
+    return decode(fullKey.substring(keyPrefix.length), stored);
+  }
+
+  Future<void> _removeAll(List<String> keys) async {
     for (final k in keys) {
       try {
         await prefs.remove(k);
       } catch (_) {}
     }
-    await prefs.setBool(doneFlag, true);
-    return SecureMigrationOutcome.migrated;
   }
 
   void _report(Object e, StackTrace? st, Map<String, dynamic> context) {
