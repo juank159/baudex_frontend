@@ -22,7 +22,7 @@ Future<void> main(List<String> a) async {
   for (var i = 0; i < objs.length; i++) {
     RetainingPath p;
     try {
-      p = await vm.getRetainingPath(iso.id!, objs[i].id!, 300);
+      p = await vm.getRetainingPath(iso.id!, objs[i].id!, 5000);
     } catch (_) {
       continue;
     }

@@ -15,7 +15,7 @@ mkdir -p "$QAHOME/Documents" "$QAHOME/Library/Application Support" "$QAHOME/Libr
 MARK="$OUT/marca.txt"; : > "$MARK"
 LOG="$OUT/app.log"
 QA_MARK="$MARK" QA_OUT="$OUT/resultados.json" HOME="$QAHOME" CFFIXED_USER_HOME="$QAHOME" \
-  "$APP" > "$LOG" 2>&1 &
+  "$APP" -NSAppSleepDisabled YES > "$LOG" 2>&1 &
 APP_PID=$!
 echo "app pid $APP_PID"
 # Esperar la dirección del servicio de la VM y arrancar la sonda de memoria
@@ -23,7 +23,11 @@ for i in $(seq 1 120); do
   URI=$(grep -m1 -o 'VM_SERVICE http[^ ]*' "$LOG" | cut -d' ' -f2)
   [ -n "$URI" ] && break; sleep 0.5
 done
-if [ -n "${URI:-}" ]; then
+# QA_NO_PROBE=1: sin sonda (la sonda fuerza recolección de basura cada 60 s y
+# eso mete pausas falsas en los tiempos). Úsese la sonda solo para fugas.
+if [ "${QA_NO_PROBE:-0}" = 1 ]; then
+  echo "sin sonda de memoria"
+elif [ -n "${URI:-}" ]; then
   (cd "$HERE" && dart run tool/estres/vm_probe.dart "$URI" "$APP_PID" "$MARK" "$OUT/memoria.jsonl" > "$OUT/sonda.log" 2>&1 &)
 else
   echo "sin servicio de la VM (¿no es modo profile?)"

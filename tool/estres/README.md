@@ -49,3 +49,13 @@ QA_SNAPS=<salida>/fotos QA_NAV_N=100 tool/estres/run_stress.sh <salida>
 
 ## 5. Prueba de la app sin servidor
 `flutter test test/estres/snackbar_back_test.dart`: avisos en fila hacen que `Get.back()` no vuelva de pantalla.
+
+## 6. Repetir "después" de los arreglos
+- App con `-NSAppSleepDisabled YES` (ya lo pone `run_stress.sh`) y `QA_NO_PROBE=1` para medir tiempos; la sonda solo para fugas.
+- Prefijo de preferencias distinto en cada corrida (por defecto `qaestres.<hora>.`); al terminar borrar las claves
+  `qaestres.*` de `com.example.baudexDesktop` con `defaults delete`.
+- En la versión con `AppNav.back` (rama `fix/estres-escaner-navegacion`) el "volver" de la prueba debe usar
+  `AppNav.back()` en lugar de `Get.back()` (3 líneas en `stress_main.dart`: `back()`, ida y vuelta y bucle).
+- Escenarios nuevos: `alt_conserva_venta` (Alt+6/Alt+2 con venta a medias), `volver_con_avisos` (20 avisos en fila),
+  `QA_IDA_SOLO_RUTA=1`.
+- Servidor: `dashboard_storm.py 8 16`, `kardex_check.py`, `secret_leak_check.py` (con `QA_PSQL` de la base usada).

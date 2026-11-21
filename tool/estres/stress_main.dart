@@ -589,7 +589,9 @@ Future<void> _posProductsRoundTrip(Map<String, Object?> x) async {
   await _openPos();
   final codes = await barcodes(60);
   final toProducts = <int>[], scanProd = <int>[], backPos = <int>[], scanPosAfter = <int>[];
-  var useAlt = true;
+  // QA_IDA_SOLO_RUTA=1: solo Get.toNamed (en la versión con arreglos Alt+6 reemplaza la pila y no hay a dónde volver)
+  final soloRuta = env['QA_IDA_SOLO_RUTA'] == '1';
+  var useAlt = !soloRuta;
   for (var i = 0; i < 15 * scale; i++) {
     // Alt+6 = Productos (atajo global) — mitad de las veces por atajo, mitad por ruta
     log('  ida y vuelta $i (${useAlt ? "Alt+6" : "ruta"})');
@@ -603,7 +605,7 @@ Future<void> _posProductsRoundTrip(Map<String, Object?> x) async {
     } else {
       await stepT('ruta a Productos', () => go(AppRoutes.products));
     }
-    useAlt = !useAlt;
+    if (!soloRuta) useAlt = !useAlt;
     toProducts.add(sw.elapsedMilliseconds);
     if (Get.currentRoute != AppRoutes.products) {
       x['no_abrio_productos'] = (x['no_abrio_productos'] as int? ?? 0) + 1;
@@ -701,7 +703,13 @@ Future<void> _creditNotes(Map<String, Object?> x) async {
   final rows = <Map<String, Object?>>[];
   for (final id in ids.take(8 * scale)) {
     await go(AppRoutes.creditNotesDetail + '/$id');
-    final c = Get.find<CreditNoteDetailController>();
+    // Con el arreglo, cada nota tiene su controlador (etiqueta = id); sin el
+    // arreglo hay uno solo sin etiqueta.
+    await until(() => Get.isRegistered<CreditNoteDetailController>(tag: id) ||
+        Get.isRegistered<CreditNoteDetailController>(), seconds: 10);
+    final c = Get.isRegistered<CreditNoteDetailController>(tag: id)
+        ? Get.find<CreditNoteDetailController>(tag: id)
+        : Get.find<CreditNoteDetailController>();
     await until(() => !c.isLoading && c.creditNote != null, seconds: 30);
     final before = c.creditNote?.status.name;
     final shownId = c.creditNote?.id;
@@ -862,7 +870,12 @@ Future<void> main() async {
   // van al mismo archivo que la app real (~/Library/Preferences/
   // com.example.baudexDesktop.plist). Con un prefijo propio la prueba no
   // pisa las claves de la app real (negocio, marcas de sincronización…).
-  SharedPreferences.setPrefix('qaestres.');
+  // Un prefijo POR CORRIDA: si se reutilizara, las marcas de sincronización de
+  // la corrida anterior harían creer a una base Isar nueva que ya tiene todo
+  // (eso mismo es el error §3.7 del informe). Se limpian con:
+  //   defaults read com.example.baudexDesktop | grep qaestres  → defaults delete …
+  SharedPreferences.setPrefix(
+      env['QA_PREFS_PREFIX'] ?? 'qaestres.${DateTime.now().millisecondsSinceEpoch}.');
   final docs = (await getApplicationDocumentsDirectory()).path;
   if (!docs.contains('baudex-qa-home')) {
     log('ABORTADO: no es la carpeta aislada de pruebas ($docs)');
@@ -950,6 +963,53 @@ Future<void> _run() async {
             x['clientes'] = await isar.isarCustomers.count();
             x['facturas'] = await isar.isarInvoices.count();
             x['esperado'] = env['QA_EXPECT'] ?? '';
+          });
+        case 'alt_conserva_venta':
+          // ¿Ir a Productos con Alt+6 y volver a Facturar con Alt+2 conserva la venta en curso?
+          await scenario('alt6_alt2_conserva_venta', (x) async {
+            await _openPos();
+            form!.clearFormForNewSale();
+            await settle();
+            await _scanInPos(await barcodes(5), {});
+            x['lineas_antes'] = form?.invoiceItems.length;
+            await tap(LogicalKeyboardKey.digit6, PhysicalKeyboardKey.digit6, alt: true);
+            await until(() => Get.currentRoute == AppRoutes.products, seconds: 20);
+            await settle();
+            x['ruta_tras_alt6'] = Get.currentRoute;
+            await tap(LogicalKeyboardKey.digit2, PhysicalKeyboardKey.digit2, alt: true);
+            await until(() => Get.currentRoute == AppRoutes.invoicesWithTabs, seconds: 20);
+            await until(() => form != null, seconds: 20);
+            await settle();
+            x['ruta_tras_alt2'] = Get.currentRoute;
+            x['lineas_despues'] = form?.invoiceItems.length;
+            await snap('venta_tras_alt6_alt2');
+          });
+        case 'volver_con_avisos':
+          // Factura → Productos; 20 avisos en fila; "Volver" de la app (5 intentos como un cajero).
+          await scenario('volver_con_20_avisos', (x) async {
+            final tiempos = <int>[];
+            for (var k = 0; k < 5; k++) {
+              await _openPos();
+              await go(AppRoutes.products);
+              for (var j = 0; j < 20; j++) {
+                Get.snackbar('Aviso $j', 'prueba de avisos en fila', duration: const Duration(seconds: 2));
+              }
+              await Future.delayed(const Duration(milliseconds: 300));
+              final sw = Stopwatch()..start();
+              var intentos = 0;
+              while (Get.currentRoute != AppRoutes.invoicesWithTabs && intentos < 5 && sw.elapsedMilliseconds < 30000) {
+                intentos++;
+                await back(); // el mismo "volver" que usa la app en esta versión
+              }
+              tiempos.add(sw.elapsedMilliseconds);
+              x['intentos_vuelta_$k'] = intentos;
+              x['volvio_vuelta_$k'] = Get.currentRoute == AppRoutes.invoicesWithTabs;
+              try {
+                Get.closeAllSnackbars();
+              } catch (_) {}
+              await settle();
+            }
+            x['volver_ms'] = tiempos;
           });
         case 'reposo':
           await scenario('reposo_60s', (_) => Future.delayed(const Duration(seconds: 60)));
