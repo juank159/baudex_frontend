@@ -473,3 +473,35 @@ Sigue fallando:
 4. **Detalle de orden de compra apilado** sigue mostrando la orden equivocada (6/6).
 5. (servidor/app, sin cambio) marcas de sincronización fuera de Isar → base nueva con 0 productos (§3.7); `/inventory/summary` 400;
    3 filas viejas en `idempotency_keys` con hash de contraseña que hay que borrar en las bases reales.
+
+---
+
+## 11. Verificación independiente de db14483 (21-nov, 07:40–08:52)
+
+App `fix/estres-escaner-navegacion` @ **db14483** (worktree propio), servidor b585ec5 sobre `baudex_qa_d2`, app sin App Nap.
+**Preferencias en un archivo propio** (`qa_prefs.json` dentro de la carpeta aislada, vía `SharedPreferencesStorePlatform`):
+el plist real quedó idéntico (237 claves, mismo hash, sin modificar desde las 06:23).
+Corridas: **v3A** (lector, atajos, Alt+N, avisos, nota crédito con servidor ocupado 40 s, sin sonda), **v3P** (órdenes
+apiladas), **v3N** (base Isar borrada con marcas viejas en las preferencias), **v3B** (80 vueltas con sonda, para memoria).
+
+| # | Qué se pidió confirmar | Resultado | |
+|---|---|---|---|
+| 1 | Alt+6 y luego Alt+2 conservan la venta | 5 líneas → **5 líneas** (af87240: 5 → 0) | ✅ |
+| 2 | Volver sin `LateInitializationError`, con 20 avisos | 5 de 5 vueltas al primer intento; **0** `LateInitializationError` en toda la verificación (v3A, v3P y 80 vueltas de v3B; af87240: 50) | ✅ |
+| 3 | Rutas vivas = pantallas abiertas en 80 vueltas | `GetPageRoute` vivas: **4** a la vuelta ~38 y **4** a la ~78, con 2 entradas en el navegador (af87240: 567 y 935). `AnimationController` 57–59 estable (antes subía a 1.080) | ✅ |
+| 3b | ¿La lista de cuadros del arnés infla el heap ~9 MB a la vuelta 40? | **Sí, es cierto.** A la vuelta ~38 había **60.500 `FrameTiming`** guardados (≈152 B cada uno con su lista de 12 tiempos ≈ **9,2 MB**). Heap tras recolección: 46,4 MB → **37,2 MB descontándola**; a la vuelta ~78: 124.571 cuadros (≈18,9 MB), 55,5 MB → **36,6 MB**. Al terminar el bucle (lista vaciada) el heap volvió a **38,2 MB**. Sin la lista, la memoria es estable (≈37 MB). El arnés ahora acepta `QA_NO_FRAMES=1` | ✅ |
+| 4 | Detalle de orden de compra apilado muestra la orden correcta | 4 de 4 pares A/B: A correcta, A tras ir a Productos y volver correcta, B encima correcta, al volver A correcta (af87240: equivocada 6/6) | ✅ |
+| 5 | Base local nueva con marcas viejas descarga todo | Isar borrada, 12 marcas viejas en las preferencias: "el equipo no tiene registros pero había marca — se descarga todo" → **5.095 productos, 2.031 clientes, 19.681 facturas** en 58 s (af87240: 0 productos y 0 facturas) | ✅ |
+| 6a | Escáner | 150 escaneos: 0 perdidos, p95 111 ms, peor 132 ms; 100 re-escaneos: 0 perdidos, p95 111 ms; 0 cuadros > 500 ms. Foco perdido **1 vez** (línea 2, justo después de limpiar la venta), luego 0 | ✅ (detalle menor) |
+| 6b | Nota crédito con servidor ocupado 40 s | 1.ª nota: 38,6 s, confirmada sin error; las 6 confirmadas una sola vez (movimientos = líneas), ninguna muestra otra nota | ✅ |
+| 6c | Ctrl++ teclado español / numérico, Ctrl+- numérico | funcionan los 3; 180/180 atajos | ✅ |
+| 6d | Tablero | 8 y 16 a la vez: p50 199–229 ms, peor 348 ms, RSS pico 118 MB, servidor vivo. Kardex 20/20 cuadra. 0 respuestas con contraseña o códigos | ✅ |
+
+**Detalles que quedan (no bloquean):** la lista y el detalle de órdenes de compra y el tablero siguen pintando cuadros
+sin parar (animación continua: 80/80 y 40/40 veces sin quedar quietos); 8 cuadros > 500 ms en las 80 vueltas con la
+sonda activa (la sonda fuerza recolección cada 60 s); 1 pérdida de foco al empezar una venta nueva. Pendiente aparte:
+`/inventory/summary` 400 y limpiar las 3 filas viejas de `idempotency_keys` en las bases reales.
+
+**Veredicto de db14483: aprobado** (los 6 puntos confirmados; sin regresiones en lo que ya pasaba).
+Qué NO se probó: Windows, impresora, el equipo del cliente, producción y teclado físico real (las teclas se inyectan por
+el camino del motor de macOS).

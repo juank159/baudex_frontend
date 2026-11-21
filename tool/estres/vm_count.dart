@@ -10,8 +10,10 @@ Future<void> main(List<String> a) async {
   final vm = await vmServiceConnectUri('${uri}ws');
   final iso = (await vm.getVM()).isolates!.firstWhere((i) => i.name == 'main');
   final prof = await vm.getAllocationProfile(iso.id!, gc: true);
+  final mu = await vm.getMemoryUsage(iso.id!);
+  print('heap tras recolección: ${(mu.heapUsage! / 1048576).toStringAsFixed(1)} MB');
   for (final m in prof.members!) {
-    if (want.contains(m.classRef?.name)) print('${m.classRef!.name}: ${m.instancesCurrent}');
+    if (want.contains(m.classRef?.name)) print('${m.classRef!.name}: ${m.instancesCurrent} (${((m.bytesCurrent ?? 0) / 1048576).toStringAsFixed(2)} MB)');
   }
   await vm.dispose();
   exit(0);

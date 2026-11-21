@@ -43,7 +43,10 @@ import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/types.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 final env = Platform.environment;
@@ -738,6 +741,16 @@ Future<void> _creditNotes(Map<String, Object?> x) async {
   x['notas'] = rows;
 }
 
+/// Controlador del detalle de la orden [id]: con el arreglo va etiquetado por id;
+/// sin el arreglo hay uno solo sin etiqueta.
+PurchaseOrderDetailController? poCtrl([String? id]) {
+  if (id != null && Get.isRegistered<PurchaseOrderDetailController>(tag: id)) {
+    return Get.find<PurchaseOrderDetailController>(tag: id);
+  }
+  if (Get.isRegistered<PurchaseOrderDetailController>()) return Get.find<PurchaseOrderDetailController>();
+  return null;
+}
+
 /// Bug reportado: orden de compra en borrador → Productos → volver → abrir su
 /// detalle → se congela o cierra.
 Future<void> _purchaseOrders(Map<String, Object?> x) async {
@@ -755,26 +768,25 @@ Future<void> _purchaseOrders(Map<String, Object?> x) async {
     await settle();
     r['productos_ms'] = 0;
     await back();
-    r['detalle_tras_volver_ok'] = Get.isRegistered<PurchaseOrderDetailController>() &&
-        Get.find<PurchaseOrderDetailController>().purchaseOrder.value?.id == id;
+    r['detalle_tras_volver_ok'] = poCtrl(id)?.purchaseOrder.value?.id == id;
     r['ruta_tras_volver_de_productos'] = Get.currentRoute;
     await back(); // a la lista
     // B) volver a abrir el MISMO detalle desde la lista
     r['detalle_otra_vez_ms'] = await stepT('detalle otra vez', () => go(AppRoutes.purchaseOrderDetail(id)));
-    await until(() => Get.isRegistered<PurchaseOrderDetailController>() &&
-        !Get.find<PurchaseOrderDetailController>().isLoading.value, seconds: 20);
-    r['detalle_otra_vez_ok'] = Get.isRegistered<PurchaseOrderDetailController>() &&
-        Get.find<PurchaseOrderDetailController>().purchaseOrder.value?.id == id;
+    await until(() => poCtrl(id) != null && !poCtrl(id)!.isLoading.value, seconds: 20);
+    r['detalle_otra_vez_ok'] = poCtrl(id)?.purchaseOrder.value?.id == id;
     // C) detalle → Productos por ruta → detalle de OTRA orden encima → volver dos veces
     await go(AppRoutes.products);
     final other = ids[(ids.indexOf(id) + 1) % ids.length];
     await go(AppRoutes.purchaseOrderDetail(other));
-    r['detalle_apilado_muestra'] = Get.isRegistered<PurchaseOrderDetailController>()
-        ? (Get.find<PurchaseOrderDetailController>().purchaseOrder.value?.id == other ? 'correcta' : 'OTRA ORDEN')
-        : 'sin controlador';
+    await until(() => poCtrl(other) != null && !poCtrl(other)!.isLoading.value, seconds: 20);
+    final shown = poCtrl(other);
+    r['detalle_apilado_muestra'] = shown == null
+        ? 'sin controlador'
+        : (shown.purchaseOrder.value?.id == other ? 'correcta' : 'OTRA ORDEN');
     await back();
     await back();
-    r['al_volver_al_primero_ok'] = Get.isRegistered<PurchaseOrderDetailController>();
+    r['al_volver_al_primero_ok'] = poCtrl(id) != null;
     await back();
     await back();
     // D) crear orden (formulario) → Productos → volver → volver → detalle
@@ -783,8 +795,7 @@ Future<void> _purchaseOrders(Map<String, Object?> x) async {
     await back();
     await back();
     r['detalle_tras_formulario_ms'] = await stepT('detalle tras formulario', () => go(AppRoutes.purchaseOrderDetail(id)));
-    r['detalle_tras_formulario_ok'] = Get.isRegistered<PurchaseOrderDetailController>() &&
-        Get.find<PurchaseOrderDetailController>().purchaseOrder.value?.id == id;
+    r['detalle_tras_formulario_ok'] = poCtrl(id)?.purchaseOrder.value?.id == id;
     if (rows.isEmpty) await snap('orden_detalle_tras_formulario');
     await back();
     rows.add(r);
@@ -862,25 +873,72 @@ class _MemoryKeychain extends FlutterSecureStoragePlatform {
   Future<void> deleteAll({required Map<String, String> options}) async => _m.clear();
 }
 
+/// Preferencias en un ARCHIVO PROPIO (JSON en la carpeta aislada): las de macOS
+/// (NSUserDefaults) no respetan el HOME aislado y escribirían en el plist de la
+/// app real. Persisten entre corridas con el mismo HOME (para probar "base
+/// local nueva con marcas viejas").
+class _FilePrefs extends InMemorySharedPreferencesStore {
+  _FilePrefs(this.file, Map<String, Object> data) : super.withData(data);
+  final File file;
+  static _FilePrefs load(File f) {
+    final data = <String, Object>{};
+    if (f.existsSync()) {
+      final raw = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+      raw.forEach((k, v) => data[k] = v is List ? v.cast<String>() : v as Object);
+    }
+    return _FilePrefs(f, data);
+  }
+
+  Future<void> _save() async => file.writeAsStringSync(jsonEncode(await super.getAll()));
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    final r = await super.setValue(valueType, key, value);
+    await _save();
+    return r;
+  }
+
+  @override
+  Future<bool> remove(String key) async {
+    final r = await super.remove(key);
+    await _save();
+    return r;
+  }
+
+  @override
+  Future<bool> clear() async {
+    final r = await super.clear();
+    await _save();
+    return r;
+  }
+
+  @override
+  Future<bool> clearWithPrefix(String prefix) async {
+    final r = await super.clearWithPrefix(prefix);
+    await _save();
+    return r;
+  }
+
+  @override
+  Future<bool> clearWithParameters(ClearParameters parameters) async {
+    final r = await super.clearWithParameters(parameters);
+    await _save();
+    return r;
+  }
+}
+
 // ── Arranque ──
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterSecureStoragePlatform.instance = _MemoryKeychain();
-  // Las preferencias de macOS (NSUserDefaults) NO respetan el HOME aislado:
-  // van al mismo archivo que la app real (~/Library/Preferences/
-  // com.example.baudexDesktop.plist). Con un prefijo propio la prueba no
-  // pisa las claves de la app real (negocio, marcas de sincronización…).
-  // Un prefijo POR CORRIDA: si se reutilizara, las marcas de sincronización de
-  // la corrida anterior harían creer a una base Isar nueva que ya tiene todo
-  // (eso mismo es el error §3.7 del informe). Se limpian con:
-  //   defaults read com.example.baudexDesktop | grep qaestres  → defaults delete …
-  SharedPreferences.setPrefix(
-      env['QA_PREFS_PREFIX'] ?? 'qaestres.${DateTime.now().millisecondsSinceEpoch}.');
   final docs = (await getApplicationDocumentsDirectory()).path;
   if (!docs.contains('baudex-qa-home')) {
     log('ABORTADO: no es la carpeta aislada de pruebas ($docs)');
     exit(2);
   }
+  // Preferencias SIEMPRE en archivo propio dentro de la carpeta aislada.
+  SharedPreferencesStorePlatform.instance =
+      _FilePrefs.load(File(env['QA_PREFS_FILE'] ?? '${Directory(docs).parent.path}/qa_prefs.json'));
+  log('preferencias en archivo propio');
   await initializeDateFormatting('es_CO', null);
   tz.initializeTimeZones();
   await EnvConfig.initialize();
@@ -894,7 +952,9 @@ Future<void> main() async {
   }
   await IsarDatabase.instance.initialize();
   InitialBinding().dependencies();
-  SchedulerBinding.instance.addTimingsCallback(_frames.addAll);
+  // QA_NO_FRAMES=1: no guardar los FrameTiming (la lista crece con cada cuadro y
+  // suma al heap en corridas largas; usar en la corrida de memoria).
+  if (env['QA_NO_FRAMES'] != '1') SchedulerBinding.instance.addTimingsCallback(_frames.addAll);
   SchedulerBinding.instance.addPersistentFrameCallback((_) => _frameCount++);
 
   final info = await developer.Service.getInfo();
@@ -1010,6 +1070,33 @@ Future<void> _run() async {
               await settle();
             }
             x['volver_ms'] = tiempos;
+          });
+        case 'oc_apilada':
+          // Detalle de la orden A, encima el de la B: ¿cada pantalla muestra SU orden?
+          await scenario('orden_compra_apilada', (x) async {
+            final ids = (env['QA_PO_IDS'] ?? '').split(',').where((s) => s.isNotEmpty).toList();
+            final filas = <Map<String, Object?>>[];
+            for (var k = 0; k + 1 < ids.length && k < 4; k++) {
+              final a = ids[k], b = ids[k + 1];
+              Get.offAllNamed(AppRoutes.purchaseOrders);
+              await settle();
+              Get.toNamed(AppRoutes.purchaseOrderDetail(a));
+              await until(() => poCtrl(a)?.purchaseOrder.value != null, seconds: 20);
+              final aOk = poCtrl(a)?.purchaseOrder.value?.id == a;
+              Get.toNamed(AppRoutes.products); // orden → Productos → volver (flujo reportado)
+              await settle();
+              await back();
+              final aTrasProductos = poCtrl(a)?.purchaseOrder.value?.id == a && Get.currentRoute.contains(a);
+              Get.toNamed(AppRoutes.purchaseOrderDetail(b));
+              await until(() => poCtrl(b)?.purchaseOrder.value != null, seconds: 20);
+              final bOk = poCtrl(b)?.purchaseOrder.value?.id == b;
+              await snap('oc_apilada_$k');
+              await back();
+              final aOtraVez = poCtrl(a)?.purchaseOrder.value?.id == a && Get.currentRoute.contains(a);
+              filas.add({'a': a.substring(0, 8), 'b': b.substring(0, 8), 'a_muestra_a': aOk,
+                  'a_tras_productos': aTrasProductos, 'b_encima_muestra_b': bOk, 'al_volver_a_muestra_a': aOtraVez});
+            }
+            x['casos'] = filas;
           });
         case 'reposo':
           await scenario('reposo_60s', (_) => Future.delayed(const Duration(seconds: 60)));

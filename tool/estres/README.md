@@ -37,7 +37,7 @@ QA_SNAPS=<salida>/fotos QA_NAV_N=100 tool/estres/run_stress.sh <salida>
   `RouterReportManager._routesKey`).
 - `hold_inventory_lock.sh <marca> <organization_id> [s]`: ocupa el candado de inventario del negocio al empezar el
   escenario de notas crédito (reproduce "error y luego confirmada").
-- Aislamiento: HOME propio (Isar), llavero en memoria y preferencias con prefijo `qaestres.` (las preferencias de
+- Aislamiento: HOME propio (Isar), llavero en memoria y preferencias en archivo propio `qa_prefs.json` (las preferencias de
   macOS NO respetan el HOME aislado y comparten archivo con la app real del Mac).
 
 ## 4. Servidor
@@ -52,10 +52,10 @@ QA_SNAPS=<salida>/fotos QA_NAV_N=100 tool/estres/run_stress.sh <salida>
 
 ## 6. Repetir "después" de los arreglos
 - App con `-NSAppSleepDisabled YES` (ya lo pone `run_stress.sh`) y `QA_NO_PROBE=1` para medir tiempos; la sonda solo para fugas.
-- Prefijo de preferencias distinto en cada corrida (por defecto `qaestres.<hora>.`); al terminar borrar las claves
-  `qaestres.*` de `com.example.baudexDesktop` con `defaults delete`.
+- Preferencias en un archivo propio (`<HOME aislado>/qa_prefs.json`, o `QA_PREFS_FILE`): no se toca el plist real.
+- `QA_NO_FRAMES=1`: no guardar los `FrameTiming` (en 80 vueltas ocupan ~19 MB del heap y falsean la medición de memoria).
 - En la versión con `AppNav.back` (rama `fix/estres-escaner-navegacion`) el "volver" de la prueba debe usar
   `AppNav.back()` en lugar de `Get.back()` (3 líneas en `stress_main.dart`: `back()`, ida y vuelta y bucle).
-- Escenarios nuevos: `alt_conserva_venta` (Alt+6/Alt+2 con venta a medias), `volver_con_avisos` (20 avisos en fila),
+- Escenarios nuevos: `oc_apilada` (órdenes A/B apiladas), `alt_conserva_venta` (Alt+6/Alt+2 con venta a medias), `volver_con_avisos` (20 avisos en fila),
   `QA_IDA_SOLO_RUTA=1`.
 - Servidor: `dashboard_storm.py 8 16`, `kardex_check.py`, `secret_leak_check.py` (con `QA_PSQL` de la base usada).
