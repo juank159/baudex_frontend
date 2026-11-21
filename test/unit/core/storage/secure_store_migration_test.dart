@@ -1,0 +1,184 @@
+import 'package:baudex_desktop/app/core/storage/secure_store_migration.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Almacén seguro en memoria (nunca el llavero ni el archivo DPAPI reales).
+class MemoryStore implements SecureKeyValueStore {
+  final Map<String, String> data = {};
+  bool failProbe = false;
+  String? failWriteOn;
+  String? corruptReadOn;
+
+  @override
+  Future<String?> read(String key) async {
+    if (key == corruptReadOn) return 'otra cosa';
+    return data[key];
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (failProbe && key.contains('probe')) throw Exception('DPAPI no disponible');
+    if (key == failWriteOn) throw Exception('disco lleno');
+    data[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async => data.remove(key);
+}
+
+void main() {
+  late MemoryStore store;
+  late List<Map<String, dynamic>> problems;
+
+  // Lo que hoy guarda Windows en preferencias ("enc:" = cifrado casero).
+  const legacyPrefs = <String, Object>{
+    'secure_auth_token': 'enc:TOKEN',
+    'secure_refresh_token': 'enc:REFRESH',
+    'secure_user_data': 'enc:{"id":"u1"}',
+    'secure_offline_credentials': 'enc:{"email":"a@b.co"}',
+    'secure_last_user_id': 'u1',
+    'secure_device_id': 'dev-1',
+    'theme': 'light', // no es del almacén: no se toca
+  };
+
+  String? decode(String key, String stored) {
+    if (stored == 'enc:ROTO') return null; // de otro equipo
+    return stored.startsWith('enc:') ? stored.substring(4) : stored;
+  }
+
+  Future<PrefsToSecureStoreMigration> migration() async {
+    final prefs = await SharedPreferences.getInstance();
+    return PrefsToSecureStoreMigration(
+      prefs: prefs,
+      store: store,
+      decode: decode,
+      onProblem: (e, st, ctx) => problems.add({...ctx, 'error': '$e'}),
+    );
+  }
+
+  setUp(() {
+    store = MemoryStore();
+    problems = [];
+  });
+
+  test('caso normal: pasa todo descifrado, verifica y borra de preferencias', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.migrated);
+    expect(store.data, {
+      'auth_token': 'TOKEN',
+      'refresh_token': 'REFRESH',
+      'user_data': '{"id":"u1"}',
+      'offline_credentials': '{"email":"a@b.co"}',
+      'last_user_id': 'u1',
+      'device_id': 'dev-1',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getKeys().where((k) => k.startsWith('secure_')), isEmpty);
+    expect(prefs.getString('theme'), 'light');
+    expect(prefs.getBool(PrefsToSecureStoreMigration.doneFlag), isTrue);
+    expect(problems, isEmpty);
+  });
+
+  test('almacén que no funciona: preferencias intactas, se sigue con ellas y se reporta', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    store.failProbe = true;
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.storeUnavailable);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('secure_auth_token'), 'enc:TOKEN');
+    expect(store.data, isEmpty);
+    expect(problems.single['step'], 'probe');
+  });
+
+  test('falla a mitad de escribir: no se borra nada de preferencias', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    store.failWriteOn = 'user_data';
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.failed);
+    final prefs = await SharedPreferences.getInstance();
+    for (final k in legacyPrefs.keys) {
+      expect(prefs.get(k), legacyPrefs[k], reason: k);
+    }
+    expect(prefs.getBool(PrefsToSecureStoreMigration.doneFlag), isNull);
+    expect(problems.single['step'], 'write');
+  });
+
+  test('lo leído de vuelta no coincide: no se borra nada de preferencias', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    store.corruptReadOn = 'auth_token';
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.failed);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('secure_auth_token'), 'enc:TOKEN');
+    expect(problems.single['step'], 'verify');
+  });
+
+  test('después de un fallo, el siguiente arranque sí traslada', () async {
+    SharedPreferences.setMockInitialValues(Map.of(legacyPrefs));
+    store.failWriteOn = 'user_data';
+    await (await migration()).run();
+    store.failWriteOn = null;
+    expect(await (await migration()).run(), SecureMigrationOutcome.migrated);
+    expect(store.data['user_data'], '{"id":"u1"}');
+  });
+
+  test('ya trasladado: no copia restos viejos encima de valores nuevos; los borra', () async {
+    SharedPreferences.setMockInitialValues({
+      PrefsToSecureStoreMigration.doneFlag: true,
+      'secure_auth_token': 'enc:TOKEN_VIEJO', // resto de un borrado que falló
+    });
+    store.data['auth_token'] = 'TOKEN_NUEVO';
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.alreadyMigrated);
+    expect(store.data['auth_token'], 'TOKEN_NUEVO');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('secure_auth_token'), isNull);
+  });
+
+  test('ya trasladado pero el almacén falla luego: se marca para trasladar otra vez', () async {
+    SharedPreferences.setMockInitialValues({PrefsToSecureStoreMigration.doneFlag: true});
+    store.failProbe = true;
+    expect(await (await migration()).run(), SecureMigrationOutcome.storeUnavailable);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(PrefsToSecureStoreMigration.doneFlag), isFalse);
+
+    // La app escribió en preferencias mientras tanto; al volver el almacén se traslada.
+    await prefs.setString('secure_auth_token', 'enc:TOKEN_FALLBACK');
+    store.failProbe = false;
+    expect(await (await migration()).run(), SecureMigrationOutcome.migrated);
+    expect(store.data['auth_token'], 'TOKEN_FALLBACK');
+  });
+
+  test('valor que no se puede descifrar (de otro equipo) no frena el traslado', () async {
+    SharedPreferences.setMockInitialValues({
+      'secure_auth_token': 'enc:ROTO',
+      'secure_device_id': 'dev-1',
+    });
+    expect(await (await migration()).run(), SecureMigrationOutcome.migrated);
+    expect(store.data, {'device_id': 'dev-1'});
+  });
+
+  test('SerialQueue: las operaciones no se cruzan', () async {
+    final q = SerialQueue();
+    final order = <String>[];
+    Future<void> op(String name, int ms) => q.run(() async {
+          order.add('$name-inicio');
+          await Future<void>.delayed(Duration(milliseconds: ms));
+          order.add('$name-fin');
+        });
+    await Future.wait([op('a', 20), op('b', 1), op('c', 5)]);
+    expect(order, ['a-inicio', 'a-fin', 'b-inicio', 'b-fin', 'c-inicio', 'c-fin']);
+  });
+
+  test('SerialQueue: un error no bloquea la fila', () async {
+    final q = SerialQueue();
+    await expectLater(q.run(() async => throw Exception('x')), throwsException);
+    expect(await q.run(() async => 42), 42);
+  });
+}

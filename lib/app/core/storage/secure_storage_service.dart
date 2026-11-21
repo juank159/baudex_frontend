@@ -7,6 +7,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../../config/constants/api_constants.dart';
+import '../ops/ops_reporter.dart';
+import '../security/offline_password_hasher.dart';
+import 'secure_store_migration.dart';
 
 /// Cifrador simétrico ligero para el fallback de SharedPreferences en macOS
 /// y Windows cuando el keychain falla. Usa HMAC-SHA256 como keystream
@@ -91,8 +94,35 @@ class _TokenCipher {
   }
 }
 
+/// `flutter_secure_storage` con las operaciones en fila en Windows (allí todo
+/// vive en un solo archivo cifrado con DPAPI y dos escrituras a la vez se
+/// pisan; ver [SerialQueue]).
+class _QueuedSecureStorage implements SecureKeyValueStore {
+  const _QueuedSecureStorage(this._inner);
+
+  final FlutterSecureStorage _inner;
+  static final SerialQueue _queue = SerialQueue();
+
+  bool get _serialize => defaultTargetPlatform == TargetPlatform.windows;
+
+  Future<T> _run<T>(Future<T> Function() op) => _serialize ? _queue.run(op) : op();
+
+  @override
+  Future<String?> read(String key) => _run(() => _inner.read(key: key));
+
+  @override
+  Future<void> write(String key, String value) =>
+      _run(() => _inner.write(key: key, value: value));
+
+  @override
+  Future<void> delete(String key) => _run(() => _inner.delete(key: key));
+
+  Future<Map<String, String>> readAll() => _run(() => _inner.readAll());
+}
+
 class SecureStorageService {
-  static const _storage = FlutterSecureStorage(
+  static const _storage = _QueuedSecureStorage(_plugin);
+  static const _plugin = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     wOptions: WindowsOptions(),
     lOptions: LinuxOptions(),
@@ -108,16 +138,47 @@ class SecureStorageService {
   // Una vez testeado el keychain (exitosamente), no volver a testear
   static bool _keychainTested = false;
 
+  /// En Windows: true = seguir con preferencias (se decide una vez).
+  static Future<bool>? _windowsDecision;
+
+  static Future<bool> _decideWindowsStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final outcome = await PrefsToSecureStoreMigration(
+        prefs: prefs,
+        store: _storage,
+        decode: (key, stored) => _isSensitive(key) ? _TokenCipher.decrypt(stored) : stored,
+        onProblem: (e, st, context) => OpsReporter.capture(
+          e,
+          st,
+          errorType: 'SecureStoreMigration',
+          fingerprint: 'secure_store_migration|${context['step']}',
+          context: context,
+        ),
+      ).run();
+      final usePrefs = outcome == SecureMigrationOutcome.storeUnavailable ||
+          outcome == SecureMigrationOutcome.failed;
+      _useSharedPreferences = usePrefs;
+      return usePrefs;
+    } catch (e, st) {
+      OpsReporter.capture(e, st,
+          errorType: 'SecureStoreMigration', fingerprint: 'secure_store_migration|unexpected');
+      _useSharedPreferences = true;
+      return true;
+    }
+  }
+
   /// Método para detectar si debemos usar SharedPreferences como fallback.
   /// El resultado se cachea: si el keychain funciona, nunca vuelve a testear.
   static Future<bool> _shouldUseSharedPreferences() async {
     if (_useSharedPreferences) return true;
 
-    // Windows desktop: forzar SharedPreferences porque FlutterSecureStorage
-    // no garantiza persistencia cross-session en Windows desktop
+    // Windows: el almacén seguro (archivo cifrado con DPAPI) reemplaza a
+    // SharedPreferences. La primera vez se trasladan los valores y solo si
+    // quedan verificados; si el almacén falla, se sigue con preferencias.
     if (defaultTargetPlatform == TargetPlatform.windows) {
-      _useSharedPreferences = true;
-      return true;
+      _windowsDecision ??= _decideWindowsStorage();
+      return await _windowsDecision!;
     }
 
     // En macOS, hacer UNA SOLA prueba del secure storage y cachear el resultado.
@@ -125,9 +186,9 @@ class SecureStorageService {
     if (defaultTargetPlatform == TargetPlatform.macOS) {
       if (_keychainTested) return false; // ya sabemos que funciona
       try {
-        await _storage.write(key: 'test_key', value: 'test_value');
-        final testVal = await _storage.read(key: 'test_key');
-        await _storage.delete(key: 'test_key');
+        await _storage.write('test_key', 'test_value');
+        final testVal = await _storage.read('test_key');
+        await _storage.delete('test_key');
         if (testVal != 'test_value') {
           throw Exception('Secure storage read/write mismatch');
         }
@@ -178,11 +239,11 @@ class SecureStorageService {
         _useSharedPreferences = false;
         _keychainTested = false;
         // Intentar usar el keychain directamente
-        await _storage.write(key: key, value: value);
+        await _storage.write(key, value);
         _keychainTested = true;
       }
     } else {
-      await _storage.write(key: key, value: value);
+      await _storage.write(key, value);
     }
   }
 
@@ -219,7 +280,7 @@ class SecureStorageService {
         _useSharedPreferences = false;
         _keychainTested = false;
         try {
-          final val = await _storage.read(key: key);
+          final val = await _storage.read(key);
           _keychainTested = true;
           return val;
         } catch (_) {
@@ -227,7 +288,7 @@ class SecureStorageService {
         }
       }
     } else {
-      return await _storage.read(key: key);
+      return await _storage.read(key);
     }
   }
 
@@ -239,10 +300,10 @@ class SecureStorageService {
         await prefs.remove('secure_$key');
       } catch (_) {
         // Si SharedPreferences falla en delete, intentar keychain
-        try { await _storage.delete(key: key); } catch (_) {}
+        try { await _storage.delete(key); } catch (_) {}
       }
     } else {
-      await _storage.delete(key: key);
+      await _storage.delete(key);
     }
   }
 
@@ -290,7 +351,7 @@ class SecureStorageService {
       ApiConstants.refreshTokenKey,
       ApiConstants.userKey,
     ]) {
-      try { await _storage.delete(key: key); } catch (_) {}
+      try { await _storage.delete(key); } catch (_) {}
     }
     // Limpiar SharedPreferences de claves secure_
     try {
@@ -472,7 +533,7 @@ class SecureStorageService {
       final allData = await _storage.readAll();
       for (final key in allData.keys) {
         if (key != _deviceIdKey && key != _lastUserIdKey) {
-          try { await _storage.delete(key: key); } catch (_) {}
+          try { await _storage.delete(key); } catch (_) {}
         }
       }
     } catch (e) {
@@ -485,7 +546,7 @@ class SecureStorageService {
         'current_organization',
         'offline_credentials',
       ]) {
-        try { await _storage.delete(key: key); } catch (_) {}
+        try { await _storage.delete(key); } catch (_) {}
       }
     }
   }
@@ -943,7 +1004,7 @@ class SecureStorageService {
   static const String _offlineCredentialsKey = 'offline_credentials';
 
   /// Guardar credenciales hasheadas para login offline
-  /// El password se guarda como hash SHA-256 para seguridad
+  /// [passwordHash] es la huella de [OfflinePasswordHasher] (nunca la contraseña).
   Future<void> saveOfflineCredentials({
     required String email,
     required String passwordHash,
@@ -975,11 +1036,12 @@ class SecureStorageService {
     }
   }
 
-  /// Verificar credenciales offline
-  /// Retorna true si el email y passwordHash coinciden con los guardados
+  /// Verificar credenciales offline.
+  /// Acepta la huella nueva (PBKDF2) y la vieja (SHA-256). Si coincide y la
+  /// huella es vieja, la reemplaza por la nueva (inicio de sesión exitoso).
   Future<bool> verifyOfflineCredentials({
     required String email,
-    required String passwordHash,
+    required String password,
   }) async {
     try {
       final savedCredentials = await getOfflineCredentials();
@@ -989,8 +1051,24 @@ class SecureStorageService {
       final savedHash = savedCredentials['passwordHash'] as String?;
 
       if (savedEmail == null || savedHash == null) return false;
+      if (savedEmail != email.toLowerCase().trim()) return false;
 
-      return savedEmail == email.toLowerCase().trim() && savedHash == passwordHash;
+      final ok = await OfflinePasswordHasher.verify(
+        password: password,
+        email: email,
+        stored: savedHash,
+      );
+      if (ok && OfflinePasswordHasher.needsUpgrade(savedHash)) {
+        try {
+          await saveOfflineCredentials(
+            email: email,
+            passwordHash: await OfflinePasswordHasher.hash(password),
+          );
+        } catch (_) {
+          // Se reintenta en el próximo inicio de sesión; la vieja sigue sirviendo.
+        }
+      }
+      return ok;
     } catch (e) {
       return false;
     }
