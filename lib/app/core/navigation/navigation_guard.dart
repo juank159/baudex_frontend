@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../../data/local/sync_service.dart';
 import 'route_stack_observer.dart';
+import '../utils/snackbar_policy.dart';
 import 'cash_register_guard.dart';
 import '../../config/routes/app_routes.dart';
 
@@ -91,6 +92,23 @@ class NavigationGuard {
   bool offAllNamed(String route, {dynamic arguments}) =>
       _enqueue(_PendingNav._offAll(route, arguments));
 
+  /// Abrir un módulo (menú, atajos Alt+número, paleta): reemplaza la pila
+  /// pero conserva las pantallas con trabajo sin guardar (ver
+  /// [registerKeepAlive]).
+  bool openModule(String route) =>
+      _enqueue(_PendingNav._raw('openModule', route, null));
+
+  /// Pantallas que no se cierran al abrir otro módulo mientras [keep]
+  /// devuelva `true` (p. ej. Facturación con una venta a medias).
+  final Map<String, bool Function()> _keepAlive = {};
+
+  void registerKeepAlive(String route, bool Function() keep) =>
+      _keepAlive[route] = keep;
+
+  void unregisterKeepAlive(String route, bool Function() keep) {
+    if (_keepAlive[route] == keep) _keepAlive.remove(route);
+  }
+
   /// Reemplazo seguro de `Get.toNamed`.
   bool toNamed(String route, {dynamic arguments}) =>
       _enqueue(_PendingNav._to(route, arguments));
@@ -110,7 +128,7 @@ class NavigationGuard {
       _log('back DESCARTADO (navegación en curso a $_currentRoute)');
       return false;
     }
-    if (Get.isSnackbarOpen) Get.closeAllSnackbars();
+    dismissAllSnackbars();
     final navigator = Get.key.currentState;
     if (navigator == null || !navigator.canPop()) return false;
     navigator.pop<dynamic>(result);
@@ -194,6 +212,44 @@ class NavigationGuard {
             Get.offAllNamed(nav.route, arguments: nav.arguments);
           }
           break;
+        case 'openModule':
+          final action = moduleNavigation(
+            route: nav.route,
+            currentRoute: Get.currentRoute,
+            openRoutes: RouteStackObserver.instance.names.whereType<String>().toList(),
+            mustKeep: (r) {
+              final keep = _keepAlive[r];
+              if (keep == null) return false;
+              try {
+                return keep();
+              } catch (_) {
+                return false;
+              }
+            },
+          );
+          switch (action.kind) {
+            case ModuleNavKind.returnToOpen:
+              Get.until((r) => r.settings.name == nav.route);
+            case ModuleNavKind.pushKeeping:
+              // Se cierra lo de encima de la pantalla que se conserva y se
+              // abre el módulo sobre ella (la venta a medias sigue viva).
+              // Si el módulo ya estaba abierto DEBAJO, esa copia se quita:
+              // dos copias de la misma pantalla se pisan los controladores.
+              final navigator = Get.key.currentState;
+              if (navigator != null) {
+                for (final old
+                    in RouteStackObserver.instance.routesNamed(nav.route)) {
+                  if (!old.isCurrent) navigator.removeRoute(old);
+                }
+              }
+              Get.offNamedUntil(
+                nav.route,
+                (r) => r.settings.name == action.keep,
+              );
+            case ModuleNavKind.replaceAll:
+              Get.offAllNamed(nav.route);
+          }
+          break;
         case 'toNamed':
           Get.toNamed(nav.route, arguments: nav.arguments);
           break;
@@ -273,6 +329,53 @@ bool shouldReturnToOpenScreen({
 }) =>
     !hasArguments && currentRoute != route && isOpen(route);
 
+enum ModuleNavKind { returnToOpen, pushKeeping, replaceAll }
+
+class ModuleNav {
+  final ModuleNavKind kind;
+
+  /// Pantalla que se conserva debajo (solo con [ModuleNavKind.pushKeeping]).
+  final String? keep;
+  const ModuleNav(this.kind, [this.keep]);
+
+  @override
+  String toString() => 'ModuleNav($kind, $keep)';
+}
+
+/// Qué hacer al abrir el módulo [route] desde el menú o un atajo.
+///
+/// - Si ya está abierto más abajo: volver a él (con su estado).
+/// - Si hay abierta una pantalla que [mustKeep] (Facturación con una venta a
+///   medias): abrir el módulo encima de ella, cerrando lo que haya en medio.
+///   Antes Alt+6 → Alt+2 reemplazaba la pila y la venta en curso se perdía.
+/// - Si no: reemplazar la pila, como el menú (no se acumulan pantallas).
+///
+/// [openRoutes] van de abajo hacia arriba.
+ModuleNav moduleNavigation({
+  required String route,
+  required String currentRoute,
+  required List<String> openRoutes,
+  required bool Function(String route) mustKeep,
+}) {
+  // La pantalla a conservar más alta (volver a algo que está DEBAJO de ella
+  // la cerraría).
+  String? keep;
+  var keepIndex = -1;
+  for (var i = openRoutes.length - 1; i >= 0; i--) {
+    if (openRoutes[i] != route && mustKeep(openRoutes[i])) {
+      keep = openRoutes[i];
+      keepIndex = i;
+      break;
+    }
+  }
+  final targetIndex = openRoutes.lastIndexOf(route);
+  if (currentRoute != route && targetIndex != -1 && targetIndex > keepIndex) {
+    return const ModuleNav(ModuleNavKind.returnToOpen);
+  }
+  if (keep != null) return ModuleNav(ModuleNavKind.pushKeeping, keep);
+  return const ModuleNav(ModuleNavKind.replaceAll);
+}
+
 class _PendingNav {
   final String kind;
   final String route;
@@ -310,7 +413,7 @@ class AppNav {
       final ctx = Get.context;
       if (ctx != null && !await CashRegisterGuard.requireOpen(ctx)) return;
     }
-    offAllNamed(route);
+    NavigationGuard.instance.openModule(route);
   }
 
   /// Rutas que exigen una caja abierta antes de entrar: arrancar una venta

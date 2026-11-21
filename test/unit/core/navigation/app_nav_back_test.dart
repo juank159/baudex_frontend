@@ -66,4 +66,55 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
   });
+
+  testWidgets('Volver con un aviso recién pedido (aún sin mostrar) vuelve y no falla',
+      (tester) async {
+    await pumpApp(tester);
+    for (var vuelta = 0; vuelta < 10; vuelta++) {
+      Get.toNamed('/productos');
+      await tester.pumpAndSettle();
+      // Aviso pedido y Volver en el mismo instante, como hace el cajero
+      // al escanear y salir: GetX aún no lo montó.
+      replacePreviousSnackbar();
+      Get.snackbar('Aviso', 'recién pedido $vuelta', duration: const Duration(seconds: 2));
+      expect(AppNav.back(), isTrue);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(Get.currentRoute, '/factura', reason: 'vuelta $vuelta');
+      expect(tester.takeException(), isNull, reason: 'vuelta $vuelta');
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(Get.isSnackbarOpen, isFalse, reason: 'vuelta $vuelta');
+    }
+  });
+
+  testWidgets('aviso pedido mientras se cierran los anteriores: Volver vuelve y no falla',
+      (tester) async {
+    await pumpApp(tester);
+    for (var vuelta = 0; vuelta < 10; vuelta++) {
+      Get.toNamed('/productos');
+      await tester.pumpAndSettle();
+      Get.snackbar('Aviso', 'en pantalla $vuelta', duration: const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 400));
+      // Volver cierra los avisos; la pantalla de abajo pide uno nuevo
+      // mientras el anterior aún se está cerrando (queda en fila, sin
+      // mostrar) y el cajero vuelve otra vez.
+      expect(AppNav.back(), isTrue);
+      Get.snackbar('Aviso', 'nuevo $vuelta', duration: const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 50));
+      Get.toNamed('/productos');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(AppNav.back(), isTrue, reason: 'vuelta $vuelta');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(Get.currentRoute, '/factura', reason: 'vuelta $vuelta');
+      expect(tester.takeException(), isNull, reason: 'vuelta $vuelta');
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tester.takeException(), isNull, reason: 'vuelta $vuelta');
+    }
+  });
 }

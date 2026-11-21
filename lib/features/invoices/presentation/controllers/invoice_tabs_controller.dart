@@ -9,6 +9,8 @@ import 'package:baudex_desktop/features/products/domain/usecases/search_products
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'invoice_form_controller.dart';
+import '../../../../app/config/routes/app_routes.dart';
+import '../../../../app/core/navigation/navigation_guard.dart';
 
 class InvoiceTab {
   final String id;
@@ -75,7 +77,16 @@ class InvoiceTabsController extends GetxController
     _cleanupGlobalController();
 
     _initializeWithFirstTab();
+
+    // Con una venta a medias, ir a otro módulo (Alt+6, menú) no cierra
+    // Facturación: queda debajo y Alt+2 vuelve a ella con la venta.
+    NavigationGuard.instance
+        .registerKeepAlive(AppRoutes.invoicesWithTabs, hasSaleInProgress);
   }
+
+  /// Alguna pestaña tiene productos sin facturar.
+  bool hasSaleInProgress() =>
+      _tabs.any((tab) => tab.controller.invoiceItems.isNotEmpty);
 
   /// Limpiar controlador global sin tag que pueda causar conflictos
   void _cleanupGlobalController() {
@@ -89,6 +100,8 @@ class InvoiceTabsController extends GetxController
 
   @override
   void onClose() {
+    NavigationGuard.instance
+        .unregisterKeepAlive(AppRoutes.invoicesWithTabs, hasSaleInProgress);
     _disposeAllTabs();
     _tabController?.dispose();
     super.onClose();

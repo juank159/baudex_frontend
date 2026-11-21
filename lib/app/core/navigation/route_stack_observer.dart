@@ -18,6 +18,10 @@ class RouteStackObserver extends NavigatorObserver {
   /// Nombres de las pantallas abiertas, de abajo hacia arriba.
   List<String?> get names => [for (final r in _stack) r.settings.name];
 
+  /// Pantallas abiertas llamadas [name] (de abajo hacia arriba).
+  List<Route<dynamic>> routesNamed(String name) =>
+      [for (final r in _stack) if (r.settings.name == name) r];
+
   /// ¿Hay una pantalla [name] abierta (no necesariamente arriba)?
   bool contains(String name) => _stack.any((r) => r.settings.name == name);
 
