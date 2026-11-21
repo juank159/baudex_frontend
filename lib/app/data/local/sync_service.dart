@@ -161,6 +161,7 @@ import '../../../features/settings/data/datasources/user_preferences_local_datas
 // FASE 5: Pull automático al reconectar
 import 'full_sync_service.dart';
 import 'isar_rekey.dart';
+import 'sync_refresh_policy.dart';
 
 /// Resultado de una operación de sync individual
 enum _SyncOpResult { success, failure, skipped }
@@ -1073,36 +1074,54 @@ class SyncService extends GetxService {
         });
       }
 
-      if (result.totalSynced > 0 && !result.wasAborted) {
-        final countsChanged = _pullBroughtChanges(result.syncedCounts);
-        final timeSinceNotification = _lastControllerNotificationAt == null
-            ? null
-            : DateTime.now().difference(_lastControllerNotificationAt!);
-        final notificationOverdue = timeSinceNotification == null ||
-            timeSinceNotification.inMinutes >= 3;
-
-        if (countsChanged || notificationOverdue) {
-          _lastPullCounts = Map<String, int>.from(result.syncedCounts);
-          _lastControllerNotificationAt = DateTime.now();
-          AppLogger.i(
-            'Pull periódico: ${countsChanged ? "cambios detectados" : "actualización periódica"} (${result.totalSynced} registros) — notificando controllers',
-            tag: 'SYNC',
-          );
-          _syncState.value = SyncState.syncing;
-          await Future.delayed(const Duration(milliseconds: 100));
-          _syncState.value = SyncState.idle;
-        } else {
-          AppLogger.d(
-            'Pull periódico: ${result.totalSynced} registros descargados — sin cambios vs pull anterior',
-            tag: 'SYNC',
-          );
-        }
-      } else {
-        AppLogger.d('Pull periódico: sin cambios del servidor', tag: 'SYNC');
-      }
+      await _refreshScreensAfterPull(result, fullSyncService, 'Pull periódico');
     } catch (e) {
       AppLogger.e('Error en pull periódico: $e', tag: 'SYNC');
     }
+  }
+
+  /// Se omitió alguna recarga de pantallas durante una descarga completa.
+  bool _refreshPostponed = false;
+
+  /// Tras un pull: avisa a las pantallas que recarguen (ver
+  /// [shouldRefreshScreensAfterPull]).
+  Future<void> _refreshScreensAfterPull(
+    FullSyncResult result,
+    FullSyncService fullSyncService,
+    String label,
+  ) async {
+    final brought = result.totalSynced > 0 &&
+        !result.wasAborted &&
+        _pullBroughtChanges(result.syncedCounts);
+    final now = DateTime.now();
+    final since = _lastControllerNotificationAt == null
+        ? null
+        : now.difference(_lastControllerNotificationAt!);
+    final pending = fullSyncService.hasPendingFullDownload;
+    final refresh = shouldRefreshScreensAfterPull(
+      broughtChanges: brought,
+      sinceLastRefresh: since,
+      fullDownloadPending: pending,
+      refreshPostponed: _refreshPostponed,
+    ) && (result.totalSynced > 0 || _refreshPostponed);
+    if (!refresh) {
+      if (pending && result.totalSynced > 0) _refreshPostponed = true;
+      AppLogger.d(
+        '$label: ${result.totalSynced} registros — pantallas sin recargar${pending ? " (descarga completa en curso)" : ""}',
+        tag: 'SYNC',
+      );
+      return;
+    }
+    _refreshPostponed = false;
+    _lastPullCounts = Map<String, int>.from(result.syncedCounts);
+    _lastControllerNotificationAt = now;
+    AppLogger.i(
+      '$label: ${result.totalSynced} registros — notificando controllers',
+      tag: 'SYNC',
+    );
+    _syncState.value = SyncState.syncing;
+    await Future.delayed(const Duration(milliseconds: 100));
+    _syncState.value = SyncState.idle;
   }
 
   /// Actualizar conteo de operaciones pendientes
@@ -1520,35 +1539,7 @@ class SyncService extends GetxService {
         AppLogger.w('PULL con errores: ${result.errors}', tag: 'SYNC');
       }
 
-      if (result.totalSynced > 0) {
-        // Solo notificar controllers si algo cambió realmente.
-        // Comparamos los conteos de este pull con los del anterior.
-        // Si son idénticos Y se notificó hace <3 min → nada cambió, omitir.
-        final countsChanged = _pullBroughtChanges(result.syncedCounts);
-        final timeSinceNotification = _lastControllerNotificationAt == null
-            ? null
-            : now.difference(_lastControllerNotificationAt!);
-        final notificationOverdue = timeSinceNotification == null ||
-            timeSinceNotification.inMinutes >= 3;
-
-        if (countsChanged || notificationOverdue) {
-          _lastPullCounts = Map<String, int>.from(result.syncedCounts);
-          _lastControllerNotificationAt = now;
-          AppLogger.i(
-            'PULL completado: ${result.totalSynced} registros. '
-            '${countsChanged ? "Cambios detectados" : "Actualización periódica"} — notificando controllers',
-            tag: 'SYNC',
-          );
-          _syncState.value = SyncState.syncing;
-          await Future.delayed(const Duration(milliseconds: 100));
-          _syncState.value = SyncState.idle;
-        } else {
-          AppLogger.d(
-            'PULL completado: ${result.totalSynced} registros descargados — sin cambios vs pull anterior, controllers no notificados',
-            tag: 'SYNC',
-          );
-        }
-      }
+      await _refreshScreensAfterPull(result, fullSyncService, 'PULL');
     } catch (e) {
       AppLogger.e('Error en PULL del servidor: $e', tag: 'SYNC');
     }

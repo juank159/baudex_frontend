@@ -28,7 +28,7 @@ class FakeServer implements SyncChangesClient {
 
   @override
   Future<SyncChangesPage> fetch(String entity,
-      {required String since, String? afterId, int limit = 200}) async {
+      {required String since, String? afterId, int limit = 200, SyncRowConverter? convert}) async {
     requests++;
     if (!supported) throw const SyncChangesUnsupportedException();
     if (delay > Duration.zero) await Future.delayed(delay);
@@ -79,7 +79,7 @@ class SlowServer extends FakeServer {
 
   @override
   Future<SyncChangesPage> fetch(String entity,
-      {required String since, String? afterId, int limit = 200}) {
+      {required String since, String? afterId, int limit = 200, SyncRowConverter? convert}) {
     limits.add(limit);
     if (limit > maxLimit) {
       throw Exception('DioException [receive timeout]: tiempo de espera agotado');
@@ -325,7 +325,7 @@ void main() {
       'invoices': FullSyncService.debugHandler(
         apply: (items) async {
           applies += items.length;
-          return (real as dynamic).apply(items) as Future<Set<String>>;
+          return (real as dynamic).apply(items, null) as Future<Set<String>>;
         },
         delete: (ids) async => 0,
         sweep: (seen) async => 0,

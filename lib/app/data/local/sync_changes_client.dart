@@ -1,6 +1,8 @@
 // lib/app/data/local/sync_changes_client.dart
 import 'dart:convert';
+import 'dart:isolate';
 
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/errors/exceptions.dart';
@@ -28,6 +30,10 @@ class SyncChangesPage {
   /// La marca es demasiado vieja: hay que descargar todo de nuevo.
   final bool resetRequired;
 
+  /// [items] ya convertidos a registros locales (uno por item, mismo orden),
+  /// armados fuera del hilo de la pantalla. `null` si no se pidió conversión.
+  final List<Object?>? rows;
+
   const SyncChangesPage({
     required this.items,
     required this.stamps,
@@ -37,7 +43,20 @@ class SyncChangesPage {
     required this.nextAfterId,
     required this.watermark,
     required this.resetRequired,
+    this.rows,
   });
+
+  SyncChangesPage withRows(List<Object?>? rows) => SyncChangesPage(
+        items: items,
+        stamps: stamps,
+        deletedIds: deletedIds,
+        hasMore: hasMore,
+        nextSince: nextSince,
+        nextAfterId: nextAfterId,
+        watermark: watermark,
+        resetRequired: resetRequired,
+        rows: rows,
+      );
 
   factory SyncChangesPage.fromJson(Map<String, dynamic> json) {
     final next = json['next'] as Map<String, dynamic>?;
@@ -66,6 +85,42 @@ class SyncChangesUnsupportedException implements Exception {
   const SyncChangesUnsupportedException();
 }
 
+/// Convierte los items de una página en registros locales. Debe ser una
+/// función de nivel superior o estática: corre en otro isolate.
+typedef SyncRowConverter = List<Object?> Function(
+    List<Map<String, dynamic>> items);
+
+/// Respuesta del servidor ya leída: quita los `{success, data}` (a veces
+/// vienen dos) hasta llegar a la página.
+Map<String, dynamic> unwrapSyncChangesBody(Object? body) {
+  var data = body;
+  while (data is Map &&
+      data['data'] is Map &&
+      !data.containsKey('items')) {
+    data = data['data'];
+  }
+  if (data is! Map) {
+    throw const FormatException('Respuesta de /sync/changes sin datos');
+  }
+  return Map<String, dynamic>.from(data);
+}
+
+/// Función suelta a propósito: lo que se envía al otro isolate es solo los
+/// bytes y el convertidor (nada del cliente ni de Dio).
+Future<SyncChangesPage> _parseInBackground(
+        List<int> bytes, SyncRowConverter? convert) =>
+    Isolate.run(
+        () => parseSyncChangesPage(utf8.decode(bytes), convert),
+        debugName: 'sync_changes');
+
+/// Lee una página desde el texto de la respuesta y, si se pide, arma sus
+/// registros locales. Es lo pesado de la descarga (miles de facturas con
+/// ítems y pagos): por eso corre en otro isolate.
+SyncChangesPage parseSyncChangesPage(String text, SyncRowConverter? convert) {
+  final page = SyncChangesPage.fromJson(unwrapSyncChangesBody(jsonDecode(text)));
+  return convert == null ? page : page.withRows(convert(page.items));
+}
+
 class SyncChangesClient {
   /// Marca "desde siempre": descarga completa.
   static const String epoch = '1970-01-01T00:00:00.000000Z';
@@ -78,8 +133,12 @@ class SyncChangesClient {
     required String since,
     String? afterId,
     int limit = 200,
+    SyncRowConverter? convert,
   }) async {
     try {
+      // Se piden los bytes tal cual y se leen (UTF-8 + JSON) en otro
+      // isolate: decodificar páginas de 200 facturas (cientos de KB) en el
+      // hilo de la pantalla trababa la factura abierta mientras sincronizaba.
       final response = await dioClient.get(
         '/sync/changes/$entity',
         queryParameters: {
@@ -87,12 +146,15 @@ class SyncChangesClient {
           if (afterId != null) 'afterId': afterId,
           'limit': limit,
         },
+        options: Options(responseType: ResponseType.bytes),
       );
       final body = response.data;
-      final data = body is Map && body['data'] is Map
-          ? Map<String, dynamic>.from(body['data'] as Map)
-          : Map<String, dynamic>.from(body as Map);
-      return SyncChangesPage.fromJson(data);
+      if (body is List<int>) return _parseInBackground(body, convert);
+      if (body is String) {
+        return _parseInBackground(utf8.encode(body), convert);
+      }
+      final page = SyncChangesPage.fromJson(unwrapSyncChangesBody(body));
+      return convert == null ? page : page.withRows(convert(page.items));
     } on ServerException catch (e) {
       if (e.statusCode == 404) throw const SyncChangesUnsupportedException();
       rethrow;
