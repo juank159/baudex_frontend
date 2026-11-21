@@ -39,6 +39,7 @@ import '../helpers/fake_sync_service.dart';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 
 final _out = Platform.environment['BAUDEX_VISUAL_OUT'];
+const _sizes = {'escritorio': Size(1280, 760), 'celular': Size(390, 844)};
 const _fonts = '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts';
 
 class _Get extends Mock implements GetCreditNotes {}
@@ -101,8 +102,9 @@ void main() {
     }
   }
 
-  testWidgets('notas crédito: confirmando una nota', (t) async {
-    t.view.physicalSize = const Size(1280, 760);
+  for (final size in _sizes.entries) {
+  testWidgets('notas crédito: confirmando una nota (${size.key})', (t) async {
+    t.view.physicalSize = size.value;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     final getNotes = _Get();
@@ -127,22 +129,29 @@ void main() {
     ));
     await t.pumpWidget(app(const CreditNoteListScreen()));
     await settle(t);
-    await shot(t, 'notas-credito-lista');
+    await shot(t, 'notas-credito-lista-${size.key}-v2');
     unawaited(controller.confirmCreditNote('n1'));
     await settle(t);
-    await shot(t, 'notas-credito-confirmando');
+    await shot(t, 'notas-credito-confirmando-${size.key}-v2');
     pending.complete(Right(CreditNoteFixtures.createConfirmedCreditNote(id: 'n1')));
+    await settle(t);
+    await shot(t, 'notas-credito-confirmada-aviso-${size.key}-v2');
     for (var i = 0; i < 20; i++) {
       await t.pump(const Duration(milliseconds: 500));
     }
   });
+  }
 
-  testWidgets('orden de compra: no se pudo cargar (con botón de volver)', (t) async {
-    t.view.physicalSize = const Size(1280, 760);
+  for (final size in _sizes.entries) {
+  for (final notFound in [false, true]) {
+  testWidgets('orden de compra: ${notFound ? 'no existe' : 'no se pudo cargar'} (${size.key})', (t) async {
+    t.view.physicalSize = size.value;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     final getById = _GetById();
-    when(() => getById(any())).thenAnswer((_) async => const Left(ServerFailure('No se pudo conectar con el servidor')));
+    when(() => getById(any())).thenAnswer((_) async => notFound
+        ? const Left(ServerFailure(''))
+        : const Left(ServerFailure('Error del servidor: No se pudo conectar con el servidor')));
     final c = PurchaseOrderDetailController(
       getPurchaseOrderByIdUseCase: getById,
       deletePurchaseOrderUseCase: _Del(),
@@ -157,10 +166,13 @@ void main() {
     c.purchaseOrderId.value = '9605083f-19ff-4acc-ad1d-5a323518ab6e';
     Get.put(c);
     await c.loadPurchaseOrder();
+    if (notFound) c.error.value = '';
     await t.pumpWidget(app(const FuturisticPurchaseOrderDetailScreen()));
     await settle(t);
-    await shot(t, 'orden-compra-error');
+    await shot(t, '${notFound ? 'orden-compra-no-existe' : 'orden-compra-error'}-${size.key}-v2');
   });
+  }
+  }
 }
 
 class _Repo extends Mock implements CreditNoteRepository {}

@@ -333,9 +333,9 @@ class CreditNoteListController extends GetxController
   Future<void> cancelCreditNote(String id) => _runStatusChange(
         id,
         action: () => _cancelCreditNoteUseCase(id),
-        doneTitle: 'Anulada',
-        doneMessage: 'Nota de crédito anulada',
-        errorTitle: 'No se pudo anular',
+        doneTitle: 'Cancelada',
+        doneMessage: 'Nota de crédito cancelada',
+        errorTitle: 'No se pudo cancelar',
       );
 
   /// Un solo camino para confirmar/anular: una vez por nota, con estado de
@@ -367,7 +367,10 @@ class CreditNoteListController extends GetxController
         },
       );
     } catch (e) {
-      FuturisticNotifications.showError(errorTitle, reasonForUser('$e'));
+      FuturisticNotifications.showError(
+        errorTitle,
+        reasonForUser('$e'.replaceFirst(RegExp(r'^Exception: '), '')),
+      );
     } finally {
       _busyIds.remove(id);
       invalidateCache();

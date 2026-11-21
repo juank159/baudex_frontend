@@ -6,6 +6,10 @@ import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../../../app/core/services/permissions_service.dart';
+import '../../../../app/core/errors/server_rejection.dart';
+import '../../../../app/core/navigation/navigation_guard.dart';
+import '../../../../app/config/routes/app_routes.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/purchase_order_detail_controller.dart';
 import '../widgets/futuristic_purchase_order_widgets.dart';
@@ -495,6 +499,26 @@ class FuturisticPurchaseOrderDetailScreen
     );
   }
 
+  /// Si se llegó aquí sin pantalla anterior (enlace directo, reinicio), volver
+  /// atrás dejaría la app en blanco: en ese caso se abre el listado.
+  void _backToList() {
+    if (Get.key.currentState?.canPop() ?? false) {
+      AppNav.back();
+    } else {
+      AppNav.offAllNamed(AppRoutes.purchaseOrders);
+    }
+  }
+
+  /// Acción secundaria junto a "Reintentar": un solo botón principal (azul).
+  Widget _buildBackToListButton() {
+    return OutlinedButton.icon(
+      onPressed: _backToList,
+      icon: const Icon(Icons.arrow_back, size: 18),
+      label: const Text('Volver al listado'),
+      style: brebSecondaryButtonStyle(),
+    );
+  }
+
   Widget _buildErrorState() {
     return Center(
       child: FuturisticContainer(
@@ -510,13 +534,13 @@ class FuturisticPurchaseOrderDetailScreen
               ),
               child: const Icon(
                 Icons.error_outline,
-                color: ElegantLightTheme.textPrimary,
+                color: Colors.white,
                 size: 48,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'Error al cargar',
+              'No se pudo abrir la orden',
               style: TextStyle(
                 color: ElegantLightTheme.textPrimary,
                 fontSize: 20,
@@ -526,7 +550,7 @@ class FuturisticPurchaseOrderDetailScreen
             const SizedBox(height: 8),
             Obx(
               () => Text(
-                controller.error.value,
+                reasonForUser(controller.error.value),
                 style: TextStyle(
                   color: ElegantLightTheme.textSecondary,
                   fontSize: 14,
@@ -545,11 +569,7 @@ class FuturisticPurchaseOrderDetailScreen
                   icon: Icons.refresh,
                   onPressed: controller.refreshPurchaseOrder,
                 ),
-                FuturisticButton(
-                  text: 'Volver al listado',
-                  icon: Icons.arrow_back,
-                  onPressed: () => Get.back(),
-                ),
+                _buildBackToListButton(),
               ],
             ),
           ],
@@ -573,7 +593,7 @@ class FuturisticPurchaseOrderDetailScreen
               ),
               child: const Icon(
                 Icons.search_off,
-                color: ElegantLightTheme.textPrimary,
+                color: Colors.white,
                 size: 48,
               ),
             ),
@@ -588,7 +608,7 @@ class FuturisticPurchaseOrderDetailScreen
             ),
             const SizedBox(height: 8),
             Text(
-              'La orden de compra solicitada no existe o ha sido eliminada',
+              'Esta orden de compra no existe o fue eliminada.',
               style: TextStyle(
                 color: ElegantLightTheme.textSecondary,
                 fontSize: 14,
@@ -599,7 +619,7 @@ class FuturisticPurchaseOrderDetailScreen
             FuturisticButton(
               text: 'Volver al listado',
               icon: Icons.arrow_back,
-              onPressed: () => Get.back(),
+              onPressed: _backToList,
             ),
           ],
         ),

@@ -708,8 +708,10 @@ class CreditNoteListScreen extends GetView<CreditNoteListController> {
                         ],
                       ),
                     ),
-                    // Menú
-                    _buildCompactMenu(creditNote, isMobile),
+                    // Menú (o "procesando" mientras se confirma/cancela)
+                    Obx(() => controller.isBusy(creditNote.id)
+                        ? _buildBusyIndicator(true)
+                        : _buildCompactMenu(creditNote, isMobile)),
                   ],
                 ),
                 SizedBox(height: spacing),
