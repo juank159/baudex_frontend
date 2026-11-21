@@ -1,7 +1,9 @@
 // lib/app/data/local/isar_database.dart
 import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
+import '../../core/ops/ops_reporter.dart';
 import '../../core/utils/app_logger.dart';
+import 'app_data_location.dart';
+import 'local_db_mover.dart';
 
 // Import ISAR models
 import 'sync_queue.dart';
@@ -95,28 +97,114 @@ class IsarDatabase implements IIsarDatabase {
     return _isar!;
   }
 
+  /// Carpeta donde se abrió la base (para diagnóstico y respaldos).
+  static String? _directory;
+  static LocalDbLocation? _location;
+
+  /// Carpeta donde está abierta la base, o null si no se ha abierto.
+  static String? get databaseDirectory => _directory;
+
+  /// Resultado del traslado desde Documentos (null antes de abrir).
+  static LocalDbLocation? get location => _location;
+
+  static const String databaseName = 'baudex_offline';
+
   /// Inicializar la base de datos ISAR
   Future<void> initialize() async {
     if (_isar != null) {
       return;
     }
 
+    // La carpeta se decide una sola vez por ejecución (compact() reabre).
+    if (_directory == null) {
+      _location = await resolveLocation();
+      _directory = _location!.directory;
+    }
+
+    _isar = await Isar.open(
+      schemas,
+      directory: _directory!,
+      name: databaseName,
+    );
+  }
+
+  /// Decide la carpeta de la base y, la primera vez, la traslada desde
+  /// Documentos (OneDrive en Windows) a la carpeta interna de la app.
+  /// Si algo falla sigue en Documentos y lo reporta.
+  static Future<LocalDbLocation> resolveLocation() async {
+    String? legacy;
     try {
-
-      // Obtener el directorio para la base de datos
-      final dir = await getApplicationDocumentsDirectory();
-
-      // Inicializar ISAR con todas las colecciones
-      _isar = await Isar.open(
-        schemas,
-        directory: dir.path,
-        name: 'baudex_offline',
-      );
-
-      // Mostrar estadísticas iniciales
-      final stats = await getStats();
-    } catch (e) {
+      legacy = await AppDataLocation.legacyDirectory();
+      final target = await AppDataLocation.dataDirectory();
+      return await LocalDbMover(
+        legacyDirectory: legacy,
+        newDirectory: target,
+        name: databaseName,
+        counter: countRecords,
+        onProblem: (e, st, context) => OpsReporter.capture(
+          e,
+          st,
+          level: context['level'] as String? ?? 'error',
+          errorType: 'LocalDbMove',
+          fingerprint: 'local_db_move|${context['step']}',
+          context: context,
+        ),
+      ).resolve();
+    } catch (e, st) {
+      OpsReporter.capture(e, st, errorType: 'LocalDbMove', fingerprint: 'local_db_move|resolve');
+      if (legacy != null) {
+        return LocalDbLocation(legacy, LocalDbMoveOutcome.keptLegacy, error: e);
+      }
       rethrow;
+    }
+  }
+
+  /// Abre la base que está en [directory], cuenta los registros de cada
+  /// colección y las operaciones sin subir, y la cierra. Lanza si no abre.
+  static Future<Map<String, int>> countRecords(String directory, String name) async {
+    final isar = await Isar.open(
+      schemas,
+      directory: directory,
+      name: name,
+      inspector: false,
+    );
+    try {
+      final counts = <String, int>{
+        'syncOperations': await isar.syncOperations.count(),
+        'syncEventLogs': await isar.isarSyncEventLogs.count(),
+        'idempotency': await isar.isarIdempotencyRecords.count(),
+        'categories': await isar.isarCategorys.count(),
+        'customers': await isar.isarCustomers.count(),
+        'customerCredits': await isar.isarCustomerCredits.count(),
+        'products': await isar.isarProducts.count(),
+        'productPresentations': await isar.isarProductPresentations.count(),
+        'expenses': await isar.isarExpenses.count(),
+        'invoices': await isar.isarInvoices.count(),
+        'creditNotes': await isar.isarCreditNotes.count(),
+        'notifications': await isar.isarNotifications.count(),
+        'bankAccounts': await isar.isarBankAccounts.count(),
+        'bankAccountMovements': await isar.isarBankAccountMovements.count(),
+        'suppliers': await isar.isarSuppliers.count(),
+        'purchaseOrders': await isar.isarPurchaseOrders.count(),
+        'purchaseOrderItems': await isar.isarPurchaseOrderItems.count(),
+        'inventoryMovements': await isar.isarInventoryMovements.count(),
+        'inventoryBatches': await isar.isarInventoryBatchs.count(),
+        'inventoryBatchMovements': await isar.isarInventoryBatchMovements.count(),
+        'organizations': await isar.isarOrganizations.count(),
+        'userPreferences': await isar.isarUserPreferences.count(),
+        'subscriptions': await isar.isarSubscriptions.count(),
+        'printerSettings': await isar.printerSettingsModels.count(),
+      };
+      counts['pendingSync'] = await isar.syncOperations
+          .filter()
+          .group((q) => q
+              .statusEqualTo(SyncStatus.pending)
+              .or()
+              .statusEqualTo(SyncStatus.failed))
+          .count();
+      return counts;
+    } finally {
+      await isar.close();
     }
   }
 
