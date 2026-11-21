@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_detail_controller.dart
 import 'package:baudex_desktop/app/core/mixins/sync_auto_refresh_mixin.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
 import 'package:baudex_desktop/app/core/utils/number_input_formatter.dart';
 import 'package:baudex_desktop/app/shared/widgets/custom_button.dart';
@@ -1259,6 +1260,7 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   // ==================== MESSAGE HELPERS ====================
 
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -1271,6 +1273,7 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   }
 
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,
@@ -1283,6 +1286,7 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   }
 
   void _showInfo(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

@@ -1,5 +1,6 @@
 //lib/features/invoices/presentation/services/invoice_inventory_service.dart
 import 'package:baudex_desktop/features/inventory/domain/repositories/inventory_repository.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice_item.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -43,6 +44,7 @@ class InvoiceInventoryService extends GetxService {
       if (allItemsProcessed) {
 
         // Mostrar notificación de éxito
+        replacePreviousSnackbar();
         Get.snackbar(
           'Inventario Actualizado',
           'Stock descontado automáticamente según configuración FIFO',
@@ -51,6 +53,7 @@ class InvoiceInventoryService extends GetxService {
       } else {
 
         // Mostrar notificación de advertencia
+        replacePreviousSnackbar();
         Get.snackbar(
           'Inventario Parcialmente Procesado',
           'Algunos productos no pudieron ser descontados del stock',
@@ -62,6 +65,7 @@ class InvoiceInventoryService extends GetxService {
     } catch (e) {
 
       // Mostrar error al usuario
+      replacePreviousSnackbar();
       Get.snackbar(
         'Error en Inventario',
         'No se pudo procesar el descuento de inventario: ${e.toString()}',

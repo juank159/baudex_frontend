@@ -1,5 +1,6 @@
 // lib/features/products/presentation/screens/product_waste_screen.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -50,7 +51,7 @@ class ProductWasteScreen extends GetView<ProductWasteController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
       ),
       title: Obx(
         () => Column(

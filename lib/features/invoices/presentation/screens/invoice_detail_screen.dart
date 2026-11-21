@@ -1,5 +1,7 @@
 //lib/features/invoices/presentation/screens/invoice_detail_screen.dart
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../breb/domain/breb_charge.dart';
@@ -177,7 +179,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               FuturisticButton(
                 text: 'Volver a Facturas',
                 icon: Icons.arrow_back,
-                onPressed: () => Get.back(),
+                onPressed: () => AppNav.back(),
               ),
             ],
           ),
@@ -209,7 +211,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
         tooltip: 'Volver a facturas',
       ),
       title: GetBuilder<InvoiceDetailController>(
@@ -3364,6 +3366,7 @@ class InvoiceDetailScreen extends StatelessWidget {
             final paidInvoiceId = await BrebPaymentDialog.showForInvoice(context, invoice.id);
             if (paidInvoiceId == null) return;
             await controller.refreshInvoice();
+            replacePreviousSnackbar();
             Get.snackbar(
               'Pago Bre-B recibido',
               'El pago quedó registrado en la factura ${invoice.number}.',
@@ -3942,7 +3945,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.2),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
         tooltip: 'Volver a facturas',
       ),
       title: GetBuilder<InvoiceDetailController>(

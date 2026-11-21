@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/screens/invoice_form_screen.dart
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/features/invoices/presentation/widgets/modern_invoice_items_table.dart';
 import 'package:baudex_desktop/features/invoices/presentation/widgets/enhanced_payment_dialog.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product.dart';
@@ -13,6 +14,7 @@ import '../../../breb/presentation/widgets/breb_payment_dialog.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../controllers/invoice_tabs_controller.dart';
 import '../widgets/product_search_widget.dart';
+import '../widgets/invoice_shortcut_keys.dart';
 import '../widgets/customer_selector_widget.dart';
 
 class InvoiceFormScreen extends StatefulWidget {
@@ -142,14 +144,17 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
         // Shortcuts SOLO con Control presionado (NATIVO)
         if (isCtrlPressed) {
-          // Ctrl + = (tecla +) para incrementar en 1 - NATIVO
-          if (event.logicalKey == LogicalKeyboardKey.equal) {
+          // Ctrl + "+" / Ctrl + "=" / "+" del teclado numérico: suma 1.
+          // Ctrl + "-" / "-" del teclado numérico: resta 1.
+          final delta = quantityShortcutDelta(
+            event.logicalKey,
+            character: event.character,
+          );
+          if (delta == 1) {
             _incrementQuantity(1, controller);
             return true;
           }
-
-          // Ctrl + - para decrementar en 1 - NATIVO
-          if (event.logicalKey == LogicalKeyboardKey.minus) {
+          if (delta == -1) {
             _decrementQuantity(1, controller);
             return true;
           }
@@ -344,6 +349,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           product != null &&
           !_isTemporaryProduct(product)) {
         if (newQuantity > product.stock) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Stock Insuficiente',
             'Solo hay ${product.stock.toInt()} unidades disponibles de ${product.name}',
@@ -402,6 +408,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           product != null &&
           !_isTemporaryProduct(product)) {
         if (quantity > product.stock) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Stock Insuficiente',
             'Solo hay ${product.stock.toInt()} unidades disponibles de ${product.name}',
@@ -1298,6 +1305,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final invoice = await controller.completeBrebSale(invoiceId);
     if (!mounted) return;
     _leaveReadyForNextSale(controller);
+    replacePreviousSnackbar();
     Get.snackbar(
       'Venta pagada por Bre-B',
       invoice != null
@@ -1370,6 +1378,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   }
 
                   // ✅ MOSTRAR MENSAJE DE ÉXITO SOLO SI LA OPERACIÓN FUE EXITOSA
+                  replacePreviousSnackbar();
                   Get.snackbar(
                     'Venta Procesada',
                     status == InvoiceStatus.draft
@@ -1387,6 +1396,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   // mostramos un snackbar genérico de fallback para que el usuario
                   // nunca quede mirando una pantalla sin respuesta.
                   if (!Get.isSnackbarOpen) {
+                    replacePreviousSnackbar();
                     Get.snackbar(
                       'No se procesó la venta',
                       'Verifica los datos e intenta nuevamente.',
@@ -1401,6 +1411,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               } catch (e) {
                 // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
 
+                replacePreviousSnackbar();
                 Get.snackbar(
                   'Error',
                   'Error al procesar la venta: $e',

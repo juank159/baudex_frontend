@@ -1,5 +1,6 @@
 // File: lib/features/invoices/presentation/controllers/thermal_printer_controller.dart
 import 'package:image/image.dart' as img;
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 
 // lib/features/invoices/presentation/controllers/thermal_printer_controller.dart
 import 'dart:io';
@@ -2901,6 +2902,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
   // ==================== MENSAJES ====================
 
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -2913,6 +2915,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
   }
 
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Impresión Exitosa',
       message,

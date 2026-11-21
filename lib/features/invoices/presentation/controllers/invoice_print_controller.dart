@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_print_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pdf/pdf.dart';
@@ -1322,6 +1323,7 @@ class InvoicePrintController extends GetxController {
   // ==================== MESSAGE HELPERS ====================
 
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -1334,6 +1336,7 @@ class InvoicePrintController extends GetxController {
   }
 
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,

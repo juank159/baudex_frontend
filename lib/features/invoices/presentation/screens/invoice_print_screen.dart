@@ -1,5 +1,7 @@
 // lib/features/invoices/presentation/screens/invoice_print_screen.dart
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:printing/printing.dart';
@@ -64,7 +66,7 @@ class InvoicePrintScreen extends StatelessWidget {
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
           // Navega directamente al dashboard y elimina el historial
-          Get.back();
+          AppNav.back();
         },
       ),
       actions: [
@@ -2018,6 +2020,7 @@ class InvoicePrintScreen extends StatelessWidget {
                                       icon: Icons.check,
                                       onPressed: () {
                                         Navigator.of(context).pop();
+                                        replacePreviousSnackbar();
                                         Get.snackbar(
                                           'Éxito',
                                           'Configuración aplicada',

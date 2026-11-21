@@ -1,6 +1,7 @@
 // lib/features/invoices/presentation/widgets/use_balance_dialog.dart
 
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -707,6 +708,7 @@ class _UseBalanceDialogState extends State<UseBalanceDialog> {
         : _parseAmount(_amountController.text);
 
     if (amountToUse <= 0) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Error',
         'El monto debe ser mayor a 0',
@@ -718,6 +720,7 @@ class _UseBalanceDialogState extends State<UseBalanceDialog> {
     }
 
     if (amountToUse > _maxUsable) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Error',
         'El monto excede el máximo disponible',

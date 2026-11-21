@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -429,6 +430,7 @@ class InitialInventoryController extends GetxController {
   void _showIncompleteRowsBlocked({required String action}) {
     final incomplete = incompleteRowIndices;
     if (incomplete.isEmpty) return;
+    replacePreviousSnackbar();
     Get.snackbar(
       'Completa los campos',
       'Hay ${incomplete.length} fila(s) con campos vacíos. '
@@ -460,6 +462,7 @@ class InitialInventoryController extends GetxController {
   void removeRow(int index) {
     if (index < 0 || index >= rows.length) return;
     if (rows.length <= 1) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Aviso',
         'Debe mantener al menos una fila',
@@ -575,6 +578,7 @@ class InitialInventoryController extends GetxController {
       );
       result.fold(
         (failure) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Error',
             'No se pudieron cargar las categorias: ${failure.message}',
@@ -751,6 +755,7 @@ class InitialInventoryController extends GetxController {
     // Protege contra errores del usuario cuando la lista tiene muchas filas.
     if (duplicateIndices.isNotEmpty) {
       final list = duplicatesSummary;
+      replacePreviousSnackbar();
       Get.snackbar(
         'Hay productos repetidos',
         list.isEmpty
@@ -832,6 +837,7 @@ class InitialInventoryController extends GetxController {
         showSummaryDialog();
       }
     } catch (e) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Error',
         'Error inesperado: $e',

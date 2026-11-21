@@ -1,6 +1,7 @@
 // lib/features/invoices/presentation/screens/invoice_list_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/shared/widgets/permission_gate.dart';
@@ -298,6 +299,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               if (overdueCount > 0) {
                 controller.filterByStatus(InvoiceStatus.overdue);
               } else {
+                replacePreviousSnackbar();
                 Get.snackbar(
                   'Sin alertas',
                   'No hay facturas vencidas',
@@ -1623,6 +1625,7 @@ class _DesktopToolbar extends StatelessWidget {
   void _handleDesktopAction(String action, BuildContext context, InvoiceListController controller) {
     switch (action) {
       case 'export':
+        replacePreviousSnackbar();
         Get.snackbar(
           'Próximamente',
           'La función de exportar facturas estará disponible pronto',

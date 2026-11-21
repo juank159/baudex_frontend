@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_tabs_controller.dart
 import 'package:baudex_desktop/features/customers/domain/usecases/create_customer_usecase.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/search_customers_usecase.dart';
@@ -360,6 +361,7 @@ class InvoiceTabsController extends GetxController
   void _showMaxTabsError() {
     // Programar para el siguiente frame para evitar errores durante build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Límite alcanzado',
         'No puedes tener más de $maxTabs pestañas abiertas al mismo tiempo',
@@ -374,6 +376,7 @@ class InvoiceTabsController extends GetxController
   void _showError(String title, String message) {
     // Programar para el siguiente frame para evitar errores durante build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      replacePreviousSnackbar();
       Get.snackbar(
         title,
         message,

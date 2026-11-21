@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:isar/isar.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/local_first.dart';
@@ -29,6 +30,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
+import '../widgets/scan_code_cache.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -1046,21 +1048,38 @@ class InvoiceFormController extends GetxController {
   Future<Product?> findProductByBarcode(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return null;
+    // Re-escaneo de un producto que YA está en la factura: se resuelve en
+    // memoria. Con el catálogo completo y la sincronización escribiendo en
+    // la base local, cada consulta podía esperar segundos y la cola de
+    // escaneos se atrasaba (43 de 100 re-escaneos no entraban en 15 s).
+    final cached = _scanCache.lookup(
+      trimmed,
+      isInInvoice: (id) => _invoiceItems.any((i) => i.productId == id),
+    );
+    if (cached != null) return cached;
     if (Get.isRegistered<ProductOfflineRepository>()) {
       final exact = await Get.find<ProductOfflineRepository>()
           .getProductByBarcode(trimmed);
       final product = exact.fold((_) => null, (p) => p);
       if (product != null && product.status == ProductStatus.active) {
+        _scanCache.remember(trimmed, product);
         return product;
       }
     }
     final results = await searchProducts(trimmed);
     if (results.isEmpty) return null;
-    return results.firstWhereOrNull(
+    final found = results.firstWhereOrNull(
           (p) => p.barcode?.toLowerCase() == trimmed.toLowerCase(),
         ) ??
         results.first;
+    if (found.barcode?.toLowerCase() == trimmed.toLowerCase()) {
+      _scanCache.remember(trimmed, found);
+    }
+    return found;
   }
+
+  /// Códigos ya escaneados en esta factura (ver [ScanCodeCache]).
+  final ScanCodeCache _scanCache = ScanCodeCache();
 
   /// Producto cuyo código (SKU) es EXACTAMENTE [sku]. Lo usa el Enter con un
   /// valor: si existe un producto con ese código se agrega ese; si no, es un
@@ -1439,6 +1458,7 @@ class InvoiceFormController extends GetxController {
       final removedItem = _invoiceItems.removeAt(index);
       _recalculateTotals();
 
+      replacePreviousSnackbar();
       Get.snackbar(
         'Producto Eliminado',
         removedItem.description,
@@ -2509,6 +2529,7 @@ class InvoiceFormController extends GetxController {
         statusMessage = 'Procesada exitosamente';
     }
 
+    replacePreviousSnackbar();
     Get.snackbar(
       status == InvoiceStatus.draft ? '¡Borrador Guardado!' : '¡Éxito!',
       statusMessage,
@@ -2523,6 +2544,7 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVOS MENSAJES PARA IMPRESIÓN
   void _showPrintSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '🖨️ Impresión Exitosa',
       message,
@@ -2536,6 +2558,7 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showPrintError(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '🖨️ Error de Impresión',
       message,
@@ -2549,6 +2572,7 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -2562,6 +2586,7 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       '¡Éxito!',
       message,
@@ -2575,6 +2600,7 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showInfo(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

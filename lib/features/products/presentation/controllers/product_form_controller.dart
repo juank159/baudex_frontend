@@ -1,5 +1,6 @@
 // lib/features/products/presentation/controllers/product_form_controller.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../../../app/data/local/sync_service.dart';
@@ -767,6 +768,7 @@ class ProductFormController extends GetxController {
           // Actualizar la UI
           update();
 
+          replacePreviousSnackbar();
           Get.snackbar(
             'Precios aplicados',
             'Los precios y márgenes han sido aplicados',
@@ -1431,6 +1433,7 @@ class ProductFormController extends GetxController {
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -1444,6 +1447,7 @@ class ProductFormController extends GetxController {
 
   /// Mostrar mensaje de éxito
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,
@@ -1475,6 +1479,7 @@ class ProductFormController extends GetxController {
 
   /// Mostrar mensaje de información
   void _showInfo(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,

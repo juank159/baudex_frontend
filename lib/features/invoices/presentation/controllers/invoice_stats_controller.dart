@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_stats_controller.dart
 import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -357,6 +358,7 @@ class InvoiceStatsController extends GetxController {
   // ==================== MESSAGE HELPERS ====================
 
   void _showError(String title, String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       title,
       message,
@@ -369,6 +371,7 @@ class InvoiceStatsController extends GetxController {
   }
 
   void _showSuccess(String message) {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Éxito',
       message,

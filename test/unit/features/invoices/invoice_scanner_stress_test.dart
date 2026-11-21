@@ -9,6 +9,8 @@ import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_fo
 import 'package:baudex_desktop/features/invoices/presentation/widgets/product_search_widget.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
+import 'package:baudex_desktop/features/products/data/repositories/product_offline_repository.dart';
+import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +23,9 @@ class _Create extends Mock implements CreateInvoiceUseCase {}
 class _Update extends Mock implements UpdateInvoiceUseCase {}
 
 class _GetById extends Mock implements GetInvoiceByIdUseCase {}
+
+/// Base local lenta (la sincronización escribiendo con el catálogo completo).
+class _SlowLocal extends Mock implements ProductOfflineRepository {}
 
 /// Punto de venta con muchas líneas, lector de código de barras (teclas
 /// rapidísimas + Enter) y atajos Ctrl+número. Lo que el cajero sentía lento:
@@ -185,5 +190,96 @@ void main() {
     expect(total, 70);
     expect(Get.isSnackbarOpen, isFalse);
     await frames(t, 10);
+  });
+
+  testWidgets('re-escaneos con la base local lenta: cada uno entra en un cuadro',
+      (t) async {
+    final slow = _SlowLocal();
+    var lookups = 0;
+    when(() => slow.getProductByBarcode(any())).thenAnswer((inv) async {
+      lookups++;
+      await Future<void>.delayed(const Duration(seconds: 3));
+      final code = inv.positionalArguments.first as String;
+      return Right(product(int.parse(code.substring(3))));
+    });
+    Get.put<ProductOfflineRepository>(slow);
+    final tabs = await openWith(t, 0);
+    final c = tabs.currentTab!.controller;
+
+    // Primeros escaneos: la base tarda 3 s.
+    for (var n = 0; n < 10; n++) {
+      await scan(t, product(n).barcode!);
+      await t.pump(const Duration(seconds: 3));
+    }
+    await frames(t);
+    expect(c.invoiceItems.length, 10);
+    expect(lookups, 10);
+
+    // 100 re-escaneos de los mismos 10: ya no esperan a la base.
+    final watch = Stopwatch()..start();
+    var slowest = Duration.zero;
+    for (var n = 0; n < 100; n++) {
+      final p = product(n % 10);
+      final before = c.invoiceItems.firstWhere((i) => i.productId == p.id).quantity;
+      final w = Stopwatch()..start();
+      await scan(t, p.barcode!);
+      await t.pump(const Duration(milliseconds: 16));
+      if (w.elapsed > slowest) slowest = w.elapsed;
+      expect(c.invoiceItems.firstWhere((i) => i.productId == p.id).quantity, before + 1,
+          reason: 're-escaneo $n entró sin esperar la base');
+    }
+    watch.stop();
+    expect(lookups, 10, reason: 'los re-escaneos no consultan la base');
+    expect(c.invoiceItems.fold<double>(0, (s, i) => s + i.quantity), 110);
+    // ignore: avoid_print
+    print('re-escaneos: 100 en ${watch.elapsedMilliseconds} ms (peor ${slowest.inMilliseconds} ms)');
+    await frames(t, 10);
+  });
+
+  testWidgets('el foco cae al ámbito (reconstrucción): la caja lo recupera y el '
+      'siguiente escaneo entra', (t) async {
+    final tabs = await openWith(t, 0);
+    final c = tabs.currentTab!.controller;
+    for (var n = 0; n < 5; n++) {
+      c.availableProducts.add(product(n));
+    }
+    final field = find.descendant(
+        of: find.byType(ProductSearchWidget), matching: find.byType(EditableText));
+    bool hasFocus() => t.widget<EditableText>(field).focusNode.hasFocus;
+    for (var round = 0; round < 15; round++) {
+      expect(hasFocus(), isTrue, reason: 'vuelta $round');
+      // Lo que pasaba: el foco quedaba en el FocusScopeNode (nadie).
+      FocusManager.instance.primaryFocus!.unfocus(
+          disposition: UnfocusDisposition.scope);
+      await t.pump();
+      await t.pump();
+      expect(hasFocus(), isTrue, reason: 'recuperado en la vuelta $round');
+      await scan(t, product(round % 5).barcode!);
+      await frames(t, 1);
+    }
+    expect(c.invoiceItems.fold<double>(0, (s, i) => s + i.quantity), 15);
+    await frames(t, 10);
+  });
+
+  testWidgets('Ctrl + "+" del teclado español y del numérico suman uno', (t) async {
+    final tabs = await openWith(t, 3);
+    final c = tabs.currentTab!.controller;
+    await ctrl(t, LogicalKeyboardKey.digit1); // selecciona y suma 1
+    final i = c.invoiceItems.indexWhere((x) => x.quantity == 2);
+    expect(i, isNot(-1));
+    // Tecla "+" del teclado español (junto al Enter): manda el carácter "+".
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await t.sendKeyDownEvent(LogicalKeyboardKey.add,
+        physicalKey: PhysicalKeyboardKey.bracketRight, character: '+');
+    await t.sendKeyUpEvent(LogicalKeyboardKey.add,
+        physicalKey: PhysicalKeyboardKey.bracketRight);
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await t.pump(const Duration(milliseconds: 20));
+    expect(c.invoiceItems[i].quantity, 3);
+    await ctrl(t, LogicalKeyboardKey.numpadAdd);
+    expect(c.invoiceItems[i].quantity, 4);
+    await ctrl(t, LogicalKeyboardKey.numpadSubtract);
+    expect(c.invoiceItems[i].quantity, 3);
+    await frames(t, 30);
   });
 }

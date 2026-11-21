@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -131,6 +132,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
                   child: InkWell(
                     onTap: () async {
                       await controller.saveDraft();
+                      replacePreviousSnackbar();
                       Get.snackbar(
                         'Guardado',
                         'Borrador guardado correctamente',

@@ -7,6 +7,7 @@
 //   - Llama a ExchangeProductsUseCase para procesar el cambio.
 
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/core/utils/app_logger.dart';
@@ -153,6 +154,7 @@ class ProductExchangeController extends GetxController {
       return;
     }
     if (quantity > invoiceItem.quantity) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Cantidad inválida',
         'No puede devolver más de lo facturado (${invoiceItem.quantity.toStringAsFixed(0)})',
@@ -197,6 +199,7 @@ class ProductExchangeController extends GetxController {
   Future<ProductExchangeResult?> processExchange() async {
     if (_isProcessing.value) return null;
     if (_returnedItems.isEmpty) {
+      replacePreviousSnackbar();
       Get.snackbar(
         'Sin items devueltos',
         'Debe seleccionar al menos un item para devolver',
@@ -231,6 +234,7 @@ class ProductExchangeController extends GetxController {
         (failure) {
           _error.value = failure.message;
           if (failure is CompositeExchangeFailure) {
+            replacePreviousSnackbar();
             Get.snackbar(
               'Cambio parcialmente completado',
               'Nota crédito creada (${failure.creditNote.number}) pero la '
@@ -241,6 +245,7 @@ class ProductExchangeController extends GetxController {
               colorText: Colors.orange.shade900,
             );
           } else {
+            replacePreviousSnackbar();
             Get.snackbar(
               'Error al procesar cambio',
               failure.message,
@@ -252,6 +257,7 @@ class ProductExchangeController extends GetxController {
           return null;
         },
         (result) {
+          replacePreviousSnackbar();
           Get.snackbar(
             'Cambio completado',
             _buildSuccessMessage(result),

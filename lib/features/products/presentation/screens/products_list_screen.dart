@@ -1,6 +1,7 @@
 // lib/features/products/presentation/screens/products_list_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/shared/widgets/permission_gate.dart';
@@ -149,6 +150,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
               if (lowStockCount > 0) {
                 controller.applyStockFilter(lowStock: true);
               } else {
+                replacePreviousSnackbar();
                 Get.snackbar(
                   'Sin alertas',
                   'No hay productos con stock bajo',
@@ -483,6 +485,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
   }
 
   void _showRefreshSuccess() {
+    replacePreviousSnackbar();
     Get.snackbar(
       'Actualizado',
       'Los productos se han actualizado correctamente',
@@ -1205,6 +1208,7 @@ class _DesktopToolbar extends StatelessWidget {
   void _handleDesktopAction(String action, BuildContext context) {
     switch (action) {
       case 'export':
+        replacePreviousSnackbar();
         Get.snackbar(
           'Próximamente',
           'La función de exportar productos estará disponible pronto',

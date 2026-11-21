@@ -1,5 +1,6 @@
 // lib/features/products/presentation/widgets/price_calculator_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
@@ -75,6 +76,7 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog>
     final cost = AppFormatters.parseNumber(_costController.text) ?? 0;
 
     if (cost <= 0) {
+      replacePreviousSnackbar();
       Get.snackbar('Error', 'El costo debe ser un número positivo');
       return;
     }
@@ -84,6 +86,7 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog>
       (c) => c.text.trim().isNotEmpty,
     );
     if (!hasAnyMargin) {
+      replacePreviousSnackbar();
       Get.snackbar('Aviso', 'Ingresa al menos un margen de ganancia');
       return;
     }

@@ -1,5 +1,7 @@
 // lib/features/products/presentation/screens/product_stats_screen.dart
 import 'package:baudex_desktop/features/products/domain/entities/product.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
+import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
@@ -99,7 +101,7 @@ class ProductStatsScreen extends GetView<ProductsController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, size: 20),
-        onPressed: () => Get.back(),
+        onPressed: () => AppNav.back(),
       ),
       actions: [
         const SyncStatusIcon(),
@@ -1443,6 +1445,7 @@ class ProductStatsScreen extends GetView<ProductsController> {
           TextButton(
             onPressed: () {
               Get.back();
+              replacePreviousSnackbar();
               Get.snackbar('Exportar', 'Funcionalidad pendiente de implementar', snackPosition: SnackPosition.TOP);
             },
             child: const Text('Exportar'),
@@ -1469,6 +1472,7 @@ class ProductStatsScreen extends GetView<ProductsController> {
           TextButton(
             onPressed: () {
               Get.back();
+              replacePreviousSnackbar();
               Get.snackbar('Reporte', 'Funcionalidad pendiente de implementar', snackPosition: SnackPosition.TOP);
             },
             child: const Text('Generar'),
@@ -1495,6 +1499,7 @@ class ProductStatsScreen extends GetView<ProductsController> {
           TextButton(
             onPressed: () {
               Get.back();
+              replacePreviousSnackbar();
               Get.snackbar('Compartir', 'Funcionalidad pendiente de implementar', snackPosition: SnackPosition.TOP);
             },
             child: const Text('Compartir'),
