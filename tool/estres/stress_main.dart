@@ -43,6 +43,7 @@ import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 final env = Platform.environment;
@@ -845,6 +846,11 @@ class _MemoryKeychain extends FlutterSecureStoragePlatform {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterSecureStoragePlatform.instance = _MemoryKeychain();
+  // Las preferencias de macOS (NSUserDefaults) NO respetan el HOME aislado:
+  // van al mismo archivo que la app real (~/Library/Preferences/
+  // com.example.baudexDesktop.plist). Con un prefijo propio la prueba no
+  // pisa las claves de la app real (negocio, marcas de sincronización…).
+  SharedPreferences.setPrefix('qaestres.');
   final docs = (await getApplicationDocumentsDirectory()).path;
   if (!docs.contains('baudex-qa-home')) {
     log('ABORTADO: no es la carpeta aislada de pruebas ($docs)');
