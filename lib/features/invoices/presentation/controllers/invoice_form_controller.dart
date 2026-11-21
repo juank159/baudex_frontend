@@ -14,6 +14,7 @@ import 'package:baudex_desktop/features/cash_register/presentation/controllers/c
 import 'package:baudex_desktop/features/cash_register/presentation/widgets/open_cash_register_dialog.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
 import 'package:baudex_desktop/features/invoices/presentation/controllers/thermal_printer_controller.dart';
@@ -866,7 +867,7 @@ class InvoiceFormController extends GetxController {
 
       // Solo validar stock si la preferencia está activa y no permite sobreventa
       if (shouldValidateStock && product.stock <= 0) {
-        _showError('Sin Stock', '${product.name} no tiene stock disponible');
+        _showError('Sin stock', '${product.name} no tiene unidades disponibles');
         AudioNotificationService.instance.announceOutOfStock();
         return;
       }
@@ -911,8 +912,8 @@ class InvoiceFormController extends GetxController {
       // Solo validar stock si la preferencia está activa
       if (!isTemporary && shouldValidateStock && newQuantity > product.stock) {
         _showError(
-          'Stock Insuficiente',
-          'Solo hay ${product.stock} unidades disponibles de ${product.name}',
+          'Sin unidades suficientes',
+          'Solo hay ${AppFormatters.formatStock(product.stock)} unidades disponibles de ${product.name}',
         );
         AudioNotificationService.instance.announceOutOfStock();
         return;
@@ -939,8 +940,8 @@ class InvoiceFormController extends GetxController {
       // Solo validar stock si la preferencia está activa
       if (!isTemporary && shouldValidateStock && quantity > product.stock) {
         _showError(
-          'Stock Insuficiente',
-          'Solo hay ${product.stock} unidades disponibles de ${product.name}',
+          'Sin unidades suficientes',
+          'Solo hay ${AppFormatters.formatStock(product.stock)} unidades disponibles de ${product.name}',
         );
         AudioNotificationService.instance.announceOutOfStock();
         return;
@@ -1458,16 +1459,10 @@ class InvoiceFormController extends GetxController {
       final removedItem = _invoiceItems.removeAt(index);
       _recalculateTotals();
 
-      replacePreviousSnackbar();
-      Get.snackbar(
-        'Producto Eliminado',
+      FuturisticNotifications.showWarning(
+        'Producto quitado',
         removedItem.description,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        icon: const Icon(Icons.remove_circle, color: Colors.orange),
         duration: const Duration(seconds: 1),
-        margin: const EdgeInsets.all(8),
       );
     }
   }
@@ -1763,7 +1758,10 @@ class InvoiceFormController extends GetxController {
   Future<void> printInvoice(Invoice invoice) async {
     if (_isPrinting.value) {
       //_showError('Ya hay una impresión en curso');
-      _showError('Título del Error', 'Mensaje descriptivo del error');
+      _showError(
+        'Impresión en curso',
+        'Espera a que termine la impresión anterior',
+      );
       return;
     }
 
@@ -2572,16 +2570,10 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showError(String title, String message) {
-    replacePreviousSnackbar();
-    Get.snackbar(
+    FuturisticNotifications.showError(
       title,
       message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.error, color: Colors.red),
       duration: const Duration(seconds: 4),
-      margin: const EdgeInsets.all(8),
     );
   }
 
@@ -2600,14 +2592,9 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showInfo(String title, String message) {
-    replacePreviousSnackbar();
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       title,
       message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      icon: const Icon(Icons.info, color: Colors.blue),
       duration: const Duration(seconds: 3),
     );
   }

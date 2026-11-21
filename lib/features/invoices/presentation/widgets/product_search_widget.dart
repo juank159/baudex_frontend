@@ -1,6 +1,6 @@
 // lib/features/invoices/presentation/widgets/product_search_widget.dart
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 import 'dart:async';
-import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1298,14 +1298,9 @@ AppLogger.e('❌ Error al abrir escáner: $e');
     // Audio TTS — async, no bloquea UI. Servicio offline (no requiere red).
     AudioNotificationService.instance.announceOutOfStock();
 
-    replacePreviousSnackbar();
-    Get.snackbar(
+    FuturisticNotifications.showError(
       'Sin stock',
       '${product.name} no tiene unidades disponibles',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.block, color: Colors.red),
       duration: const Duration(milliseconds: 2500),
     );
   }
@@ -1337,16 +1332,10 @@ AppLogger.e('❌ Error al abrir escáner: $e');
   }
 
   void _showError(String title, String message) {
-    replacePreviousSnackbar();
-    Get.snackbar(
+    FuturisticNotifications.showError(
       title,
       message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.error, color: Colors.red),
       duration: const Duration(seconds: 3),
-      margin: const EdgeInsets.all(8),
     );
   }
 }

@@ -16,6 +16,7 @@ import '../controllers/invoice_tabs_controller.dart';
 import '../widgets/product_search_widget.dart';
 import '../widgets/invoice_shortcut_keys.dart';
 import '../widgets/customer_selector_widget.dart';
+import '../widgets/items_scroll_math.dart';
 
 class InvoiceFormScreen extends StatefulWidget {
   final InvoiceFormController? controller;
@@ -274,47 +275,28 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     }
   }
 
-  // Método para hacer scroll automático al elemento seleccionado
+  // Lleva la fila elegida a la vista (flechas, Inicio/Fin, re-escaneo).
+  // Antes suponía filas de 54 px; miden ~36 en escritorio y ~41 en celular,
+  // así que con muchas líneas la fila re-escaneada quedaba fuera de la vista.
+  // Ahora se mide la fila real: alto total del contenido / número de filas.
   void _scrollToSelected() {
     if (!_productsScrollController.hasClients || _selectedIndex < 0) return;
-
-    // Altura estimada de cada fila en la tabla (coincide con el diseño compacto)
-    const double itemHeight = 50.0; // Altura compacta de cada fila (ajustada)
-    const double padding = 4.0; // Padding entre elementos (reducido)
-
-    final double targetPosition = (_selectedIndex * (itemHeight + padding));
-    final double viewportHeight =
-        _productsScrollController.position.viewportDimension;
-    final double currentScroll = _productsScrollController.offset;
-
-    // Calcular si el elemento está fuera de la vista
-    final double itemTop = targetPosition;
-    final double itemBottom = targetPosition + itemHeight;
-    final double viewportTop = currentScroll;
-    final double viewportBottom = currentScroll + viewportHeight;
-
-    double? newScrollPosition;
-
-    // Si el elemento está arriba de la vista, hacer scroll hacia arriba
-    if (itemTop < viewportTop) {
-      newScrollPosition = itemTop - padding;
-    }
-    // Si el elemento está abajo de la vista, hacer scroll hacia abajo
-    else if (itemBottom > viewportBottom) {
-      newScrollPosition = itemBottom - viewportHeight + padding;
-    }
-
-    // Solo hacer scroll si es necesario
-    if (newScrollPosition != null) {
-      _productsScrollController.animateTo(
-        newScrollPosition.clamp(
-          0.0,
-          _productsScrollController.position.maxScrollExtent,
-        ),
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-      );
-    }
+    final count = widget.controller?.invoiceItems.length ?? 0;
+    if (count == 0) return;
+    final position = _productsScrollController.position;
+    final target = scrollOffsetToReveal(
+      index: _selectedIndex.clamp(0, count - 1),
+      itemCount: count,
+      contentExtent: position.maxScrollExtent + position.viewportDimension,
+      viewportExtent: position.viewportDimension,
+      currentOffset: position.pixels,
+    );
+    if (target == null) return;
+    _productsScrollController.animateTo(
+      target.clamp(0.0, position.maxScrollExtent),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
   }
 
   // ✅ NUEVO: Método para hacer scroll con delay para productos actualizados
@@ -501,6 +483,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       appBar: _buildAppBar(context, controller),
       backgroundColor: Colors.transparent,
       body: Container(
+        // Llena todo el alto: en celular el degradado terminaba donde
+        // terminaba el contenido y abajo quedaba una franja vacía.
+        constraints: const BoxConstraints.expand(),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -567,62 +552,95 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     );
   }
 
-  // Layout para móviles (scroll completo como antes)
+  /// Alto mínimo para que en celular la tabla ocupe el espacio libre y el
+  /// resumen quede abajo. Más bajo (teclado abierto, celular horizontal) se
+  /// mantiene el desplazamiento de antes con la tabla de 250.
+  static const double _mobileFillMinHeight = 560;
+
+  // Layout para móviles
   Widget _buildMobileLayout(
     BuildContext context,
     InvoiceFormController controller,
   ) {
-    return SingleChildScrollView(
-      padding: context.responsivePadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomerSelectorWidget(
-            key: _customerSelectorKey,
-            selectedCustomer: controller.selectedCustomer,
-            onCustomerSelected: controller.selectCustomer,
-            onClearCustomer: controller.clearCustomer,
+    final customer = CustomerSelectorWidget(
+      key: _customerSelectorKey,
+      selectedCustomer: controller.selectedCustomer,
+      onCustomerSelected: controller.selectCustomer,
+      onClearCustomer: controller.clearCustomer,
+      controller: controller,
+      onFocusChanged: (hasFocus) {
+        // Coordinar el foco con ProductSearchWidget
+        if (hasFocus) {
+          _productSearchKey.currentState?.pauseFocusRestoration();
+        } else {
+          _productSearchKey.currentState?.resumeFocusRestoration();
+        }
+      },
+    );
+    final search = ProductSearchWidget(
+      key: _productSearchKey,
+      controller: controller,
+      autoFocus: true,
+      onProductSelected: (product, quantity) {
+        // La fila la elige el controlador (nueva arriba o la que se
+        // actualizó).
+        controller.handleProductSelection(product, quantity: quantity);
+      },
+    );
+    Widget table({double? height}) => ValueListenableBuilder<int>(
+          valueListenable: _selection,
+          builder: (context, selected, _) => ModernInvoiceItemsTable(
             controller: controller,
-            onFocusChanged: (hasFocus) {
-              // ✅ NUEVO: Coordinar focus con ProductSearchWidget
-              if (hasFocus) {
-                _productSearchKey.currentState?.pauseFocusRestoration();
-              } else {
-                _productSearchKey.currentState?.resumeFocusRestoration();
-              }
+            selectedIndex: selected,
+            onSelectionChanged: (index) => _selectedIndex = index,
+            // Tras +/-/eliminar/seleccionar fila, regresar el cursor al
+            // searchbox para el siguiente escaneo o búsqueda.
+            onItemModified: () {
+              _productSearchKey.currentState?.requestFocus();
             },
+            // El mismo controlador que usa el re-escaneo para llevar la
+            // fila actualizada a la vista.
+            scrollController: _productsScrollController,
+            height: height ?? 250,
           ),
-          SizedBox(height: context.verticalSpacing * 0.4),
-          ProductSearchWidget(
-            key: _productSearchKey,
-            controller: controller,
-            autoFocus: true,
-            onProductSelected: (product, quantity) {
-              controller.handleProductSelection(product, quantity: quantity);
-              // ✅ MODIFICADO: No forzar selección aquí, dejar que el controlador maneje la selección automática
-              // La selección se manejará automáticamente por el listener
-            },
+        );
+    final gap = SizedBox(height: context.verticalSpacing * 0.4);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight >= _mobileFillMinHeight) {
+          return Padding(
+            padding: context.responsivePadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                customer,
+                gap,
+                search,
+                gap,
+                Expanded(child: table(height: double.infinity)),
+                gap,
+                _buildTotalsSection(context, controller),
+              ],
+            ),
+          );
+        }
+        return SingleChildScrollView(
+          padding: context.responsivePadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              customer,
+              gap,
+              search,
+              gap,
+              table(),
+              gap,
+              _buildTotalsSection(context, controller),
+            ],
           ),
-          SizedBox(height: context.verticalSpacing * 0.4),
-          ValueListenableBuilder<int>(
-            valueListenable: _selection,
-            builder:
-                (context, selected, _) => ModernInvoiceItemsTable(
-                  controller: controller,
-                  selectedIndex: selected,
-                  onSelectionChanged: (index) => _selectedIndex = index,
-                  // Tras +/-/eliminar/seleccionar fila, regresar el cursor al
-                  // searchbox para el siguiente escaneo o búsqueda.
-                  onItemModified: () {
-                    _productSearchKey.currentState?.requestFocus();
-                  },
-                  height: 250,
-                ),
-          ),
-          SizedBox(height: context.verticalSpacing * 0.4),
-          _buildTotalsSection(context, controller),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -705,8 +723,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 0.4, // Reducir más el padding inferior
           ),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(top: BorderSide(color: Colors.grey.shade300)),
+            color: ElegantLightTheme.backgroundColor,
+            border: Border(
+              top: BorderSide(
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+              ),
+            ),
           ),
           child: _buildTotalsSection(context, controller),
         ),

@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:baudex_desktop/app/config/themes/app_theme.dart';
 import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/create_invoice_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/get_invoice_by_id_usecase.dart';
@@ -63,7 +64,7 @@ void main() {
   });
   tearDown(Get.reset);
 
-  Product product(int n) => Product(
+  Product product(int n, {double stock = 500}) => Product(
         id: 'p$n',
         name: ['Arroz Diana 500 g', 'Aceite Premier 1 L', 'Leche Alpina 1 L',
             'Huevos AA x 30', 'Café Sello Rojo 250 g'][n % 5] + (n >= 5 ? ' #$n' : ''),
@@ -71,7 +72,7 @@ void main() {
         barcode: '770${n.toString().padLeft(10, '0')}',
         type: ProductType.product,
         status: ProductStatus.active,
-        stock: 500,
+        stock: stock,
         minStock: 0,
         categoryId: 'c',
         createdById: 'u',
@@ -119,7 +120,7 @@ void main() {
         key: boundaryKey,
         child: GetMaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+          theme: AppTheme.lightTheme,
           home: const InvoiceFormTabsScreen(),
         ),
       ));
@@ -128,11 +129,18 @@ void main() {
       for (var n = 0; n < 40; n++) {
         c.addOrUpdateProductToInvoice(product(n));
       }
-      // Re-escaneo: suma uno a una línea que ya estaba (sin aviso flotante).
-      c.addOrUpdateProductToInvoice(product(3));
-      c.addOrUpdateProductToInvoice(product(3));
       await frames(t, 3);
-      await shot(t, 'factura-reescaneo-${size.key}-v3');
+      await shot(t, 'factura-${size.key}-v4');
+      // Re-escaneo de una fila del medio (la 20): debe quedar a la vista y
+      // resaltada, sin aviso flotante.
+      c.addOrUpdateProductToInvoice(product(20));
+      c.addOrUpdateProductToInvoice(product(20));
+      await frames(t, 4);
+      await shot(t, 'factura-reescaneo-fila20-${size.key}-v4');
+      // Producto sin unidades: aviso con el tema (FuturisticNotifications).
+      c.addOrUpdateProductToInvoice(product(99, stock: 0));
+      await frames(t, 3);
+      await shot(t, 'aviso-sin-stock-${size.key}-v4');
       await frames(t, 50);
     });
   }
