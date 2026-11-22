@@ -49,6 +49,23 @@ enum TaxCategory {
     return this != TaxCategory.noGravado;
   }
 
+  /// Reconoce el valor del servidor (`'IVA'`, `'NO_GRAVADO'`) o el nombre del
+  /// enum (`'iva'`, `'noGravado'`), sin distinguir mayúsculas.
+  /// Devuelve `null` si el texto no corresponde a ninguna categoría; nunca
+  /// inventa una por defecto.
+  static TaxCategory? tryParse(Object? raw) {
+    if (raw is TaxCategory) return raw;
+    if (raw == null) return null;
+    final text = raw.toString().trim().toLowerCase();
+    if (text.isEmpty) return null;
+    for (final e in TaxCategory.values) {
+      if (e.value.toLowerCase() == text || e.name.toLowerCase() == text) {
+        return e;
+      }
+    }
+    return null;
+  }
+
   /// Obtiene el enum desde el valor string
   static TaxCategory fromString(String value) {
     return TaxCategory.values.firstWhere(
@@ -80,6 +97,21 @@ enum RetentionCategory {
   final double defaultRate;
 
   const RetentionCategory(this.value, this.displayName, this.defaultRate);
+
+  /// Reconoce el valor del servidor (`'RET_IVA'`) o el nombre del enum
+  /// (`'retIva'`), sin distinguir mayúsculas. Devuelve `null` si no lo reconoce.
+  static RetentionCategory? tryParse(Object? raw) {
+    if (raw is RetentionCategory) return raw;
+    if (raw == null) return null;
+    final text = raw.toString().trim().toLowerCase();
+    if (text.isEmpty) return null;
+    for (final e in RetentionCategory.values) {
+      if (e.value.toLowerCase() == text || e.name.toLowerCase() == text) {
+        return e;
+      }
+    }
+    return null;
+  }
 
   /// Obtiene el enum desde el valor string
   static RetentionCategory? fromString(String? value) {

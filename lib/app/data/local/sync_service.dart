@@ -30,16 +30,11 @@ import '../../../features/subscriptions/domain/entities/subscription.dart'
 
 // Products
 import '../../../features/products/data/datasources/product_remote_datasource.dart';
-import '../../../features/products/data/models/create_product_request_model.dart';
-import '../../../features/products/data/models/update_product_request_model.dart';
+import '../../../features/products/data/sync/queued_product_request.dart';
+import 'sync_enum_parse.dart';
 import '../../../features/products/data/repositories/product_offline_repository.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
-import '../../../features/products/domain/entities/product.dart';
 import '../../../features/products/domain/services/product_deletion_rules.dart';
-import '../../../features/products/domain/entities/product_price.dart';
-import '../../../features/products/domain/entities/tax_enums.dart';
-import '../../../features/products/domain/repositories/product_repository.dart'
-    show CreateProductPriceParams;
 
 // Product Presentations
 import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
@@ -1299,6 +1294,8 @@ class SyncService extends GetxService {
       // el contador de pendientes para siempre. Se ejecuta en cada syncAll
       // para que el usuario nunca tenga que limpiar manualmente.
       await _purgeBlockedFifoOperations();
+      // DELETE que quedaron fallidos por un 404: ya están borrados allá.
+      await _confirmFailedDeletesAlreadyGone();
 
       final operations = await _isarDatabase.getPendingSyncOperations();
 
@@ -1674,6 +1671,32 @@ class SyncService extends GetxService {
               } catch (e) {
                 AppLogger.w('Error inyectando datos de transición en CREATE: $e', tag: 'SYNC');
               }
+            }
+          }
+
+          // Productos: los UPDATE que se van a borrar traen ediciones (precios,
+          // nombre, unidad, impuesto) que deben quedar en el CREATE.
+          if (createOp.entityType == 'Product' || createOp.entityType == 'product') {
+            try {
+              final createData = Map<String, dynamic>.from(
+                jsonDecode(createOp.payload) as Map,
+              );
+              final ordered = [...updateOps]..sort((a, b) => a.id.compareTo(b.id));
+              final merged = mergeProductUpdatesIntoCreate(
+                createData,
+                ordered.map(
+                  (u) => Map<String, dynamic>.from(jsonDecode(u.payload) as Map),
+                ),
+              );
+              await _isarDatabase.updateSyncOperationPayload(
+                createOp.id,
+                jsonEncode(merged),
+              );
+            } catch (e) {
+              // Si no se pudo fundir, no se borra ningún UPDATE de este
+              // producto: mejor un envío de más que una edición perdida.
+              AppLogger.w('Error fundiendo UPDATE en CREATE de producto: $e', tag: 'SYNC');
+              continue;
             }
           }
 
@@ -2055,6 +2078,31 @@ class SyncService extends GetxService {
       // ================================================================
       final errorText = e.toString();
       final errorMsg = errorText.toLowerCase();
+
+      // DELETE con 404: el registro ya no existe en el servidor, que es lo
+      // que se pedía. Se confirma y no se cuenta como rechazo.
+      if (isDeleteAlreadyGone(
+        isDelete: operation.operationType == SyncOperationType.delete,
+        error: e,
+      )) {
+        AppLogger.i(
+          '${operation.entityType}:${operation.entityId} ya no existe en el servidor — DELETE confirmado',
+          tag: 'SYNC',
+        );
+        await _isarDatabase.markSyncOperationCompleted(operation.id);
+        _logEventSafe(
+          severity: SyncEventSeverity.info,
+          eventType: SyncEventType.pushOperation,
+          operation: operation.operationType.name,
+          entityType: operation.entityType,
+          entityId: operation.entityId,
+          message: 'Ya no existía en el servidor — eliminación confirmada',
+          details: errorText,
+          retryCount: operation.retryCount,
+        );
+        return _SyncOpResult.success;
+      }
+
       final kind = classifySyncFailure(
         entityType: operation.entityType,
         error: e,
@@ -3011,6 +3059,36 @@ class SyncService extends GetxService {
   /// A diferencia de `_cleanupOrphanedFifoOperations`, esto NO mira si la
   /// factura asociada está pendiente: el endpoint NO existe, no hay nada
   /// que esperar. Si la op alcanzó el max de retries, fuera.
+  /// Cierra los DELETE que quedaron "fallidos" porque el servidor respondió
+  /// 404: el registro ya no existe allá, así que la eliminación está hecha.
+  Future<void> _confirmFailedDeletesAlreadyGone() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final failedDeletes = await isar.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.failed)
+          .and()
+          .operationTypeEqualTo(SyncOperationType.delete)
+          .findAll();
+      var confirmed = 0;
+      for (final op in failedDeletes) {
+        if (isFailedDeleteAlreadyGone(isDelete: true, storedError: op.error)) {
+          await _isarDatabase.markSyncOperationCompleted(op.id);
+          confirmed++;
+        }
+      }
+      if (confirmed > 0) {
+        AppLogger.i(
+          '$confirmed eliminaciones fallidas con 404 confirmadas (ya no existían en el servidor)',
+          tag: 'SYNC',
+        );
+        await _updatePendingCount();
+      }
+    } catch (e) {
+      AppLogger.w('Error confirmando eliminaciones con 404: $e', tag: 'SYNC');
+    }
+  }
+
   Future<void> _purgeBlockedFifoOperations() async {
     try {
       final isar = IsarDatabase.instance.database;
@@ -3531,40 +3609,12 @@ class SyncService extends GetxService {
                   );
                 },
                 (product) {
-                  // Usar datos actuales del producto en lugar del payload
-                  finalData = {
-                    'name': product.name,
-                    'description': product.description,
-                    'sku': product.sku,
-                    'barcode': product.barcode,
-                    'type': product.type.name,
-                    'status': product.status.name,
-                    'stock': product.stock,
-                    'minStock': product.minStock,
-                    'unit': product.unit,
-                    'weight': product.weight,
-                    'length': product.length,
-                    'width': product.width,
-                    'height': product.height,
-                    'images': product.images,
-                    'metadata': product.metadata,
-                    'categoryId': product.categoryId,
-                    'prices':
-                        product.prices
-                            ?.map(
-                              (p) => {
-                                'type': p.type.name,
-                                'name': p.name,
-                                'amount': p.amount,
-                                'currency': p.currency,
-                                'discountPercentage': p.discountPercentage,
-                                'discountAmount': p.discountAmount,
-                                'minQuantity': p.minQuantity,
-                                'notes': p.notes,
-                              },
-                            )
-                            .toList(),
-                  };
+                  // Datos actuales de Isar; lo que falte (impuesto incluido)
+                  // sale del payload de la cola.
+                  finalData = productCreateDataFromLocal(
+                    product,
+                    Map<String, dynamic>.from(data as Map),
+                  );
                   AppLogger.d(
                     'Datos actuales obtenidos de ISAR - ${product.prices?.length ?? 0} precios',
                     tag: 'SYNC',
@@ -3616,82 +3666,11 @@ class SyncService extends GetxService {
           }
 
           // Preparar request de creación
-          final request = CreateProductRequestModel.fromParams(
-            name: finalData['name'],
-            description: finalData['description'],
-            sku: finalData['sku'],
-            barcode: finalData['barcode'],
-            type:
-                finalData['type'] != null
-                    ? ProductType.values.firstWhere(
-                      (e) => e.name == finalData['type'],
-                    )
-                    : null,
-            status:
-                finalData['status'] != null
-                    ? ProductStatus.values.firstWhere(
-                      (e) => e.name == finalData['status'],
-                    )
-                    : null,
-            stock: finalData['stock']?.toDouble(),
-            minStock: finalData['minStock']?.toDouble(),
-            unit: finalData['unit'],
-            weight: finalData['weight']?.toDouble(),
-            length: finalData['length']?.toDouble(),
-            width: finalData['width']?.toDouble(),
-            height: finalData['height']?.toDouble(),
-            images:
-                finalData['images'] != null
-                    ? List<String>.from(finalData['images'])
-                    : null,
-            metadata: finalData['metadata'],
+          // Acepta impuesto encolado como valor ('IVA') o nombre ('iva');
+          // un texto desconocido se envía tal cual, nunca se inventa otro.
+          final request = createProductRequestFromQueue(
+            finalData,
             categoryId: resolvedCategoryId ?? finalData['categoryId'] ?? '',
-            prices:
-                finalData['prices'] != null
-                    ? (finalData['prices'] as List)
-                        .map<CreateProductPriceParams>(
-                          (p) => CreateProductPriceParams(
-                            type: PriceType.values.firstWhere(
-                              (e) => e.name == p['type'],
-                            ),
-                            name: p['name'],
-                            amount: (p['amount'] as num).toDouble(),
-                            currency: p['currency'],
-                            discountPercentage:
-                                p['discountPercentage'] != null
-                                    ? (p['discountPercentage'] as num)
-                                        .toDouble()
-                                    : null,
-                            discountAmount:
-                                p['discountAmount'] != null
-                                    ? (p['discountAmount'] as num).toDouble()
-                                    : null,
-                            minQuantity:
-                                p['minQuantity'] != null
-                                    ? (p['minQuantity'] as num).toDouble()
-                                    : null,
-                            notes: p['notes'],
-                          ),
-                        )
-                        .toList()
-                    : null,
-            taxCategory:
-                finalData['taxCategory'] != null
-                    ? TaxCategory.values.firstWhere(
-                      (e) => e.name == finalData['taxCategory'],
-                    )
-                    : null,
-            taxRate: finalData['taxRate']?.toDouble(),
-            isTaxable: finalData['isTaxable'],
-            taxDescription: finalData['taxDescription'],
-            retentionCategory:
-                finalData['retentionCategory'] != null
-                    ? RetentionCategory.values.firstWhere(
-                      (e) => e.name == finalData['retentionCategory'],
-                    )
-                    : null,
-            retentionRate: finalData['retentionRate']?.toDouble(),
-            hasRetention: finalData['hasRetention'],
           );
 
           final createdProduct = await remoteDataSource.createProduct(request);
@@ -3866,72 +3845,9 @@ class SyncService extends GetxService {
           }
 
           // Preparar request de actualización
-          final updateRequest = UpdateProductRequestModel.fromParams(
-            name: data['name'],
-            description: data['description'],
-            sku: data['sku'],
-            barcode: data['barcode'],
-            type:
-                data['type'] != null
-                    ? ProductType.values.firstWhere(
-                      (e) => e.name == data['type'],
-                    )
-                    : null,
-            status:
-                data['status'] != null
-                    ? ProductStatus.values.firstWhere(
-                      (e) => e.name == data['status'],
-                    )
-                    : null,
-            stock: data['stock']?.toDouble(),
-            minStock: data['minStock']?.toDouble(),
-            unit: data['unit'],
-            weight: data['weight']?.toDouble(),
-            length: data['length']?.toDouble(),
-            width: data['width']?.toDouble(),
-            height: data['height']?.toDouble(),
-            images:
-                data['images'] != null
-                    ? List<String>.from(data['images'])
-                    : null,
-            metadata: data['metadata'],
+          final updateRequest = updateProductRequestFromQueue(
+            data,
             categoryId: updateCategoryId,
-            prices:
-                data['prices'] != null
-                    ? (data['prices'] as List)
-                        .map(
-                          (p) => UpdateProductPriceRequestModel(
-                            id: p['id'],
-                            type: p['type'],
-                            name: p['name'],
-                            amount: p['amount'].toDouble(),
-                            currency: p['currency'],
-                            discountPercentage:
-                                p['discountPercentage']?.toDouble(),
-                            discountAmount: p['discountAmount']?.toDouble(),
-                            minQuantity: p['minQuantity']?.toDouble(),
-                            notes: p['notes'],
-                          ),
-                        )
-                        .toList()
-                    : null,
-            taxCategory:
-                data['taxCategory'] != null
-                    ? TaxCategory.values.firstWhere(
-                      (e) => e.name == data['taxCategory'],
-                    )
-                    : null,
-            taxRate: data['taxRate']?.toDouble(),
-            isTaxable: data['isTaxable'],
-            taxDescription: data['taxDescription'],
-            retentionCategory:
-                data['retentionCategory'] != null
-                    ? RetentionCategory.values.firstWhere(
-                      (e) => e.name == data['retentionCategory'],
-                    )
-                    : null,
-            retentionRate: data['retentionRate']?.toDouble(),
-            hasRetention: data['hasRetention'],
           );
 
           await remoteDataSource.updateProduct(
@@ -4469,11 +4385,7 @@ class SyncService extends GetxService {
             slug: finalData['slug'],
             image: finalData['image'],
             status:
-                finalData['status'] != null
-                    ? CategoryStatus.values.firstWhere(
-                      (e) => e.name == finalData['status'],
-                    )
-                    : null,
+                enumFromQueue(CategoryStatus.values, finalData['status']),
             sortOrder: finalData['sortOrder'],
             parentId: finalData['parentId'],
           );
@@ -4587,11 +4499,7 @@ class SyncService extends GetxService {
             slug: data['slug'],
             image: data['image'],
             status:
-                data['status'] != null
-                    ? CategoryStatus.values.firstWhere(
-                      (e) => e.name == data['status'],
-                    )
-                    : null,
+                enumFromQueue(CategoryStatus.values, data['status']),
             sortOrder: data['sortOrder'],
             parentId: data['parentId'],
           );
@@ -5372,17 +5280,17 @@ class SyncService extends GetxService {
                     : DateTime.parse(finalData['date']),
             categoryId: finalData['categoryId'],
             type:
-                finalData['type'] is ExpenseType
-                    ? finalData['type']
-                    : ExpenseType.values.firstWhere(
-                      (e) => e.name == finalData['type'],
-                    ),
+                requiredEnumFromQueue(
+                  ExpenseType.values,
+                  finalData['type'],
+                  field: 'type',
+                ),
             paymentMethod:
-                finalData['paymentMethod'] is PaymentMethod
-                    ? finalData['paymentMethod']
-                    : PaymentMethod.values.firstWhere(
-                      (e) => e.name == finalData['paymentMethod'],
-                    ),
+                requiredEnumFromQueue(
+                  PaymentMethod.values,
+                  finalData['paymentMethod'],
+                  field: 'paymentMethod',
+                ),
             vendor: finalData['vendor'],
             invoiceNumber: finalData['invoiceNumber'],
             reference: finalData['reference'],
@@ -5404,13 +5312,7 @@ class SyncService extends GetxService {
               operation.createdAt,
             ),
             status:
-                finalData['status'] != null
-                    ? (finalData['status'] is ExpenseStatus
-                        ? finalData['status']
-                        : ExpenseStatus.values.firstWhere(
-                          (e) => e.name == finalData['status'],
-                        ))
-                    : null,
+                enumFromQueue(ExpenseStatus.values, finalData['status']),
           );
           final createdExpense = await remoteDataSource.createExpense(request);
           AppLogger.i(
@@ -5575,16 +5477,8 @@ class SyncService extends GetxService {
           : null,
       date: data['date'] != null ? DateTime.parse(data['date']) : null,
       categoryId: data['categoryId'],
-      type: data['type'] != null
-          ? ExpenseType.values.firstWhere(
-              (e) => e.name == data['type'],
-            )
-          : null,
-      paymentMethod: data['paymentMethod'] != null
-          ? PaymentMethod.values.firstWhere(
-              (e) => e.name == data['paymentMethod'],
-            )
-          : null,
+      type: enumFromQueue(ExpenseType.values, data['type']),
+      paymentMethod: enumFromQueue(PaymentMethod.values, data['paymentMethod']),
       vendor: data['vendor'],
       invoiceNumber: data['invoiceNumber'],
       reference: data['reference'],
@@ -7239,8 +7133,10 @@ class SyncService extends GetxService {
             if (isarFinalStatus == null && data['_finalStatus'] != null) {
               final statusStr = data['_finalStatus'] as String;
               try {
-                isarFinalStatus = PurchaseOrderStatus.values.firstWhere(
-                  (e) => e.name == statusStr,
+                isarFinalStatus = requiredEnumFromQueue(
+                  PurchaseOrderStatus.values,
+                  statusStr,
+                  field: '_finalStatus',
                 );
                 AppLogger.i(
                   'Estado final obtenido del payload inyectado: $statusStr (${isarFinalStatus!.name})',
@@ -7939,17 +7835,9 @@ class SyncService extends GetxService {
               id: operation.entityId,
               supplierId: data['supplierId'],
               status:
-                  data['status'] != null
-                      ? PurchaseOrderStatus.values.firstWhere(
-                        (e) => e.name == data['status'],
-                      )
-                      : null,
+                  enumFromQueue(PurchaseOrderStatus.values, data['status']),
               priority:
-                  data['priority'] != null
-                      ? PurchaseOrderPriority.values.firstWhere(
-                        (e) => e.name == data['priority'],
-                      )
-                      : null,
+                  enumFromQueue(PurchaseOrderPriority.values, data['priority']),
               orderDate:
                   data['orderDate'] != null
                       ? DateTime.parse(data['orderDate'])
