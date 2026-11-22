@@ -200,11 +200,11 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
   }
 
   @override
-  Future<bool> verifyOfflineCredentials(String email, String passwordHash) async {
+  Future<bool> verifyOfflineCredentials(String email, String password) async {
     try {
       return await _secureStorage.verifyOfflineCredentials(
         email: email,
-        passwordHash: passwordHash,
+        password: password,
       );
     } catch (e) {
       return false;

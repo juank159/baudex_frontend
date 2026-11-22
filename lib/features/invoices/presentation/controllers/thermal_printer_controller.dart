@@ -14,12 +14,12 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart' as esc_pos;
 import 'package:esc_pos_printer_plus/esc_pos_printer_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/invoice.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/printing/receipt_escpos.dart';
 import '../../../../app/core/printing/receipt_line.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/app_data_location.dart';
 import '../../../settings/presentation/controllers/settings_controller.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../settings/domain/entities/organization.dart';
@@ -1625,13 +1625,11 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       final orgId = _cachedOrganization?.id;
       if (orgId == null) return null;
 
-      final dir = await getApplicationDocumentsDirectory();
-      final logoPath = '${dir.path}/org_logos/$orgId.png';
-      final logoFile = File(logoPath);
+      final logoFile = await AppDataLocation.orgLogoFile(orgId);
 
       Uint8List? bytes;
 
-      if (await logoFile.exists()) {
+      if (logoFile != null) {
         bytes = await logoFile.readAsBytes();
       } else {
         // 2. Fallback: intentar descargar desde URL del servidor
@@ -1692,9 +1690,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     // 1. Verificar archivo local
     final orgId = _cachedOrganization?.id;
     if (orgId != null) {
-      final dir = await getApplicationDocumentsDirectory();
-      final logoFile = File('${dir.path}/org_logos/$orgId.png');
-      if (await logoFile.exists()) return true;
+      if (await AppDataLocation.orgLogoFile(orgId) != null) return true;
     }
     // 2. Verificar URL del servidor
     final logoUrl = _cachedOrganization?.logo;

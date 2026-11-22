@@ -17,7 +17,7 @@ abstract class AuthLocalDataSource {
 
   // Métodos para login offline
   Future<void> saveOfflineCredentials(String email, String passwordHash);
-  Future<bool> verifyOfflineCredentials(String email, String passwordHash);
+  Future<bool> verifyOfflineCredentials(String email, String password);
   Future<bool> hasOfflineCredentials();
   Future<void> clearOfflineCredentials();
 }
@@ -192,11 +192,11 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }
 
   @override
-  Future<bool> verifyOfflineCredentials(String email, String passwordHash) async {
+  Future<bool> verifyOfflineCredentials(String email, String password) async {
     try {
       return await storageService.verifyOfflineCredentials(
         email: email,
-        passwordHash: passwordHash,
+        password: password,
       );
     } catch (e) {
       return false;
