@@ -1,8 +1,9 @@
 // lib/features/settings/presentation/controllers/settings_controller.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
+import '../../../../app/core/printing/system_printer_discovery.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
@@ -69,6 +70,9 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   // Descubrimiento de impresoras del sistema
   final discoveredPrinters = <String>[].obs;
   final isDiscovering = false.obs;
+
+  /// Fuentes para buscar impresoras (reemplazable en pruebas).
+  List<PrinterSource> Function() printerSources = defaultPrinterSources;
 
   // ==================== GETTERS ====================
 
@@ -427,52 +431,20 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       isDiscovering.value = true;
       discoveredPrinters.clear();
 
-      List<String> printers = [];
+      final result = await discoverPrinters(printerSources());
+      discoveredPrinters.addAll(result.printers);
 
-      if (Platform.isMacOS || Platform.isLinux) {
-        // Usar lpstat -a para listar impresoras CUPS
-        final result = await Process.run('lpstat', ['-a']);
-        if (result.exitCode == 0) {
-          final lines = result.stdout.toString().split('\n');
-          for (final line in lines) {
-            final trimmed = line.trim();
-            if (trimmed.isNotEmpty) {
-              // Format: "printer_name accepting requests since ..."
-              final name = trimmed.split(' ').first;
-              if (name.isNotEmpty) {
-                printers.add(name);
-              }
-            }
-          }
-        }
-      } else if (Platform.isWindows) {
-        // Usar wmic para listar impresoras Windows
-        final result = await Process.run('wmic', [
-          'printer', 'get', 'name', '/format:list',
-        ]);
-        if (result.exitCode == 0) {
-          final lines = result.stdout.toString().split('\n');
-          for (final line in lines) {
-            final trimmed = line.trim();
-            if (trimmed.startsWith('Name=')) {
-              final name = trimmed.substring(5).trim();
-              if (name.isNotEmpty) {
-                printers.add(name);
-              }
-            }
-          }
-        }
-      }
-
-      discoveredPrinters.addAll(printers);
-      for (final p in printers) {
-      }
-
-      if (printers.isEmpty) {
-        _showError('Sin impresoras', 'No se detectaron impresoras en el sistema');
+      if (result.isEmpty) {
+        FuturisticNotifications.showWarning(
+          'Sin impresoras',
+          result.emptyMessage,
+        );
       }
     } catch (e) {
-      _showError('Error', 'No se pudieron detectar impresoras: $e');
+      FuturisticNotifications.showError(
+        'Sin impresoras',
+        'No pudimos revisar las impresoras de este equipo. Inténtalo de nuevo.',
+      );
     } finally {
       isDiscovering.value = false;
     }
