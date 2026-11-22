@@ -35,7 +35,6 @@ import 'sync_enum_parse.dart';
 import '../../../features/products/data/repositories/product_offline_repository.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
 import '../../../features/products/domain/services/product_deletion_rules.dart';
-import '../../../features/products/domain/entities/product_price.dart';
 
 // Product Presentations
 import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
@@ -1295,6 +1294,8 @@ class SyncService extends GetxService {
       // el contador de pendientes para siempre. Se ejecuta en cada syncAll
       // para que el usuario nunca tenga que limpiar manualmente.
       await _purgeBlockedFifoOperations();
+      // DELETE que quedaron fallidos por un 404: ya están borrados allá.
+      await _confirmFailedDeletesAlreadyGone();
 
       final operations = await _isarDatabase.getPendingSyncOperations();
 
@@ -1670,6 +1671,32 @@ class SyncService extends GetxService {
               } catch (e) {
                 AppLogger.w('Error inyectando datos de transición en CREATE: $e', tag: 'SYNC');
               }
+            }
+          }
+
+          // Productos: los UPDATE que se van a borrar traen ediciones (precios,
+          // nombre, unidad, impuesto) que deben quedar en el CREATE.
+          if (createOp.entityType == 'Product' || createOp.entityType == 'product') {
+            try {
+              final createData = Map<String, dynamic>.from(
+                jsonDecode(createOp.payload) as Map,
+              );
+              final ordered = [...updateOps]..sort((a, b) => a.id.compareTo(b.id));
+              final merged = mergeProductUpdatesIntoCreate(
+                createData,
+                ordered.map(
+                  (u) => Map<String, dynamic>.from(jsonDecode(u.payload) as Map),
+                ),
+              );
+              await _isarDatabase.updateSyncOperationPayload(
+                createOp.id,
+                jsonEncode(merged),
+              );
+            } catch (e) {
+              // Si no se pudo fundir, no se borra ningún UPDATE de este
+              // producto: mejor un envío de más que una edición perdida.
+              AppLogger.w('Error fundiendo UPDATE en CREATE de producto: $e', tag: 'SYNC');
+              continue;
             }
           }
 
@@ -2051,6 +2078,31 @@ class SyncService extends GetxService {
       // ================================================================
       final errorText = e.toString();
       final errorMsg = errorText.toLowerCase();
+
+      // DELETE con 404: el registro ya no existe en el servidor, que es lo
+      // que se pedía. Se confirma y no se cuenta como rechazo.
+      if (isDeleteAlreadyGone(
+        isDelete: operation.operationType == SyncOperationType.delete,
+        error: e,
+      )) {
+        AppLogger.i(
+          '${operation.entityType}:${operation.entityId} ya no existe en el servidor — DELETE confirmado',
+          tag: 'SYNC',
+        );
+        await _isarDatabase.markSyncOperationCompleted(operation.id);
+        _logEventSafe(
+          severity: SyncEventSeverity.info,
+          eventType: SyncEventType.pushOperation,
+          operation: operation.operationType.name,
+          entityType: operation.entityType,
+          entityId: operation.entityId,
+          message: 'Ya no existía en el servidor — eliminación confirmada',
+          details: errorText,
+          retryCount: operation.retryCount,
+        );
+        return _SyncOpResult.success;
+      }
+
       final kind = classifySyncFailure(
         entityType: operation.entityType,
         error: e,
@@ -3007,6 +3059,36 @@ class SyncService extends GetxService {
   /// A diferencia de `_cleanupOrphanedFifoOperations`, esto NO mira si la
   /// factura asociada está pendiente: el endpoint NO existe, no hay nada
   /// que esperar. Si la op alcanzó el max de retries, fuera.
+  /// Cierra los DELETE que quedaron "fallidos" porque el servidor respondió
+  /// 404: el registro ya no existe allá, así que la eliminación está hecha.
+  Future<void> _confirmFailedDeletesAlreadyGone() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final failedDeletes = await isar.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.failed)
+          .and()
+          .operationTypeEqualTo(SyncOperationType.delete)
+          .findAll();
+      var confirmed = 0;
+      for (final op in failedDeletes) {
+        if (isFailedDeleteAlreadyGone(isDelete: true, storedError: op.error)) {
+          await _isarDatabase.markSyncOperationCompleted(op.id);
+          confirmed++;
+        }
+      }
+      if (confirmed > 0) {
+        AppLogger.i(
+          '$confirmed eliminaciones fallidas con 404 confirmadas (ya no existían en el servidor)',
+          tag: 'SYNC',
+        );
+        await _updatePendingCount();
+      }
+    } catch (e) {
+      AppLogger.w('Error confirmando eliminaciones con 404: $e', tag: 'SYNC');
+    }
+  }
+
   Future<void> _purgeBlockedFifoOperations() async {
     try {
       final isar = IsarDatabase.instance.database;
@@ -3527,40 +3609,12 @@ class SyncService extends GetxService {
                   );
                 },
                 (product) {
-                  // Usar datos actuales del producto en lugar del payload
-                  finalData = {
-                    'name': product.name,
-                    'description': product.description,
-                    'sku': product.sku,
-                    'barcode': product.barcode,
-                    'type': product.type.name,
-                    'status': product.status.name,
-                    'stock': product.stock,
-                    'minStock': product.minStock,
-                    'unit': product.unit,
-                    'weight': product.weight,
-                    'length': product.length,
-                    'width': product.width,
-                    'height': product.height,
-                    'images': product.images,
-                    'metadata': product.metadata,
-                    'categoryId': product.categoryId,
-                    'prices':
-                        product.prices
-                            ?.map(
-                              (p) => {
-                                'type': p.type.name,
-                                'name': p.name,
-                                'amount': p.amount,
-                                'currency': p.currency,
-                                'discountPercentage': p.discountPercentage,
-                                'discountAmount': p.discountAmount,
-                                'minQuantity': p.minQuantity,
-                                'notes': p.notes,
-                              },
-                            )
-                            .toList(),
-                  };
+                  // Datos actuales de Isar; lo que falte (impuesto incluido)
+                  // sale del payload de la cola.
+                  finalData = productCreateDataFromLocal(
+                    product,
+                    Map<String, dynamic>.from(data as Map),
+                  );
                   AppLogger.d(
                     'Datos actuales obtenidos de ISAR - ${product.prices?.length ?? 0} precios',
                     tag: 'SYNC',

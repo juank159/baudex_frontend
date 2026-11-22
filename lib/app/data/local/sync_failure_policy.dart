@@ -93,3 +93,31 @@ SyncFailureKind classifySyncFailure({
   // inesperado) es transitorio: se reintenta, nunca se pierde.
   return SyncFailureKind.transient;
 }
+
+/// Un DELETE que el servidor responde con 404 ya cumplió su objetivo: el
+/// registro no existe allá. Cuenta como confirmación, no como rechazo.
+///
+/// No aplica si el 404 es porque la ruta no existe ("Cannot DELETE /api/…"):
+/// eso es un problema de versión, no un registro ya borrado.
+bool isDeleteAlreadyGone({required bool isDelete, required Object error}) {
+  if (!isDelete) return false;
+  if (error is! ServerException || error.statusCode != 404) return false;
+  return !_isMissingRoute(error.message);
+}
+
+/// Igual que [isDeleteAlreadyGone] para una operación que ya quedó en la cola
+/// como fallida y solo conserva el texto del error.
+bool isFailedDeleteAlreadyGone({
+  required bool isDelete,
+  required String? storedError,
+}) {
+  if (!isDelete || storedError == null) return false;
+  final msg = storedError.toLowerCase();
+  if (_isMissingRoute(msg)) return false;
+  return msg.contains('recurso no encontrado') ||
+      msg.contains('(http 404)') ||
+      msg.contains('statuscode: 404');
+}
+
+bool _isMissingRoute(String message) =>
+    message.toLowerCase().contains('cannot delete');

@@ -137,6 +137,110 @@ UpdateProductRequestModel updateProductRequestFromQueue(
   );
 }
 
+/// Datos del CREATE de un producto creado sin internet, leídos de su copia
+/// en Isar (el estado actual, con las ediciones hechas antes de subir).
+///
+/// Lo que Isar no tenga se toma del [payload] de la cola. El impuesto y la
+/// retención van como grupo: si Isar los tiene en su valor vacío por defecto
+/// (no gravado, 0 %, sin retención) y el payload sí trae uno, gana el payload;
+/// así un producto con IVA 19 no sube como NO_GRAVADO/0.
+Map<String, dynamic> productCreateDataFromLocal(
+  Product product,
+  Map<String, dynamic> payload,
+) {
+  T? pick<T>(T? local, String key) => local ?? payload[key] as T?;
+
+  final localPrices = product.prices;
+  final prices = (localPrices != null && localPrices.isNotEmpty)
+      ? localPrices
+          .map((p) => <String, dynamic>{
+                'type': p.type.name,
+                'name': p.name,
+                'amount': p.amount,
+                'currency': p.currency,
+                'discountPercentage': p.discountPercentage,
+                'discountAmount': p.discountAmount,
+                'minQuantity': p.minQuantity,
+                'notes': p.notes,
+              })
+          .toList()
+      : payload['prices'];
+
+  final localTaxIsEmpty = product.taxCategory == TaxCategory.noGravado &&
+      product.taxRate == 0 &&
+      !product.isTaxable &&
+      (product.taxDescription == null || product.taxDescription!.isEmpty);
+  final useQueuedTax = localTaxIsEmpty && payload['taxCategory'] != null;
+
+  final localRetentionIsEmpty =
+      product.retentionCategory == null && !product.hasRetention;
+  final useQueuedRetention =
+      localRetentionIsEmpty && payload['retentionCategory'] != null;
+
+  return {
+    'name': product.name,
+    'description': pick(product.description, 'description'),
+    'sku': product.sku.isNotEmpty ? product.sku : payload['sku'],
+    'barcode': pick(product.barcode, 'barcode'),
+    'type': product.type.name,
+    'status': product.status.name,
+    'stock': product.stock,
+    'minStock': product.minStock,
+    'unit': pick(product.unit, 'unit'),
+    'weight': pick(product.weight, 'weight'),
+    'length': pick(product.length, 'length'),
+    'width': pick(product.width, 'width'),
+    'height': pick(product.height, 'height'),
+    'images': pick(product.images, 'images'),
+    'metadata': pick(product.metadata, 'metadata'),
+    'categoryId': product.categoryId.isNotEmpty
+        ? product.categoryId
+        : payload['categoryId'],
+    'prices': prices,
+    if (useQueuedTax) ...{
+      'taxCategory': payload['taxCategory'],
+      'taxRate': payload['taxRate'],
+      'isTaxable': payload['isTaxable'],
+      'taxDescription': payload['taxDescription'],
+    } else ...{
+      'taxCategory': product.taxCategory.value,
+      'taxRate': product.taxRate,
+      'isTaxable': product.isTaxable,
+      'taxDescription': product.taxDescription,
+    },
+    if (useQueuedRetention) ...{
+      'retentionCategory': payload['retentionCategory'],
+      'retentionRate': payload['retentionRate'],
+      'hasRetention': payload['hasRetention'],
+    } else ...{
+      'retentionCategory': product.retentionCategory?.value,
+      'retentionRate': product.retentionRate,
+      'hasRetention': product.hasRetention,
+    },
+  };
+}
+
+/// Claves de un UPDATE encolado que no son campos del producto.
+const _nonFieldKeys = {'id', 'updated', 'action'};
+
+/// Funde en el payload del CREATE los UPDATE del mismo producto que la
+/// limpieza de duplicados va a borrar, en orden (el último gana). Solo se
+/// copian valores no nulos: un UPDATE que no tocó un campo no lo borra.
+Map<String, dynamic> mergeProductUpdatesIntoCreate(
+  Map<String, dynamic> create,
+  Iterable<Map<String, dynamic>> updates,
+) {
+  final merged = Map<String, dynamic>.from(create);
+  for (final update in updates) {
+    update.forEach((key, value) {
+      if (value == null) return;
+      if (_nonFieldKeys.contains(key) || key.startsWith('_')) return;
+      merged[key] = value;
+    });
+  }
+  return merged;
+}
+
 String? _rawText(Object? raw) {
   if (raw == null) return null;
   final text = raw.toString().trim();
