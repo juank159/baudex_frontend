@@ -59,8 +59,13 @@ class IsarInvoice {
   String? createdById;
 
   // Campos de auditoría
+  // Con índice: la lista de facturas lee la página en orden (más nuevas
+  // primero) sin recorrer ni ordenar toda la base.
+  @Index()
   late DateTime createdAt;
   late DateTime updatedAt;
+  // Con índice: cuántas facturas borradas hay se sabe sin recorrer la base.
+  @Index()
   DateTime? deletedAt;
 
   // Campos de sincronización
