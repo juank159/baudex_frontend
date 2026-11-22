@@ -92,14 +92,18 @@ void main() {
     }
   }
 
-  for (final (label, w, h) in [('escritorio', 900.0, 560.0), ('celular', 390.0, 560.0)]) {
+  for (final (label, w, h, value) in [
+    ('escritorio', 900.0, 560.0, '20000'),
+    ('celular', 390.0, 560.0, '20000'),
+    ('360-9999999', 360.0, 560.0, '9999999'),
+  ]) {
     testWidgets('buscador con valor: $label', (tester) async {
       await size(tester, w, h);
       await tester.pumpWidget(app(ProductSearchWidget(
         controller: controller,
         onProductSelected: (_, __) {},
       )));
-      await tester.enterText(find.byType(TextField).first, '20000');
+      await tester.enterText(find.byType(TextField).first, value);
       await settle(tester);
       await shot(tester, '1-sin-registrar-$label');
 

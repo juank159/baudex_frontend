@@ -442,7 +442,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       }
     } catch (e) {
       FuturisticNotifications.showError(
-        'Sin impresoras',
+        'No se pudo revisar',
         'No pudimos revisar las impresoras de este equipo. Inténtalo de nuevo.',
       );
     } finally {

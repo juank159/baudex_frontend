@@ -8,6 +8,8 @@ import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/widgets/responsive_layout.dart' as rl
+    show ResponsiveLayout;
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/services/audio_notification_service.dart';
 import '../../../products/domain/entities/product.dart';
@@ -620,8 +622,10 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            ElegantLightTheme.primaryBlue.withOpacity(0.08),
-            ElegantLightTheme.primaryBlue.withOpacity(0.04),
+            Color.alphaBlend(
+                ElegantLightTheme.primaryBlue.withOpacity(0.08), Colors.white),
+            Color.alphaBlend(
+                ElegantLightTheme.primaryBlue.withOpacity(0.04), Colors.white),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
@@ -679,11 +683,13 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'Enter para agregar · clic para ponerle nombre',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: ElegantLightTheme.textTertiary,
+                      Text(
+                        rl.ResponsiveLayout.isMobile(context)
+                            ? 'Toca para ponerle nombre'
+                            : 'Enter: agregar por ${AppFormatters.formatCurrency(price)} · Clic: ponerle nombre',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -1082,7 +1088,16 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
       final product = await widget.controller.productByLocalId(decision.localId);
       if (product != null) return product;
     }
-    return _searchBySku(q);
+    final bySku = await _searchBySku(q);
+    if (bySku != null) return bySku;
+    // Código de barras corto registrado (solo coincidencia exacta).
+    try {
+      final byBarcode = await widget.controller.findProductByBarcode(q);
+      if (byBarcode?.barcode?.trim().toLowerCase() == q.trim().toLowerCase()) {
+        return byBarcode;
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Enter con un valor (≤7 dígitos): si existe un producto con ese código
@@ -1156,7 +1171,15 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
         ),
         content: SizedBox(
           width: 380,
-          child: Column(
+          child: Theme(
+            data: Theme.of(dialogContext).copyWith(
+              textSelectionTheme: TextSelectionThemeData(
+                cursorColor: ElegantLightTheme.primaryBlue,
+                selectionColor: ElegantLightTheme.primaryBlue.withOpacity(0.25),
+                selectionHandleColor: ElegantLightTheme.primaryBlue,
+              ),
+            ),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1181,6 +1204,7 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
                 onSubmitted: (_) => submit(dialogContext),
               ),
             ],
+            ),
           ),
         ),
         actions: [
