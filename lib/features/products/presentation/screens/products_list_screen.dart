@@ -640,6 +640,7 @@ class _SearchField extends StatelessWidget {
         ),
         child: TextField(
           controller: controller.searchController,
+          onSubmitted: (_) => controller.searchNow(),
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             hintText: 'Buscar por nombre, SKU o código de barras...',

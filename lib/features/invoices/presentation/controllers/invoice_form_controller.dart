@@ -32,6 +32,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import '../widgets/scan_code_cache.dart';
+import '../../domain/price_entry.dart' as price_entry;
 import 'package:intl/intl.dart';
 
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -455,6 +456,9 @@ class InvoiceFormController extends GetxController {
 
       // Cargar productos en background para búsqueda offline
       _loadProducts();
+      // Códigos cortos en memoria: el valor de un producto sin registrar se
+      // decide sin consultar la base (ver [decideValueEntry]).
+      unawaited(refreshShortCodeIndex());
     } catch (e) {
 
     }
@@ -1059,12 +1063,31 @@ class InvoiceFormController extends GetxController {
     );
     if (cached != null) return cached;
     if (Get.isRegistered<ProductOfflineRepository>()) {
-      final exact = await Get.find<ProductOfflineRepository>()
-          .getProductByBarcode(trimmed);
-      final product = exact.fold((_) => null, (p) => p);
-      if (product != null && product.status == ProductStatus.active) {
-        _scanCache.remember(trimmed, product);
-        return product;
+      try {
+        final repo = Get.find<ProductOfflineRepository>();
+        var sawInactive = false;
+        // Búsqueda EXACTA por el índice de códigos de barras (con y sin el
+        // cero adelante). Antes, si no aparecía, se hacía la búsqueda
+        // "que contenga" en todo el catálogo (y con el catálogo bajando,
+        // también al servidor): segundos por escaneo con catálogos grandes.
+        for (final variant in price_entry.barcodeVariants(trimmed)) {
+          final exact = await repo.getProductByBarcode(variant);
+          final product = exact.fold((_) => null, (p) => p);
+          if (product == null) continue;
+          if (product.status == ProductStatus.active) {
+            _scanCache.remember(trimmed, product);
+            return product;
+          }
+          sawInactive = true;
+        }
+        // Catálogo completo en el equipo y ningún código igual: no existe.
+        if (!sawInactive &&
+            await localCollectionReady(
+                IsarDatabase.instance.database.isarProducts)) {
+          return null;
+        }
+      } catch (_) {
+        // Problema con la base local: la búsqueda de siempre.
       }
     }
     final results = await searchProducts(trimmed);
@@ -1081,6 +1104,54 @@ class InvoiceFormController extends GetxController {
 
   /// Códigos ya escaneados en esta factura (ver [ScanCodeCache]).
   final ScanCodeCache _scanCache = ScanCodeCache();
+
+  /// Códigos cortos (SKU o código de barras de hasta 7 dígitos) de los
+  /// productos del equipo, en memoria. Se rehace en segundo plano.
+  price_entry.ShortCodeIndex? _shortCodes;
+  Future<void>? _shortCodesLoading;
+  static const Duration _shortCodesMaxAge = Duration(seconds: 20);
+
+  /// Qué hacer con un valor escrito por el cajero ("500", "20000"), al
+  /// instante y sin consultar la base: producto registrado con ese código
+  /// corto, producto sin registrar, o `PriceEntryNeedsLookup` mientras el
+  /// catálogo baja por primera vez. El índice se refresca en segundo plano.
+  price_entry.PriceEntryDecision decideValueEntry(String value) {
+    final index = _shortCodes;
+    if (index == null || index.isOlderThan(_shortCodesMaxAge, DateTime.now())) {
+      unawaited(refreshShortCodeIndex());
+    }
+    return price_entry.decidePriceEntry(value, index);
+  }
+
+  /// Rehace el índice de códigos cortos (una carga a la vez).
+  Future<void> refreshShortCodeIndex() =>
+      _shortCodesLoading ??= _loadShortCodes().whenComplete(() {
+        _shortCodesLoading = null;
+      });
+
+  Future<void> _loadShortCodes() async {
+    try {
+      if (!Get.isRegistered<ProductOfflineRepository>()) return;
+      final repo = Get.find<ProductOfflineRepository>();
+      final entries = await repo.activeProductCodes();
+      final complete = await localCollectionReady(
+          IsarDatabase.instance.database.isarProducts);
+      _shortCodes = price_entry.ShortCodeIndex.build(entries, complete: complete);
+    } catch (e) {
+      AppLogger.w('No se pudo cargar los códigos cortos: $e');
+    }
+  }
+
+  /// Producto por id local (lo usa el índice de códigos cortos).
+  Future<Product?> productByLocalId(int localId) async {
+    if (!Get.isRegistered<ProductOfflineRepository>()) return null;
+    try {
+      final p = await Get.find<ProductOfflineRepository>().getProductByLocalId(localId);
+      return p != null && p.status == ProductStatus.active ? p : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Producto cuyo código (SKU) es EXACTAMENTE [sku]. Lo usa el Enter con un
   /// valor: si existe un producto con ese código se agrega ese; si no, es un

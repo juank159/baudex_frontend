@@ -2,6 +2,7 @@
 //
 // Buscador de productos de la factura: escáner, precio (producto no
 // registrado) y texto.
+import 'package:baudex_desktop/features/invoices/domain/price_entry.dart';
 import 'package:baudex_desktop/features/invoices/presentation/controllers/invoice_form_controller.dart';
 import 'package:baudex_desktop/features/invoices/presentation/widgets/product_search_widget.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product.dart';
@@ -24,11 +25,26 @@ void main() {
       id: 'leche', name: 'Leche Alpina', sku: 'LEC-1', barcode: '7702222222222');
   final huevo = ProductFixtures.createProductEntity(
       id: 'huevo', name: 'Huevo AA', sku: '5000', barcode: null);
+  // Producto registrado con código de barras CORTO (gana al "sin registrar").
+  final pan = ProductFixtures.createProductEntity(
+      id: 'pan', name: 'Pan', sku: 'PAN-1', barcode: '777');
+  final byLocalId = {1: arroz, 2: leche, 3: huevo, 4: pan};
+  ShortCodeIndex? index;
 
   setUp(() {
     Get.testMode = true;
     controller = MockInvoiceFormController();
     added = [];
+    index = ShortCodeIndex.build([
+      for (final e in byLocalId.entries) ...[
+        (e.value.sku, e.key),
+        (e.value.barcode, e.key),
+      ],
+    ], complete: true);
+    when(() => controller.decideValueEntry(any()))
+        .thenAnswer((inv) => decidePriceEntry(inv.positionalArguments.first as String, index));
+    when(() => controller.productByLocalId(any()))
+        .thenAnswer((inv) async => byLocalId[inv.positionalArguments.first as int]);
     when(() => controller.shouldValidateStock).thenReturn(false);
     when(() => controller.searchProducts(any())).thenAnswer((inv) async {
       final q = (inv.positionalArguments.first as String).toLowerCase();
@@ -129,30 +145,97 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('precio + Enter sin SKU abre producto no registrado',
+  testWidgets('precio + Enter sin SKU agrega el producto sin registrar de una vez',
       (tester) async {
     await pump(tester);
+    final watch = Stopwatch()..start();
     await scan(tester, '3500');
-    await tester.pumpAndSettle();
-    expect(find.text('Nuevo Producto'), findsOneWidget);
+    await tester.pump();
+    watch.stop();
+    expect(added, hasLength(1));
+    expect(added.single, startsWith('temp_'));
+    expect(find.text('Nuevo Producto'), findsNothing, reason: 'sin diálogo');
+    expect(fieldText(tester), isEmpty);
+    verifyNever(() => controller.findProductBySku(any()));
+    // ignore: avoid_print
+    print('MEDICION Enter "3500" -> linea: ${watch.elapsedMicroseconds / 1000} ms');
+    await tester.pump(const Duration(seconds: 1));
+    expect(added, hasLength(1), reason: 'no se agrega dos veces');
+  });
 
+  testWidgets('valores 500, 600 y 20000 entran con su precio', (tester) async {
+    final prices = <double>[];
+    await tester.pumpWidget(GetMaterialApp(
+      home: Scaffold(
+        body: ProductSearchWidget(
+          controller: controller,
+          onProductSelected: (p, qty) => prices.add(p.sellingPrice ?? -1),
+        ),
+      ),
+    ));
+    for (final v in ['500', '600', '20000']) {
+      await scan(tester, v);
+      await tester.pump();
+    }
+    expect(prices, [500, 600, 20000]);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('código de barras corto registrado gana al sin registrar',
+      (tester) async {
+    await pump(tester);
+    await scan(tester, '777');
+    await tester.pump();
+    await tester.pump();
+    expect(added, ['panx1.0']);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('con el catálogo bajando consulta la base antes de decidir',
+      (tester) async {
+    index = ShortCodeIndex.build(const [], complete: false);
+    await pump(tester);
+    await scan(tester, '5000');
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(added, ['huevox1.0']);
+    verify(() => controller.findProductBySku('5000')).called(1);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('clic en la opción abre el diálogo para ponerle nombre',
+      (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byType(TextField).first, '3500');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    await tester.tap(find.text('Producto sin registrar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nombre en la factura'), findsOneWidget);
     await tester.enterText(
-        find.widgetWithText(TextField, 'Escribe el nombre del producto...'),
-        'Bolsa');
+        find.widgetWithText(TextField, 'Nombre en la factura'), 'Bolsa');
     await tester.tap(find.text('Agregar'));
     await tester.pumpAndSettle();
     expect(added, hasLength(1));
     expect(added.single, startsWith('temp_'));
   });
 
-  testWidgets('precio escrito sin Enter muestra la opción de no registrado',
+  testWidgets('precio escrito sin Enter muestra la opción tras la pausa',
       (tester) async {
     await pump(tester);
     await tester.enterText(find.byType(TextField).first, '3500');
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Producto sin registrar'), findsNothing,
+        reason: 'no se adelanta a mitad del número');
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
     expect(added, isEmpty);
-    expect(find.textContaining('sin registrar', findRichText: true),
-        findsWidgets);
+    expect(find.text('Producto sin registrar'), findsOneWidget);
+    verifyNever(() => controller.findProductBySku(any()));
+
+    // Enter con la opción a la vista: se agrega de una vez.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(added.single, startsWith('temp_'));
+    await tester.pump(const Duration(seconds: 1));
   });
 }
