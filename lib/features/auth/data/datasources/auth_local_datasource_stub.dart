@@ -1,4 +1,5 @@
 // lib/features/auth/data/datasources/auth_local_datasource_stub.dart
+import '../../../../app/core/security/offline_password_hasher.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../domain/entities/user.dart';
 import '../models/user_model.dart';
@@ -190,9 +191,14 @@ class AuthLocalDataSourceStub implements AuthLocalDataSource {
   }
 
   @override
-  Future<bool> verifyOfflineCredentials(String email, String passwordHash) async {
+  Future<bool> verifyOfflineCredentials(String email, String password) async {
     if (_offlineEmail == null || _offlinePasswordHash == null) return false;
-    return _offlineEmail == email.toLowerCase().trim() && _offlinePasswordHash == passwordHash;
+    if (_offlineEmail != email.toLowerCase().trim()) return false;
+    return OfflinePasswordHasher.verify(
+      password: password,
+      email: email,
+      stored: _offlinePasswordHash!,
+    );
   }
 
   @override

@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
+import '../../../../app/data/local/app_data_location.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/organization_controller.dart';
 import '../../domain/entities/organization.dart';
@@ -17,10 +17,7 @@ class EditOrganizationDialog extends StatefulWidget {
 
   /// Obtener el path del logo guardado localmente para una organización
   static Future<String?> getLogoPath(String orgId) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final logoPath = '${dir.path}/org_logos/$orgId.png';
-    if (await File(logoPath).exists()) return logoPath;
-    return null;
+    return (await AppDataLocation.orgLogoFile(orgId))?.path;
   }
 
   @override
@@ -1677,10 +1674,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
   }
 
   Future<void> _saveLogoLocally(File file) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final logoDir = Directory('${dir.path}/org_logos');
-    if (!await logoDir.exists()) await logoDir.create(recursive: true);
-    final destPath = '${logoDir.path}/${widget.organization.id}.png';
+    final destPath = await AppDataLocation.orgLogoSavePath(widget.organization.id);
 
     // Convertir a PNG real independientemente del formato original
     // (AVIF, HEIF, WebP, JPG, etc. → PNG)
@@ -1699,10 +1693,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
   }
 
   Future<void> _deleteLogoLocally() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final logoPath = '${dir.path}/org_logos/${widget.organization.id}.png';
-    final file = File(logoPath);
-    if (await file.exists()) await file.delete();
+    await AppDataLocation.deleteOrgLogo(widget.organization.id);
   }
 
   // ==================== HELPERS ====================

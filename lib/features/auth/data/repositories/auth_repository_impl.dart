@@ -1,9 +1,8 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/security/offline_password_hasher.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/data/local/isar_database.dart';
@@ -37,9 +36,6 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Generar hash del password para uso offline
-    final passwordHash = _hashPassword(password, email);
-
     // Login SIEMPRE intenta primero online (sin depender de NetworkInfo pre-check).
     // El pre-check de NetworkInfo puede fallar por timeout del health ping,
     // pero el servidor puede responder bien a requests reales.
@@ -53,14 +49,18 @@ class AuthRepositoryImpl implements AuthRepository {
       // Guardar datos localmente
       await localDataSource.saveAuthData(response);
 
-      // Guardar credenciales hasheadas para login offline
-      await localDataSource.saveOfflineCredentials(email, passwordHash);
+      // Huella de la contraseña para entrar sin internet (PBKDF2 con sal
+      // nueva). Cada inicio de sesión exitoso reemplaza la huella vieja.
+      await localDataSource.saveOfflineCredentials(
+        email,
+        await OfflinePasswordHasher.hash(password),
+      );
 
       return Right(response.toAuthResult());
     } on ServerException catch (e) {
       return Left(_mapServerExceptionToFailure(e));
     } on ConnectionException catch (e) {
-      return _attemptOfflineLogin(email, passwordHash);
+      return _attemptOfflineLogin(email, password);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
     } catch (e) {
@@ -69,7 +69,7 @@ class AuthRepositoryImpl implements AuthRepository {
           e.toString().contains('Connection') ||
           e.toString().contains('Network') ||
           e.toString().contains('timeout')) {
-        return _attemptOfflineLogin(email, passwordHash);
+        return _attemptOfflineLogin(email, password);
       }
       return Left(UnknownFailure('Error inesperado durante el login: $e'));
     }
@@ -78,7 +78,7 @@ class AuthRepositoryImpl implements AuthRepository {
   /// Intenta realizar login offline con credenciales cacheadas
   Future<Either<Failure, AuthResult>> _attemptOfflineLogin(
     String email,
-    String passwordHash,
+    String password,
   ) async {
     try {
       // Verificar si hay credenciales offline guardadas
@@ -93,7 +93,7 @@ class AuthRepositoryImpl implements AuthRepository {
       // Verificar credenciales
       final credentialsValid = await localDataSource.verifyOfflineCredentials(
         email,
-        passwordHash,
+        password,
       );
 
       if (!credentialsValid) {
@@ -142,15 +142,6 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (e) {
       return Left(UnknownFailure('Error durante login offline: $e'));
     }
-  }
-
-  /// Genera un hash seguro del password combinado con el email
-  String _hashPassword(String password, String email) {
-    // Usar email como salt para mayor seguridad
-    final saltedPassword = '${email.toLowerCase().trim()}:$password';
-    final bytes = utf8.encode(saltedPassword);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
   }
 
   @override
