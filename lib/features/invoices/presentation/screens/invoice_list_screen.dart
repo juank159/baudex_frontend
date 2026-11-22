@@ -58,10 +58,16 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   // ScrollController manejado por el StatefulWidget
   late final ScrollController _scrollController;
 
+  // Un solo Future por pantalla. Antes se creaba uno nuevo en cada build:
+  // cada redibujo volvía al estado "esperando", tiraba la pantalla entera
+  // (lista incluida) y la volvía a construir desde cero.
+  late final Future<InvoiceListController> _controllerFuture;
+
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _controllerFuture = _ensureControllerRegistration();
     _initializeController();
   }
 
@@ -72,7 +78,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   Future<void> _initializeController() async {
-    final controller = await _ensureControllerRegistration();
+    final controller = await _controllerFuture;
     if (mounted) {
       setState(() {
         _controller = controller;
@@ -106,7 +112,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<InvoiceListController>(
-      future: _ensureControllerRegistration(),
+      future: _controllerFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
