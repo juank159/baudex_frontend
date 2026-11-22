@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/printing/system_printer_discovery.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../domain/entities/app_settings.dart';
@@ -315,14 +316,13 @@ class SettingsRepositoryImpl implements SettingsRepository {
           ));
         }
       } else if (Platform.isWindows) {
-        final result = await Process.run('wmic', [
-          'printer', 'where', 'name="$usbPath"', 'get', 'name', '/format:list',
-        ]);
-        if (result.exitCode == 0 && result.stdout.toString().contains(usbPath)) {
+        final found = await discoverPrinters(defaultPrinterSources());
+        if (containsPrinter(found.printers, usbPath)) {
           return const Right(true);
         }
         return Left(ServerFailure(
-          'Impresora "$usbPath" no encontrada en Windows',
+          'No encontramos la impresora "$usbPath" en este equipo. Revisa '
+          'que esté instalada y que el nombre sea el mismo.',
         ));
       }
 

@@ -10,6 +10,8 @@ import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/core/mixins/cache_first_mixin.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/services/product_code_rules.dart';
+import '../../data/repositories/product_offline_repository.dart';
 import '../../domain/entities/product_price.dart';
 import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
@@ -165,7 +167,12 @@ class ProductsController extends GetxController
   void _setupSearchListener() {
     searchController.addListener(() {
       _searchDebounceTimer?.cancel();
-      _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      // Un código de barras (8 dígitos o más) se busca casi de una vez: el
+      // lector teclea en milisegundos. El texto sigue esperando la pausa.
+      final isBarcode = classifySearchEntry(searchController.text) ==
+          SearchEntryKind.barcode;
+      _searchDebounceTimer = Timer(
+          Duration(milliseconds: isBarcode ? 80 : 500), () {
         final query = searchController.text;
         _searchTerm.value = query;
         if (query.trim().isEmpty) {
@@ -460,6 +467,29 @@ class ProductsController extends GetxController
   }
 
   /// Buscar productos
+  /// Enter en el buscador (o fin de un escaneo): buscar ya, sin la pausa.
+  void searchNow() {
+    _searchDebounceTimer?.cancel();
+    final query = searchController.text;
+    _searchTerm.value = query;
+    if (query.trim().length >= 2) searchProducts(query);
+  }
+
+  /// Producto con ese código de barras EXACTO en el equipo (por el índice,
+  /// en milisegundos), o `null`.
+  Future<Product?> _exactBarcodeMatch(String code) async {
+    if (!Get.isRegistered<ProductOfflineRepository>()) return null;
+    try {
+      final repo = Get.find<ProductOfflineRepository>();
+      for (final variant in barcodeVariants(code)) {
+        final r = await repo.getProductByBarcode(variant);
+        final product = r.fold((_) => null, (p) => p);
+        if (product != null) return product;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> searchProducts(String query) async {
     if (query.trim().length < 2) {
       _searchResults.clear();
@@ -469,6 +499,17 @@ class ProductsController extends GetxController
     _isSearching.value = true;
 
     try {
+      // Código de barras: coincidencia exacta local primero (antes recorría
+      // todo el catálogo con "que contenga" o iba al servidor).
+      if (classifySearchEntry(query) == SearchEntryKind.barcode) {
+        final exact = await _exactBarcodeMatch(query.trim());
+        if (exact != null) {
+          if (searchController.text.trim() == query.trim()) {
+            _searchResults.value = [exact];
+          }
+          return;
+        }
+      }
       final result = await _searchProductsUseCase(
         SearchProductsParams(searchTerm: query.trim(), limit: 50),
       );

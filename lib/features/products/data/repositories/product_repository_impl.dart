@@ -28,6 +28,7 @@ import '../models/product_query_model.dart';
 import '../models/create_product_request_model.dart';
 import '../models/update_product_request_model.dart';
 import '../models/isar/isar_product.dart';
+import '../product_code_events.dart';
 import '../models/isar/isar_product_price.dart';
 
 /// Implementación del repositorio de productos
@@ -1399,6 +1400,7 @@ class ProductRepositoryImpl implements ProductRepository {
           await isar.writeTxn(() async {
             await isar.isarProducts.put(isarProduct);
           });
+          ProductCodeEvents.notify([isarProduct]);
 
           // ✅ LÓGICA DE SINCRONIZACIÓN:
           // - Si el producto YA estaba sincronizado: agregar operación UPDATE (producto existe en servidor)
@@ -1537,6 +1539,7 @@ class ProductRepositoryImpl implements ProductRepository {
           await isar.writeTxn(() async {
             await isar.isarProducts.put(isarProduct);
           });
+          ProductCodeEvents.notify([isarProduct]);
           AppLogger.i(' ProductRepository: Producto actualizado en ISAR');
 
           // ✅ PASO 2: Obtener el producto actual del cache para SecureStorage
@@ -1757,6 +1760,7 @@ class ProductRepositoryImpl implements ProductRepository {
             await isar.writeTxn(() async {
               await isar.isarProducts.put(isarProduct);
             });
+            ProductCodeEvents.notify([isarProduct]);
             AppLogger.i(' Product marcado como eliminado en ISAR: $id');
           }
         } catch (e) {
@@ -1824,6 +1828,7 @@ class ProductRepositoryImpl implements ProductRepository {
           await isar.writeTxn(() async {
             await isar.isarProducts.put(isarProduct);
           });
+          ProductCodeEvents.notify([isarProduct]);
           AppLogger.i(' Product marcado como eliminado en ISAR: $id');
         }
       } catch (e) {

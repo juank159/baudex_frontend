@@ -16,6 +16,7 @@ import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../../domain/services/product_deletion_rules.dart';
 import '../models/isar/isar_product.dart';
+import '../product_code_events.dart';
 import '../models/isar/isar_product_price.dart';
 
 /// Minúsculas y sin tildes ("Café" = "cafe", "Piñata" = "pinata").
@@ -195,10 +196,11 @@ class ProductOfflineRepository implements ProductRepository {
   @override
   Future<Either<Failure, Product>> getProductBySku(String sku) async {
     try {
+      // Por el índice de `sku` (antes recorría todo el catálogo).
       final isarProduct = await _isar.isarProducts
-          .filter()
+          .where()
           .skuEqualTo(sku)
-          .and()
+          .filter()
           .deletedAtIsNull()
           .findFirst();
 
@@ -212,13 +214,41 @@ class ProductOfflineRepository implements ProductRepository {
     }
   }
 
+  /// Producto por su id local de la base (para el índice de códigos cortos).
+  Future<Product?> getProductByLocalId(int localId) async {
+    final p = await _isar.isarProducts.get(localId);
+    if (p == null || p.deletedAt != null) return null;
+    return p.toEntity();
+  }
+
+  /// (SKU, id local) y (código de barras, id local) de los productos activos
+  /// no borrados, en una sola lectura consistente. Solo trae tres columnas
+  /// (no arma productos), para que sea liviano con catálogos grandes.
+  Future<List<(String?, int)>> activeProductCodes() async {
+    return _isar.txn(() async {
+      QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition> q() =>
+          _isar.isarProducts
+              .filter()
+              .deletedAtIsNull()
+              .statusEqualTo(IsarProductStatus.active);
+      final ids = await q().idProperty().findAll();
+      final skus = await q().skuProperty().findAll();
+      final barcodes = await q().barcodeProperty().findAll();
+      return [
+        for (var i = 0; i < ids.length; i++) (skus[i], ids[i]),
+        for (var i = 0; i < ids.length; i++) (barcodes[i], ids[i]),
+      ];
+    });
+  }
+
   @override
   Future<Either<Failure, Product>> getProductByBarcode(String barcode) async {
     try {
+      // Por el índice de `barcode` (antes recorría todo el catálogo).
       final isarProduct = await _isar.isarProducts
-          .filter()
+          .where()
           .barcodeEqualTo(barcode)
-          .and()
+          .filter()
           .deletedAtIsNull()
           .findFirst();
 
@@ -555,6 +585,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       // Add to sync queue
       try {
@@ -669,6 +700,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       // Add to sync queue
       try {
@@ -723,6 +755,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       return Right(isarProduct.toEntity());
     } catch (e) {
@@ -753,6 +786,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       // Add to sync queue
       try {
@@ -790,6 +824,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       return Right(isarProduct.toEntity());
     } catch (e) {
