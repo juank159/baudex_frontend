@@ -8,12 +8,16 @@ import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/widgets/responsive_layout.dart' as rl
+    show ResponsiveLayout;
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/services/audio_notification_service.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/product_price.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../controllers/invoice_form_controller.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
+import '../../domain/price_entry.dart';
 import 'barcode_scan_queue.dart';
 import 'scanner_focus.dart';
 
@@ -611,15 +615,17 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
       return _buildNoResultsMessage();
     }
 
-    final price = double.tryParse(searchValue) ?? 0.0;
+    final price = priceFromEntry(searchValue);
 
     return Container(
       margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            ElegantLightTheme.primaryBlue.withOpacity(0.08),
-            ElegantLightTheme.primaryBlue.withOpacity(0.04),
+            Color.alphaBlend(
+                ElegantLightTheme.primaryBlue.withOpacity(0.08), Colors.white),
+            Color.alphaBlend(
+                ElegantLightTheme.primaryBlue.withOpacity(0.04), Colors.white),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
@@ -669,11 +675,21 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Precio: ${AppFormatters.formatCurrency(price)}',
+                        'Valor: ${AppFormatters.formatCurrency(price)}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: ElegantLightTheme.textSecondary,
                           fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        rl.ResponsiveLayout.isMobile(context)
+                            ? 'Toca para ponerle nombre'
+                            : 'Enter: agregar por ${AppFormatters.formatCurrency(price)} · Clic: ponerle nombre',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -869,6 +885,20 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
 
     // Do NOT block on isLoadingProducts — ISAR is always ready regardless of remote refresh
 
+    // Valor (≤7 dígitos) sin producto con ese código: la opción "Producto
+    // sin registrar" sale de una vez, sin consultar la base.
+    if (_isUnregisteredProductQuery(query) &&
+        widget.controller.decideValueEntry(query) is AddUnregisteredProduct) {
+      _searchSeq++;
+      setState(() {
+        _searchResults.clear();
+        _showResults = true;
+        _isSearching = false;
+        _selectedResultIndex = -1;
+      });
+      return;
+    }
+
     final seq = ++_searchSeq;
     setState(() {
       _isSearching = true;
@@ -892,7 +922,7 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
         // SOLO buscamos por SKU exacto. NO lanzamos búsqueda de texto porque
         // eso retorna productos cuyo nombre contiene el número ("Bolsa 7000")
         // y llena _searchResults, ocultando la opción "Producto sin registrar".
-        final skuMatch = await _searchBySku(query);
+        final skuMatch = await _productForValue(query);
         if (skuMatch != null) results.add(skuMatch);
       } else {
         // Búsqueda de texto normal (nombre, SKU parcial, etc.)
@@ -1048,42 +1078,62 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
     _autoSelectBarcodeText();
   }
 
-  /// Enter con un precio (≤7 dígitos): si existe un producto con ese SKU
-  /// exacto se agrega ese; si no, producto no registrado (como siempre).
-  /// Antes, un Enter rápido creaba "no registrado" aunque el SKU existiera.
+  /// Producto registrado con ese código corto (SKU o código de barras), o
+  /// `null` si no hay. Usa el índice en memoria; solo consulta la base si el
+  /// índice no sabe (catálogo bajando por primera vez).
+  Future<Product?> _productForValue(String q) async {
+    final decision = widget.controller.decideValueEntry(q);
+    if (decision is AddUnregisteredProduct) return null;
+    if (decision is AddExistingProduct) {
+      final product = await widget.controller.productByLocalId(decision.localId);
+      if (product != null) return product;
+    }
+    final bySku = await _searchBySku(q);
+    if (bySku != null) return bySku;
+    // Código de barras corto registrado (solo coincidencia exacta).
+    try {
+      final byBarcode = await widget.controller.findProductByBarcode(q);
+      if (byBarcode?.barcode?.trim().toLowerCase() == q.trim().toLowerCase()) {
+        return byBarcode;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Enter con un valor (≤7 dígitos): si existe un producto con ese código
+  /// se agrega ese; si no, el producto sin registrar entra DE UNA VEZ (sin
+  /// diálogo; para ponerle nombre se hace clic en la opción).
   Future<void> _resolvePriceEnter(String q) async {
     _debounceTimer?.cancel();
     final seq = ++_searchSeq;
-    final skuMatch = await _searchBySku(q);
+    final decision = widget.controller.decideValueEntry(q);
+    if (decision is AddUnregisteredProduct) {
+      _addUnregisteredNow(decision.price);
+      return;
+    }
+    final match = await _productForValue(q);
     if (!mounted || seq != _searchSeq || _searchController.text.trim() != q) {
       return;
     }
-    if (skuMatch != null) {
-      _selectProduct(skuMatch);
+    if (match != null) {
+      _selectProduct(match);
     } else {
-      _createUnregisteredProduct(double.tryParse(q) ?? 0.0);
+      _addUnregisteredNow(priceFromEntry(q));
     }
+  }
+
+  void _addUnregisteredNow(double price) {
+    unawaited(AudioNotificationService.instance.announceProductNotRegistered());
+    _createProductWithName(unregisteredProductName, price);
   }
 
   // ==================== FUNCIONES AUXILIARES ====================
 
-  bool _isNumericValue(String value) {
-    return double.tryParse(value) != null;
-  }
-  
-  bool _isBarcodeQuery(String value) {
-    // Códigos de barras: números con más de 7 dígitos
-    if (!_isNumericValue(value)) return false;
-    String digitsOnly = value.replaceAll('.', '').replaceAll(',', '');
-    return RegExp(r'^\d{8,}$').hasMatch(digitsOnly);
-  }
-  
-  bool _isUnregisteredProductQuery(String value) {
-    // Productos sin registrar: números con 7 dígitos o menos
-    if (!_isNumericValue(value)) return false;
-    String digitsOnly = value.replaceAll('.', '').replaceAll(',', '');
-    return RegExp(r'^\d{1,7}$').hasMatch(digitsOnly);
-  }
+  bool _isBarcodeQuery(String value) =>
+      classifySearchEntry(value) == SearchEntryKind.barcode;
+
+  bool _isUnregisteredProductQuery(String value) =>
+      classifySearchEntry(value) == SearchEntryKind.price;
 
   void _createUnregisteredProduct(double price) {
     // ✅ NUEVO: Notificación de voz para productos sin registrar
@@ -1094,7 +1144,7 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
 
   void _showProductNameDialog(double price) {
     final TextEditingController nameController = TextEditingController();
-    nameController.text = 'Producto sin registrar';
+    nameController.text = unregisteredProductName;
 
     // Seleccionar todo el texto cuando se abra el diálogo
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1104,92 +1154,80 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
       );
     });
 
+    void submit(BuildContext dialogContext) {
+      final name = nameController.text.trim();
+      if (name.isEmpty) return;
+      Navigator.of(dialogContext).pop();
+      _createProductWithName(name, price);
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(
-                  Icons.add_shopping_cart,
-                  color: Theme.of(context).primaryColor,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                const Text('Nuevo Producto'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Precio: ${AppFormatters.formatCurrency(price)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Nombre del producto:',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: nameController,
-                  autofocus: true,
-                  maxLength: 100,
-                  decoration: InputDecoration(
-                    hintText: 'Escribe el nombre del producto...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  onSubmitted: (value) {
-                    if (value.trim().isNotEmpty) {
-                      Navigator.of(context).pop();
-                      _createProductWithName(value.trim(), price);
-                    }
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  // ✅ MEJORADO: Mantener focus para continuar escaneando después de cancelar
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      _ensureSearchFieldFocus();
-                    }
-                  });
-                },
-                child: const Text('Cancelar'),
+      builder: (dialogContext) => brebAlertDialog(
+        title: brebDialogTitle(
+          Icons.add_shopping_cart,
+          'Producto sin registrar',
+        ),
+        content: SizedBox(
+          width: 380,
+          child: Theme(
+            data: Theme.of(dialogContext).copyWith(
+              textSelectionTheme: TextSelectionThemeData(
+                cursorColor: ElegantLightTheme.primaryBlue,
+                selectionColor: ElegantLightTheme.primaryBlue.withOpacity(0.25),
+                selectionHandleColor: ElegantLightTheme.primaryBlue,
               ),
-              ElevatedButton(
-                onPressed: () {
-                  final name = nameController.text.trim();
-                  if (name.isNotEmpty) {
-                    Navigator.of(context).pop();
-                    _createProductWithName(name, price);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
+            ),
+            child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Valor: ${AppFormatters.formatCurrency(price)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: ElegantLightTheme.primaryBlue,
                 ),
-                child: const Text('Agregar'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                maxLength: 100,
+                decoration: brebInputDecoration(
+                  label: 'Nombre en la factura',
+                  hint: 'Escribe el nombre del producto...',
+                  icon: Icons.edit_outlined,
+                ),
+                onSubmitted: (_) => submit(dialogContext),
               ),
             ],
+            ),
           ),
+        ),
+        actions: [
+          TextButton(
+            style: brebTextButtonStyle(),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              // Mantener focus para continuar escaneando después de cancelar
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _ensureSearchFieldFocus();
+                }
+              });
+            },
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: brebPrimaryButtonStyle(),
+            onPressed: () => submit(dialogContext),
+            child: const Text('Agregar'),
+          ),
+        ],
+      ),
     );
   }
 

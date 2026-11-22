@@ -8,6 +8,7 @@ import '../models/product_stats_model.dart';
 import '../models/product_price_model.dart';
 
 import '../models/isar/isar_product.dart';
+import '../product_code_events.dart';
 import '../models/isar/isar_product_price.dart';
 import '../../domain/entities/product.dart';
 import 'product_local_datasource.dart';
@@ -27,6 +28,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
     try {
       final Isar isar = _database.database as Isar;
 
+      final saved = <IsarProduct>[];
       await isar.writeTxn(() async {
         // Procesar productos uno por uno para evitar violaciones de índice único
         for (final product in products) {
@@ -119,8 +121,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
 
           // Guardar/actualizar el producto
           await isar.isarProducts.put(isarProduct);
+          saved.add(isarProduct);
         }
       });
+      ProductCodeEvents.notify(saved);
 
     } catch (e) {
       throw CacheException('Error al cachear productos en ISAR: $e');
@@ -132,6 +136,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
     try {
       final Isar isar = _database.database as Isar;
 
+      final saved = <IsarProduct>[];
       await isar.writeTxn(() async {
         // ✅ AUTOMATIZACIÓN: Buscar producto existente por serverId O por SKU
         IsarProduct? existingProduct =
@@ -220,7 +225,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         }
 
         await isar.isarProducts.put(isarProduct);
+        saved.add(isarProduct);
       });
+      ProductCodeEvents.notify(saved);
 
     } catch (e) {
       throw CacheException('Error al cachear producto en ISAR: $e');
@@ -776,6 +783,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       await isar.writeTxn(() async {
         await isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
     } catch (e) {
       throw CacheException('Error caching product for sync in ISAR: $e');

@@ -12,6 +12,7 @@ import '../../domain/usecases/delete_invoice_usecase.dart';
 import '../../domain/usecases/confirm_invoice_usecase.dart';
 import '../../domain/usecases/cancel_invoice_usecase.dart';
 import '../../domain/usecases/get_invoice_by_id_usecase.dart';
+import '../../domain/services/invoice_list_rules.dart';
 import '../controllers/thermal_printer_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
 
@@ -126,6 +127,9 @@ class InvoiceListController extends GetxController
   // ✅ GUARD: Prevenir llamadas concurrentes a loadInvoices
   bool _isLoadInProgress = false;
 
+  /// Facturas por página (primera carga y cada vez que se baja).
+  static const int pageSize = 30;
+
   // ✅ AUTO-REFRESH: Worker para monitorear cambios de ruta
   Worker? _routeWorker;
 
@@ -197,8 +201,9 @@ class InvoiceListController extends GetxController
     setupSyncListener();
 
     _setupSearchListener();
-    loadInvoices();
-    _loadInvoiceStatsIfAvailable();
+    // Primero la lista; las estadísticas (recorren todas las facturas)
+    // después, para no competir con la primera página.
+    loadInvoices().whenComplete(_loadInvoiceStatsIfAvailable);
   }
 
   /// No se ve en facturación: recarga al salir de ahí.
@@ -240,6 +245,10 @@ class InvoiceListController extends GetxController
 
   /// ✅ AUTO-REFRESH: Manejar cuando el usuario regresa a esta pantalla
   void _handleScreenResumed() {
+    // Al abrir, onInit ya está cargando: no repetir la misma carga (antes
+    // la pantalla lanzaba una segunda carga completa y otra de estadísticas
+    // en el mismo instante).
+    if (_isLoadInProgress) return;
     // print('🔄 InvoiceListScreen: Pantalla reanudada, verificando necesidad de refresh...');
 
     // ✅ SINCRONIZACIÓN CON CRÉDITOS: Verificar si hay pagos de créditos que afectan facturas
@@ -346,7 +355,7 @@ class InvoiceListController extends GetxController
       final result = await _getInvoicesUseCase(
         GetInvoicesParams(
           page: 1, // ✅ Siempre empezar desde la página 1
-          limit: 20, // ✅ Límite estándar
+          limit: pageSize,
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
           status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,
@@ -418,10 +427,37 @@ class InvoiceListController extends GetxController
       if (showLoading) _isLoading.value = false;
       _isLoadInProgress = false;
     }
+    await _fillFilteredList(target: pageSize);
+  }
+
+  /// Con el filtro "Pendientes" (se aplica en pantalla) trae páginas hasta
+  /// tener [target] filas visibles o acabar (ver [shouldFetchMoreToFillList]).
+  Future<void> _fillFilteredList({required int target}) async {
+    var extra = 0;
+    while (!isClosed &&
+        shouldFetchMoreToFillList(
+          localFilterActive: _selectedStatus.value == InvoiceStatus.pending,
+          visible: _filteredInvoices.length,
+          target: target,
+          hasNextPage: hasNextPage,
+          extraPagesSoFar: extra,
+        )) {
+      extra++;
+      final before = _invoices.length;
+      await _loadNextPage();
+      if (_invoices.length == before) break; // no llegó nada nuevo
+    }
   }
 
   /// Cargar más facturas (paginación)
   Future<void> loadMoreInvoices() async {
+    if (_isLoadingMore.value || !hasNextPage) return;
+    final visibleBefore = _filteredInvoices.length;
+    await _loadNextPage();
+    await _fillFilteredList(target: visibleBefore + pageSize);
+  }
+
+  Future<void> _loadNextPage() async {
     if (_isLoadingMore.value || !hasNextPage) return;
 
     try {
@@ -433,7 +469,7 @@ class InvoiceListController extends GetxController
       final result = await _getInvoicesUseCase(
         GetInvoicesParams(
           page: nextPage,
-          limit: 20,
+          limit: pageSize,
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
           status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,
@@ -534,7 +570,7 @@ class InvoiceListController extends GetxController
       final result = await _getInvoicesUseCase(
         GetInvoicesParams(
           page: 1,
-          limit: 20,
+          limit: pageSize,
           sortBy: _sortBy.value,
           sortOrder: _sortOrder.value,
         ),
@@ -1017,7 +1053,7 @@ class InvoiceListController extends GetxController
       final result = await _getInvoicesUseCase(
         GetInvoicesParams(
           page: pageNumber,
-          limit: 20,
+          limit: pageSize,
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
           status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,

@@ -62,6 +62,10 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<bool> _invoicesReady() => localCollectionReady(
       (IsarDatabase.instance.database as Isar).isarInvoices);
 
+  /// ¿Hay alguna factura en el equipo? (aunque la descarga no haya terminado)
+  Future<bool> _hasLocalInvoices() async =>
+      await IsarDatabase.instance.database.isarInvoices.count() > 0;
+
   // ==================== READ OPERATIONS ====================
 
   @override
@@ -83,8 +87,27 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     String sortOrder = 'DESC',
   }) async {
     // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
+    // La lista simple (sin búsqueda ni filtros) también sale del equipo
+    // mientras la descarga de facturas no ha terminado: baja primero lo
+    // reciente, así que las primeras filas ya son las correctas, y al
+    // terminar la descarga la pantalla se recarga sola. Antes esperaba al
+    // servidor en cada apertura (y si la red estaba lenta, hasta el límite
+    // de espera). Con búsqueda o filtros sigue esperando al servidor: con
+    // datos a medias el resultado podría faltar.
+    final plainList = (search == null || search.trim().isEmpty) &&
+        status == null &&
+        paymentMethod == null &&
+        customerId == null &&
+        createdById == null &&
+        bankAccountId == null &&
+        bankAccountName == null &&
+        startDate == null &&
+        endDate == null &&
+        minAmount == null &&
+        maxAmount == null;
     final local = await readLocalFirst<PaginatedResult<Invoice>>(
-      hasLocalData: () => _invoicesReady(),
+      hasLocalData: () async =>
+          await _invoicesReady() || (plainList && await _hasLocalInvoices()),
       read: () => _localInvoices.getInvoices(page: page, limit: limit, search: search, status: status, paymentMethod: paymentMethod, customerId: customerId, createdById: createdById, bankAccountId: bankAccountId, bankAccountName: bankAccountName, startDate: startDate, endDate: endDate, minAmount: minAmount, maxAmount: maxAmount, sortBy: sortBy, sortOrder: sortOrder),
     );
     if (local != null) return local;
