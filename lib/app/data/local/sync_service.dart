@@ -30,16 +30,12 @@ import '../../../features/subscriptions/domain/entities/subscription.dart'
 
 // Products
 import '../../../features/products/data/datasources/product_remote_datasource.dart';
-import '../../../features/products/data/models/create_product_request_model.dart';
-import '../../../features/products/data/models/update_product_request_model.dart';
+import '../../../features/products/data/sync/queued_product_request.dart';
+import 'sync_enum_parse.dart';
 import '../../../features/products/data/repositories/product_offline_repository.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
-import '../../../features/products/domain/entities/product.dart';
 import '../../../features/products/domain/services/product_deletion_rules.dart';
 import '../../../features/products/domain/entities/product_price.dart';
-import '../../../features/products/domain/entities/tax_enums.dart';
-import '../../../features/products/domain/repositories/product_repository.dart'
-    show CreateProductPriceParams;
 
 // Product Presentations
 import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
@@ -3616,82 +3612,11 @@ class SyncService extends GetxService {
           }
 
           // Preparar request de creación
-          final request = CreateProductRequestModel.fromParams(
-            name: finalData['name'],
-            description: finalData['description'],
-            sku: finalData['sku'],
-            barcode: finalData['barcode'],
-            type:
-                finalData['type'] != null
-                    ? ProductType.values.firstWhere(
-                      (e) => e.name == finalData['type'],
-                    )
-                    : null,
-            status:
-                finalData['status'] != null
-                    ? ProductStatus.values.firstWhere(
-                      (e) => e.name == finalData['status'],
-                    )
-                    : null,
-            stock: finalData['stock']?.toDouble(),
-            minStock: finalData['minStock']?.toDouble(),
-            unit: finalData['unit'],
-            weight: finalData['weight']?.toDouble(),
-            length: finalData['length']?.toDouble(),
-            width: finalData['width']?.toDouble(),
-            height: finalData['height']?.toDouble(),
-            images:
-                finalData['images'] != null
-                    ? List<String>.from(finalData['images'])
-                    : null,
-            metadata: finalData['metadata'],
+          // Acepta impuesto encolado como valor ('IVA') o nombre ('iva');
+          // un texto desconocido se envía tal cual, nunca se inventa otro.
+          final request = createProductRequestFromQueue(
+            finalData,
             categoryId: resolvedCategoryId ?? finalData['categoryId'] ?? '',
-            prices:
-                finalData['prices'] != null
-                    ? (finalData['prices'] as List)
-                        .map<CreateProductPriceParams>(
-                          (p) => CreateProductPriceParams(
-                            type: PriceType.values.firstWhere(
-                              (e) => e.name == p['type'],
-                            ),
-                            name: p['name'],
-                            amount: (p['amount'] as num).toDouble(),
-                            currency: p['currency'],
-                            discountPercentage:
-                                p['discountPercentage'] != null
-                                    ? (p['discountPercentage'] as num)
-                                        .toDouble()
-                                    : null,
-                            discountAmount:
-                                p['discountAmount'] != null
-                                    ? (p['discountAmount'] as num).toDouble()
-                                    : null,
-                            minQuantity:
-                                p['minQuantity'] != null
-                                    ? (p['minQuantity'] as num).toDouble()
-                                    : null,
-                            notes: p['notes'],
-                          ),
-                        )
-                        .toList()
-                    : null,
-            taxCategory:
-                finalData['taxCategory'] != null
-                    ? TaxCategory.values.firstWhere(
-                      (e) => e.name == finalData['taxCategory'],
-                    )
-                    : null,
-            taxRate: finalData['taxRate']?.toDouble(),
-            isTaxable: finalData['isTaxable'],
-            taxDescription: finalData['taxDescription'],
-            retentionCategory:
-                finalData['retentionCategory'] != null
-                    ? RetentionCategory.values.firstWhere(
-                      (e) => e.name == finalData['retentionCategory'],
-                    )
-                    : null,
-            retentionRate: finalData['retentionRate']?.toDouble(),
-            hasRetention: finalData['hasRetention'],
           );
 
           final createdProduct = await remoteDataSource.createProduct(request);
@@ -3866,72 +3791,9 @@ class SyncService extends GetxService {
           }
 
           // Preparar request de actualización
-          final updateRequest = UpdateProductRequestModel.fromParams(
-            name: data['name'],
-            description: data['description'],
-            sku: data['sku'],
-            barcode: data['barcode'],
-            type:
-                data['type'] != null
-                    ? ProductType.values.firstWhere(
-                      (e) => e.name == data['type'],
-                    )
-                    : null,
-            status:
-                data['status'] != null
-                    ? ProductStatus.values.firstWhere(
-                      (e) => e.name == data['status'],
-                    )
-                    : null,
-            stock: data['stock']?.toDouble(),
-            minStock: data['minStock']?.toDouble(),
-            unit: data['unit'],
-            weight: data['weight']?.toDouble(),
-            length: data['length']?.toDouble(),
-            width: data['width']?.toDouble(),
-            height: data['height']?.toDouble(),
-            images:
-                data['images'] != null
-                    ? List<String>.from(data['images'])
-                    : null,
-            metadata: data['metadata'],
+          final updateRequest = updateProductRequestFromQueue(
+            data,
             categoryId: updateCategoryId,
-            prices:
-                data['prices'] != null
-                    ? (data['prices'] as List)
-                        .map(
-                          (p) => UpdateProductPriceRequestModel(
-                            id: p['id'],
-                            type: p['type'],
-                            name: p['name'],
-                            amount: p['amount'].toDouble(),
-                            currency: p['currency'],
-                            discountPercentage:
-                                p['discountPercentage']?.toDouble(),
-                            discountAmount: p['discountAmount']?.toDouble(),
-                            minQuantity: p['minQuantity']?.toDouble(),
-                            notes: p['notes'],
-                          ),
-                        )
-                        .toList()
-                    : null,
-            taxCategory:
-                data['taxCategory'] != null
-                    ? TaxCategory.values.firstWhere(
-                      (e) => e.name == data['taxCategory'],
-                    )
-                    : null,
-            taxRate: data['taxRate']?.toDouble(),
-            isTaxable: data['isTaxable'],
-            taxDescription: data['taxDescription'],
-            retentionCategory:
-                data['retentionCategory'] != null
-                    ? RetentionCategory.values.firstWhere(
-                      (e) => e.name == data['retentionCategory'],
-                    )
-                    : null,
-            retentionRate: data['retentionRate']?.toDouble(),
-            hasRetention: data['hasRetention'],
           );
 
           await remoteDataSource.updateProduct(
@@ -4469,11 +4331,7 @@ class SyncService extends GetxService {
             slug: finalData['slug'],
             image: finalData['image'],
             status:
-                finalData['status'] != null
-                    ? CategoryStatus.values.firstWhere(
-                      (e) => e.name == finalData['status'],
-                    )
-                    : null,
+                enumFromQueue(CategoryStatus.values, finalData['status']),
             sortOrder: finalData['sortOrder'],
             parentId: finalData['parentId'],
           );
@@ -4587,11 +4445,7 @@ class SyncService extends GetxService {
             slug: data['slug'],
             image: data['image'],
             status:
-                data['status'] != null
-                    ? CategoryStatus.values.firstWhere(
-                      (e) => e.name == data['status'],
-                    )
-                    : null,
+                enumFromQueue(CategoryStatus.values, data['status']),
             sortOrder: data['sortOrder'],
             parentId: data['parentId'],
           );
@@ -5372,17 +5226,17 @@ class SyncService extends GetxService {
                     : DateTime.parse(finalData['date']),
             categoryId: finalData['categoryId'],
             type:
-                finalData['type'] is ExpenseType
-                    ? finalData['type']
-                    : ExpenseType.values.firstWhere(
-                      (e) => e.name == finalData['type'],
-                    ),
+                requiredEnumFromQueue(
+                  ExpenseType.values,
+                  finalData['type'],
+                  field: 'type',
+                ),
             paymentMethod:
-                finalData['paymentMethod'] is PaymentMethod
-                    ? finalData['paymentMethod']
-                    : PaymentMethod.values.firstWhere(
-                      (e) => e.name == finalData['paymentMethod'],
-                    ),
+                requiredEnumFromQueue(
+                  PaymentMethod.values,
+                  finalData['paymentMethod'],
+                  field: 'paymentMethod',
+                ),
             vendor: finalData['vendor'],
             invoiceNumber: finalData['invoiceNumber'],
             reference: finalData['reference'],
@@ -5404,13 +5258,7 @@ class SyncService extends GetxService {
               operation.createdAt,
             ),
             status:
-                finalData['status'] != null
-                    ? (finalData['status'] is ExpenseStatus
-                        ? finalData['status']
-                        : ExpenseStatus.values.firstWhere(
-                          (e) => e.name == finalData['status'],
-                        ))
-                    : null,
+                enumFromQueue(ExpenseStatus.values, finalData['status']),
           );
           final createdExpense = await remoteDataSource.createExpense(request);
           AppLogger.i(
@@ -5575,16 +5423,8 @@ class SyncService extends GetxService {
           : null,
       date: data['date'] != null ? DateTime.parse(data['date']) : null,
       categoryId: data['categoryId'],
-      type: data['type'] != null
-          ? ExpenseType.values.firstWhere(
-              (e) => e.name == data['type'],
-            )
-          : null,
-      paymentMethod: data['paymentMethod'] != null
-          ? PaymentMethod.values.firstWhere(
-              (e) => e.name == data['paymentMethod'],
-            )
-          : null,
+      type: enumFromQueue(ExpenseType.values, data['type']),
+      paymentMethod: enumFromQueue(PaymentMethod.values, data['paymentMethod']),
       vendor: data['vendor'],
       invoiceNumber: data['invoiceNumber'],
       reference: data['reference'],
@@ -7239,8 +7079,10 @@ class SyncService extends GetxService {
             if (isarFinalStatus == null && data['_finalStatus'] != null) {
               final statusStr = data['_finalStatus'] as String;
               try {
-                isarFinalStatus = PurchaseOrderStatus.values.firstWhere(
-                  (e) => e.name == statusStr,
+                isarFinalStatus = requiredEnumFromQueue(
+                  PurchaseOrderStatus.values,
+                  statusStr,
+                  field: '_finalStatus',
                 );
                 AppLogger.i(
                   'Estado final obtenido del payload inyectado: $statusStr (${isarFinalStatus!.name})',
@@ -7939,17 +7781,9 @@ class SyncService extends GetxService {
               id: operation.entityId,
               supplierId: data['supplierId'],
               status:
-                  data['status'] != null
-                      ? PurchaseOrderStatus.values.firstWhere(
-                        (e) => e.name == data['status'],
-                      )
-                      : null,
+                  enumFromQueue(PurchaseOrderStatus.values, data['status']),
               priority:
-                  data['priority'] != null
-                      ? PurchaseOrderPriority.values.firstWhere(
-                        (e) => e.name == data['priority'],
-                      )
-                      : null,
+                  enumFromQueue(PurchaseOrderPriority.values, data['priority']),
               orderDate:
                   data['orderDate'] != null
                       ? DateTime.parse(data['orderDate'])
