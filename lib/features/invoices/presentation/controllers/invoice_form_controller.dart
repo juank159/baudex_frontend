@@ -33,6 +33,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import '../widgets/scan_code_cache.dart';
 import '../../domain/price_entry.dart' as price_entry;
+import '../../data/short_code_index_keeper.dart';
+import '../../../products/data/product_code_events.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -391,6 +393,8 @@ class InvoiceFormController extends GetxController {
   @override
   void onClose() {
     _disposeControllers();
+    _shortCodes?.dispose();
+    _shortCodes = null;
     super.onClose();
   }
 
@@ -1106,37 +1110,43 @@ class InvoiceFormController extends GetxController {
   final ScanCodeCache _scanCache = ScanCodeCache();
 
   /// Códigos cortos (SKU o código de barras de hasta 7 dígitos) de los
-  /// productos del equipo, en memoria. Se rehace en segundo plano.
-  price_entry.ShortCodeIndex? _shortCodes;
-  Future<void>? _shortCodesLoading;
-  static const Duration _shortCodesMaxAge = Duration(seconds: 20);
+  /// productos del equipo, en memoria. Se carga en segundo plano, recibe al
+  /// instante los productos creados/editados en el equipo y se marca
+  /// pendiente cuando la sincronización escribe productos.
+  ShortCodeIndexKeeper? _shortCodes;
+
+  ShortCodeIndexKeeper? _shortCodeKeeper() {
+    if (_shortCodes != null) return _shortCodes;
+    if (!Get.isRegistered<ProductOfflineRepository>()) return null;
+    try {
+      final repo = Get.find<ProductOfflineRepository>();
+      final products = IsarDatabase.instance.database.isarProducts;
+      return _shortCodes = ShortCodeIndexKeeper(
+        loadCodes: repo.activeProductCodes,
+        isCatalogComplete: () => localCollectionReady(products),
+        codeChanges: ProductCodeEvents.stream,
+        collectionChanges: products.watchLazy(),
+      );
+    } catch (e) {
+      AppLogger.w('No se pudo preparar los códigos cortos: $e');
+      return null;
+    }
+  }
 
   /// Qué hacer con un valor escrito por el cajero ("500", "20000"), al
   /// instante y sin consultar la base: producto registrado con ese código
-  /// corto, producto sin registrar, o `PriceEntryNeedsLookup` mientras el
-  /// catálogo baja por primera vez. El índice se refresca en segundo plano.
+  /// corto, producto sin registrar, o `PriceEntryNeedsLookup` cuando el
+  /// índice no puede asegurarlo (se consulta la base, en milisegundos).
   price_entry.PriceEntryDecision decideValueEntry(String value) {
-    final index = _shortCodes;
-    if (index == null || index.isOlderThan(_shortCodesMaxAge, DateTime.now())) {
-      unawaited(refreshShortCodeIndex());
-    }
-    return price_entry.decidePriceEntry(value, index);
+    final keeper = _shortCodeKeeper();
+    if (keeper == null) return const price_entry.PriceEntryNeedsLookup();
+    return keeper.decide(value);
   }
 
-  /// Rehace el índice de códigos cortos (una carga a la vez).
-  Future<void> refreshShortCodeIndex() =>
-      _shortCodesLoading ??= _loadShortCodes().whenComplete(() {
-        _shortCodesLoading = null;
-      });
-
-  Future<void> _loadShortCodes() async {
+  /// Carga (o rehace) el índice de códigos cortos en segundo plano.
+  Future<void> refreshShortCodeIndex() async {
     try {
-      if (!Get.isRegistered<ProductOfflineRepository>()) return;
-      final repo = Get.find<ProductOfflineRepository>();
-      final entries = await repo.activeProductCodes();
-      final complete = await localCollectionReady(
-          IsarDatabase.instance.database.isarProducts);
-      _shortCodes = price_entry.ShortCodeIndex.build(entries, complete: complete);
+      await _shortCodeKeeper()?.refresh();
     } catch (e) {
       AppLogger.w('No se pudo cargar los códigos cortos: $e');
     }

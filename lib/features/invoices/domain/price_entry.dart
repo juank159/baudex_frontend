@@ -47,6 +47,18 @@ class ShortCodeIndex {
 
   bool isOlderThan(Duration age, DateTime now) =>
       now.difference(builtAt) > age;
+
+  /// Un producto se creó, editó o borró en el equipo: sus códigos cortos
+  /// quedan al día al instante (los viejos se quitan; si está inactivo o
+  /// borrado, no queda ninguno).
+  void upsert(int localId, Iterable<String?> codes, {required bool active}) {
+    _byCode.removeWhere((_, id) => id == localId);
+    if (!active) return;
+    for (final raw in codes) {
+      final code = normalizeShortCode(raw);
+      if (code != null) _byCode[code] = localId;
+    }
+  }
 }
 
 /// Código corto en la forma en que se compara (`null` si no es corto).

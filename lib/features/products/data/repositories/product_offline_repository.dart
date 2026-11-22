@@ -16,6 +16,7 @@ import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../../domain/services/product_deletion_rules.dart';
 import '../models/isar/isar_product.dart';
+import '../product_code_events.dart';
 import '../models/isar/isar_product_price.dart';
 
 /// Minúsculas y sin tildes ("Café" = "cafe", "Piñata" = "pinata").
@@ -584,6 +585,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       // Add to sync queue
       try {
@@ -698,6 +700,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       // Add to sync queue
       try {
@@ -752,6 +755,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       return Right(isarProduct.toEntity());
     } catch (e) {
@@ -782,6 +786,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       // Add to sync queue
       try {
@@ -819,6 +824,7 @@ class ProductOfflineRepository implements ProductRepository {
       await _isar.writeTxn(() async {
         await _isar.isarProducts.put(isarProduct);
       });
+      ProductCodeEvents.notify([isarProduct]);
 
       return Right(isarProduct.toEntity());
     } catch (e) {
