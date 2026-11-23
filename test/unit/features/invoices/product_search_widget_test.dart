@@ -145,25 +145,32 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('precio + Enter sin SKU agrega el producto sin registrar de una vez',
+  testWidgets('precio + Enter sin SKU abre el nombre y Enter otra vez lo agrega',
       (tester) async {
     await pump(tester);
     final watch = Stopwatch()..start();
     await scan(tester, '3500');
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Nombre en la factura'), findsOneWidget,
+        reason: 'Enter abre el diálogo del nombre, como siempre');
+    expect(added, isEmpty);
+    verifyNever(() => controller.findProductBySku(any()));
+    // Enter dentro del diálogo: entra con el nombre por defecto.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
     watch.stop();
     expect(added, hasLength(1));
     expect(added.single, startsWith('temp_'));
-    expect(find.text('Nuevo Producto'), findsNothing, reason: 'sin diálogo');
+    expect(find.text('Nombre en la factura'), findsNothing);
     expect(fieldText(tester), isEmpty);
-    verifyNever(() => controller.findProductBySku(any()));
     // ignore: avoid_print
-    print('MEDICION Enter "3500" -> linea: ${watch.elapsedMicroseconds / 1000} ms');
+    print('MEDICION Enter+Enter "3500" -> linea: ${watch.elapsedMicroseconds / 1000} ms');
     await tester.pump(const Duration(seconds: 1));
     expect(added, hasLength(1), reason: 'no se agrega dos veces');
   });
 
-  testWidgets('valores 500, 600 y 20000 entran con su precio', (tester) async {
+  testWidgets('valores 500, 600 y 20000 entran con su precio (Enter, Enter)',
+      (tester) async {
     final prices = <double>[];
     await tester.pumpWidget(GetMaterialApp(
       home: Scaffold(
@@ -175,7 +182,9 @@ void main() {
     ));
     for (final v in ['500', '600', '20000']) {
       await scan(tester, v);
-      await tester.pump();
+      await tester.pumpAndSettle();
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
     }
     expect(prices, [500, 600, 20000]);
     await tester.pump(const Duration(seconds: 1));
@@ -219,22 +228,26 @@ void main() {
     expect(added.single, startsWith('temp_'));
   });
 
-  testWidgets('precio escrito sin Enter muestra la opción tras la pausa',
+  testWidgets('precio escrito sale al instante con el valor que va escrito',
       (tester) async {
     await pump(tester);
-    await tester.enterText(find.byType(TextField).first, '3500');
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Producto sin registrar'), findsNothing,
-        reason: 'no se adelanta a mitad del número');
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.enterText(find.byType(TextField).first, '7');
     await tester.pump();
+    expect(find.text('Producto sin registrar'), findsOneWidget,
+        reason: 'sin esperar la pausa');
+    await tester.enterText(find.byType(TextField).first, '700');
+    await tester.pump();
+    expect(find.text('Valor: \$ 700'), findsOneWidget,
+        reason: 'el valor se actualiza en el acto');
     expect(added, isEmpty);
-    expect(find.text('Producto sin registrar'), findsOneWidget);
     verifyNever(() => controller.findProductBySku(any()));
 
-    // Enter con la opción a la vista: se agrega de una vez.
+    // Enter con la opción a la vista: abre el nombre; Enter otra vez agrega.
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Nombre en la factura'), findsOneWidget);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
     expect(added.single, startsWith('temp_'));
     await tester.pump(const Duration(seconds: 1));
   });
