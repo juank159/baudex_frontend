@@ -685,8 +685,8 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
                       const SizedBox(height: 2),
                       Text(
                         rl.ResponsiveLayout.isMobile(context)
-                            ? 'Toca para ponerle nombre'
-                            : 'Enter: agregar por ${AppFormatters.formatCurrency(price)} · Clic: ponerle nombre',
+                            ? 'Toca para agregarlo'
+                            : 'Presiona Enter para agregarlo',
                         style: const TextStyle(
                           fontSize: 12,
                           color: ElegantLightTheme.textSecondary,
@@ -855,6 +855,22 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
         _selectedResultIndex = -1; // Resetear selección mientras escribe
       });
     }
+
+      // Valor (≤7 dígitos) sin producto con ese código: la opción "Producto
+      // sin registrar" sale en el acto con el valor que va escrito, sin
+      // esperar a que se deje de tipear (es una consulta en memoria).
+      if (_isUnregisteredProductQuery(query) &&
+          widget.controller.decideValueEntry(query) is AddUnregisteredProduct) {
+        _searchSeq++;
+        _lastSearchTerm = query;
+        setState(() {
+          _searchResults.clear();
+          _showResults = true;
+          _isSearching = false;
+          _selectedResultIndex = -1;
+        });
+        return;
+      }
 
       // Crear nuevo timer con debounce
       _debounceTimer = Timer(_debounceDuration, () {
@@ -1101,14 +1117,14 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
   }
 
   /// Enter con un valor (≤7 dígitos): si existe un producto con ese código
-  /// se agrega ese; si no, el producto sin registrar entra DE UNA VEZ (sin
-  /// diálogo; para ponerle nombre se hace clic en la opción).
+  /// se agrega ese; si no, se abre el diálogo del nombre (como siempre):
+  /// Enter otra vez lo agrega como "Producto sin registrar".
   Future<void> _resolvePriceEnter(String q) async {
     _debounceTimer?.cancel();
     final seq = ++_searchSeq;
     final decision = widget.controller.decideValueEntry(q);
     if (decision is AddUnregisteredProduct) {
-      _addUnregisteredNow(decision.price);
+      _createUnregisteredProduct(decision.price);
       return;
     }
     final match = await _productForValue(q);
@@ -1118,13 +1134,8 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
     if (match != null) {
       _selectProduct(match);
     } else {
-      _addUnregisteredNow(priceFromEntry(q));
+      _createUnregisteredProduct(priceFromEntry(q));
     }
-  }
-
-  void _addUnregisteredNow(double price) {
-    unawaited(AudioNotificationService.instance.announceProductNotRegistered());
-    _createProductWithName(unregisteredProductName, price);
   }
 
   // ==================== FUNCIONES AUXILIARES ====================
