@@ -581,14 +581,10 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       );
     }
 
-    // Si no hay info de suscripción en ningún lado, BLOQUEAR
+    // Sin info de suscripción en el equipo: NO es una suscripción vencida.
+    // La venta se guarda y el servidor valida al sincronizar.
     if (subscriptionInfo == null) {
-      AppLogger.w(' OFFLINE REPO: Sin info de suscripción disponible - BLOQUEANDO');
-      return const Left(
-        SubscriptionFailure(
-          'No se puede verificar tu suscripción. Conéctate a internet para continuar.',
-        ),
-      );
+      AppLogger.w('OFFLINE REPO: sin info de suscripción en el equipo - se permite la venta');
     }
 
     try {

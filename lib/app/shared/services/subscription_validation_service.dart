@@ -4,14 +4,13 @@ import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../features/settings/presentation/controllers/organization_controller.dart';
 import '../../../features/settings/data/models/isar/isar_organization.dart';
-import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
-import '../../../features/subscriptions/presentation/controllers/subscription_controller.dart';
-import '../../../app/core/network/network_info.dart';
 import '../../../app/data/local/isar_database.dart';
 import '../widgets/subscription_error_dialog.dart';
 import '../../../features/subscriptions/domain/entities/subscription.dart'
     show SubscriptionAlertLevel;
 import 'subscription_alert_service.dart';
+import '../../../features/subscriptions/data/datasources/subscription_cache.dart';
+import '../../../features/subscriptions/domain/rules/subscription_rules.dart';
 
 /// Servicio para validar suscripciones ANTES de hacer operaciones críticas.
 ///
@@ -114,11 +113,10 @@ class SubscriptionValidationService {
         subscriptionData = await _getSubscriptionFromIsar();
       }
 
-      // PASO 3: Si no hay datos en ningún lado
+      // PASO 3: Sin datos en ningún lado → NO es una suscripción vencida ni
+      // motivo para frenar la venta: el servidor valida al sincronizar.
       if (subscriptionData == null) {
-
-        _showNoSubscriptionDataDialog(context);
-        return false;
+        return true;
       }
 
       // PASO 4: Validar la suscripción
@@ -138,17 +136,9 @@ class SubscriptionValidationService {
       // Solo usar datos del OrganizationController
       final subscriptionData = _getSubscriptionFromController();
 
+      // Sin datos en memoria → no es "vencida" ni motivo para frenar: el
+      // servidor valida al sincronizar.
       if (subscriptionData == null) {
-
-        // Para sync, si no hay datos y parece estar offline, bloquear
-        final isOnline = _isOnlineSync();
-        if (!isOnline) {
-
-          _showNoSubscriptionDataDialog(context);
-          return false;
-        }
-        // Si está online pero no hay datos, permitir (backend validará)
-
         return true;
       }
 
@@ -205,15 +195,16 @@ class SubscriptionValidationService {
       }
 
       // PASO 1: Buscar en IsarSubscription (fuente más completa y precisa)
-      final isarSub = await isar.isarSubscriptions.where().findFirst();
+      // (la última que confirmó el servidor, no la primera guardada)
+      final isarSub = await currentCachedSubscription(isar);
       if (isarSub != null) {
-
+        final sub = isarSub.toEntity(); // estados recalculados con la fecha
         return SubscriptionData(
           status: isarSub.status.name.toLowerCase(),
           endDate: isarSub.endDate,
           trialEndDate: isarSub.trialEndsAt,
-          hasValidSubscription: isarSub.isActive && !isarSub.isExpired,
-          isTrialExpired: isarSub.isTrial && isarSub.isExpired,
+          hasValidSubscription: sub.isActive,
+          isTrialExpired: sub.isTrial && sub.isExpired,
           planName: isarSub.plan.name.toLowerCase(),
           source: 'isar_subscription',
           lastSyncAt: isarSub.lastSyncAt,
@@ -328,21 +319,6 @@ class SubscriptionValidationService {
     );
   }
 
-  /// Mostrar diálogo cuando no hay datos de suscripción (usa el diálogo profesional)
-  static void _showNoSubscriptionDataDialog(String context) {
-    SubscriptionErrorDialog.showAccessDenied(
-      customTitle: 'Sin datos de suscripción',
-      customMessage: 'No se puede verificar tu suscripción en este momento. Para $context, necesitas conexión a internet al menos una vez para validar tu suscripción.\n\nConéctate a internet e intenta de nuevo.',
-      actionText: 'Reintentar',
-      onActionPressed: () {
-        Get.back();
-        if (Get.isRegistered<SubscriptionController>()) {
-          Get.find<SubscriptionController>().loadSubscription();
-        }
-      },
-    );
-  }
-
   /// Mostrar diálogo de error de validación (usa el diálogo profesional)
   static void _showValidationErrorDialog(String context, String error) {
     SubscriptionErrorDialog.showAccessDenied(
@@ -380,23 +356,13 @@ class SubscriptionValidationService {
   static Future<void> _showExpirationWarningIfNeeded(
       SubscriptionData data) async {
 
-    // Calcular días restantes (si tenemos endDate) y nivel de alerta.
-    int daysUntilExpiration = 0;
-    if (data.endDate != null) {
-      daysUntilExpiration = data.endDate!.difference(DateTime.now()).inDays;
-    }
-
-    SubscriptionAlertLevel? level;
-    if (data.isExpired || daysUntilExpiration <= 0) {
-      level = SubscriptionAlertLevel.expired;
-    } else if (daysUntilExpiration <= 3) {
-      level = SubscriptionAlertLevel.critical;
-    } else if (daysUntilExpiration <= _warningDaysBeforeExpiration) {
-      level = SubscriptionAlertLevel.warning;
-    }
+    // Vencida solo si el estado lo dice o la fecha ya pasó. Antes, sin fecha
+    // (dato ausente) o con menos de 24 horas, salía "Suscripción Vencida".
+    final level = alertLevelFor(data);
+    final daysUntilExpiration = data.daysUntilExpiration ?? 0;
 
     // Sin nivel relevante → silencio.
-    if (level == null) {
+    if (level == SubscriptionAlertLevel.normal) {
       return;
     }
 
@@ -420,6 +386,13 @@ class SubscriptionValidationService {
       _showExpiringDialog(daysUntilExpiration);
     }
   }
+
+  /// Nivel de aviso para unos datos de suscripción (regla pura).
+  static SubscriptionAlertLevel alertLevelFor(SubscriptionData data) =>
+      subscriptionAlertLevel(
+        explicitlyExpired: data.isExpired,
+        endDate: data.endDate,
+      );
 
   /// ✅ Widget reutilizable con información de contacto
   static Widget _buildContactInfoWidget() {
@@ -733,24 +706,10 @@ class SubscriptionValidationService {
 
   // ==================== UTILIDADES ====================
 
-  /// Verificar si hay conexión (sync)
-  static bool _isOnlineSync() {
-    try {
-      if (Get.isRegistered<NetworkInfo>()) {
-        final networkInfo = Get.find<NetworkInfo>();
-        return networkInfo.isServerReachable;
-      }
-      return true; // Asumir online si no hay NetworkInfo
-    } catch (e) {
-      return true;
-    }
-  }
-
   /// Obtener días hasta expiración
   static int? getDaysUntilExpiration() {
     final data = _getSubscriptionFromController();
-    if (data?.endDate == null) return null;
-    return data!.endDate!.difference(DateTime.now()).inDays;
+    return subscriptionDaysRemaining(data?.endDate);
   }
 
   /// Verificar si debe mostrar advertencia
@@ -864,8 +823,7 @@ class SubscriptionData {
   }
 
   int? get daysUntilExpiration {
-    if (endDate == null) return null;
-    return endDate!.difference(DateTime.now()).inDays;
+    return subscriptionDaysRemaining(endDate);
   }
 
   @override

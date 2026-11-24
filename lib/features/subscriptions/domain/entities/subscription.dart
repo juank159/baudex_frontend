@@ -1,6 +1,7 @@
 // lib/features/subscriptions/domain/entities/subscription.dart
 
 import 'package:equatable/equatable.dart';
+import '../rules/subscription_rules.dart';
 import 'subscription_enums.dart';
 import 'plan_limits.dart';
 
@@ -94,16 +95,9 @@ class Subscription extends Equatable {
 
   /// Obtener nivel de alerta segun dias restantes
   SubscriptionAlertLevel get alertLevel {
-    if (isExpired || daysUntilExpiration <= 0) {
-      return SubscriptionAlertLevel.expired;
-    }
-    if (daysUntilExpiration <= 3) {
-      return SubscriptionAlertLevel.critical;
-    }
-    if (daysUntilExpiration <= 7) {
-      return SubscriptionAlertLevel.warning;
-    }
-    return SubscriptionAlertLevel.normal;
+    // Vencida solo si el servidor lo dijo (`isExpired`) o la fecha ya pasó.
+    // Un contador de días en 0 (dato ausente) no basta.
+    return subscriptionAlertLevel(explicitlyExpired: isExpired, endDate: endDate);
   }
 
   /// Verificar si puede realizar una accion

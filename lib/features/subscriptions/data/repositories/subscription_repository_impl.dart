@@ -38,11 +38,13 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
         await localDataSource.clearExpiredOfflineFlag();
 
         return Right(result.toEntity());
-      } on ServerException catch (e) {
-        // Si falla el servidor, intentar cache local
+      } on AppException catch (e) {
+        // Servidor caído, sin red, tiempo agotado, sesión vencida (401) o
+        // límite de intentos (429): NO es una suscripción vencida. Se usa la
+        // última copia que confirmó el servidor.
         final localResult = await localDataSource.getCachedSubscription();
         return localResult.fold(
-          (failure) => Left(ServerFailure(e.message)),
+          (failure) => Left(ServerFailure(e.message, code: e.statusCode)),
           (subscription) => Right(subscription),
         );
       }

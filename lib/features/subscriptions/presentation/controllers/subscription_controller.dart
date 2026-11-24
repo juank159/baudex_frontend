@@ -18,6 +18,7 @@ import '../../domain/entities/subscription_usage.dart';
 import '../../domain/entities/action_validation.dart';
 import '../../domain/entities/plan_limits.dart';
 import '../../domain/repositories/subscription_repository.dart';
+import '../../domain/rules/subscription_rules.dart';
 
 /// Tipo de diálogo de suscripción pendiente
 enum _SubscriptionDialogType {
@@ -314,9 +315,12 @@ class SubscriptionController extends GetxController {
     if (subscription == null) return;
 
     // ✅ Recalcular el estado real basado en endDate
-    final now = DateTime.now();
-    final realDaysRemaining = subscription!.endDate.difference(now).inDays;
-    final isReallyExpired = subscription!.isExpired || realDaysRemaining <= 0;
+    // Vencida solo si el servidor lo dijo o la fecha ya pasó. Antes "quedan
+    // menos de 24 horas" (0 días enteros) se mostraba como vencida.
+    final realDaysRemaining =
+        subscriptionDaysRemaining(subscription!.endDate) ?? 0;
+    final isReallyExpired = subscription!.isExpired ||
+        subscriptionEndDatePassed(subscription!.endDate);
 
     // ✅ IMPORTANTE: NO mostrar diálogo aquí, solo guardar el tipo pendiente
     // El diálogo se mostrará cuando el Dashboard esté listo

@@ -5,11 +5,16 @@ import '../../../app/core/errors/failures.dart';
 import '../widgets/subscription_error_dialog.dart';
 import '../services/subscription_info_service.dart';
 import '../services/subscription_alert_service.dart';
+import '../../../features/subscriptions/domain/rules/subscription_rules.dart';
 import '../../../features/subscriptions/domain/entities/subscription.dart'
     show SubscriptionAlertLevel;
 
 /// Utility class para manejar errores de suscripción de forma global
 class SubscriptionErrorHandler {
+  /// ¿Este fallo es un rechazo explícito por la suscripción?
+  static bool isSubscriptionFailure(Failure failure) =>
+      failure is SubscriptionFailure ||
+      (failure.code == 403 && isSubscriptionRejectionMessage(failure.message));
 
   /// Maneja un failure y determina si debe mostrar el diálogo de suscripción
   /// Retorna true si manejó el error, false si debe usar el manejo normal
@@ -20,8 +25,10 @@ class SubscriptionErrorHandler {
     String? context, // e.g., "crear producto", "editar cliente", etc.
   }) {
 
-    // 🔒 DETECTAR ERROR DE SUSCRIPCIÓN (por tipo o código 403)
-    final isSubscriptionError = failure is SubscriptionFailure || failure.code == 403;
+    // 🔒 Es de suscripción SOLO si el servidor lo dijo: un 403 también llega
+    // por permisos o por dispositivo no autorizado, y antes cualquiera de esos
+    // se mostraba como "suscripción vencida".
+    final isSubscriptionError = isSubscriptionFailure(failure);
 
     if (isSubscriptionError) {
 

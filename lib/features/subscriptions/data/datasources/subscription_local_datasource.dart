@@ -7,6 +7,7 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../domain/entities/subscription.dart';
 import '../models/isar/isar_subscription.dart';
+import 'subscription_cache.dart';
 
 abstract class SubscriptionLocalDataSource {
   /// Obtener suscripcion cacheada
@@ -53,8 +54,7 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<Either<Failure, Subscription>> getCachedSubscription() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
       if (isarSubscription == null) {
         return Left(CacheFailure('Suscripcion no encontrada en cache local'));
@@ -93,22 +93,9 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
     Subscription subscription,
   ) async {
     try {
-      final existingSubscription = await _isar.isarSubscriptions
-          .filter()
-          .serverIdEqualTo(subscription.id)
-          .findFirst();
-
-      if (existingSubscription != null) {
-        existingSubscription.updateFromEntity(subscription);
-        await _isar.writeTxn(() async {
-          await _isar.isarSubscriptions.put(existingSubscription);
-        });
-      } else {
-        final isarSubscription = IsarSubscription.fromEntity(subscription);
-        await _isar.writeTxn(() async {
-          await _isar.isarSubscriptions.put(isarSubscription);
-        });
-      }
+      // Guarda la que envió el servidor y borra las anteriores: cada
+      // renovación crea una suscripción nueva y las viejas no deben quedar.
+      await storeCurrentSubscription(_isar, subscription);
 
       return const Right(null);
     } catch (e) {
@@ -119,25 +106,23 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<bool> isCachedSubscriptionExpired() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
+      // Sin copia local (o si no se pudo leer) NO se puede afirmar que venció.
       if (isarSubscription == null) {
-        return true;
+        return false;
       }
 
-      return isarSubscription.isExpired ||
-          isarSubscription.endDate.isBefore(DateTime.now());
+      return isarSubscription.toEntity().isExpired;
     } catch (e) {
-      return true;
+      return false;
     }
   }
 
   @override
   Future<bool> isInOfflineGracePeriod() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
       if (isarSubscription == null) {
         return false;
@@ -152,8 +137,7 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<void> markExpiredWhileOffline() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
       if (isarSubscription != null) {
         isarSubscription.wasExpiredOffline = true;
@@ -170,8 +154,7 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<bool> wasExpiredWhileOffline() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
       return isarSubscription?.wasExpiredOffline ?? false;
     } catch (e) {
@@ -182,8 +165,7 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<void> clearExpiredOfflineFlag() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
       if (isarSubscription != null) {
         isarSubscription.wasExpiredOffline = false;
@@ -200,8 +182,7 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<DateTime?> getLastSyncDate() async {
     try {
-      final isarSubscription =
-          await _isar.isarSubscriptions.where().findFirst();
+      final isarSubscription = await currentCachedSubscription(_isar);
 
       return isarSubscription?.lastSyncAt;
     } catch (e) {

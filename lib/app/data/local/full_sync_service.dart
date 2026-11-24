@@ -28,6 +28,7 @@ import '../../../features/inventory/data/datasources/inventory_remote_datasource
 import '../../../features/inventory/data/datasources/inventory_local_datasource_isar.dart';
 import '../../../features/notifications/data/datasources/notification_remote_datasource.dart';
 import '../../../features/subscriptions/data/datasources/subscription_remote_datasource.dart';
+import '../../../features/subscriptions/data/datasources/subscription_cache.dart';
 import '../../../features/settings/data/datasources/organization_remote_datasource.dart';
 import '../../../features/settings/data/datasources/printer_settings_remote_datasource.dart';
 import '../../../features/settings/data/models/isar/isar_organization.dart';
@@ -1945,12 +1946,8 @@ class FullSyncService extends GetxService {
         : SubscriptionRemoteDataSourceImpl(dioClient: Get.find<DioClient>());
 
     final subscriptionModel = await remoteDS.getCurrentSubscription();
-    final entity = subscriptionModel.toEntity();
-    final isarSub = IsarSubscription.fromEntity(entity);
-
-    await _isar.writeTxn(() async {
-      await _isar.isarSubscriptions.putByServerId(isarSub);
-    });
+    // Guarda la vigente y borra las copias de suscripciones anteriores.
+    await storeCurrentSubscription(_isar, subscriptionModel.toEntity());
 
     return 1;
   }
