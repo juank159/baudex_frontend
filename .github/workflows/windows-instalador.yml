@@ -18,8 +18,39 @@ on:
         description: 'Versión que verá el cliente (vacío = la de pubspec.yaml)'
         required: false
         default: ''
+      probar_script:
+        description: 'Probar también compilar-windows.bat (lo que usa el CEO en su PC)'
+        type: boolean
+        default: false
 
 jobs:
+  # Comprueba en un Windows limpio que clonar + doble clic en
+  # compilar-windows.bat produce el instalador.
+  probar-script:
+    if: ${{ inputs.probar_script }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+      - shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+      - shell: cmd
+        run: compilar-windows.bat
+      - shell: pwsh
+        run: |
+          Get-ChildItem dist | Format-Table Name, Length
+          if (-not (Get-ChildItem dist\Baudex-Setup-*.exe)) { exit 1 }
+
   windows:
     runs-on: windows-latest
     timeout-minutes: 60
