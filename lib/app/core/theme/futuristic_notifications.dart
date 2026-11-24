@@ -15,14 +15,15 @@ class FuturisticNotifications {
     Get.snackbar(
       '',
       '',
-      titleText: _buildNotificationContent(
+      titleText: _swipeToClose(_buildNotificationContent(
         title,
         message,
         Icons.check_circle,
         ElegantLightTheme.successGradient,
-      ),
+      )),
       messageText: const SizedBox.shrink(),
       snackPosition: SnackPosition.TOP,
+      isDismissible: false, // ver _swipeToClose
       backgroundColor: Colors.transparent,
       borderRadius: 0,
       margin: const EdgeInsets.all(0),
@@ -45,14 +46,15 @@ class FuturisticNotifications {
     Get.snackbar(
       '',
       '',
-      titleText: _buildNotificationContent(
+      titleText: _swipeToClose(_buildNotificationContent(
         title,
         message,
         Icons.error,
         ElegantLightTheme.errorGradient,
-      ),
+      )),
       messageText: const SizedBox.shrink(),
       snackPosition: SnackPosition.TOP,
+      isDismissible: false, // ver _swipeToClose
       backgroundColor: Colors.transparent,
       borderRadius: 0,
       margin: const EdgeInsets.all(0),
@@ -75,14 +77,15 @@ class FuturisticNotifications {
     Get.snackbar(
       '',
       '',
-      titleText: _buildNotificationContent(
+      titleText: _swipeToClose(_buildNotificationContent(
         title,
         message,
         Icons.warning,
         ElegantLightTheme.warningGradient,
-      ),
+      )),
       messageText: const SizedBox.shrink(),
       snackPosition: SnackPosition.TOP,
+      isDismissible: false, // ver _swipeToClose
       backgroundColor: Colors.transparent,
       borderRadius: 0,
       margin: const EdgeInsets.all(0),
@@ -105,14 +108,15 @@ class FuturisticNotifications {
     Get.snackbar(
       '',
       '',
-      titleText: _buildNotificationContent(
+      titleText: _swipeToClose(_buildNotificationContent(
         title,
         message,
         Icons.info,
         ElegantLightTheme.infoGradient,
-      ),
+      )),
       messageText: const SizedBox.shrink(),
       snackPosition: SnackPosition.TOP,
+      isDismissible: false, // ver _swipeToClose
       backgroundColor: Colors.transparent,
       borderRadius: 0,
       margin: const EdgeInsets.all(0),
@@ -134,9 +138,10 @@ class FuturisticNotifications {
     Get.snackbar(
       '',
       '',
-      titleText: _buildProcessingNotification(title, message),
+      titleText: _swipeToClose(_buildProcessingNotification(title, message)),
       messageText: const SizedBox.shrink(),
       snackPosition: SnackPosition.TOP,
+      isDismissible: false, // ver _swipeToClose
       backgroundColor: Colors.transparent,
       borderRadius: 0,
       margin: const EdgeInsets.all(0),
@@ -145,6 +150,24 @@ class FuturisticNotifications {
       animationDuration: ElegantLightTheme.normalAnimation,
       forwardAnimationCurve: ElegantLightTheme.elasticCurve,
       reverseAnimationCurve: ElegantLightTheme.smoothCurve,
+    );
+  }
+
+  /// Deslizar el aviso hacia arriba lo quita, como antes, pero cerrándolo por
+  /// el camino normal (animación de salida).
+  ///
+  /// El deslizar propio de GetX 4.7 programa `reset` de la animación 200 ms
+  /// después; si en ese tiempo llega otro aviso (`replacePreviousSnackbar`)
+  /// y la salida de 300 ms termina antes (basta un cuadro lento), GetX ya
+  /// destruyó la animación y el temporizador hace fallar la app
+  /// (incidente #324, "Null check operator" en AnimationController.stop).
+  static Widget _swipeToClose(Widget child) {
+    return Dismissible(
+      key: UniqueKey(),
+      direction: DismissDirection.up,
+      resizeDuration: null,
+      onDismissed: (_) => replacePreviousSnackbar(),
+      child: child,
     );
   }
 
