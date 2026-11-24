@@ -40,6 +40,16 @@ class ShortCodeIndex {
 
   int get length => _byCode.length;
 
+  /// Suma más códigos (el primero que llega con un código se queda). Sirve
+  /// para armar el índice por partes sin frenar la pantalla.
+  void addCodes(Iterable<(String?, int)> entries) {
+    for (final (raw, id) in entries) {
+      final code = normalizeShortCode(raw);
+      if (code == null) continue;
+      _byCode.putIfAbsent(code, () => id);
+    }
+  }
+
   int? lookup(String code) {
     final key = normalizeShortCode(code);
     return key == null ? null : _byCode[key];
@@ -101,6 +111,32 @@ PriceEntryDecision decidePriceEntry(String raw, ShortCodeIndex? index) {
   if (hit != null) return AddExistingProduct(hit);
   if (!index.complete) return const PriceEntryNeedsLookup();
   return AddUnregisteredProduct(priceFromEntry(raw));
+}
+
+/// Lo que la pantalla pinta EN LA MISMA TECLA, sin esperar a nadie.
+///
+/// - [existingLocalId]: el índice conoce un producto con ese código corto.
+/// - si no, se pinta "Producto sin registrar" de una vez. [certain] dice si
+///   el índice puede asegurarlo (cargado, catálogo completo y al día); si
+///   no, la pantalla lo confirma después en segundo plano, sin frenar.
+class ValueEntryGuess {
+  final int? existingLocalId;
+  final bool certain;
+  const ValueEntryGuess({this.existingLocalId, required this.certain});
+}
+
+/// Nunca responde "no sé": con el índice sin cargar, incompleto o
+/// pendiente por la sincronización, la opción sale igual.
+ValueEntryGuess guessValueEntry(
+  String raw,
+  ShortCodeIndex? index, {
+  bool stale = false,
+}) {
+  final hit = index?.lookup(raw);
+  if (hit != null) return ValueEntryGuess(existingLocalId: hit, certain: true);
+  return ValueEntryGuess(
+    certain: index != null && index.complete && !stale,
+  );
 }
 
 /// Nombre de la línea cuando el cajero no le pone otro.
