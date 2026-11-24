@@ -83,6 +83,17 @@ class EntryMetricSummary {
   });
 }
 
+/// Una impresión de tiquete: cuánto pasó desde que se pidió imprimir hasta
+/// que el tiquete quedó enviado a la impresora, y cuánto de eso fue armar
+/// el tiquete (logo, líneas) antes de enviarlo.
+class PrintSample {
+  final DateTime at;
+  final double totalMs;
+  final double buildMs;
+  final bool ok;
+  const PrintSample(this.at, this.totalMs, this.buildMs, this.ok);
+}
+
 class InvoiceEntryMetrics {
   InvoiceEntryMetrics({this.capacity = 200, DateTime Function()? now})
       : _now = now ?? DateTime.now;
@@ -114,6 +125,59 @@ class InvoiceEntryMetrics {
 
   /// Último estado visto al facturar (índice, sincronización, cola).
   EntryContext? lastContext;
+
+  /// Desde cuántos ms una impresión se cuenta como "lenta".
+  static const double slowPrintMs = 1000;
+
+  /// Impresiones por tipo de impresora ("USB Windows (directo)", "Red"…).
+  final Map<String, List<PrintSample>> _prints = {};
+  final Map<String, int> _printTotals = {};
+  final Map<String, int> _printFailures = {};
+  final Map<String, int> _printSlow = {};
+
+  /// Guarda una impresión: [totalMs] va desde que se pidió imprimir hasta
+  /// que el tiquete quedó enviado a la impresora (incluye la espera si
+  /// había otro tiquete saliendo); [buildMs] es la parte de armar el tiquete.
+  void recordPrint(
+    String printerKind,
+    double totalMs, {
+    double buildMs = 0,
+    bool ok = true,
+  }) {
+    final list = _prints.putIfAbsent(printerKind, () => []);
+    list.add(PrintSample(_now(), totalMs, buildMs, ok));
+    if (list.length > capacity) list.removeAt(0);
+    _printTotals[printerKind] = (_printTotals[printerKind] ?? 0) + 1;
+    if (!ok) {
+      _printFailures[printerKind] = (_printFailures[printerKind] ?? 0) + 1;
+    }
+    if (totalMs >= slowPrintMs) {
+      _printSlow[printerKind] = (_printSlow[printerKind] ?? 0) + 1;
+    }
+  }
+
+  /// Tipos de impresora con al menos una impresión, en orden de aparición.
+  List<String> get printerKinds => _prints.keys.toList();
+
+  /// Resumen de las impresiones que SÍ salieron por ese tipo de impresora.
+  EntryMetricSummary? printSummary(String printerKind) {
+    final list = _prints[printerKind];
+    if (list == null) return null;
+    final ok = [for (final s in list) if (s.ok) s];
+    if (ok.isEmpty) return null;
+    final sorted = [for (final s in ok) s.totalMs]..sort();
+    double at(double q) =>
+        sorted[((sorted.length - 1) * q).round().clamp(0, sorted.length - 1)];
+    return EntryMetricSummary(
+      count: ok.length,
+      medianMs: at(0.5),
+      p95Ms: at(0.95),
+      maxMs: sorted.last,
+      lastMs: ok.last.totalMs,
+    );
+  }
+
+  int printFailures(String printerKind) => _printFailures[printerKind] ?? 0;
 
   void record(EntryMetric metric, double ms, [EntryContext? context]) {
     if (context != null) lastContext = context;
@@ -155,6 +219,10 @@ class InvoiceEntryMetrics {
     _slow.clear();
     _totals.clear();
     lastContext = null;
+    _prints.clear();
+    _printTotals.clear();
+    _printFailures.clear();
+    _printSlow.clear();
     valueKeysCertain = valueKeysUnconfirmed = 0;
     frames = framesOver50 = framesOver200 = 0;
     worstFrameMs = 0;
@@ -188,7 +256,40 @@ class InvoiceEntryMetrics {
             '${_f(s.ms)} ms — ${s.context.label}');
       }
     }
+    _writePrints(b);
     return b.toString();
+  }
+
+  void _writePrints(StringBuffer b) {
+    b.writeln('  Impresión del tiquete (imprimir → enviado a la impresora):');
+    if (_prints.isEmpty) {
+      b.writeln('    (todavía no se ha impreso en esta sesión)');
+      return;
+    }
+    for (final kind in _prints.keys) {
+      final list = _prints[kind]!;
+      final total = _printTotals[kind] ?? list.length;
+      final failed = _printFailures[kind] ?? 0;
+      final slow = _printSlow[kind] ?? 0;
+      final s = printSummary(kind);
+      final line = StringBuffer('    $kind: $total veces');
+      if (s != null) {
+        final builds = [for (final p in list) if (p.ok) p.buildMs]..sort();
+        line.write(', normal ${_f(s.medianMs)} ms, 95 % bajo ${_f(s.p95Ms)} ms, '
+            'peor ${_f(s.maxMs)} ms, última ${_f(s.lastMs)} ms'
+            ' (armar el tiquete: normal ${_f(builds[(builds.length - 1) ~/ 2])} ms)');
+      }
+      line.write(', de ${slowPrintMs.toStringAsFixed(0)} ms o más: $slow');
+      line.write(', fallidas: $failed');
+      if (failed > 0) {
+        final last = list.lastWhere((p) => !p.ok, orElse: () => list.last);
+        if (!last.ok) {
+          line.write(' (última falla tras ${_f(last.totalMs)} ms, '
+              '${last.at.toIso8601String()})');
+        }
+      }
+      b.writeln(line);
+    }
   }
 
   static String _f(double ms) => ms.toStringAsFixed(ms < 10 ? 1 : 0);
