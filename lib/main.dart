@@ -16,6 +16,7 @@ import 'app/shared/utils/global_shortcuts.dart';
 import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
 import 'app/core/navigation/route_stack_observer.dart';
+import 'app/core/network/bundled_roots.dart';
 import 'app/core/ops/ops_reporter.dart';
 import 'app/core/ops/ops_health_watcher.dart';
 import 'app/core/navigation/getx_route_janitor.dart';
@@ -25,6 +26,10 @@ import 'features/auth/presentation/controllers/auth_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Antes de cualquier conexión: en un Windows recién instalado falta la raíz
+  // de Let's Encrypt y, sin esto, la app no logra hablar con el servidor.
+  BundledRoots.ensureTrusted();
 
   // === HANDLER 1: Errores del framework Flutter (build, layout, paint) ===
   final originalOnError = FlutterError.onError;

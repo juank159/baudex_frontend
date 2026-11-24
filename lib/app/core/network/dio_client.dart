@@ -5,6 +5,7 @@ import 'dart:convert';
 // import '../../config/constants/api_constants.dart';
 // import '../storage/secure_storage_service.dart';
 // import 'api_interceptor.dart';
+import 'bundled_roots.dart';
 
 // class DioClient {
 //   late Dio _dio;
@@ -219,6 +220,7 @@ class DioClient {
   final SecureStorageService _storageService = getx.Get.find();
 
   DioClient() {
+    BundledRoots.ensureTrusted();
     _dio = Dio();
     _initializeDio();
   }
