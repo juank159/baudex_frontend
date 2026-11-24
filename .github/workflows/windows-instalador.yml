@@ -22,8 +22,127 @@ on:
         description: 'Probar también compilar-windows.bat (lo que usa el CEO en su PC)'
         type: boolean
         default: false
+      probar_impresion:
+        description: 'Probar el envío directo a la impresora en Windows real (impresora de mentira)'
+        type: boolean
+        default: false
+      impresion_puerto:
+        description: 'Impresora de mentira: "archivo" (puerto a archivo) o "tcp" (plan B: puerto RAW 9100 a un escucha local)'
+        type: choice
+        options:
+          - archivo
+          - tcp
+        default: archivo
 
 jobs:
+  # Comprueba en un Windows real que el tiquete sale directo por la cola de
+  # impresión (windows_raw_printer.dart), sin PowerShell: instala una
+  # impresora de mentira que deja en C:\tickets\salida.prn lo que recibe,
+  # y corre test/windows/windows_raw_printer_real_test.dart contra ella.
+  # En el log, las líneas que empiezan por "IMPRESION-WINDOWS |" traen los
+  # tiempos (directo vs PowerShell).
+  probar-impresion:
+    if: ${{ inputs.probar_impresion }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      BAUDEX_PRUEBA_IMPRESORA: BaudexPrueba
+      BAUDEX_PRUEBA_SALIDA: C:\tickets\salida.prn
+      BAUDEX_PRUEBA_ENVIOS: '20'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+
+      - name: Instalar la impresora de mentira (${{ inputs.impresion_puerto }})
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $modo = '${{ inputs.impresion_puerto }}'
+          New-Item -ItemType Directory -Force C:\tickets | Out-Null
+          icacls C:\tickets /grant 'Everyone:(OI)(CI)F' | Out-Null
+
+          Set-Service -Name Spooler -StartupType Automatic
+          if ((Get-Service Spooler).Status -ne 'Running') { Start-Service Spooler }
+          Write-Host "Cola de impresión: $((Get-Service Spooler).Status)"
+
+          Add-PrinterDriver -Name 'Generic / Text Only'
+
+          if ($modo -eq 'tcp') {
+            # Plan B: puerto TCP RAW 9100 hacia un escucha local que guarda
+            # en el archivo de salida cada byte que le llega.
+            $escucha = @'
+          $salida = 'C:\tickets\salida.prn'
+          $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 9100)
+          $l.Start()
+          while ($true) {
+            $c = $l.AcceptTcpClient()
+            try {
+              $s = $c.GetStream()
+              $buf = New-Object byte[] 65536
+              while (($n = $s.Read($buf, 0, $buf.Length)) -gt 0) {
+                for ($i = 0; $i -lt 100; $i++) {
+                  try {
+                    $f = [System.IO.File]::Open($salida, 'Append', 'Write', 'ReadWrite, Delete')
+                    $f.Write($buf, 0, $n); $f.Close(); break
+                  } catch { Start-Sleep -Milliseconds 20 }
+                }
+              }
+            } catch { } finally { $c.Close() }
+          }
+          '@
+            Set-Content -Path C:\tickets\escucha.ps1 -Value $escucha -Encoding UTF8
+            Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'C:\tickets\escucha.ps1'
+            Start-Sleep -Seconds 2
+            if (-not (Test-NetConnection 127.0.0.1 -Port 9100 -InformationLevel Quiet)) {
+              throw 'El escucha del puerto 9100 no arrancó'
+            }
+            Add-PrinterPort -Name 'BaudexTcp9100' -PrinterHostAddress '127.0.0.1' -PortNumber 9100
+            $puerto = 'BaudexTcp9100'
+          } else {
+            # Puerto local a archivo: la cola escribe ahí lo que se imprime.
+            Add-PrinterPort -Name 'C:\tickets\salida.prn'
+            $puerto = 'C:\tickets\salida.prn'
+          }
+
+          Add-Printer -Name $env:BAUDEX_PRUEBA_IMPRESORA -DriverName 'Generic / Text Only' -PortName $puerto
+          Get-Printer | Format-Table Name, DriverName, PortName, PrinterStatus
+
+      - name: Crear .env de relleno (igual que compilar-windows.bat)
+        shell: pwsh
+        run: |
+          $c = @(
+            'SERVER_IP=baudex.baudity.tech',
+            'SERVER_PORT=443',
+            'APP_ENV=production',
+            'API_TIMEOUT=30000',
+            'DEBUG_MODE=false',
+            'SHOW_LOGS=false'
+          ) -join "`n"
+          foreach ($f in '.env', '.env.production', '.env.development', '.env.staging') {
+            Set-Content -Path $f -Value $c -NoNewline -Encoding utf8NoBOM
+          }
+
+      - run: flutter pub get
+
+      - name: Envío directo en Windows real
+        run: flutter test test/windows/windows_raw_printer_real_test.dart --reporter expanded
+
+      - name: Pruebas unitarias de impresión
+        if: ${{ !cancelled() }}
+        run: flutter test test/unit/core/printing test/unit/features/invoices/thermal_print_flow_test.dart test/unit/features/invoices/invoice_entry_metrics_test.dart
+
+      - name: Estado de la cola (para diagnosticar)
+        if: ${{ always() }}
+        shell: powershell
+        run: |
+          Get-Printer | Format-Table Name, DriverName, PortName, PrinterStatus, JobCount
+          Get-PrintJob -PrinterName $env:BAUDEX_PRUEBA_IMPRESORA -ErrorAction SilentlyContinue | Format-Table Id, JobStatus, Size, DocumentName
+          Get-ChildItem C:\tickets -ErrorAction SilentlyContinue | Format-Table Name, Length, LastWriteTime
+
   # Comprueba en un Windows limpio que clonar + doble clic en
   # compilar-windows.bat produce el instalador.
   probar-script:
