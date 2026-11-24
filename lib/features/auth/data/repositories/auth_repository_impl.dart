@@ -1,10 +1,12 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/security/offline_password_hasher.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/ops/ops_reporter.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
@@ -46,47 +48,86 @@ class AuthRepositoryImpl implements AuthRepository {
       // Login exitoso - resetear reachability para que el resto de la app funcione
       networkInfo.resetServerReachability();
 
-      // Guardar datos localmente
-      await localDataSource.saveAuthData(response);
+      // Guardar la sesión en este equipo. Si falla, el servidor YA aceptó el
+      // ingreso: se dice eso, nunca "credenciales incorrectas".
+      try {
+        await localDataSource.saveAuthData(response);
+      } catch (e, st) {
+        OpsReporter.capture(
+          e,
+          st,
+          errorType: 'LoginLocalSave',
+          fingerprint: 'login_local_save|session',
+          context: {'step': 'saveAuthData'},
+        );
+        return Left(LocalSessionSaveFailure('$e'));
+      }
 
       // Huella de la contraseña para entrar sin internet (PBKDF2 con sal
-      // nueva). Cada inicio de sesión exitoso reemplaza la huella vieja.
-      await localDataSource.saveOfflineCredentials(
-        email,
-        await OfflinePasswordHasher.hash(password),
-      );
+      // nueva). Es opcional: si no se puede guardar, el ingreso en línea
+      // sigue y solo se pierde entrar sin internet hasta el próximo ingreso.
+      try {
+        await localDataSource.saveOfflineCredentials(
+          email,
+          await OfflinePasswordHasher.hash(password),
+        );
+      } catch (e, st) {
+        OpsReporter.capture(
+          e,
+          st,
+          level: 'warning',
+          errorType: 'LoginLocalSave',
+          fingerprint: 'login_local_save|offline_credentials',
+          context: {'step': 'saveOfflineCredentials'},
+        );
+      }
 
       return Right(response.toAuthResult());
+    } on ConnectionException catch (e) {
+      return _attemptOfflineLogin(email, password, cause: e.message);
     } on ServerException catch (e) {
       return Left(_mapServerExceptionToFailure(e));
-    } on ConnectionException catch (e) {
-      return _attemptOfflineLogin(email, password);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
     } catch (e) {
       // Si es un error de conexión, intentar login offline
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('Connection') ||
-          e.toString().contains('Network') ||
-          e.toString().contains('timeout')) {
-        return _attemptOfflineLogin(email, password);
+      if (isConnectionProblem(e)) {
+        return _attemptOfflineLogin(email, password, cause: '$e');
       }
       return Left(UnknownFailure('Error inesperado durante el login: $e'));
     }
   }
 
+  /// ¿Esta excepción sin tipo es un problema para llegar al servidor?
+  @visibleForTesting
+  static bool isConnectionProblem(Object e) {
+    final text = e.toString();
+    return text.contains('SocketException') ||
+        text.contains('HandshakeException') ||
+        text.contains('TlsException') ||
+        text.contains('CERTIFICATE_VERIFY_FAILED') ||
+        text.contains('Connection') ||
+        text.contains('Network') ||
+        text.contains('timeout');
+  }
+
   /// Intenta realizar login offline con credenciales cacheadas
+  ///
+  /// [cause] es por qué no se pudo llegar al servidor: viaja en el fallo para
+  /// que la pantalla diga "sin conexión" (con el detalle) y no "credenciales".
   Future<Either<Failure, AuthResult>> _attemptOfflineLogin(
     String email,
-    String password,
-  ) async {
+    String password, {
+    String? cause,
+  }) async {
     try {
       // Verificar si hay credenciales offline guardadas
       final hasOfflineCredentials = await localDataSource.hasOfflineCredentials();
       if (!hasOfflineCredentials) {
-        return const Left(AuthFailure(
+        return Left(AuthFailure(
           message: 'No hay sesión previa guardada. Necesitas conexión a internet para el primer login.',
           errorCode: 'NO_OFFLINE_CREDENTIALS',
+          detail: cause,
         ));
       }
 
@@ -97,18 +138,22 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       if (!credentialsValid) {
-        return const Left(AuthFailure(
-          message: 'Credenciales incorrectas',
-          errorCode: 'INVALID_CREDENTIALS',
+        // No es "credenciales incorrectas": el servidor nunca las vio.
+        return Left(AuthFailure(
+          message: 'Sin conexión con el servidor, y el correo o la contraseña '
+              'no coinciden con la última sesión guardada en este equipo.',
+          errorCode: 'OFFLINE_PASSWORD_MISMATCH',
+          detail: cause,
         ));
       }
 
       // Verificar que hay sesión local válida
       final isAuth = await localDataSource.isAuthenticated();
       if (!isAuth) {
-        return const Left(AuthFailure(
+        return Left(AuthFailure(
           message: 'Sesión expirada. Necesitas conexión a internet para renovar tu sesión.',
           errorCode: 'SESSION_EXPIRED',
+          detail: cause,
         ));
       }
 

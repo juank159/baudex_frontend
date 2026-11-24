@@ -11,6 +11,8 @@ import 'package:isar/isar.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../domain/entities/auth_result.dart';
+import '../../domain/rules/login_failure_rules.dart';
+import '../widgets/login_problem_dialog.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/login_usecase.dart' show LoginParams;
 import '../../domain/usecases/register_usecase.dart' show RegisterParams;
@@ -532,29 +534,31 @@ class AuthController extends GetxController {
 
       result.fold(
         (failure) {
-          // Detectar error de límite de dispositivos (403 del backend)
-          if (failure.code == 403 && failure.message.contains('dispositivo')) {
-            _showDeviceLimitDialog(failure.message);
-          } else if (failure.code == 401 ||
-              failure.message.toLowerCase().contains('credencial') ||
-              failure.message.toLowerCase().contains('invalid') ||
-              failure.message.toLowerCase().contains('correo') ||
-              failure.message.toLowerCase().contains('contraseña')) {
-            // Mensaje genérico para credenciales malas — debe ser
-            // IDÉNTICO al que mostramos cuando el negocio no coincide,
-            // para no filtrar cuál de los tres campos falló.
-            _showGenericLoginError();
-          } else {
-            // Otros errores (red, server caído, etc.) sí pueden ser
-            // específicos — no son enumeration de cuentas.
-            Get.snackbar(
-              'Error de Login',
-              failure.message,
-              snackPosition: SnackPosition.TOP,
-              backgroundColor: Colors.red.shade100,
-              colorText: Colors.red.shade800,
-              icon: const Icon(Icons.error, color: Colors.red),
-            );
+          // Qué mostrar lo decide una regla pura por tipo y código del
+          // fallo (no por palabras del mensaje): un fallo de conexión o de
+          // guardado local nunca se muestra como credenciales incorrectas.
+          final view = describeLoginFailure(failure);
+          switch (view.kind) {
+            case LoginFailureKind.deviceLimit:
+              _showDeviceLimitDialog(view.message);
+            case LoginFailureKind.credentials:
+              // Mensaje IDÉNTICO al de negocio que no coincide, para no
+              // filtrar cuál de los tres campos falló.
+              _showGenericLoginError();
+            case LoginFailureKind.connection:
+            case LoginFailureKind.localStorage:
+              Get.dialog(LoginProblemDialog(view: view, onClose: Get.back));
+            case LoginFailureKind.tooManyAttempts:
+            case LoginFailureKind.other:
+              Get.snackbar(
+                view.title,
+                view.message,
+                snackPosition: SnackPosition.TOP,
+                backgroundColor: Colors.red.shade100,
+                colorText: Colors.red.shade800,
+                icon: const Icon(Icons.error, color: Colors.red),
+                duration: const Duration(seconds: 6),
+              );
           }
         },
         (authResult) async {
@@ -1300,8 +1304,8 @@ class AuthController extends GetxController {
 
   void _showGenericLoginError() {
     Get.snackbar(
-      'No se pudo iniciar sesión',
-      'Verifica que el negocio, correo y contraseña sean correctos.',
+      genericCredentialsTitle,
+      genericCredentialsMessage,
       snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.red.shade100,
       colorText: Colors.red.shade800,

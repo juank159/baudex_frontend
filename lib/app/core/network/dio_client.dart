@@ -451,22 +451,40 @@ class DioClient {
       case DioExceptionType.cancel:
         return const ServerException('Solicitud cancelada');
 
+      case DioExceptionType.connectionError:
+      case DioExceptionType.badCertificate:
       case DioExceptionType.unknown:
-        if (error.message?.contains('SocketException') == true) {
-          return ConnectionException(
-            'Sin conexión a internet. Verifica que el servidor esté corriendo en ${ApiConstants.baseUrl}',
-          );
-        }
-        if (error.message?.contains('No route to host') == true) {
-          return ConnectionException(
-            'No se puede conectar al servidor. Verifica la URL: ${ApiConstants.baseUrl}',
-          );
-        }
-        return ConnectionException('Error de conexión: ${error.message}');
-
-      default:
-        return ServerException('Error desconocido: ${error.message}');
+        return connectionExceptionFor(error);
     }
+  }
+
+  /// La app no logró hablar con el servidor (sin internet, DNS, conexión
+  /// rechazada, certificado que el equipo no reconoce, fecha del equipo
+  /// mal...). Siempre es un [ConnectionException], con la causa real en el
+  /// mensaje: antes un fallo de certificado salía como "Error de conexión:
+  /// null" y uno de red como `ServerException('Error desconocido')`, y
+  /// quien llamaba no podía saber que era la conexión.
+  @visibleForTesting
+  static ConnectionException connectionExceptionFor(DioException error) {
+    final cause = (error.error ?? error.message ?? 'sin detalle').toString();
+    if (error.type == DioExceptionType.badCertificate ||
+        cause.contains('HandshakeException') ||
+        cause.contains('CERTIFICATE_VERIFY_FAILED') ||
+        cause.contains('TlsException')) {
+      return ConnectionException(
+        'No se pudo establecer una conexión segura con el servidor '
+        '(certificado). Revisa la fecha y la hora del equipo, las '
+        'actualizaciones de Windows y el antivirus. Detalle: $cause',
+      );
+    }
+    if (cause.contains('No route to host')) {
+      return ConnectionException(
+        'No se puede conectar al servidor. Verifica la URL: ${ApiConstants.baseUrl}. Detalle: $cause',
+      );
+    }
+    return ConnectionException(
+      'Sin conexión con el servidor (${ApiConstants.baseUrl}). Detalle: $cause',
+    );
   }
 
   // Notifica a AuthController que la sesión expiró de forma definitiva.

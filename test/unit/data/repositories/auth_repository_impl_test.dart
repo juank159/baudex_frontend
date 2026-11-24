@@ -14,6 +14,7 @@ import 'package:baudex_desktop/features/auth/data/models/update_profile_request_
 import 'package:baudex_desktop/features/auth/data/models/user_model.dart';
 import 'package:baudex_desktop/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:baudex_desktop/features/auth/domain/entities/auth_result.dart';
+import 'package:baudex_desktop/features/auth/domain/rules/login_failure_rules.dart';
 import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -238,6 +239,119 @@ void main() {
           (failure) => expect(failure, isA<CacheFailure>()),
           (_) => fail('Should return Left'),
         );
+      },
+    );
+
+    // ---- Windows 1.0.2: un fallo que no es de credenciales no se disfraza ----
+
+    test(
+      'el servidor acepta pero el equipo no guarda la sesión: fallo propio con el detalle',
+      () async {
+        when(() => mockRemoteDataSource.login(any())).thenAnswer((_) async => tAuthResponse);
+        when(() => mockLocalDataSource.saveAuthData(any())).thenThrow(
+          const CacheException('Error al guardar datos de autenticación: PlatformException(write)'),
+        );
+
+        final result = await repository.login(email: tEmail, password: tPassword);
+
+        final failure = result.fold((f) => f, (_) => null);
+        expect(failure, isA<LocalSessionSaveFailure>());
+        expect((failure as LocalSessionSaveFailure).detail, contains('PlatformException(write)'));
+        expect(describeLoginFailure(failure).kind, LoginFailureKind.localStorage);
+        verifyNever(() => mockLocalDataSource.saveOfflineCredentials(any(), any()));
+      },
+    );
+
+    test(
+      'si no se puede guardar la huella para entrar sin internet, el ingreso en línea sigue',
+      () async {
+        when(() => mockRemoteDataSource.login(any())).thenAnswer((_) async => tAuthResponse);
+        when(() => mockLocalDataSource.saveAuthData(any())).thenAnswer((_) async {});
+        when(() => mockLocalDataSource.saveOfflineCredentials(any(), any())).thenThrow(
+          const CacheException('Error al guardar credenciales offline: PlatformException'),
+        );
+
+        final result = await repository.login(email: tEmail, password: tPassword);
+
+        expect(result.isRight(), true);
+        result.fold(
+          (_) => fail('el ingreso debe continuar'),
+          (auth) => expect(auth.token, tAuthResponse.token),
+        );
+        verify(() => mockLocalDataSource.saveAuthData(any())).called(1);
+      },
+    );
+
+    test(
+      'sin conexión y la clave no coincide con la huella guardada: es conexión, no credenciales',
+      () async {
+        when(() => mockRemoteDataSource.login(any())).thenThrow(
+          const ConnectionException('Error de conexión: HandshakeException: CERTIFICATE_VERIFY_FAILED'),
+        );
+        when(() => mockLocalDataSource.hasOfflineCredentials()).thenAnswer((_) async => true);
+        when(() => mockLocalDataSource.verifyOfflineCredentials(any(), any()))
+            .thenAnswer((_) async => false);
+
+        final result = await repository.login(email: tEmail, password: tPassword);
+
+        final failure = result.fold((f) => f, (_) => null);
+        expect(failure, isA<AuthFailure>());
+        expect((failure as AuthFailure).errorCode, 'OFFLINE_PASSWORD_MISMATCH');
+        expect(failure.detail, contains('CERTIFICATE_VERIFY_FAILED'));
+        final view = describeLoginFailure(failure);
+        expect(view.kind, LoginFailureKind.connection);
+        expect(view.detail, contains('CERTIFICATE_VERIFY_FAILED'));
+      },
+    );
+
+    test(
+      'sin conexión en un equipo nuevo: el fallo lleva por qué no hubo conexión',
+      () async {
+        when(() => mockRemoteDataSource.login(any())).thenThrow(
+          const ConnectionException('Error de conexión: SocketException: Failed host lookup'),
+        );
+        when(() => mockLocalDataSource.hasOfflineCredentials()).thenAnswer((_) async => false);
+
+        final result = await repository.login(email: tEmail, password: tPassword);
+
+        final failure = result.fold((f) => f, (_) => null) as AuthFailure;
+        expect(failure.errorCode, 'NO_OFFLINE_CREDENTIALS');
+        expect(failure.detail, contains('Failed host lookup'));
+        expect(describeLoginFailure(failure).kind, LoginFailureKind.connection);
+      },
+    );
+
+    test(
+      'un fallo de certificado sin tipo también se trata como falta de conexión',
+      () async {
+        when(() => mockRemoteDataSource.login(any())).thenThrow(
+          Exception('HandshakeException: Handshake error in client (OS Error: CERTIFICATE_VERIFY_FAILED)'),
+        );
+        when(() => mockLocalDataSource.hasOfflineCredentials()).thenAnswer((_) async => false);
+
+        final result = await repository.login(email: tEmail, password: tPassword);
+
+        final failure = result.fold((f) => f, (_) => null);
+        expect(failure, isA<AuthFailure>());
+        expect(describeLoginFailure(failure!).kind, LoginFailureKind.connection);
+      },
+    );
+
+    test(
+      'el 403 de límite de dispositivos llega con su código y el mensaje del servidor',
+      () async {
+        const msg = 'Has alcanzado el límite de 3 dispositivo(s) permitido(s) en tu Plan Premium.';
+        when(() => mockRemoteDataSource.login(any())).thenThrow(
+          const ServerException(msg, statusCode: 403),
+        );
+
+        final result = await repository.login(email: tEmail, password: tPassword);
+
+        final failure = result.fold((f) => f, (_) => null)!;
+        expect(failure.code, 403);
+        final view = describeLoginFailure(failure);
+        expect(view.kind, LoginFailureKind.deviceLimit);
+        expect(view.message, msg);
       },
     );
   });

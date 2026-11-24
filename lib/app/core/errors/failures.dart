@@ -80,6 +80,20 @@ class CacheFailure extends Failure {
   static const readError = CacheFailure('Error al leer del cache');
 }
 
+/// El servidor aceptó el inicio de sesión, pero este equipo no pudo guardar
+/// la sesión (almacén seguro del sistema). No es un problema de credenciales.
+class LocalSessionSaveFailure extends CacheFailure {
+  const LocalSessionSaveFailure(this.detail)
+      : super('El servidor aceptó el inicio de sesión, pero este equipo no '
+            'pudo guardar la sesión.');
+
+  /// Excepción original, para soporte.
+  final String detail;
+
+  @override
+  List<Object?> get props => [message, code, detail];
+}
+
 /// Fallo de validación - Datos inválidos
 /// Una regla del negocio impide la operación (por ejemplo, borrar un producto
 /// con existencias). El mensaje ya está escrito para mostrárselo al usuario.
@@ -109,13 +123,17 @@ class ValidationFailure extends Failure {
 class AuthFailure extends Failure {
   final String? errorCode;
 
+  /// Detalle técnico para soporte (por ejemplo, por qué no hubo conexión).
+  final String? detail;
+
   const AuthFailure({
     String message = 'Error de autenticación',
     this.errorCode,
+    this.detail,
   }) : super(message);
 
   @override
-  List<Object?> get props => [message, errorCode];
+  List<Object?> get props => [message, errorCode, detail];
 
   static const invalidCredentials = AuthFailure(message: 'Credenciales inválidas', errorCode: 'INVALID_CREDENTIALS');
   static const tokenExpired = AuthFailure(message: 'Sesión expirada', errorCode: 'TOKEN_EXPIRED');
