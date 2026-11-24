@@ -1,4 +1,5 @@
 // lib/features/auth/presentation/screens/login_screen.dart
+import '../../../../app/core/utils/app_version.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -251,6 +252,8 @@ class LoginScreen extends GetView<AuthController> {
             textAlign: TextAlign.center,
           ),
         ],
+        const SizedBox(height: 6),
+        const AppVersionLabel(),
       ],
     );
   }
