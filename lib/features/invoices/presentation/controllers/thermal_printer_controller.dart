@@ -3,6 +3,7 @@ import 'package:image/image.dart' as img;
 import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 
 // lib/features/invoices/presentation/controllers/thermal_printer_controller.dart
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -18,6 +19,12 @@ import '../../domain/entities/invoice.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/printing/receipt_escpos.dart';
 import '../../../../app/core/printing/receipt_line.dart';
+import '../../../../app/core/printing/buffered_escpos_printer.dart';
+import '../../../../app/core/printing/keyed_async_cache.dart';
+import '../../../../app/core/printing/network_raw_sender.dart';
+import '../../../../app/core/printing/print_job_queue.dart';
+import '../../../../app/core/printing/windows_raw_printer.dart';
+import '../../domain/invoice_entry_metrics.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/app_data_location.dart';
 import '../../../settings/presentation/controllers/settings_controller.dart';
@@ -128,10 +135,24 @@ class ThermalPrinterController extends GetxController {
 
   // ==================== CACHE DE OPTIMIZACIÓN ====================
 
-  // Cache del logo procesado para evitar cargarlo cada vez
-  img.Image? _cachedLogo;
-  DateTime? _logoLoadTime;
-  static const Duration _logoCacheExpiry = Duration(hours: 1);
+  // Logo ya decodificado y reducido. Se vuelve a preparar solo cuando
+  // cambia el archivo (otra fecha o tamaño) o la dirección del logo; si no
+  // se pudo preparar, no se reintenta en cada tiquete.
+  final KeyedAsyncCache<img.Image> _logoCache = KeyedAsyncCache<img.Image>();
+
+  // Logo ya convertido a bytes de impresora (se hacía en cada tiquete).
+  img.Image? _rasterSource;
+  List<int>? _rasterBytes;
+
+  // Los tiquetes salen en fila, sin rechazar el siguiente ni hacer esperar
+  // a quien factura.
+  late final PrintJobQueue _printQueue = PrintJobQueue(
+    onPendingChanged: (pending) => _isPrinting.value = pending > 0,
+  );
+
+  // Medición del trabajo que está saliendo (la fila es de uno en uno).
+  String _jobKind = 'Sin impresora';
+  double _jobBuildMs = 0;
 
   // Cache de datos de organización para impresión rápida
   Organization? _cachedOrganization;
@@ -164,7 +185,8 @@ class ThermalPrinterController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadOrganizationData();
+    // El logo se deja listo desde ya, para que el primer tiquete no lo espere.
+    _loadOrganizationData().then((_) => _warmUpLogo());
     _initializeSettingsController();
     _initializePrinter();
   }
@@ -191,6 +213,32 @@ class ThermalPrinterController extends GetxController {
     } catch (e) {
       // Silencioso - usará fallbacks en los métodos de impresión
     }
+  }
+
+  Future<void> _warmUpLogo() async {
+    try {
+      final logo = await _loadLogoImage();
+      if (logo != null) _logoRasterBytes(logo);
+    } catch (_) {}
+  }
+
+  /// Toma la impresora predeterminada y los datos del negocio que están en
+  /// memoria en este momento, para que un cambio en Configuración se vea en
+  /// el siguiente tiquete sin reiniciar la app. No lee disco ni red.
+  void _refreshPrintContext() {
+    try {
+      _settingsController ??= Get.isRegistered<SettingsController>()
+          ? Get.find<SettingsController>()
+          : null;
+      final current = _settingsController?.defaultPrinter;
+      if (current != null) _currentPrinterConfig.value = current;
+    } catch (_) {}
+    try {
+      if (Get.isRegistered<OrganizationController>()) {
+        final org = Get.find<OrganizationController>().currentOrganization;
+        if (org != null) _cachedOrganization = org;
+      }
+    } catch (_) {}
   }
 
   // ✅ NUEVA FUNCIÓN: Configurar impresora temporal para pruebas
@@ -431,15 +479,17 @@ class ThermalPrinterController extends GetxController {
   /// Imprime un recibo genérico (caja, arqueos…) en la impresora configurada,
   /// por USB o por red. Quien llama arma las líneas; aquí solo se imprime.
   /// Devuelve `false` y deja el motivo en [lastError] si no se pudo.
-  Future<bool> printReceiptLines(String label, List<ReceiptLine> lines) async {
-    if (_isPrinting.value) {
-      _lastError.value = 'Ya hay una impresión en curso';
-      return false;
-    }
+  Future<bool> printReceiptLines(String label, List<ReceiptLine> lines) =>
+      _printQueue.add(() => _printReceiptLinesNow(label, lines));
+
+  Future<bool> _printReceiptLinesNow(
+    String label,
+    List<ReceiptLine> lines,
+  ) async {
     try {
-      _isPrinting.value = true;
       _lastError.value = null;
 
+      _refreshPrintContext();
       if (_currentPrinterConfig.value == null) await _loadDefaultPrinterConfig();
       final config = _currentPrinterConfig.value;
       final is58 = config?.paperSize == settings.PaperSize.mm58;
@@ -466,8 +516,6 @@ class ThermalPrinterController extends GetxController {
       _lastError.value = e.toString();
       _addToPrintHistory(null, false, e.toString(), label);
       return false;
-    } finally {
-      _isPrinting.value = false;
     }
   }
 
@@ -505,25 +553,15 @@ class ThermalPrinterController extends GetxController {
       port = _networkPrinters.first.port;
     }
 
-    final printer = NetworkPrinter(paperSize, profile);
-    final result = await printer.connect(ip, port: port).timeout(
-          const Duration(seconds: 15),
-          onTimeout: () => PosPrintResult.timeout,
-        );
-    if (result != PosPrintResult.success) {
-      _lastError.value = result == PosPrintResult.timeout
-          ? 'La impresora no responde en $ip:$port'
-          : 'No se pudo conectar con la impresora en $ip:$port (${result.msg})';
-      return false;
-    }
+    // Mismos bytes que mandaba `NetworkPrinter` (reset al conectar + el
+    // recibo), en una sola conexión y sin pausa fija.
+    final buffer = BufferedEscPosPrinter(paperSize, profile)..rawBytes(bytes);
     try {
-      printer.rawBytes(bytes);
-      await Future.delayed(const Duration(milliseconds: 300));
+      await sendBytesToNetworkPrinter(ip, port, buffer.bytes);
       return true;
-    } finally {
-      try {
-        printer.disconnect();
-      } catch (_) {}
+    } on NetworkPrinterException catch (e) {
+      _lastError.value = e.message;
+      return false;
     }
   }
 
@@ -577,20 +615,35 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
-  Future<bool> printInvoice(Invoice invoice) async {
-    if (_isPrinting.value) {
-      _showError(
-        'Impresión en curso',
-        'Ya hay una impresión en curso, espere a que termine',
+  /// Manda la factura a la fila de impresión. No rechaza si ya hay un
+  /// tiquete saliendo: este sale apenas termine el anterior. El resultado
+  /// llega cuando el tiquete quedó enviado a la impresora (o falló).
+  Future<bool> printInvoice(Invoice invoice) {
+    final requested = Stopwatch()..start();
+    return _printQueue.add(() => _printInvoiceNow(invoice, requested));
+  }
+
+  Future<bool> _printInvoiceNow(Invoice invoice, Stopwatch requested) async {
+    _jobKind = 'Sin impresora';
+    _jobBuildMs = 0;
+    var recorded = false;
+    void record(bool ok) {
+      if (recorded) return;
+      recorded = true;
+      InvoiceEntryMetrics.instance.recordPrint(
+        _jobKind,
+        requested.elapsedMicroseconds / 1000,
+        buildMs: _jobBuildMs,
+        ok: ok,
       );
-      return false;
     }
 
     try {
-      _isPrinting.value = true;
       _lastError.value = null;
 
-      // Asegurar datos de organización cargados
+      // Impresora y datos del negocio vigentes (por si cambiaron en
+      // Configuración); solo se lee de disco si no hay nada en memoria.
+      _refreshPrintContext();
       if (_cachedOrganization == null) await _loadOrganizationData();
 
       final printerConfig = _currentPrinterConfig.value;
@@ -615,6 +668,8 @@ class ThermalPrinterController extends GetxController {
         success = false;
       }
 
+      record(success);
+
       if (success) {
         _addToPrintHistory(invoice, true);
         //_showSuccess('Factura impresa exitosamente');
@@ -628,12 +683,11 @@ class ThermalPrinterController extends GetxController {
 
       return success;
     } catch (e) {
+      record(false);
       _lastError.value = e.toString();
       _addToPrintHistory(invoice, false, e.toString());
       _showError('Error inesperado', e.toString());
       return false;
-    } finally {
-      _isPrinting.value = false;
     }
   }
 
@@ -650,14 +704,19 @@ class ThermalPrinterController extends GetxController {
       }
 
       // Generar bytes ESC/POS de la factura
+      final build = Stopwatch()..start();
       final bytes = await _generateInvoiceEscPosBytes(invoice);
+      _jobBuildMs = build.elapsedMicroseconds / 1000;
 
       // Enviar bytes a la impresora USB según plataforma
       if (Platform.isWindows) {
+        _jobKind = 'USB Windows';
         return await _printToUSBWindows(usbPath, bytes);
       } else if (Platform.isLinux) {
+        _jobKind = 'USB Linux';
         return await _printToUSBLinux(usbPath, bytes);
       } else if (Platform.isMacOS) {
+        _jobKind = 'USB macOS';
         return await _printToUSBMacOS(usbPath, bytes);
       }
 
@@ -667,6 +726,17 @@ class ThermalPrinterController extends GetxController {
       _lastError.value = 'USB: $e';
       return false;
     }
+  }
+
+  /// Bytes de impresora del logo. Convertir la imagen punto por punto se
+  /// hace una sola vez por logo, no en cada tiquete.
+  List<int> _logoRasterBytes(img.Image image) {
+    final cached = _rasterBytes;
+    if (cached != null && identical(_rasterSource, image)) return cached;
+    final bytes = _generateImageRasterBytes(image);
+    _rasterSource = image;
+    _rasterBytes = bytes;
+    return bytes;
   }
 
   /// Genera bytes de raster ESC/POS para una imagen (logo)
@@ -741,7 +811,7 @@ class ThermalPrinterController extends GetxController {
       if (hasLogo) {
         final logo = await _loadLogoImage();
         if (logo != null) {
-          bytes.addAll(_generateImageRasterBytes(logo));
+          bytes.addAll(_logoRasterBytes(logo));
           bytes.addAll(gen.feed(1));
           logoImpreso = true;
         }
@@ -1166,6 +1236,22 @@ class ThermalPrinterController extends GetxController {
   }
 
   Future<bool> _printToUSBWindows(String usbPath, Uint8List data) async {
+    // Camino normal: directo a la cola de impresión de Windows, sin abrir
+    // PowerShell (que tardaba segundos por tiquete).
+    String nativeFailure;
+    try {
+      await sendRawToWindowsPrinter(usbPath, data);
+      _jobKind = 'USB Windows (directo)';
+      return true;
+    } on WindowsRawPrintException catch (e) {
+      nativeFailure = 'código ${e.code}';
+    } catch (e) {
+      nativeFailure = e.runtimeType.toString();
+    }
+    // Respaldo: el camino anterior, por si este equipo no acepta el directo.
+    // Queda anotado en el reporte de diagnóstico para saberlo.
+    _jobKind = 'USB Windows (PowerShell; el directo falló: $nativeFailure)';
+
     try {
 
       // Crear archivo temporal con los datos binarios RAW
@@ -1468,15 +1554,18 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     }
   }
 
-  // ✅ NUEVA FUNCIÓN: Envío con configuración específica
+  // Envío con la impresora de red configurada: el tiquete se arma completo
+  // en memoria (mismos bytes que antes) y sale en una sola conexión, sin las
+  // pausas fijas que había entre bloques (50 + 100 + 200 ms).
   Future<bool> _sendToPrinterWithConfig(
     NetworkPrinterInfo printerInfo,
     Invoice invoice,
     settings.PrinterSettings config,
   ) async {
-    NetworkPrinter? printer;
-
+    _jobKind = 'Red';
+    final Uint8List bytes;
     try {
+      final build = Stopwatch()..start();
       final profile = await esc_pos.CapabilityProfile.load();
 
       // Usar el tamaño de papel configurado
@@ -1485,48 +1574,29 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         paperSize = esc_pos.PaperSize.mm58;
       }
 
-      printer = NetworkPrinter(paperSize, profile);
+      final buffer = BufferedEscPosPrinter(paperSize, profile);
+      await _generatePrintContentWithConfig(buffer, invoice, config);
 
-      final result = await printer.connect(
-        printerInfo.ip,
-        port: printerInfo.port,
-      );
-
-      if (result != PosPrintResult.success) {
-        _lastError.value = 'Error de conexión: ${result.msg}';
-        return false;
+      // Enviar comandos de corte si está habilitado
+      if (config.autoCut) {
+        buffer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
       }
+      bytes = buffer.bytes;
+      _jobBuildMs = build.elapsedMicroseconds / 1000;
+    } catch (contentError) {
+      _lastError.value = 'Error en contenido: $contentError';
+      return false;
+    }
 
-      _isConnected.value = true;
-
-      // ⚡ GENERACIÓN Y ENVÍO CONTINUO
-      try {
-        // Generar contenido de impresión con configuración
-        await _generatePrintContentWithConfig(printer, invoice, config);
-
-        // ⚡ SOLO UN DELAY FINAL MÍNIMO ANTES DEL CORTE
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        // Enviar comandos de corte si está habilitado
-        if (config.autoCut) {
-          printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
-        }
-
-        return true;
-      } catch (contentError) {
-        _lastError.value = 'Error en contenido: $contentError';
-        return false;
-      }
+    try {
+      await sendBytesToNetworkPrinter(printerInfo.ip, printerInfo.port, bytes);
+      return true;
+    } on NetworkPrinterException catch (e) {
+      _lastError.value = 'Error de conexión: ${e.message}';
+      return false;
     } catch (e) {
       _lastError.value = e.toString();
       return false;
-    } finally {
-      if (printer != null) {
-        // ⚡ DELAY MÍNIMO ANTES DE DESCONECTAR
-        await Future.delayed(const Duration(milliseconds: 200));
-        printer.disconnect();
-        _isConnected.value = false;
-      }
     }
   }
 
@@ -1581,9 +1651,6 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
       // Inicializar impresora con comandos específicos SAT
       printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
 
-      // ⚡ SOLO UN DELAY INICIAL MÍNIMO PARA INICIALIZACIÓN
-      await Future.delayed(const Duration(milliseconds: 50));
-
       // Header de empresa
       await _printBusinessHeader(printer);
 
@@ -1610,92 +1677,97 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
     }
   }
 
-  /// Cargar logo desde archivo local (guardado en configuración de organización)
+  /// De dónde sale el logo ahora mismo. Si el negocio sube otro logo, el
+  /// archivo cambia de fecha o tamaño y la llave cambia.
+  Future<(String, File?)?> _logoSource() async {
+    final orgId = _cachedOrganization?.id;
+    if (orgId == null) return null;
+    final logoFile = await AppDataLocation.orgLogoFile(orgId);
+    if (logoFile != null) {
+      final stat = await logoFile.stat();
+      return (
+        'archivo:${logoFile.path}:${stat.modified.millisecondsSinceEpoch}:${stat.size}',
+        logoFile,
+      );
+    }
+    final logoUrl = _cachedOrganization?.logo;
+    if (logoUrl == null || !logoUrl.startsWith('http')) return null;
+    return ('url:$logoUrl', null);
+  }
+
+  /// Logo del tiquete, listo para imprimir. Se decodifica y reduce una vez
+  /// por logo (no cada hora ni en cada tiquete); si hay que bajarlo y no
+  /// hay internet, no se reintenta en cada tiquete.
   /// Usa dart:ui para decodificar cualquier formato (AVIF, HEIF, WebP, PNG, JPG, etc.)
   Future<img.Image?> _loadLogoImage() async {
     try {
-      // Cache válido → retornar inmediatamente
-      if (_cachedLogo != null && _logoLoadTime != null) {
-        if (DateTime.now().difference(_logoLoadTime!) < _logoCacheExpiry) {
-          return _cachedLogo;
-        }
-      }
-
-      // 1. Buscar logo local guardado por el diálogo de organización
-      final orgId = _cachedOrganization?.id;
-      if (orgId == null) return null;
-
-      final logoFile = await AppDataLocation.orgLogoFile(orgId);
-
-      Uint8List? bytes;
-
-      if (logoFile != null) {
-        bytes = await logoFile.readAsBytes();
-      } else {
-        // 2. Fallback: intentar descargar desde URL del servidor
-        final logoUrl = _cachedOrganization?.logo;
-        if (logoUrl == null || logoUrl.isEmpty) return null;
-
-        String fullUrl = logoUrl;
-        if (!logoUrl.startsWith('http')) return null;
-
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 5);
-        final request = await client.getUrl(Uri.parse(fullUrl));
-        final response = await request.close();
-        if (response.statusCode != 200) return null;
-        bytes = await consolidateHttpClientResponseBytes(response);
-      }
-
-      if (bytes == null || bytes.isEmpty) return null;
-
-      // Paso 1: dart:ui decodifica CUALQUIER formato (AVIF, HEIF, WebP, PNG, JPG)
-      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
-
-      // Paso 2: Convertir a PNG bytes (formato universal, buffer mutable)
-      final ByteData? pngData = await frameInfo.image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-      frameInfo.image.dispose();
-
-      if (pngData == null) {
-        return null;
-      }
-
-      // Paso 3: Decodificar PNG con paquete image (crea buffer mutable)
-      final originalImage = img.decodePng(pngData.buffer.asUint8List());
-      if (originalImage == null) {
-        return null;
-      }
-
-      // Paso 4: Redimensionar
-      final resized = img.copyResize(
-        originalImage,
-        width: 300,
-        interpolation: img.Interpolation.linear,
-      );
-
-      _cachedLogo = resized;
-      _logoLoadTime = DateTime.now();
-
-      return resized;
+      final source = await _logoSource();
+      if (source == null) return null;
+      final (key, file) = source;
+      return await _logoCache.get(key, () => _decodeLogo(file));
     } catch (e) {
       return null;
     }
   }
 
-  /// Verificar si hay logo disponible (archivo local o URL de organización)
-  Future<bool> _hasLogoAvailable() async {
-    // 1. Verificar archivo local
-    final orgId = _cachedOrganization?.id;
-    if (orgId != null) {
-      if (await AppDataLocation.orgLogoFile(orgId) != null) return true;
+  Future<img.Image?> _decodeLogo(File? logoFile) async {
+    Uint8List? bytes;
+
+    if (logoFile != null) {
+      bytes = await logoFile.readAsBytes();
+    } else {
+      // Fallback: descargar desde la dirección del servidor (tope 8 s)
+      final logoUrl = _cachedOrganization?.logo;
+      if (logoUrl == null || !logoUrl.startsWith('http')) return null;
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      try {
+        bytes = await () async {
+          final request = await client.getUrl(Uri.parse(logoUrl));
+          final response = await request.close();
+          if (response.statusCode != 200) return null;
+          return consolidateHttpClientResponseBytes(response);
+        }()
+            .timeout(const Duration(seconds: 8));
+      } finally {
+        client.close(force: true);
+      }
     }
-    // 2. Verificar URL del servidor
-    final logoUrl = _cachedOrganization?.logo;
-    return logoUrl != null && logoUrl.isNotEmpty;
+
+    if (bytes == null || bytes.isEmpty) return null;
+
+    // Paso 1: dart:ui decodifica CUALQUIER formato (AVIF, HEIF, WebP, PNG, JPG)
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+    final ui.FrameInfo frameInfo = await codec.getNextFrame();
+
+    // Paso 2: Convertir a PNG bytes (formato universal, buffer mutable)
+    final ByteData? pngData = await frameInfo.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    frameInfo.image.dispose();
+
+    if (pngData == null) {
+      return null;
+    }
+
+    // Paso 3: Decodificar PNG con paquete image (crea buffer mutable)
+    final originalImage = img.decodePng(pngData.buffer.asUint8List());
+    if (originalImage == null) {
+      return null;
+    }
+
+    // Paso 4: Redimensionar
+    return img.copyResize(
+      originalImage,
+      width: 300,
+      interpolation: img.Interpolation.linear,
+    );
   }
+
+  /// ¿Hay logo que se pueda imprimir? (mismo resultado que antes en el
+  /// papel: si no se puede cargar, sale el nombre del negocio en texto).
+  Future<bool> _hasLogoAvailable() async => await _loadLogoImage() != null;
 
   Future<void> _printBusinessHeader(NetworkPrinter printer) async {
     try {
@@ -1763,7 +1835,7 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
   /// Enviar imagen directamente como raster (GS v 0) sin pasar por la librería
   void _sendImageRaw(NetworkPrinter printer, img.Image image) {
-    printer.rawBytes(Uint8List.fromList(_generateImageRasterBytes(image)));
+    printer.rawBytes(Uint8List.fromList(_logoRasterBytes(image)));
   }
 
   /// Header solo texto (fallback cuando no hay logo)

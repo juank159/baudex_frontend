@@ -144,6 +144,7 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVO: Estado de impresión
   final _isPrinting = false.obs;
+  int _printsInFlight = 0; // tiquetes en la fila de impresión
 
   // Modo de edición
   final _isEditMode = false.obs;
@@ -1836,8 +1837,10 @@ class InvoiceFormController extends GetxController {
       if (savedInvoice != null) {
         // ✅ NUEVA LÓGICA: IMPRIMIR SI SE SOLICITÓ
         if (shouldPrint) {
-
-          await _printInvoiceAutomatically(savedInvoice);
+          // El tiquete sale en segundo plano: la venta ya quedó guardada y
+          // el cajero puede seguir con la siguiente. Si la impresora falla,
+          // el aviso sale igual (lo muestra _printInvoiceAutomatically).
+          unawaited(_printInvoiceAutomatically(savedInvoice));
         }
 
         // Phase 2: refrescar Caja Registradora si está abierta. La venta
@@ -1868,6 +1871,7 @@ class InvoiceFormController extends GetxController {
   // ✅ NUEVA FUNCIÓN: IMPRESIÓN AUTOMÁTICA
   Future<void> _printInvoiceAutomatically(Invoice invoice) async {
     try {
+      _printsInFlight++;
       _isPrinting.value = true;
 
       // ✅ NUEVO: Asegurar que la configuración de impresora esté cargada
@@ -1898,22 +1902,17 @@ class InvoiceFormController extends GetxController {
 
       _showPrintError('Error inesperado al imprimir: $e');
     } finally {
-      _isPrinting.value = false;
+      _printsInFlight--;
+      _isPrinting.value = _printsInFlight > 0;
     }
   }
 
   // ✅ NUEVA FUNCIÓN: IMPRIMIR FACTURA MANUALMENTE
   Future<void> printInvoice(Invoice invoice) async {
-    if (_isPrinting.value) {
-      //_showError('Ya hay una impresión en curso');
-      _showError(
-        'Impresión en curso',
-        'Espera a que termine la impresión anterior',
-      );
-      return;
-    }
-
+    // Ya no se rechaza si hay un tiquete saliendo: la impresora lleva una
+    // fila y este sale apenas termine el anterior.
     try {
+      _printsInFlight++;
       _isPrinting.value = true;
 
       // Asegurar que la configuración de impresora esté cargada
@@ -1939,7 +1938,8 @@ class InvoiceFormController extends GetxController {
 
       _showPrintError('Error inesperado al imprimir: $e');
     } finally {
-      _isPrinting.value = false;
+      _printsInFlight--;
+      _isPrinting.value = _printsInFlight > 0;
     }
   }
 
@@ -2435,7 +2435,7 @@ class InvoiceFormController extends GetxController {
     }
 
     if (invoice != null && shouldPrint) {
-      await _printInvoiceAutomatically(invoice);
+      unawaited(_printInvoiceAutomatically(invoice));
     }
     try {
       if (Get.isRegistered<DashboardController>()) {
