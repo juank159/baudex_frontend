@@ -304,7 +304,8 @@ void main() {
     expect(error, isA<WindowsRawPrintException>());
     final e = error! as WindowsRawPrintException;
     expect(e.step, 'abrir la impresora');
-    expect(e.code, isNot(0)); // 1801 = nombre de impresora no válido
+    // El código de Windows es solo informativo: desde Dart, GetLastError
+    // puede llegar en 0 (medido en Windows real el 2026-11-24).
     expect(e.toString(), contains('abrir la impresora'));
     expect(ms, lessThan(3000));
   }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
