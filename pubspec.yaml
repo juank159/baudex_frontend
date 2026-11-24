@@ -32,6 +32,8 @@ dependencies:
   #esc_pos_utils: ^1.1.0
   esc_pos_printer_plus: ^0.1.1
   esc_pos_utils_plus: ^2.0.4
+  win32: ^5.5.0 # Cola de impresión de Windows directa (tiquete RAW sin PowerShell)
+  ffi: ^2.1.0
   pdf: ^3.10.4 # Para crear PDFs
   excel: ^4.0.6 # Para crear archivos Excel
   intl: ^0.20.2 # Para internacionalización y formateo de fechas
