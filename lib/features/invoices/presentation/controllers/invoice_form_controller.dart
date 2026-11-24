@@ -4,6 +4,8 @@ import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:isar/isar.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/local_first.dart';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
+import 'package:baudex_desktop/app/data/local/full_sync_service.dart';
 import 'package:baudex_desktop/features/customers/domain/repositories/customer_repository.dart';
 import 'package:baudex_desktop/features/products/data/models/isar/isar_product.dart';
 import 'package:baudex_desktop/features/customers/data/models/isar/isar_customer.dart';
@@ -33,6 +35,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import '../widgets/scan_code_cache.dart';
 import '../../domain/price_entry.dart' as price_entry;
+import '../../domain/invoice_entry_metrics.dart';
 import '../../data/short_code_index_keeper.dart';
 import '../../../products/data/product_code_events.dart';
 import 'package:intl/intl.dart';
@@ -1126,6 +1129,8 @@ class InvoiceFormController extends GetxController {
         isCatalogComplete: () => localCollectionReady(products),
         codeChanges: ProductCodeEvents.stream,
         collectionChanges: products.watchLazy(),
+        onLoaded: (ms) => InvoiceEntryMetrics.instance
+            .record(EntryMetric.indexLoad, ms, entryContext()),
       );
     } catch (e) {
       AppLogger.w('No se pudo preparar los códigos cortos: $e');
@@ -1141,6 +1146,68 @@ class InvoiceFormController extends GetxController {
     final keeper = _shortCodeKeeper();
     if (keeper == null) return const price_entry.PriceEntryNeedsLookup();
     return keeper.decide(value);
+  }
+
+  /// Lo que se pinta EN LA MISMA TECLA con un valor: producto registrado
+  /// con ese código corto, o "Producto sin registrar". Nunca espera a la
+  /// base, al servidor ni a la sincronización; si el índice no puede
+  /// asegurarlo (`certain: false`), la pantalla lo confirma después con
+  /// [findRegisteredProductForValue].
+  price_entry.ValueEntryGuess guessValueEntry(String value) {
+    final keeper = _shortCodeKeeper();
+    if (keeper == null) return const price_entry.ValueEntryGuess(certain: false);
+    return keeper.guess(value);
+  }
+
+  /// Producto ACTIVO del equipo cuyo SKU o código de barras es EXACTAMENTE
+  /// [value] (dos lecturas por índice). Solo la base local: no hace la
+  /// búsqueda "que contenga" ni espera al servidor, aunque el catálogo
+  /// esté bajando.
+  Future<Product?> findRegisteredProductForValue(String value) async {
+    final q = value.trim();
+    if (q.isEmpty || !Get.isRegistered<ProductOfflineRepository>()) return null;
+    try {
+      final repo = Get.find<ProductOfflineRepository>();
+      final bySku = (await repo.getProductBySku(q)).fold((_) => null, (p) => p);
+      if (bySku != null && bySku.status == ProductStatus.active) return bySku;
+      final byBarcode =
+          (await repo.getProductByBarcode(q)).fold((_) => null, (p) => p);
+      if (byBarcode != null && byBarcode.status == ProductStatus.active) {
+        return byBarcode;
+      }
+    } catch (_) {
+      // Sin base local: no hay producto que confirmar.
+    }
+    return null;
+  }
+
+  /// Estado del índice y de la sincronización ahora (lecturas en memoria),
+  /// para la medición del buscador.
+  EntryContext entryContext() {
+    final keeper = _shortCodes;
+    final index = keeper?.index;
+    var syncRunning = false;
+    var fullPending = false;
+    var queue = 0;
+    try {
+      if (Get.isRegistered<SyncService>()) {
+        final sync = Get.find<SyncService>();
+        syncRunning = sync.syncState == SyncState.syncing;
+        queue = sync.pendingOperationsCount;
+      }
+      if (Get.isRegistered<FullSyncService>()) {
+        fullPending = Get.find<FullSyncService>().hasPendingFullDownload;
+      }
+    } catch (_) {}
+    return EntryContext(
+      indexLoaded: index != null,
+      indexComplete: index?.complete ?? false,
+      indexStale: keeper?.isStale ?? false,
+      indexSize: index?.length ?? 0,
+      syncRunning: syncRunning,
+      fullDownloadPending: fullPending,
+      queueSize: queue,
+    );
   }
 
   /// Carga (o rehace) el índice de códigos cortos en segundo plano.

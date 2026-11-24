@@ -1,0 +1,80 @@
+import 'package:baudex_desktop/features/invoices/domain/invoice_entry_metrics.dart';
+import 'package:baudex_desktop/features/invoices/domain/price_entry.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('guessValueEntry (lo que se pinta en la misma tecla)', () {
+    final index = ShortCodeIndex.build([('5000', 7)], complete: true);
+
+    test('índice completo y al día: seguro', () {
+      final g = guessValueEntry('3500', index);
+      expect(g.existingLocalId, isNull);
+      expect(g.certain, isTrue);
+    });
+
+    test('producto con ese código corto gana', () {
+      expect(guessValueEntry('5000', index).existingLocalId, 7);
+      expect(guessValueEntry('5000', index, stale: true).existingLocalId, 7);
+    });
+
+    test('sin índice, incompleto o pendiente: se pinta igual, por confirmar', () {
+      for (final g in [
+        guessValueEntry('3500', null),
+        guessValueEntry('3500', ShortCodeIndex.build(const [], complete: false)),
+        guessValueEntry('3500', index, stale: true),
+      ]) {
+        expect(g.existingLocalId, isNull);
+        expect(g.certain, isFalse);
+      }
+    });
+  });
+
+  group('InvoiceEntryMetrics', () {
+    test('resume normal, 95 % y peor; guarda solo las últimas', () {
+      final m = InvoiceEntryMetrics(capacity: 100);
+      for (var i = 1; i <= 150; i++) {
+        m.record(EntryMetric.keyToOption, i.toDouble());
+      }
+      final s = m.summary(EntryMetric.keyToOption)!;
+      expect(s.count, 150, reason: 'el total cuenta todas');
+      expect(s.maxMs, 150);
+      expect(s.lastMs, 150);
+      expect(s.medianMs, closeTo(100, 1), reason: 'de las últimas 100 (51..150)');
+      expect(m.summary(EntryMetric.enterToDialog), isNull);
+    });
+
+    test('el reporte dice el estado del índice y la sincronización en las lentas', () {
+      final m = InvoiceEntryMetrics(now: () => DateTime(2026, 11, 23, 10));
+      m.valueKeysUnconfirmed = 3;
+      m.record(EntryMetric.keyToOption, 4);
+      m.record(
+        EntryMetric.enterToDialog,
+        850,
+        const EntryContext(
+          indexLoaded: true,
+          indexComplete: false,
+          indexSize: 12,
+          syncRunning: true,
+          fullDownloadPending: true,
+          queueSize: 41,
+        ),
+      );
+      m.recordFrame(16);
+      m.recordFrame(320);
+      final text = m.report();
+      expect(text, contains('por confirmar: 3'));
+      expect(text, contains('Enter → diálogo del nombre: 1 veces'));
+      expect(text, contains('índice INCOMPLETO (12)'));
+      expect(text, contains('sync corriendo'));
+      expect(text, contains('descarga completa pendiente'));
+      expect(text, contains('cola 41'));
+      expect(text, contains('de más de 200 ms: 1'));
+      expect(text, contains('peor: 320 ms'));
+    });
+
+    test('sin muestras lo dice claro', () {
+      expect(InvoiceEntryMetrics().report(),
+          contains('todavía no se ha facturado'));
+    });
+  });
+}

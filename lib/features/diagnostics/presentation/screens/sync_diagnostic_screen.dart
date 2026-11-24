@@ -1,4 +1,5 @@
 // lib/features/diagnostics/presentation/screens/sync_diagnostic_screen.dart
+import '../../../../app/core/utils/app_version.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -45,6 +46,10 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
                     vertical: 16,
                   ),
                   children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: AppVersionLabel(textAlign: TextAlign.right),
+                    ),
                     _HealthScoreSection(isNarrow: isNarrow),
                     const SizedBox(height: 16),
                     _IssuesListSection(isNarrow: isNarrow),

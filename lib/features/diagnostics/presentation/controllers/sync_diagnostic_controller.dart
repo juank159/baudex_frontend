@@ -1,4 +1,8 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
+import 'dart:io' show Platform;
+
+import '../../../../app/core/utils/app_version.dart';
+import '../../../invoices/domain/invoice_entry_metrics.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -186,6 +190,7 @@ class SyncDiagnosticController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    unawaited(AppVersion.load());
     if (background) return;
     refreshAll();
     // Mientras la pantalla está abierta, el estado de la descarga se
@@ -360,6 +365,10 @@ class SyncDiagnosticController extends GetxController {
     final buffer = StringBuffer();
     buffer.writeln('=== Reporte de diagnóstico Baudex ===');
     buffer.writeln('Generado: ${DateTime.now().toUtc().toIso8601String()}');
+    buffer.writeln('Versión de la app: ${AppVersion.label ?? "desconocida"}');
+    buffer.writeln('Sistema: ${Platform.operatingSystem} '
+        '${Platform.operatingSystemVersion}, '
+        '${Platform.numberOfProcessors} núcleos');
     buffer.writeln('Conectividad: ${isOnline.value ? "ONLINE" : "OFFLINE"}');
     buffer.writeln('Operaciones en cola: ${pendingQueueOps.value}');
     buffer.writeln('  - pending:    ${pendingBreakdown.value.pending}');
@@ -384,7 +393,9 @@ class SyncDiagnosticController extends GetxController {
       buffer.writeln('  ${sp.name} (${sp.sku}) — stock local: ${sp.localStock} — bloqueado: ${sp.stuckDuration}');
     }
     buffer.writeln();
-    buffer.writeln('Eventos recientes (últimos ${recentEvents.length}):');
+buffer.write(InvoiceEntryMetrics.instance.report());
+    buffer.writeln();
+        buffer.writeln('Eventos recientes (últimos ${recentEvents.length}):');
     for (final ev in recentEvents) {
       buffer.writeln(
         '  [${ev.timestamp.toIso8601String()}] '

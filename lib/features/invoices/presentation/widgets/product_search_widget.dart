@@ -18,6 +18,8 @@ import '../../../products/domain/entities/tax_enums.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../../domain/price_entry.dart';
+import '../../domain/invoice_entry_metrics.dart';
+import '../../../../app/core/utils/frame_timings_probe.dart';
 import 'barcode_scan_queue.dart';
 import 'scanner_focus.dart';
 
@@ -60,6 +62,20 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   // de una más nueva, su resultado se descarta y no tapa al nuevo.
   int _searchSeq = 0;
 
+  // Confirmación en segundo plano de un valor cuando el índice de códigos
+  // no puede asegurarlo (sin cargar, catálogo bajando o sincronización
+  // escribiendo): la opción ya está pintada; esto solo la cambia por el
+  // producto si resulta que existe uno con ese código.
+  Timer? _valueCheckTimer;
+  String? _valueCheckQuery;
+  Future<Product?>? _valueCheckFuture;
+  static const Duration _valueCheckDelay = Duration(milliseconds: 80);
+
+  /// Tope de espera del Enter por esa confirmación (lecturas por índice).
+  static const Duration _enterCheckTimeout = Duration(milliseconds: 250);
+
+  InvoiceEntryMetrics get _metrics => InvoiceEntryMetrics.instance;
+
   // Escaneos (Enter del lector): se buscan de una vez y en orden.
   late final BarcodeScanQueue _scanQueue;
 
@@ -86,6 +102,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     _focusNode.addListener(_onFocusChanged);
 
     _initializeAudioService();
+    ensureFrameTimingsProbe();
 
     // Auto focus al abrir la pantalla — un solo intento, sin timer continuo.
     if (widget.autoFocus) {
@@ -141,6 +158,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
   void dispose() {
     try {
       _debounceTimer?.cancel();
+      _valueCheckTimer?.cancel();
       _scanQueue.dispose();
 
       _searchController.removeListener(_onSearchChanged);
@@ -839,6 +857,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
 
     if (query.isEmpty) {
       _searchSeq++;
+      _forgetValueCheck();
       setState(() {
         _searchResults.clear();
         _showResults = false;
@@ -856,19 +875,11 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
       });
     }
 
-      // Valor (≤7 dígitos) sin producto con ese código: la opción "Producto
-      // sin registrar" sale en el acto con el valor que va escrito, sin
-      // esperar a que se deje de tipear (es una consulta en memoria).
-      if (_isUnregisteredProductQuery(query) &&
-          widget.controller.decideValueEntry(query) is AddUnregisteredProduct) {
-        _searchSeq++;
-        _lastSearchTerm = query;
-        setState(() {
-          _searchResults.clear();
-          _showResults = true;
-          _isSearching = false;
-          _selectedResultIndex = -1;
-        });
+      // Valor (≤7 dígitos): se pinta EN ESTA MISMA TECLA, sin pausa de
+      // tecleo y sin depender de la base, del servidor ni de la
+      // sincronización.
+      if (_isUnregisteredProductQuery(query)) {
+        _showValueNow(query);
         return;
       }
 
@@ -884,6 +895,11 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
   }
 
   Future<void> _performSearch(String query) async {
+    // Un valor nunca pasa por aquí (ni pausa ni base): ver [_showValueNow].
+    if (_isUnregisteredProductQuery(query)) {
+      _showValueNow(query);
+      return;
+    }
     // Evitar búsquedas repetidas
     if (query == _lastSearchTerm) return;
     _lastSearchTerm = query;
@@ -901,21 +917,8 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
 
     // Do NOT block on isLoadingProducts — ISAR is always ready regardless of remote refresh
 
-    // Valor (≤7 dígitos) sin producto con ese código: la opción "Producto
-    // sin registrar" sale de una vez, sin consultar la base.
-    if (_isUnregisteredProductQuery(query) &&
-        widget.controller.decideValueEntry(query) is AddUnregisteredProduct) {
-      _searchSeq++;
-      setState(() {
-        _searchResults.clear();
-        _showResults = true;
-        _isSearching = false;
-        _selectedResultIndex = -1;
-      });
-      return;
-    }
-
     final seq = ++_searchSeq;
+    final searchWatch = Stopwatch()..start();
     setState(() {
       _isSearching = true;
     });
@@ -923,27 +926,23 @@ AppLogger.w('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
     try {
       List<Product> results = [];
       
-      // Verificar si el query es un código de barras (>7 dígitos) o precio (≤7 dígitos)
       final isBarcode = _isBarcodeQuery(query);
-      final isUnregisteredProduct = _isUnregisteredProductQuery(query);
-      
+
       if (isBarcode) {
         // Código de barras (>7 dígitos) escrito sin Enter: búsqueda exacta
         // en el equipo (y, si no, la general de siempre). Si aparece se
         // agrega abajo de una vez (antes esperaba 500 ms más).
         final product = await widget.controller.findProductByBarcode(query);
         if (product != null) results.add(product);
-      } else if (isUnregisteredProduct) {
-        // Número ≤7 dígitos = entrada de precio / producto sin registrar.
-        // SOLO buscamos por SKU exacto. NO lanzamos búsqueda de texto porque
-        // eso retorna productos cuyo nombre contiene el número ("Bolsa 7000")
-        // y llena _searchResults, ocultando la opción "Producto sin registrar".
-        final skuMatch = await _productForValue(query);
-        if (skuMatch != null) results.add(skuMatch);
       } else {
         // Búsqueda de texto normal (nombre, SKU parcial, etc.)
         final searchResults = await widget.controller.searchProducts(query);
         results.addAll(searchResults);
+        _metrics.record(
+          EntryMetric.textSearch,
+          searchWatch.elapsedMicroseconds / 1000,
+          widget.controller.entryContext(),
+        );
       }
 
       // Eliminar duplicados y limitar resultados
@@ -1007,17 +1006,6 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
           _ensureSearchFieldFocus();
         }
       }
-    }
-  }
-
-  Future<Product?> _searchBySku(String sku) async {
-    try {
-      // Coincidencia exacta en la base local (instantáneo); si el catálogo
-      // aún está bajando, el controlador hace la búsqueda completa de siempre.
-      return await widget.controller.findProductBySku(sku);
-    } catch (e) {
-AppLogger.e('❌ Error en búsqueda por SKU: $e');
-      return null;
     }
   }
 
@@ -1094,47 +1082,159 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
     _autoSelectBarcodeText();
   }
 
-  /// Producto registrado con ese código corto (SKU o código de barras), o
-  /// `null` si no hay. Usa el índice en memoria; solo consulta la base si el
-  /// índice no sabe (catálogo bajando por primera vez).
-  Future<Product?> _productForValue(String q) async {
-    final decision = widget.controller.decideValueEntry(q);
-    if (decision is AddUnregisteredProduct) return null;
-    if (decision is AddExistingProduct) {
-      final product = await widget.controller.productByLocalId(decision.localId);
-      if (product != null) return product;
+  /// Tecla con un valor ("5", "50", "500"…). Todo lo que se pinta sale de
+  /// la memoria, en este mismo cuadro:
+  /// - el índice no conoce un producto con ese código → "Producto sin
+  ///   registrar" de una vez. Si el índice no puede asegurarlo (sin cargar,
+  ///   catálogo bajando, sincronización escribiendo), se confirma después
+  ///   en segundo plano y, solo si aparece un producto, se cambia la opción
+  ///   por ese producto;
+  /// - el índice conoce un producto con ese código → se trae ese producto
+  ///   por su id (una lectura) y se muestra: el registrado gana.
+  void _showValueNow(String query) {
+    final watch = Stopwatch()..start();
+    _debounceTimer?.cancel();
+    final guess = widget.controller.guessValueEntry(query);
+    final context = widget.controller.entryContext();
+    final seq = ++_searchSeq;
+    _lastSearchTerm = query;
+    if (_valueCheckQuery != query) _forgetValueCheck();
+
+    final localId = guess.existingLocalId;
+    if (localId != null) {
+      setState(() {
+        _searchResults.clear();
+        _showResults = true;
+        _isSearching = true;
+        _selectedResultIndex = -1;
+      });
+      unawaited(_showRegisteredForValue(query, seq, localId));
+      return;
     }
-    final bySku = await _searchBySku(q);
-    if (bySku != null) return bySku;
-    // Código de barras corto registrado (solo coincidencia exacta).
+
+    if (guess.certain) {
+      _metrics.valueKeysCertain++;
+    } else {
+      _metrics.valueKeysUnconfirmed++;
+    }
+    setState(() {
+      _searchResults.clear();
+      _showResults = true;
+      _isSearching = false;
+      _selectedResultIndex = -1;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _metrics.record(
+        EntryMetric.keyToOption,
+        watch.elapsedMicroseconds / 1000,
+        context,
+      );
+    });
+    if (!guess.certain) {
+      _valueCheckTimer?.cancel();
+      _valueCheckTimer = Timer(_valueCheckDelay, () {
+        if (mounted && _searchController.text.trim() == query) {
+          unawaited(_checkValue(query));
+        }
+      });
+    }
+  }
+
+  /// El índice dice que hay un producto con ese código corto.
+  Future<void> _showRegisteredForValue(String query, int seq, int localId) async {
+    Product? product;
     try {
-      final byBarcode = await widget.controller.findProductByBarcode(q);
-      if (byBarcode?.barcode?.trim().toLowerCase() == q.trim().toLowerCase()) {
-        return byBarcode;
-      }
+      product = await widget.controller.productByLocalId(localId);
+      // Ya no está (borrado o inactivo): lo que diga la base.
+      product ??= await _checkValue(query);
     } catch (_) {}
-    return null;
+    if (!mounted || seq != _searchSeq) return;
+    setState(() {
+      _searchResults.clear();
+      if (product != null) _searchResults.add(product);
+      _showResults = true;
+      _isSearching = false;
+      _selectedResultIndex = product != null ? 0 : -1;
+    });
+  }
+
+  void _forgetValueCheck() {
+    _valueCheckTimer?.cancel();
+    _valueCheckQuery = null;
+    _valueCheckFuture = null;
+  }
+
+  /// Confirma en la base local (dos lecturas exactas por índice, sin
+  /// servidor) si existe un producto activo con ese código. Una sola
+  /// consulta por valor: el Enter reutiliza la que ya va en curso. Si
+  /// aparece y el valor sigue escrito, reemplaza la opción por el producto.
+  Future<Product?> _checkValue(String query) {
+    if (_valueCheckQuery == query && _valueCheckFuture != null) {
+      return _valueCheckFuture!;
+    }
+    _valueCheckTimer?.cancel();
+    _valueCheckQuery = query;
+    final watch = Stopwatch()..start();
+    final context = widget.controller.entryContext();
+    return _valueCheckFuture = () async {
+      Product? product;
+      try {
+        product = await widget.controller.findRegisteredProductForValue(query);
+      } catch (_) {}
+      _metrics.record(
+        EntryMetric.backgroundCheck,
+        watch.elapsedMicroseconds / 1000,
+        context,
+      );
+      if (product != null &&
+          mounted &&
+          _lastSearchTerm == query &&
+          _searchController.text.trim() == query &&
+          !_isSearching) {
+        setState(() {
+          _searchResults
+            ..clear()
+            ..add(product!);
+          _showResults = true;
+          _selectedResultIndex = 0;
+        });
+      }
+      return product;
+    }();
   }
 
   /// Enter con un valor (≤7 dígitos): si existe un producto con ese código
   /// se agrega ese; si no, se abre el diálogo del nombre (como siempre):
   /// Enter otra vez lo agrega como "Producto sin registrar".
+  ///
+  /// Con el índice seguro no espera nada. Si no lo está, espera como mucho
+  /// [_enterCheckTimeout] a la confirmación local (que normalmente ya
+  /// terminó mientras se tecleaba); nunca al servidor.
   Future<void> _resolvePriceEnter(String q) async {
+    final watch = Stopwatch()..start();
     _debounceTimer?.cancel();
     final seq = ++_searchSeq;
-    final decision = widget.controller.decideValueEntry(q);
-    if (decision is AddUnregisteredProduct) {
-      _createUnregisteredProduct(decision.price);
+    final guess = widget.controller.guessValueEntry(q);
+    final localId = guess.existingLocalId;
+    if (localId == null && guess.certain) {
+      _createUnregisteredProduct(priceFromEntry(q), since: watch);
       return;
     }
-    final match = await _productForValue(q);
+    Product? match;
+    try {
+      if (localId != null) {
+        match = await widget.controller.productByLocalId(localId);
+      }
+      match ??= await _checkValue(q)
+          .timeout(_enterCheckTimeout, onTimeout: () => null);
+    } catch (_) {}
     if (!mounted || seq != _searchSeq || _searchController.text.trim() != q) {
       return;
     }
     if (match != null) {
       _selectProduct(match);
     } else {
-      _createUnregisteredProduct(priceFromEntry(q));
+      _createUnregisteredProduct(priceFromEntry(q), since: watch);
     }
   }
 
@@ -1146,11 +1246,22 @@ AppLogger.e('❌ Error en búsqueda por SKU: $e');
   bool _isUnregisteredProductQuery(String value) =>
       classifySearchEntry(value) == SearchEntryKind.price;
 
-  void _createUnregisteredProduct(double price) {
-    // ✅ NUEVO: Notificación de voz para productos sin registrar
-    AudioNotificationService.instance.announceProductNotRegistered();
-    
+  void _createUnregisteredProduct(double price, {Stopwatch? since}) {
+    // Primero el diálogo; la voz no debe retrasarlo.
     _showProductNameDialog(price);
+    if (since != null) {
+      final context = widget.controller.entryContext();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _metrics.record(
+          EntryMetric.enterToDialog,
+          since.elapsedMicroseconds / 1000,
+          context,
+        );
+      });
+    }
+    unawaited(Future<void>.microtask(
+      AudioNotificationService.instance.announceProductNotRegistered,
+    ));
   }
 
   void _showProductNameDialog(double price) {
@@ -1355,8 +1466,10 @@ AppLogger.e('❌ Error al abrir escáner: $e');
   }
 
   void _selectProduct(Product product, {double quantity = 1}) {
+    final watch = Stopwatch()..start();
     // Cancelar cualquier búsqueda pendiente
     _debounceTimer?.cancel();
+    _forgetValueCheck();
 
     // Limpiar búsqueda
     _searchController.clear();
@@ -1378,6 +1491,14 @@ AppLogger.e('❌ Error al abrir escáner: $e');
     // Notificar selección (SIN audio para productos agregados)
     widget.onProductSelected(product, quantity);
 
+    final context = widget.controller.entryContext();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _metrics.record(
+        EntryMetric.confirmToLine,
+        watch.elapsedMicroseconds / 1000,
+        context,
+      );
+    });
   }
 
   void _showError(String title, String message) {

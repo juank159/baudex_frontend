@@ -2,6 +2,9 @@
 //
 // Buscador de productos de la factura: escáner, precio (producto no
 // registrado) y texto.
+import 'dart:async';
+
+import 'package:baudex_desktop/features/invoices/domain/invoice_entry_metrics.dart';
 import 'package:baudex_desktop/features/invoices/domain/price_entry.dart';
 import 'package:baudex_desktop/features/invoices/presentation/controllers/invoice_form_controller.dart';
 import 'package:baudex_desktop/features/invoices/presentation/widgets/product_search_widget.dart';
@@ -30,8 +33,14 @@ void main() {
       id: 'pan', name: 'Pan', sku: 'PAN-1', barcode: '777');
   final byLocalId = {1: arroz, 2: leche, 3: huevo, 4: pan};
   ShortCodeIndex? index;
+  var stale = false;
+  // Lo que respondería la base local por código exacto.
+  Future<Product?> Function(String code)? localLookup;
 
   setUp(() {
+    stale = false;
+    localLookup = null;
+    InvoiceEntryMetrics.instance.reset();
     Get.testMode = true;
     controller = MockInvoiceFormController();
     added = [];
@@ -43,6 +52,17 @@ void main() {
     ], complete: true);
     when(() => controller.decideValueEntry(any()))
         .thenAnswer((inv) => decidePriceEntry(inv.positionalArguments.first as String, index));
+    when(() => controller.guessValueEntry(any())).thenAnswer((inv) =>
+        guessValueEntry(inv.positionalArguments.first as String, index,
+            stale: stale));
+    when(() => controller.entryContext()).thenReturn(const EntryContext());
+    when(() => controller.findRegisteredProductForValue(any()))
+        .thenAnswer((inv) async {
+      final code = inv.positionalArguments.first as String;
+      if (localLookup != null) return localLookup!(code);
+      return [arroz, leche, huevo, pan].firstWhereOrNull(
+          (p) => p.sku == code || p.barcode == code);
+    });
     when(() => controller.productByLocalId(any()))
         .thenAnswer((inv) async => byLocalId[inv.positionalArguments.first as int]);
     when(() => controller.shouldValidateStock).thenReturn(false);
@@ -200,14 +220,139 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('con el catálogo bajando consulta la base antes de decidir',
+  testWidgets('con el catálogo bajando, Enter confirma en la base local: gana el producto',
       (tester) async {
     index = ShortCodeIndex.build(const [], complete: false);
     await pump(tester);
     await scan(tester, '5000');
     await tester.pump(const Duration(milliseconds: 50));
     expect(added, ['huevox1.0']);
-    verify(() => controller.findProductBySku('5000')).called(1);
+    verify(() => controller.findRegisteredProductForValue('5000')).called(1);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  // ───── El valor se pinta en la misma tecla, pase lo que pase ─────
+
+  Future<void> expectInstantOption(WidgetTester tester) async {
+    await pump(tester);
+    await tester.enterText(find.byType(TextField).first, '2');
+    await tester.pump(); // el cuadro de la tecla, sin dejar pasar tiempo
+    expect(find.text('Producto sin registrar'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, '2000');
+    await tester.pump();
+    expect(find.text('Valor: \$ 2.000'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(added, isEmpty);
+  }
+
+  testWidgets('catálogo sin terminar de bajar: la opción sale en la misma tecla',
+      (tester) async {
+    index = ShortCodeIndex.build(const [], complete: false);
+    await expectInstantOption(tester);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Producto sin registrar'), findsOneWidget);
+    verifyNever(() => controller.searchProducts(any()));
+    verifyNever(() => controller.findProductBySku(any()));
+    verifyNever(() => controller.findProductByBarcode(any()));
+  });
+
+  testWidgets('índice sin cargar todavía: la opción sale en la misma tecla',
+      (tester) async {
+    index = null;
+    await expectInstantOption(tester);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('sincronización escribiendo productos: la opción sale en la misma tecla',
+      (tester) async {
+    stale = true;
+    await expectInstantOption(tester);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('la base local no responde: la opción sale igual y Enter abre el nombre',
+      (tester) async {
+    index = ShortCodeIndex.build(const [], complete: false);
+    final never = Completer<Product?>();
+    localLookup = (_) => never.future;
+    await expectInstantOption(tester);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+    expect(find.text('Nombre en la factura'), findsOneWidget);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(added.single, startsWith('temp_'));
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('por confirmar: si existía un producto con ese código, reemplaza la opción',
+      (tester) async {
+    // El índice no lo tiene (llegó por la sincronización hace un momento).
+    index = ShortCodeIndex.build(const [], complete: true);
+    stale = true;
+    await pump(tester);
+    await tester.enterText(find.byType(TextField).first, '5000');
+    await tester.pump();
+    expect(find.text('Producto sin registrar'), findsOneWidget,
+        reason: 'primero se pinta, sin esperar');
+    await tester.pump(const Duration(milliseconds: 100)); // confirmación
+    await tester.pump();
+    expect(find.text('Huevo AA'), findsOneWidget);
+    expect(find.text('Producto sin registrar'), findsNothing);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(added, ['huevox1.0']);
+    verify(() => controller.findRegisteredProductForValue('5000')).called(1);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('con el índice seguro no se consulta la base ni al teclear ni con Enter',
+      (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byType(TextField).first, '2000');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(find.text('Nombre en la factura'), findsOneWidget,
+        reason: 'Enter abre el nombre en el mismo cuadro');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(added.single, startsWith('temp_'));
+    verifyNever(() => controller.findRegisteredProductForValue(any()));
+    verifyNever(() => controller.searchProducts(any()));
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('producto registrado con código corto sale sin pausa de tecleo',
+      (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byType(TextField).first, '777');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Pan'), findsOneWidget);
+    expect(find.text('Producto sin registrar'), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('la medición registra tecla → opción y Enter → línea',
+      (tester) async {
+    index = ShortCodeIndex.build(const [], complete: false);
+    await pump(tester);
+    await tester.enterText(find.byType(TextField).first, '500');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    final m = InvoiceEntryMetrics.instance;
+    expect(m.valueKeysUnconfirmed, 1);
+    expect(m.summary(EntryMetric.keyToOption)?.count, 1);
+    expect(m.summary(EntryMetric.backgroundCheck)?.count, 1);
+    expect(m.summary(EntryMetric.enterToDialog)?.count, 1);
+    expect(m.summary(EntryMetric.confirmToLine)?.count, 1);
+    expect(m.report(), contains('Tecla → opción'));
     await tester.pump(const Duration(seconds: 1));
   });
 

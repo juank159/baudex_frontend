@@ -5,21 +5,25 @@ import '../../products/data/product_code_events.dart';
 import '../domain/price_entry.dart';
 
 /// Mantiene al día el índice de códigos cortos de la factura:
-/// - lo carga de la base en segundo plano (y lo rehace cada [maxAge] como
-///   respaldo);
+/// - lo carga de la base en segundo plano, armándolo por partes para no
+///   frenar la pantalla (y lo rehace cada [maxAge] como respaldo);
 /// - aplica AL INSTANTE los productos creados/editados/borrados en el
 ///   equipo ([codeChanges]);
-/// - si la colección cambió por otro camino (la sincronización), queda
-///   "pendiente" y, mientras se rehace, la decisión consulta la base
-///   ([PriceEntryNeedsLookup]) en vez de arriesgar un "sin registrar".
+/// - si la colección cambió por otro camino (la sincronización, el stock
+///   de una venta), queda "pendiente" y se rehace UNA vez cuando las
+///   escrituras se calman ([settleDelay]), no por cada tecla ni por cada
+///   tanda. Mientras tanto [guess] sigue respondiendo en memoria (la
+///   pantalla pinta de una vez y confirma después).
 class ShortCodeIndexKeeper {
   ShortCodeIndexKeeper({
     required this.loadCodes,
     required this.isCatalogComplete,
     Stream<ProductCodeChange>? codeChanges,
     Stream<void>? collectionChanges,
-    this.maxAge = const Duration(seconds: 20),
-    this.retryDelay = const Duration(seconds: 1),
+    this.maxAge = const Duration(minutes: 10),
+    this.settleDelay = const Duration(seconds: 2),
+    this.maxSettle = const Duration(seconds: 15),
+    this.onLoaded,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _subs = [
@@ -31,7 +35,17 @@ class ShortCodeIndexKeeper {
   final Future<List<(String?, int)>> Function() loadCodes;
   final Future<bool> Function() isCatalogComplete;
   final Duration maxAge;
-  final Duration retryDelay;
+
+  /// Calma que se espera tras el último cambio de la colección antes de
+  /// rehacer el índice, y tope de espera si los cambios no paran.
+  final Duration settleDelay;
+  final Duration maxSettle;
+
+  /// Aviso de cada carga terminada (ms que tardó), para el diagnóstico.
+  final void Function(double ms)? onLoaded;
+
+  /// Códigos que se arman por vuelta antes de ceder el hilo.
+  static const int _chunk = 4000;
   final DateTime Function() _now;
 
   late final List<StreamSubscription<dynamic>> _subs;
@@ -44,11 +58,21 @@ class ShortCodeIndexKeeper {
 
   ShortCodeIndex? get index => _index;
   bool get isStale => _stale;
+  int get loads => _loads;
+  int _loads = 0;
+  DateTime? _staleSince;
+
+  /// Lo que se pinta en la misma tecla. Nunca espera ni responde "no sé".
+  ValueEntryGuess guess(String value) {
+    final idx = _index;
+    if (idx == null || idx.isOlderThan(maxAge, _now())) unawaited(refresh());
+    return guessValueEntry(value, idx, stale: _stale);
+  }
 
   /// Qué hacer con un valor escrito por el cajero, sin esperar nada.
   PriceEntryDecision decide(String value) {
     final idx = _index;
-    if (idx == null || _stale || idx.isOlderThan(maxAge, _now())) {
+    if (idx == null || idx.isOlderThan(maxAge, _now())) {
       unawaited(refresh());
     }
     final decision = decidePriceEntry(value, idx);
@@ -68,10 +92,24 @@ class ShortCodeIndexKeeper {
   Future<void> _load() async {
     _appliedDuringLoad.clear();
     final changesAtStart = _changes;
+    final watch = Stopwatch()..start();
     final entries = await loadCodes();
     final complete = await isCatalogComplete();
     if (_disposed) return;
-    final fresh = ShortCodeIndex.build(entries, complete: complete, builtAt: _now());
+    // Por partes: con 50 mil productos, armarlo de un tirón frenaba la
+    // pantalla decenas de ms en cada carga.
+    final fresh =
+        ShortCodeIndex.build(const [], complete: complete, builtAt: _now());
+    for (var from = 0; from < entries.length; from += _chunk) {
+      final to = from + _chunk < entries.length ? from + _chunk : entries.length;
+      fresh.addCodes(entries.getRange(from, to));
+      if (to < entries.length) {
+        await Future<void>.delayed(Duration.zero);
+        if (_disposed) return;
+      }
+    }
+    _loads++;
+    onLoaded?.call(watch.elapsedMicroseconds / 1000);
     for (final c in _appliedDuringLoad) {
       fresh.upsert(c.localId, [c.sku, c.barcode], active: c.active);
     }
@@ -79,10 +117,11 @@ class ShortCodeIndexKeeper {
     _index = fresh;
     if (_changes == changesAtStart) {
       _stale = false;
+      _staleSince = null;
     } else {
-      // Cambió mientras se cargaba: otra vuelta, sin martillar la base.
-      _retry?.cancel();
-      _retry = Timer(retryDelay, () => unawaited(refresh()));
+      // Cambió mientras se cargaba: otra vuelta cuando se calme.
+      _staleSince = _now();
+      _scheduleSettledRefresh();
     }
   }
 
@@ -98,6 +137,22 @@ class ShortCodeIndexKeeper {
   void _markStale() {
     _changes++;
     _stale = true;
+    _staleSince ??= _now();
+    _scheduleSettledRefresh();
+  }
+
+  /// Rehace el índice cuando pasan [settleDelay] sin cambios (o, si no
+  /// paran, a los [maxSettle] del primero). Antes se rehacía con cada tecla
+  /// mientras la sincronización escribía.
+  void _scheduleSettledRefresh() {
+    if (_disposed) return;
+    final waited = _now().difference(_staleSince ?? _now());
+    final left = maxSettle - waited;
+    final delay = left < settleDelay
+        ? (left.isNegative ? Duration.zero : left)
+        : settleDelay;
+    _retry?.cancel();
+    _retry = Timer(delay, () => unawaited(refresh()));
   }
 
   void dispose() {

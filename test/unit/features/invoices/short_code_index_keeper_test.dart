@@ -2,7 +2,6 @@
 // recién creado o editado en el equipo: si el cajero escribe enseguida su
 // código, gana el producto, no "sin registrar".
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
@@ -14,6 +13,8 @@ import 'package:baudex_desktop/features/products/data/product_code_events.dart';
 import 'package:baudex_desktop/features/products/data/repositories/product_offline_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+
+import '../../../helpers/isar_test_lib.dart';
 
 class _Db implements IIsarDatabase {
   _Db(this.database);
@@ -44,11 +45,10 @@ void main() {
   late Isar isar;
   late ProductOfflineRepository repo;
   late ShortCodeIndexKeeper keeper;
+  var loads = 0;
 
   setUpAll(() async {
-    final lib = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev/'
-        'isar_flutter_libs-3.1.0+1/macos/libisar.dylib';
-    await Isar.initializeIsarCore(libraries: {Abi.current(): lib});
+    await initIsarForTests();
   });
 
   setUp(() async {
@@ -64,8 +64,12 @@ void main() {
       isCatalogComplete: () async => true,
       codeChanges: ProductCodeEvents.stream,
       collectionChanges: isar.isarProducts.watchLazy(),
+      settleDelay: const Duration(milliseconds: 150),
+      maxSettle: const Duration(milliseconds: 600),
+      onLoaded: (_) => loads++,
     );
     await keeper.refresh();
+    loads = 0;
   });
 
   tearDown(() async {
@@ -127,5 +131,75 @@ void main() {
         reason: 'pendiente: se consulta la base');
     await keeper.refresh();
     expect(keeper.decide('777'), isA<AddExistingProduct>());
+  });
+
+  // ───── La pantalla nunca espera: [guess] responde siempre en memoria ─────
+
+  test('sincronización escribiendo: guess responde al instante y avisa que falta confirmar',
+      () async {
+    await isar.writeTxn(() => isar.isarProducts.put(_product('s', '777')));
+    await Future<void>.delayed(const Duration(milliseconds: 50)); // vigilante
+    final g = keeper.guess('3500');
+    expect(g.existingLocalId, isNull);
+    expect(g.certain, isFalse, reason: 'pendiente: se confirma en segundo plano');
+    // Un código que el índice ya conoce sigue ganando aunque esté pendiente.
+    expect(keeper.guess('5000').existingLocalId, isNotNull);
+  });
+
+  test('teclear con la sincronización escribiendo no rehace el índice por cada tecla',
+      () async {
+    var n = 0;
+    final writer = Timer.periodic(const Duration(milliseconds: 40), (_) {
+      n++;
+      isar.writeTxn(() => isar.isarProducts.put(_product('w$n', 'W-$n')));
+    });
+    for (var i = 0; i < 20; i++) {
+      keeper.guess('${i}00');
+      keeper.decide('${i}00');
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+    writer.cancel();
+    expect(loads, lessThanOrEqualTo(1),
+        reason: 'antes: una carga por tecla mientras había escrituras');
+  });
+
+  test('cuando las escrituras se calman el índice se rehace solo y vuelve a ser seguro',
+      () async {
+    await isar.writeTxn(() => isar.isarProducts.put(_product('s', '777')));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(keeper.isStale, isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(keeper.isStale, isFalse);
+    expect(loads, 1);
+    expect(keeper.guess('777').existingLocalId, isNotNull);
+    expect(keeper.guess('3500').certain, isTrue);
+  });
+
+  test('escrituras que no paran: se rehace igual al tope de espera', () async {
+    var n = 0;
+    final writer = Timer.periodic(const Duration(milliseconds: 40), (_) {
+      n++;
+      isar.writeTxn(() => isar.isarProducts.put(_product('w$n', 'W-$n')));
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 1000));
+    writer.cancel();
+    expect(loads, greaterThanOrEqualTo(1));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+  });
+
+  test('catálogo sin terminar de bajar: guess no espera y marca por confirmar',
+      () async {
+    final partial = ShortCodeIndexKeeper(
+      loadCodes: repo.activeProductCodes,
+      isCatalogComplete: () async => false,
+    );
+    // Sin cargar todavía.
+    expect(partial.guess('3500').existingLocalId, isNull);
+    expect(partial.guess('3500').certain, isFalse);
+    await partial.refresh();
+    expect(partial.guess('3500').certain, isFalse);
+    expect(partial.guess('5000').existingLocalId, isNotNull,
+        reason: 'lo que ya bajó sí se conoce');
+    partial.dispose();
   });
 }

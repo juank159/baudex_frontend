@@ -5,6 +5,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:baudex_desktop/features/invoices/domain/invoice_entry_metrics.dart';
 import 'package:baudex_desktop/app/core/printing/system_printer_discovery.dart';
 import 'package:baudex_desktop/app/core/theme/elegant_light_theme.dart';
 import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
@@ -52,6 +53,9 @@ void main() {
     controller = _Controller();
     final index = ShortCodeIndex.build(const [], complete: true);
     when(() => controller.shouldValidateStock).thenReturn(false);
+    when(() => controller.guessValueEntry(any())).thenAnswer((inv) =>
+        guessValueEntry(inv.positionalArguments.first as String, index));
+    when(() => controller.entryContext()).thenReturn(const EntryContext());
     when(() => controller.decideValueEntry(any()))
         .thenAnswer((inv) => decidePriceEntry(inv.positionalArguments.first as String, index));
   });
