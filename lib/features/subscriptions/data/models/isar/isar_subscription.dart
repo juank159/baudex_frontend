@@ -7,6 +7,7 @@ import '../../../domain/entities/subscription.dart';
 import '../../../domain/entities/subscription_enums.dart';
 import '../../../domain/entities/plan_limits.dart';
 import '../../../domain/entities/plan_features.dart';
+import '../../../domain/rules/subscription_rules.dart';
 
 part 'isar_subscription.g.dart';
 
@@ -142,6 +143,11 @@ class IsarSubscription {
   }
 
   Subscription toEntity() {
+    // `isExpired`, `isActive` y los días se guardaron como una foto del día en
+    // que respondió el servidor. Al leer la copia se recalculan con la fecha:
+    // así una copia vieja no queda "vigente para siempre" ni "vencida" de más.
+    final datePassed = subscriptionEndDatePassed(endDate);
+    final daysLeft = subscriptionDaysRemaining(endDate) ?? 0;
     return Subscription(
       id: serverId,
       organizationId: organizationId,
@@ -151,12 +157,12 @@ class IsarSubscription {
       type: _mapIsarToType(type),
       startDate: startDate,
       endDate: endDate,
-      isActive: isActive,
-      isExpired: isExpired,
+      isActive: status == IsarSubscriptionStatus.active && !datePassed,
+      isExpired: datePassed,
       isTrial: isTrial,
-      daysUntilExpiration: daysUntilExpiration,
+      daysUntilExpiration: daysLeft,
       subscriptionProgress: subscriptionProgress,
-      remainingDays: remainingDays,
+      remainingDays: daysLeft,
       maxUsers: maxUsers,
       autoRenew: autoRenew,
       billingCycle: billingCycle,

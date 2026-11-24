@@ -1,6 +1,7 @@
 // lib/features/subscriptions/data/models/subscription_model.dart
 
 import '../../domain/entities/subscription.dart';
+import '../../domain/rules/subscription_rules.dart';
 import '../../domain/entities/subscription_enums.dart';
 import '../../domain/entities/plan_limits.dart';
 import 'plan_limits_model.dart';
@@ -33,6 +34,11 @@ class SubscriptionModel extends Subscription {
   });
 
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
+    final endDate = _parseDate(json['endDate']) ??
+        DateTime.now().add(const Duration(days: 30));
+    // Si el servidor no envía los días, se calculan con la fecha: un dato
+    // ausente no puede leerse como "0 días = vencida".
+    final daysLeft = subscriptionDaysRemaining(endDate) ?? 0;
     return SubscriptionModel(
       id: json['id'] as String? ?? '',
       organizationId: json['organizationId'] as String? ?? '',
@@ -42,15 +48,14 @@ class SubscriptionModel extends Subscription {
       status: _parseStatus(json['status']),
       type: _parseType(json['type']),
       startDate: _parseDate(json['startDate']) ?? DateTime.now(),
-      endDate: _parseDate(json['endDate']) ??
-          DateTime.now().add(const Duration(days: 30)),
+      endDate: endDate,
       isActive: json['isActive'] as bool? ?? false,
       isExpired: json['isExpired'] as bool? ?? false,
       isTrial: json['isTrial'] as bool? ?? true,
-      daysUntilExpiration: json['daysUntilExpiration'] as int? ?? 0,
+      daysUntilExpiration: (json['daysUntilExpiration'] as num?)?.toInt() ?? daysLeft,
       subscriptionProgress:
           _numOrNull(json['subscriptionProgress']) ?? 0.0,
-      remainingDays: json['remainingDays'] as int? ?? 0,
+      remainingDays: (json['remainingDays'] as num?)?.toInt() ?? daysLeft,
       maxUsers: json['maxUsers'] as int? ?? 2,
       autoRenew: json['autoRenew'] as bool? ?? false,
       price: _numOrNull(json['price']),
