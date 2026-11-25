@@ -232,8 +232,8 @@ const IsarInvoiceSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'number',
-          type: IndexType.hash,
-          caseSensitive: true,
+          type: IndexType.value,
+          caseSensitive: false,
         )
       ],
     ),
@@ -263,9 +263,9 @@ const IsarInvoiceSchema = CollectionSchema(
         )
       ],
     ),
-    r'status': IndexSchema(
-      id: -107785170620420283,
-      name: r'status',
+    r'status_createdAt': IndexSchema(
+      id: -8848012524557575184,
+      name: r'status_createdAt',
       unique: false,
       replace: false,
       properties: [
@@ -273,12 +273,17 @@ const IsarInvoiceSchema = CollectionSchema(
           name: r'status',
           type: IndexType.hash,
           caseSensitive: true,
+        ),
+        IndexPropertySchema(
+          name: r'createdAt',
+          type: IndexType.value,
+          caseSensitive: false,
         )
       ],
     ),
-    r'customerId': IndexSchema(
-      id: 1498639901530368639,
-      name: r'customerId',
+    r'customerId_createdAt': IndexSchema(
+      id: 411823833442397132,
+      name: r'customerId_createdAt',
       unique: false,
       replace: false,
       properties: [
@@ -286,6 +291,11 @@ const IsarInvoiceSchema = CollectionSchema(
           name: r'customerId',
           type: IndexType.hash,
           caseSensitive: true,
+        ),
+        IndexPropertySchema(
+          name: r'createdAt',
+          type: IndexType.value,
+          caseSensitive: false,
         )
       ],
     ),
@@ -675,6 +685,14 @@ extension IsarInvoiceQueryWhereSort
     });
   }
 
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhere> anyNumber() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'number'),
+      );
+    });
+  }
+
   QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhere> anyDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
@@ -866,6 +884,97 @@ extension IsarInvoiceQueryWhere
     });
   }
 
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> numberGreaterThan(
+    String number, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'number',
+        lower: [number],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> numberLessThan(
+    String number, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'number',
+        lower: [],
+        upper: [number],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> numberBetween(
+    String lowerNumber,
+    String upperNumber, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'number',
+        lower: [lowerNumber],
+        includeLower: includeLower,
+        upper: [upperNumber],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> numberStartsWith(
+      String NumberPrefix) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'number',
+        lower: [NumberPrefix],
+        upper: ['$NumberPrefix\u{FFFFF}'],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> numberIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'number',
+        value: [''],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> numberIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.lessThan(
+              indexName: r'number',
+              upper: [''],
+            ))
+            .addWhereClause(IndexWhereClause.greaterThan(
+              indexName: r'number',
+              lower: [''],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.greaterThan(
+              indexName: r'number',
+              lower: [''],
+            ))
+            .addWhereClause(IndexWhereClause.lessThan(
+              indexName: r'number',
+              upper: [''],
+            ));
+      }
+    });
+  }
+
   QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> dateEqualTo(
       DateTime date) {
     return QueryBuilder.apply(this, (query) {
@@ -1046,29 +1155,29 @@ extension IsarInvoiceQueryWhere
     });
   }
 
-  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> statusEqualTo(
-      IsarInvoiceStatus status) {
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusEqualToAnyCreatedAt(IsarInvoiceStatus status) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'status',
+        indexName: r'status_createdAt',
         value: [status],
       ));
     });
   }
 
-  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> statusNotEqualTo(
-      IsarInvoiceStatus status) {
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusNotEqualToAnyCreatedAt(IsarInvoiceStatus status) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
+              indexName: r'status_createdAt',
               lower: [],
               upper: [status],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
+              indexName: r'status_createdAt',
               lower: [status],
               includeLower: false,
               upper: [],
@@ -1076,13 +1185,13 @@ extension IsarInvoiceQueryWhere
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
+              indexName: r'status_createdAt',
               lower: [status],
               includeLower: false,
               upper: [],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
+              indexName: r'status_createdAt',
               lower: [],
               upper: [status],
               includeUpper: false,
@@ -1091,29 +1200,126 @@ extension IsarInvoiceQueryWhere
     });
   }
 
-  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause> customerIdEqualTo(
-      String customerId) {
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusCreatedAtEqualTo(IsarInvoiceStatus status, DateTime createdAt) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'customerId',
+        indexName: r'status_createdAt',
+        value: [status, createdAt],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusEqualToCreatedAtNotEqualTo(
+          IsarInvoiceStatus status, DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'status_createdAt',
+              lower: [status],
+              upper: [status, createdAt],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'status_createdAt',
+              lower: [status, createdAt],
+              includeLower: false,
+              upper: [status],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'status_createdAt',
+              lower: [status, createdAt],
+              includeLower: false,
+              upper: [status],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'status_createdAt',
+              lower: [status],
+              upper: [status, createdAt],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusEqualToCreatedAtGreaterThan(
+    IsarInvoiceStatus status,
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'status_createdAt',
+        lower: [status, createdAt],
+        includeLower: include,
+        upper: [status],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusEqualToCreatedAtLessThan(
+    IsarInvoiceStatus status,
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'status_createdAt',
+        lower: [status],
+        upper: [status, createdAt],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      statusEqualToCreatedAtBetween(
+    IsarInvoiceStatus status,
+    DateTime lowerCreatedAt,
+    DateTime upperCreatedAt, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'status_createdAt',
+        lower: [status, lowerCreatedAt],
+        includeLower: includeLower,
+        upper: [status, upperCreatedAt],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      customerIdEqualToAnyCreatedAt(String customerId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'customerId_createdAt',
         value: [customerId],
       ));
     });
   }
 
   QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
-      customerIdNotEqualTo(String customerId) {
+      customerIdNotEqualToAnyCreatedAt(String customerId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'customerId',
+              indexName: r'customerId_createdAt',
               lower: [],
               upper: [customerId],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'customerId',
+              indexName: r'customerId_createdAt',
               lower: [customerId],
               includeLower: false,
               upper: [],
@@ -1121,18 +1327,115 @@ extension IsarInvoiceQueryWhere
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'customerId',
+              indexName: r'customerId_createdAt',
               lower: [customerId],
               includeLower: false,
               upper: [],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'customerId',
+              indexName: r'customerId_createdAt',
               lower: [],
               upper: [customerId],
               includeUpper: false,
             ));
       }
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      customerIdCreatedAtEqualTo(String customerId, DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'customerId_createdAt',
+        value: [customerId, createdAt],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      customerIdEqualToCreatedAtNotEqualTo(
+          String customerId, DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'customerId_createdAt',
+              lower: [customerId],
+              upper: [customerId, createdAt],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'customerId_createdAt',
+              lower: [customerId, createdAt],
+              includeLower: false,
+              upper: [customerId],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'customerId_createdAt',
+              lower: [customerId, createdAt],
+              includeLower: false,
+              upper: [customerId],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'customerId_createdAt',
+              lower: [customerId],
+              upper: [customerId, createdAt],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      customerIdEqualToCreatedAtGreaterThan(
+    String customerId,
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'customerId_createdAt',
+        lower: [customerId, createdAt],
+        includeLower: include,
+        upper: [customerId],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      customerIdEqualToCreatedAtLessThan(
+    String customerId,
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'customerId_createdAt',
+        lower: [customerId],
+        upper: [customerId, createdAt],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarInvoice, IsarInvoice, QAfterWhereClause>
+      customerIdEqualToCreatedAtBetween(
+    String customerId,
+    DateTime lowerCreatedAt,
+    DateTime upperCreatedAt, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'customerId_createdAt',
+        lower: [customerId, lowerCreatedAt],
+        includeLower: includeLower,
+        upper: [customerId, upperCreatedAt],
+        includeUpper: includeUpper,
+      ));
     });
   }
 

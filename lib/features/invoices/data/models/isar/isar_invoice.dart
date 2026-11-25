@@ -18,7 +18,9 @@ class IsarInvoice {
   // NO único: el servidor valida que no se repita. Como índice único en el
   // equipo, la copia hecha sin conexión y la que trae la descarga chocaban,
   // y fallaba toda la página de la descarga.
-  @Index()
+  // Por valor y sin distinguir mayúsculas: la búsqueda "empieza por" entra
+  // por el índice (el de antes solo servía para el número exacto).
+  @Index(type: IndexType.value, caseSensitive: false)
   late String number;
 
   @Index()
@@ -27,7 +29,9 @@ class IsarInvoice {
   @Index()
   late DateTime dueDate;
 
-  @Index()
+  // Estado + fecha de creación: "Pendientes" o "Anuladas", más nuevas
+  // primero, sale del índice ya en orden (sin recorrer las demás).
+  @Index(composite: [CompositeIndex('createdAt')])
   @Enumerated(EnumType.name)
   late IsarInvoiceStatus status;
 
@@ -53,7 +57,9 @@ class IsarInvoice {
   String? paymentsJson;
 
   // Foreign Keys
-  @Index()
+  // Cliente + fecha de creación: las facturas de un cliente, más nuevas
+  // primero, salen del índice ya en orden.
+  @Index(composite: [CompositeIndex('createdAt')])
   late String customerId;
 
   String? createdById;

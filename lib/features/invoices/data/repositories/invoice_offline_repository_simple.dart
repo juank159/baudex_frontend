@@ -61,6 +61,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     int limit = 10,
     String? search,
     InvoiceStatus? status,
+    List<InvoiceStatus>? statuses,
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
@@ -86,14 +87,67 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       // ítems) en cada página, y el total se contaba recorriéndola otra vez.
       final desc = sortOrder.toLowerCase() == 'desc';
       final hasDateRange = startDate != null || endDate != null;
+      // Varios estados a la vez ("Pendientes" = pendientes + abonadas) o uno.
+      final wantedStatuses = [
+        ...?(statuses != null && statuses.isNotEmpty
+            ? statuses
+            : (status != null ? [status] : null)),
+      ].map(_mapInvoiceStatusToIsar).toSet().toList();
+      final createdAtSort = isCreatedAtSort(sortBy);
       final plan = pickInvoiceListIndex(
         sortBy: sortBy,
         hasDateRange: hasDateRange,
         hasCustomer: customerId != null,
+        hasStatus: wantedStatuses.isNotEmpty,
       );
       final ordered = _isar.isarInvoices
           .where(sort: desc ? Sort.desc : Sort.asc);
+
+      // Búsqueda: número de factura o nombre/empresa del cliente.
+      final hasSearch = search != null && search.trim().isNotEmpty;
+      Set<String>? searchCustomers;
+      String? searchTerm;
+      List<String> searchCustomerIds = const [];
+      // Camino corto de la búsqueda: el texto es el COMIENZO de un número
+      // ("FV-00123") → esas facturas salen del índice de número, y las de los
+      // clientes que coinciden, del índice de cliente. No se recorre la base.
+      // (En ese caso solo cuentan los números que EMPIEZAN así; si ninguno
+      // empieza así, se busca el texto en cualquier parte del número.)
+      QueryBuilder<IsarInvoice, IsarInvoice, QFilter>? searchBase;
+      if (hasSearch) {
+        final term = search.trim();
+        searchCustomerIds = await _isar.isarCustomers
+            .filter()
+            .firstNameContains(term, caseSensitive: false)
+            .or()
+            .lastNameContains(term, caseSensitive: false)
+            .or()
+            .companyNameContains(term, caseSensitive: false)
+            .serverIdProperty()
+            .findAll();
+        if (searchCustomerIds.length > _maxCustomersInSearchQuery) {
+          // Muchos clientes coinciden (p. ej. "a"): una condición por cliente
+          // dentro de la consulta se vuelve lentísima. Se resuelve aparte.
+          searchCustomers = searchCustomerIds.toSet();
+          searchTerm = term.toLowerCase();
+        } else if (await _isar.isarInvoices
+            .where()
+            .numberStartsWith(term.toLowerCase())
+            .isNotEmpty()) {
+          var union = _isar.isarInvoices
+              .where()
+              .numberStartsWith(term.toLowerCase());
+          for (final id in searchCustomerIds) {
+            union = union.or().customerIdEqualToAnyCreatedAt(id);
+          }
+          searchBase = union;
+        }
+      }
+
       final QueryBuilder<IsarInvoice, IsarInvoice, QFilter> base;
+      if (searchBase != null) {
+        base = searchBase;
+      } else {
       switch (plan) {
         case InvoiceListIndex.createdAt:
           base = ordered.anyCreatedAt();
@@ -113,46 +167,45 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
                   : w.dateLessThan(endDate!, include: true);
           break;
         case InvoiceListIndex.customer:
-          base = _isar.isarInvoices.where().customerIdEqualTo(customerId!);
+          base = (createdAtSort ? ordered : _isar.isarInvoices.where())
+              .customerIdEqualToAnyCreatedAt(customerId!);
+          break;
+        case InvoiceListIndex.status:
+          if (wantedStatuses.length == 1) {
+            base = ordered.statusEqualToAnyCreatedAt(wantedStatuses.first);
+          } else {
+            var union = _isar.isarInvoices
+                .where()
+                .statusEqualToAnyCreatedAt(wantedStatuses.first);
+            for (final st in wantedStatuses.skip(1)) {
+              union = union.or().statusEqualToAnyCreatedAt(st);
+            }
+            base = union;
+          }
           break;
         case InvoiceListIndex.fullScan:
           base = _isar.isarInvoices.where();
           break;
       }
+      }
       var query = base.filter().deletedAtIsNull();
 
-      // Búsqueda: número de factura o nombre/empresa del cliente.
-      final hasSearch = search != null && search.trim().isNotEmpty;
-      Set<String>? searchCustomers;
-      String? searchTerm;
-      if (hasSearch) {
+      if (hasSearch && searchBase == null && searchCustomers == null) {
+        // El texto no es el comienzo de ningún número: se busca en cualquier
+        // parte del número (como el servidor), recorriendo la base.
         final term = search.trim();
-        final customerIds = await _isar.isarCustomers
-            .filter()
-            .firstNameContains(term, caseSensitive: false)
-            .or()
-            .lastNameContains(term, caseSensitive: false)
-            .or()
-            .companyNameContains(term, caseSensitive: false)
-            .serverIdProperty()
-            .findAll();
-        if (customerIds.length > _maxCustomersInSearchQuery) {
-          // Muchos clientes coinciden (p. ej. "a"): una condición por cliente
-          // dentro de la consulta se vuelve lentísima. Se resuelve aparte.
-          searchCustomers = customerIds.toSet();
-          searchTerm = term.toLowerCase();
-        } else {
-          query = customerIds.isEmpty
-              ? query.and().numberContains(term, caseSensitive: false)
-              : query.and().group((q) => q
-                  .numberContains(term, caseSensitive: false)
-                  .or()
-                  .anyOf(customerIds, (q, String id) => q.customerIdEqualTo(id)));
-        }
+        query = searchCustomerIds.isEmpty
+            ? query.and().numberContains(term, caseSensitive: false)
+            : query.and().group((q) => q
+                .numberContains(term, caseSensitive: false)
+                .or()
+                .anyOf(searchCustomerIds,
+                    (q, String id) => q.customerIdEqualTo(id)));
       }
 
-      if (status != null) {
-        query = query.and().statusEqualTo(_mapInvoiceStatusToIsar(status));
+      if (wantedStatuses.isNotEmpty) {
+        query = query.and().anyOf(wantedStatuses,
+            (q, IsarInvoiceStatus st) => q.statusEqualTo(st));
       }
       if (paymentMethod != null) {
         query = query
@@ -212,7 +265,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       // Sin ningún filtro, el total sale sin recorrer la base: todas menos
       // las borradas (estas por su índice; son pocas).
       final noFilters = !hasSearch &&
-          status == null &&
+          wantedStatuses.isEmpty &&
           paymentMethod == null &&
           customerId == null &&
           createdById == null &&
@@ -223,7 +276,10 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       final offset = (page - 1) * limit;
       // QDistinct: admite página (offset/limit) y leer columnas sueltas.
       final QueryBuilder<IsarInvoice, IsarInvoice, QDistinct> sorted;
-      if (invoiceIndexGivesOrder(plan)) {
+      if (searchBase == null &&
+          invoiceIndexGivesOrder(plan,
+              createdAtSort: createdAtSort,
+              statusCount: wantedStatuses.length)) {
         sorted = query;
       } else {
         switch (sortBy) {
@@ -257,10 +313,39 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         totalItems = found.total;
         isarInvoices = found.page;
       } else {
-        totalItems = noFilters
-            ? await _isar.isarInvoices.count() -
-                await _isar.isarInvoices.where().deletedAtIsNotNull().count()
-            : await query.count();
+        // Solo filtro de estado: el total sale de contar el índice de estado
+        // (sin leer las facturas), menos las borradas de ese estado (pocas).
+        final onlyStatus = wantedStatuses.isNotEmpty &&
+            !hasSearch &&
+            paymentMethod == null &&
+            customerId == null &&
+            createdById == null &&
+            !hasDateRange &&
+            minAmount == null &&
+            maxAmount == null &&
+            accountIds.isEmpty;
+        if (noFilters) {
+          totalItems = await _isar.isarInvoices.count() -
+              await _isar.isarInvoices.where().deletedAtIsNotNull().count();
+        } else if (onlyStatus) {
+          var inStatus = 0;
+          for (final st in wantedStatuses) {
+            inStatus += await _isar.isarInvoices
+                .where()
+                .statusEqualToAnyCreatedAt(st)
+                .count();
+          }
+          final deleted = await _isar.isarInvoices
+              .where()
+              .deletedAtIsNotNull()
+              .filter()
+              .anyOf(wantedStatuses,
+                  (q, IsarInvoiceStatus st) => q.statusEqualTo(st))
+              .count();
+          totalItems = inStatus - deleted;
+        } else {
+          totalItems = await query.count();
+        }
         isarInvoices = await sorted.offset(offset).limit(limit).findAll();
       }
 
@@ -323,13 +408,14 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       AppLogger.d('ISAR: Cargando facturas vencidas offline...');
       
       final now = DateTime.now();
+      // Por el índice de estado: solo se leen las pendientes, no toda la base.
       final isarInvoices = await _isar.isarInvoices
+          .where()
+          .statusEqualToAnyCreatedAt(IsarInvoiceStatus.pending)
           .filter()
           .deletedAtIsNull()
           .and()
           .dueDateLessThan(now)
-          .and()
-          .statusEqualTo(IsarInvoiceStatus.pending)
           .sortByDueDateDesc()
           .limit(50)
           .findAll();
@@ -428,7 +514,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           await _isar.isarInvoices.where().deletedAtIsNotNull().count();
       Future<int> countStatus(IsarInvoiceStatus st) => _isar.isarInvoices
           .where()
-          .statusEqualTo(st)
+          .statusEqualToAnyCreatedAt(st)
           .filter()
           .deletedAtIsNull()
           .count();

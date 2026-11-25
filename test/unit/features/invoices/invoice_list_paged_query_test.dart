@@ -40,6 +40,34 @@ void main() {
       expect(invoiceIndexGivesOrder(InvoiceListIndex.dateRange), isFalse);
       expect(invoiceIndexGivesOrder(InvoiceListIndex.customer), isFalse);
     });
+    test('un estado con el orden por defecto: su índice ya viene en orden', () {
+      expect(pickInvoiceListIndex(sortBy: 'createdAt', hasStatus: true),
+          InvoiceListIndex.status);
+      expect(invoiceIndexGivesOrder(InvoiceListIndex.status), isTrue);
+      // Varios estados ("Pendientes" = pendientes + abonadas): se juntan y
+      // se ordenan (son pocas).
+      expect(invoiceIndexGivesOrder(InvoiceListIndex.status, statusCount: 2),
+          isFalse);
+      // Con otro orden, el índice de estado no ayuda al orden.
+      expect(pickInvoiceListIndex(sortBy: 'total', hasStatus: true),
+          InvoiceListIndex.fullScan);
+      expect(pickInvoiceListIndex(sortBy: 'date', hasStatus: true),
+          InvoiceListIndex.date);
+      // Fechas o cliente acotan primero.
+      expect(
+          pickInvoiceListIndex(
+              sortBy: 'createdAt', hasStatus: true, hasDateRange: true),
+          InvoiceListIndex.dateRange);
+    });
+    test('cliente con el orden por defecto: su índice ya viene en orden', () {
+      expect(
+          invoiceIndexGivesOrder(InvoiceListIndex.customer,
+              createdAtSort: true),
+          isTrue);
+      expect(isCreatedAtSort('createdAt'), isTrue);
+      expect(isCreatedAtSort('loquesea'), isTrue);
+      expect(isCreatedAtSort('total'), isFalse);
+    });
     test('datos de paginación', () {
       final a = invoicePageInfo(totalItems: 61, page: 1, limit: 30);
       expect(a.totalPages, 3);
@@ -107,8 +135,50 @@ void main() {
             isSynced: true,
           ),
       ];
+      // Un cliente cuyo nombre empieza igual que un número de factura: su
+      // factura FV-9001 coincide por número Y por cliente (no debe salir
+      // repetida); la ZZ-1 solo por cliente. Las más viejas de todas.
+      for (final (n, number) in [(0, 'FV-9001'), (1, 'ZZ-1')]) {
+        invoices.add(IsarInvoice.create(
+          serverId: 'x$n',
+          number: number,
+          date: base.subtract(Duration(days: 2, minutes: n)),
+          dueDate: base.add(const Duration(days: 30)),
+          status: IsarInvoiceStatus.paid,
+          paymentMethod: IsarPaymentMethod.cash,
+          subtotal: 5000,
+          taxPercentage: 0,
+          taxAmount: 0,
+          discountPercentage: 0,
+          discountAmount: 0,
+          total: 5000,
+          paidAmount: 5000,
+          balanceDue: 0,
+          customerId: 'cx',
+          createdAt: base.subtract(Duration(days: 2, minutes: n)),
+          updatedAt: base,
+          isSynced: true,
+        ));
+      }
       await isar.writeTxn(() async {
         await isar.isarInvoices.putAll(invoices);
+        await isar.isarCustomers.put(IsarCustomer.create(
+          serverId: 'cx',
+          firstName: 'FV-9 Tienda',
+          lastName: 'Gomez',
+          email: 'cx@x.com',
+          documentType: IsarDocumentType.cc,
+          documentNumber: '999',
+          status: IsarCustomerStatus.active,
+          creditLimit: 0,
+          currentBalance: 0,
+          paymentTerms: 30,
+          totalPurchases: 0,
+          totalOrders: 0,
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+          isSynced: true,
+        ));
         await isar.isarCustomers.putAll([
           for (var c = 0; c < customers; c++)
             IsarCustomer.create(
@@ -144,6 +214,7 @@ void main() {
       String sortBy = 'createdAt',
       String sortOrder = 'DESC',
       InvoiceStatus? status,
+      List<InvoiceStatus>? statuses,
       String? customerId,
       String? search,
       DateTime? start,
@@ -159,6 +230,7 @@ void main() {
           sortBy: sortBy,
           sortOrder: sortOrder,
           status: status,
+          statuses: statuses,
           customerId: customerId,
           search: search,
           startDate: start,
@@ -275,9 +347,11 @@ void main() {
 
     test('búsqueda amplia (más de 50 clientes): mismo resultado, paginado', () async {
       // "Perez" coincide con los 80 clientes: todas las no borradas.
+      // (El cliente "cx" es Gomez: sus facturas no entran.)
+      bool perez(IsarInvoice i) => i.customerId != 'cx';
       final (ids, total) = await readAllPages(search: 'perez', limit: 17);
-      expect(ids, expected());
-      expect(total, expected().length);
+      expect(ids, expected(where: perez));
+      expect(total, expected(where: perez).length);
       // "Ana" coincide con 40 clientes (camino normal) y "e" con todos
       // (camino amplio, por "Perez"). Combinado con estado.
       final (withStatus, _) =
@@ -288,9 +362,107 @@ void main() {
       expect(
           ana,
           expected(where: (i) {
-            final c = int.parse(i.customerId.substring(1));
-            return c.isEven;
+            final c = int.tryParse(i.customerId.substring(1));
+            return c != null && c.isEven;
           }));
+    });
+
+    test('"Pendientes" = pendientes + abonadas: TODAS, por índice de estado',
+        () async {
+      bool open(IsarInvoice i) =>
+          i.status == IsarInvoiceStatus.pending ||
+          i.status == IsarInvoiceStatus.partiallyPaid;
+      final (ids, total) = await readAllPages(
+        statuses: const [InvoiceStatus.pending, InvoiceStatus.partiallyPaid],
+        limit: 7,
+      );
+      expect(ids, expected(where: open));
+      expect(total, all.where((i) => i.deletedAt == null && open(i)).length);
+      // Ascendente y con otro orden: mismo conjunto.
+      final (asc, _) = await readAllPages(
+        statuses: const [InvoiceStatus.pending, InvoiceStatus.partiallyPaid],
+        sortOrder: 'ASC',
+      );
+      expect(asc, expected(where: open, desc: false));
+      final (byTotal, _) = await readAllPages(
+        statuses: const [InvoiceStatus.pending, InvoiceStatus.partiallyPaid],
+        sortBy: 'total',
+      );
+      expect(byTotal.toSet(), expected(where: open).toSet());
+    });
+
+    test('un estado, ascendente y descendente, por su índice', () async {
+      for (final desc in [true, false]) {
+        final (ids, total) = await readAllPages(
+          status: InvoiceStatus.cancelled,
+          sortOrder: desc ? 'DESC' : 'ASC',
+          limit: 9,
+        );
+        expect(
+            ids,
+            expected(
+                desc: desc,
+                where: (i) => i.status == IsarInvoiceStatus.cancelled));
+        expect(total, ids.length);
+      }
+    });
+
+    test('por cliente con el orden por defecto (índice cliente + creación)',
+        () async {
+      for (final desc in [true, false]) {
+        final (ids, total) = await readAllPages(
+            customerId: 'c3', limit: 2, sortOrder: desc ? 'DESC' : 'ASC');
+        expect(ids,
+            expected(desc: desc, where: (i) => i.customerId == 'c3'));
+        expect(total, ids.length);
+      }
+    });
+
+    test('búsqueda por comienzo del número: sin importar mayúsculas', () async {
+      final (lower, _) = await readAllPages(search: 'fv-002');
+      final (upper, _) = await readAllPages(search: 'FV-002', limit: 3);
+      final want = expected(where: (i) => i.number.startsWith('FV-002'));
+      expect(lower, want);
+      expect(upper, want);
+      expect(want, hasLength(greaterThan(5)));
+    });
+
+    test('búsqueda por una parte del número que no es el comienzo', () async {
+      final (ids, _) = await readAllPages(search: '-012');
+      expect(ids, expected(where: (i) => i.number.contains('-012')));
+      expect(ids, isNotEmpty);
+    });
+
+    test('coincide por número y por cliente a la vez: no sale repetida',
+        () async {
+      final (ids, total) = await readAllPages(search: 'fv-9');
+      expect(ids, ['x0', 'x1']);
+      expect(total, 2);
+      // Con filtro de estado encima.
+      final (paid, _) =
+          await readAllPages(search: 'FV-9', status: InvoiceStatus.paid);
+      expect(paid, ['x0', 'x1']);
+      final (none, _) =
+          await readAllPages(search: 'FV-9', status: InvoiceStatus.draft);
+      expect(none, isEmpty);
+    });
+
+    test('vencidas: pendientes con vencimiento pasado, por índice de estado',
+        () async {
+      final overdue = (await repo.getOverdueInvoices())
+          .getOrElse(() => throw 'falló')
+          .map((i) => i.id)
+          .toSet();
+      final now = DateTime.now();
+      final want = all
+          .where((i) =>
+              i.deletedAt == null &&
+              i.status == IsarInvoiceStatus.pending &&
+              i.dueDate.isBefore(now))
+          .map((i) => i.serverId)
+          .toSet();
+      expect(overdue.length, want.length > 50 ? 50 : want.length);
+      expect(want.containsAll(overdue), isTrue);
     });
 
     test('página más allá del final: vacía, sin errores', () async {
