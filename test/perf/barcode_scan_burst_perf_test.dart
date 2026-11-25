@@ -39,6 +39,7 @@ import 'package:baudex_desktop/features/products/domain/repositories/product_rep
 import 'package:baudex_desktop/features/products/domain/usecases/get_product_presentations_usecase.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -462,15 +463,42 @@ void main() {
     await settle(t);
     before = qty(c);
     final code = codeOf(321);
+    // Cuadros SIN tecla (pantalla quieta): ¿se repinta algo de todos modos?
+    await settle(t, 150); // 3 s: que terminen los resaltados de la tabla
+    final idlePaints = <int>[];
+    final idleScheduled = <bool>[];
+    for (var k = 0; k < 4; k++) {
+      var n = 0;
+      debugOnProfilePaint = (_) => n++;
+      idleScheduled.add(t.binding.hasScheduledFrame);
+      await step(t, 16);
+      debugOnProfilePaint = null;
+      idlePaints.add(n);
+    }
     final perKey = <int>[];
     final perKeyMs = <double>[];
+    final perKeyPaints = <int>[];
+    final firstPainted = <String>[];
     final types = <int, Map<String, int>>{};
     for (var i = 1; i <= code.length; i++) {
+      var paints = 0;
+      var lastDepth = 1 << 30;
+      debugOnProfilePaint = (o) {
+        // Cada vez que la profundidad baja de golpe empieza otra capa.
+        if (i == 9 && o.depth < lastDepth - 3 && firstPainted.length < 12) {
+          firstPainted.add('\n      #$paints ${o.runtimeType}@${o.depth} '
+              '${'${o.debugCreator}'.split(' ← ').take(6).join(' ← ')}');
+        }
+        lastDepth = o.depth;
+        paints++;
+      };
       final counts = await countRebuilds(() async {
         final s = await typeBurst(t, code.substring(i - 1, i),
             enter: false, prefix: code.substring(0, i - 1));
         perKeyMs.add(s.handlerMs.single + s.frameMs.single);
       });
+      debugOnProfilePaint = null;
+      perKeyPaints.add(paints);
       perKey.add(counts.values.fold<int>(0, (a, b) => a + b));
       types[i] = counts;
     }
@@ -490,6 +518,9 @@ void main() {
     });
     // ignore: avoid_print
     print('MEDICION [desglose por tecla] redibujados por tecla: $perKey\n'
+        '  objetos repintados por tecla: $perKeyPaints\n'
+        '  pantalla quieta (sin teclas): repintados por cuadro $idlePaints, cuadro pedido: $idleScheduled\n'
+        '  primeros repintados (tecla 9): $firstPainted; caja: ${t.getSize(find.descendant(of: find.byType(ProductSearchWidget), matching: find.byType(TextField)))}\n'
         '  ms por tecla (manejadores + cuadro): ${perKeyMs.map(_f).toList()}\n'
         '  tecla 1: ${top(types[1]!)}\n'
         '  tecla 4: ${top(types[4]!)}\n'
@@ -606,11 +637,34 @@ void main() {
         done: () => qty(c) > before || fieldText(t) == onlyInSku,
         timeoutMs: 3000);
     await settle(t);
+    expect(qty(c), before + 1, reason: 'el lector lo encuentra por el SKU exacto');
     report('guardado solo como SKU', [s],
-        extra: qty(c) > before
-            ? 'ENCONTRADO: ${c.invoiceItems.first.description}'
-            : 'NO ENCONTRADO: el lector avisa "producto no encontrado" aunque '
-                'el producto existe con ese código en el SKU');
+        extra: 'ENCONTRADO: ${c.invoiceItems.first.description}');
+    await close(t);
+  }, timeout: timeout);
+
+  testWidgets('catálogo bajando y con internet: una lectura que no está en el '
+      'equipo no frena la siguiente', (t) async {
+    catalogComplete = false;
+    online = true;
+    resetLocalCollectionsReady();
+    final c = await open(t);
+    repo.reset();
+    serverCalls = 0;
+    final before = qty(c);
+    await typeBurst(t, missing); // Enter y, sin esperar, el siguiente código
+    final next = await scan(t, codeOf(4343), done: () => qty(c) > before);
+    expect(qty(c), before + 1);
+    expect(fieldText(t), isNot(missing),
+        reason: 'el servidor todavía no ha respondido por la primera');
+    report('existe, leída justo después de una que espera al servidor', [next]);
+    final w = Stopwatch()..start();
+    while (fieldText(t) != missing && w.elapsedMilliseconds < 8000) {
+      await step(t, 5);
+    }
+    expect(serverCalls, 1);
+    expect(fieldText(t), missing, reason: 'al final avisa que no existe');
+    expect(qty(c), before + 1);
     await close(t);
   }, timeout: timeout);
 
