@@ -80,6 +80,11 @@ class ApiInterceptor extends Interceptor {
 
   ApiInterceptor(this._storageService);
 
+  /// Petición pública de acceso (login, registro, recuperar clave): se hace
+  /// sin sesión y por eso no debe llevar el token guardado.
+  static bool isPublicRequest(RequestOptions options) =>
+      options.extra['skip_auth_interceptor'] == true;
+
   @override
   void onRequest(
     RequestOptions options,
@@ -100,8 +105,13 @@ class ApiInterceptor extends Interceptor {
         _cachedToken = await _storageService.getToken();
       }
 
-      // Token de autorización
-      if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+      // Token de autorización. Las rutas públicas (iniciar sesión,
+      // registro, recuperar clave) NUNCA llevan el token guardado: si en
+      // este equipo quedó el de otro negocio, el servidor buscaba el correo
+      // solo dentro de ese negocio y respondía "credenciales inválidas".
+      if (isPublicRequest(options)) {
+        options.headers.remove(ApiConstants.authorization);
+      } else if (_cachedToken != null && _cachedToken!.isNotEmpty) {
         options.headers[ApiConstants.authorization] =
             '${ApiConstants.bearerPrefix}$_cachedToken';
       }
@@ -117,7 +127,7 @@ class ApiInterceptor extends Interceptor {
       // Fallback: intentar solo el token si algo falla
       try {
         final token = await _storageService.getToken();
-        if (token != null && token.isNotEmpty) {
+        if (!isPublicRequest(options) && token != null && token.isNotEmpty) {
           options.headers[ApiConstants.authorization] =
               '${ApiConstants.bearerPrefix}$token';
         }
