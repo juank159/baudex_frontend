@@ -30,6 +30,15 @@ class TenantInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    // Iniciar sesión, registro y recuperar clave se hacen SIN negocio: si en
+    // este equipo quedó guardado el de otra sesión, el servidor buscaba el
+    // correo solo dentro de ese negocio y respondía "credenciales
+    // inválidas" con cualquier usuario (Windows del CEO, 2026-11-25).
+    if (options.extra['skip_auth_interceptor'] == true) {
+      options.headers.remove('X-Tenant-Slug');
+      return super.onRequest(options, handler);
+    }
+
     // Leer de storage solo una vez, luego usar cache
     if (!_cacheInitialized) {
       try {

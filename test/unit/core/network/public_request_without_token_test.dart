@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:baudex_desktop/app/core/network/api_interceptor.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import 'package:baudex_desktop/core/network/tenant_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -12,6 +13,7 @@ class MockStorage extends Mock implements SecureStorageService {}
 /// Adaptador HTTP falso: registra la cabecera Authorization de cada petición.
 class AuthRecordingAdapter implements HttpClientAdapter {
   final List<Object?> auth = [];
+  final List<Object?> slug = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -20,6 +22,7 @@ class AuthRecordingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     auth.add(options.headers['Authorization']);
+    slug.add(options.headers['X-Tenant-Slug']);
     return ResponseBody.fromString(
       jsonEncode({'ok': true}),
       200,
@@ -46,10 +49,14 @@ void main() {
         .thenAnswer((_) async => 'token-viejo-de-otro-negocio');
     when(() => storage.getOrCreateDeviceId())
         .thenAnswer((_) async => 'device-1');
+    when(() => storage.getTenantSlug())
+        .thenAnswer((_) async => 'otro-negocio');
+    TenantInterceptor.invalidateCache();
     adapter = AuthRecordingAdapter();
     dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter
-      ..interceptors.add(ApiInterceptor(storage));
+      ..interceptors.add(ApiInterceptor(storage))
+      ..interceptors.add(TenantInterceptor(storage));
   });
 
   final public = Options(extra: {'skip_auth_interceptor': true});
@@ -61,10 +68,12 @@ void main() {
     await dio.post('/auth/login',
         data: {'email': 'a@b.co', 'password': 'x'}, options: public);
     expect(adapter.auth, [null, null]);
+    expect(adapter.slug, [null, null]);
   });
 
   test('una petición normal sí lleva el token', () async {
     await dio.get('/products');
     expect(adapter.auth.single, 'Bearer token-viejo-de-otro-negocio');
+    expect(adapter.slug.single, 'otro-negocio');
   });
 }
