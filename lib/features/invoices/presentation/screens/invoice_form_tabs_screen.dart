@@ -9,6 +9,7 @@ import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/invoice_tabs_controller.dart';
 import '../controllers/invoice_form_controller.dart';
 import 'invoice_form_screen.dart';
+import '../widgets/invoice_shortcut_keys.dart';
 
 class InvoiceFormTabsScreen extends StatefulWidget {
   const InvoiceFormTabsScreen({super.key});
@@ -50,6 +51,11 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
   }
 
   bool _handleGlobalKeyEvent(KeyEvent event) {
+    // Dígito sin Ctrl: no es un atajo (lo escribe el cajero o el lector).
+    if (isPlainDigitKey(event.logicalKey,
+        modifierPressed: shortcutModifierPressed())) {
+      return false;
+    }
     if (event is KeyDownEvent) {
       // ✅ CRÍTICO: No procesar shortcuts cuando el focus está en un TextField (búsqueda de productos)
       final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;

@@ -1058,7 +1058,19 @@ class InvoiceFormController extends GetxController {
   /// en el equipo (instantánea); si no aparece, lo mismo que hacía antes el
   /// buscador: la búsqueda general, el código exacto o, si no, la primera
   /// coincidencia (p. ej. códigos guardados con un cero adelante).
-  Future<Product?> findProductByBarcode(String code) async {
+  ///
+  /// También encuentra el producto cuyo SKU es EXACTAMENTE el código leído
+  /// (negocios que guardan el código de barras en el SKU).
+  ///
+  /// Con [localOnly] (cola del lector) responde solo con las búsquedas
+  /// exactas del equipo, sin la búsqueda "que contenga" ni el servidor:
+  /// una lectura que no aparece no frena las lecturas siguientes. Quien
+  /// llama decide si vale la pena preguntar después al servidor
+  /// ([scanMayExistOnServer]).
+  Future<Product?> findProductByBarcode(
+    String code, {
+    bool localOnly = false,
+  }) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return null;
     // Re-escaneo de un producto que YA está en la factura: se resuelve en
@@ -1088,6 +1100,20 @@ class InvoiceFormController extends GetxController {
           }
           sawInactive = true;
         }
+        // El mismo código guardado como SKU (búsqueda exacta por índice).
+        final bySku = (await repo.getProductBySku(trimmed))
+            .fold((_) => null, (p) => p);
+        if (bySku != null) {
+          if (bySku.status == ProductStatus.active) {
+            _scanCache.remember(trimmed, bySku);
+            return bySku;
+          }
+          sawInactive = true;
+        }
+        // Cola del lector: lo exacto del equipo ya respondió. (Si el único
+        // que apareció está inactivo, sigue la búsqueda de siempre: puede
+        // haber otro activo con el mismo código.)
+        if (localOnly && !sawInactive) return null;
         // Catálogo completo en el equipo y ningún código igual: no existe.
         if (!sawInactive &&
             await localCollectionReady(
@@ -1108,6 +1134,23 @@ class InvoiceFormController extends GetxController {
       _scanCache.remember(trimmed, found);
     }
     return found;
+  }
+
+  /// ¿Un código leído que no está en el equipo puede existir en el
+  /// servidor? Solo mientras el catálogo no ha terminado de bajar y hay
+  /// internet. Con el catálogo completo, lo del equipo es todo lo que hay.
+  Future<bool> scanMayExistOnServer() async {
+    try {
+      if (!Get.isRegistered<ProductOfflineRepository>()) return false;
+      if (await localCollectionReady(
+          IsarDatabase.instance.database.isarProducts)) {
+        return false;
+      }
+      return Get.isRegistered<NetworkInfo>() &&
+          await Get.find<NetworkInfo>().isConnected;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Códigos ya escaneados en esta factura (ver [ScanCodeCache]).
