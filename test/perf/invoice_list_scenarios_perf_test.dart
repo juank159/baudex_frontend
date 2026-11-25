@@ -15,6 +15,7 @@ import 'package:baudex_desktop/features/invoices/data/repositories/invoice_offli
 import 'package:baudex_desktop/features/invoices/data/repositories/invoice_repository_impl.dart';
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
+import 'package:baudex_desktop/features/invoices/domain/services/invoice_history_lookup.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/cancel_invoice_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/confirm_invoice_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/usecases/delete_invoice_usecase.dart';
@@ -52,11 +53,22 @@ class _Remote extends Mock implements InvoiceRemoteDataSource {
   _Remote(this.delay);
   final Duration delay;
   int listCalls = 0, statsCalls = 0, overdueCalls = 0;
+  static const onlyOnServer = 'VIEJA-SOLO-SERVIDOR';
 
   @override
   Future<InvoiceResponseModel> getInvoices(InvoiceQueryParams params) async {
     listCalls++;
     await Future.delayed(delay);
+    // Una factura antigua que SOLO está en el servidor (aún no ha bajado).
+    if (params.search == onlyOnServer) {
+      final one = (await InvoiceOfflineRepositorySimple()
+              .getInvoices(page: 1, limit: 1))
+          .getOrElse(() => throw 'falló');
+      return InvoiceResponseModel(
+        data: one.data.map(InvoiceModel.fromEntity).toList(),
+        meta: one.meta,
+      );
+    }
     final page = (await InvoiceOfflineRepositorySimple().getInvoices(
       page: params.page,
       limit: params.limit,
@@ -157,6 +169,7 @@ void main() {
         confirmInvoiceUseCase: ConfirmInvoiceUseCase(repo),
         cancelInvoiceUseCase: CancelInvoiceUseCase(repo),
         getInvoiceByIdUseCase: GetInvoiceByIdUseCase(repo),
+        historyLookup: repo as InvoiceHistoryLookup,
       );
 
   /// Espera a que [done] sea cierto; devuelve los ms (o -1 si pasó [maxMs]).
@@ -181,8 +194,15 @@ void main() {
 
   /// Abre la pantalla (crea el controlador, como el binding) y hace las
   /// acciones del usuario. [label] distingue el estado del equipo.
+  ///
+  /// GUARDIA: con facturas en el equipo, ninguna acción espera al servidor
+  /// (cada una responde en menos de [maxMs]) y el servidor solo se consulta
+  /// por detrás cuando una búsqueda no encuentra nada y el historial baja.
   Future<void> scenario(String label,
       {required bool moduleReady, bool online = true}) async {
+    const maxMs = 1500; // incluye la pausa de teclado de 500 ms
+    void fast(int ms, String what) => expect(ms, inInclusiveRange(0, maxMs),
+        reason: '$label: "$what" no puede esperar al servidor');
     wire(moduleReady: moduleReady, online: online);
     // Como el binding real: primero las estadísticas, luego la lista.
     final statsW = Stopwatch()..start();
@@ -190,38 +210,49 @@ void main() {
       getInvoiceStatsUseCase: GetInvoiceStatsUseCase(repo),
       getOverdueInvoicesUseCase: GetOverdueInvoicesUseCase(repo),
     ));
-    final w = Stopwatch()..start();
-    final c = Get.put(newController());
+    var c = Get.put(newController());
     final open = await until(() => c.filteredInvoices.isNotEmpty);
     out('$label | abrir: primera página lista',
         '$open ms (${c.filteredInvoices.length} filas, servidor ${remote.listCalls} llamadas)');
+    fast(open, 'abrir');
     await until(() => !stats.isLoading);
+    final statsMs = statsW.elapsedMilliseconds;
     out('$label | abrir: estadísticas del panel',
-        '${statsW.elapsedMilliseconds} ms (servidor ${remote.statsCalls + remote.overdueCalls} llamadas)');
-    expect(w.elapsedMilliseconds, lessThan(60000));
+        '$statsMs ms (servidor ${remote.statsCalls + remote.overdueCalls} llamadas)');
+    fast(statsMs, 'estadísticas');
     await until(() => !c.isLoading);
     await Future.delayed(const Duration(milliseconds: 700));
+    expect(c.isHistoryDownloading, !moduleReady,
+        reason: 'aviso de historial bajando');
 
     // Volver a la pantalla (el controlador es permanente): refresco.
-    var calls = remote.listCalls;
     var t = Stopwatch()..start();
     await c.refreshAllData();
     out('$label | volver de Productos: refresco',
-        '${t.elapsedMilliseconds} ms (filas a la vista mientras tanto: ${c.filteredInvoices.length}, servidor +${remote.listCalls - calls})');
+        '${t.elapsedMilliseconds} ms (filas a la vista mientras tanto: ${c.filteredInvoices.length})');
+    fast(t.elapsedMilliseconds, 'volver');
+
+    // Cerrar la pantalla del todo y abrir de nuevo (controlador nuevo, sin
+    // caché en memoria).
+    await Get.delete<InvoiceListController>(force: true);
+    InvoiceListController.invalidateCache();
+    c = Get.put(newController());
+    var ms = await until(() => c.filteredInvoices.isNotEmpty);
+    out('$label | cerrar y abrir de nuevo', '$ms ms');
+    fast(ms, 'cerrar y abrir');
+    await until(() => !c.isLoading);
 
     // Búsqueda por número (incluye la pausa de 500 ms del teclado).
     final target = 'FV-${(count ~/ 2).toString().padLeft(6, '0')}';
-    calls = remote.listCalls;
     c.searchController.text = target;
-    var ms = await until(() =>
+    ms = await until(() =>
         !c.isLoading &&
         c.searchQuery == target &&
         c.filteredInvoices.length == 1);
-    out('$label | buscar número $target',
-        '$ms ms (500 de pausa de teclado; servidor +${remote.listCalls - calls})');
+    out('$label | buscar número $target', '$ms ms (500 de pausa de teclado)');
+    fast(ms, 'buscar número');
 
     // Búsqueda por cliente.
-    calls = remote.listCalls;
     c.searchController.text = 'Cliente12';
     ms = await until(() =>
         !c.isLoading &&
@@ -229,26 +260,53 @@ void main() {
         c.filteredInvoices.isNotEmpty &&
         c.filteredInvoices.first.number != target);
     out('$label | buscar cliente "Cliente12"',
-        '$ms ms (500 de pausa; ${c.totalItems} resultados; servidor +${remote.listCalls - calls})');
+        '$ms ms (500 de pausa; ${c.totalItems} resultados)');
+    fast(ms, 'buscar cliente');
+    expect(remote.listCalls, 0,
+        reason: '$label: con datos en el equipo no se pregunta al servidor');
+
+    // Búsqueda de una factura que NO está en el equipo (solo en el servidor).
+    c.searchController.text = _Remote.onlyOnServer;
+    t = Stopwatch()..start();
+    ms = await until(() =>
+        !c.isLoading &&
+        c.searchQuery == _Remote.onlyOnServer &&
+        c.filteredInvoices.isEmpty);
+    fast(ms, 'buscar lo que no está en el equipo');
+    final expectServer = !moduleReady && online;
+    if (expectServer) {
+      await until(() => c.isSearchingServer, maxMs: 2000);
+      expect(c.isLoading, isFalse);
+      final arrived = await until(() => c.filteredInvoices.isNotEmpty);
+      out('$label | buscar factura que no ha bajado',
+          '"sin resultados" a los $ms ms (pantalla libre); el servidor la agrega a los ${t.elapsedMilliseconds} ms');
+      expect(arrived, greaterThan(0));
+      expect(remote.listCalls, 1, reason: 'una sola consulta, por detrás');
+    } else {
+      await Future.delayed(const Duration(milliseconds: 300));
+      out('$label | buscar factura que no existe en el equipo',
+          '"sin resultados" a los $ms ms (servidor ${remote.listCalls} llamadas)');
+      expect(remote.listCalls, 0);
+      expect(c.filteredInvoices, isEmpty);
+    }
+    final serverSoFar = remote.listCalls;
     c.searchController.text = '';
     await until(() => !c.isLoading && c.searchQuery.isEmpty && c.totalItems >= count ~/ 2);
     await Future.delayed(const Duration(milliseconds: 100));
 
     // Filtro por estado (pagadas: casi todas).
-    calls = remote.listCalls;
     t = Stopwatch()..start();
     c.filterByStatus(InvoiceStatus.paid);
     await until(() => !c.isLoading && t.elapsedMilliseconds > 0);
     out('$label | filtro estado Pagadas',
-        '${t.elapsedMilliseconds} ms (${c.totalItems} facturas; servidor +${remote.listCalls - calls})');
+        '${t.elapsedMilliseconds} ms (${c.totalItems} facturas)');
+    fast(t.elapsedMilliseconds, 'filtro Pagadas');
 
-    // Filtro "Pendientes": se filtra en pantalla trayendo páginas.
-    calls = remote.listCalls;
+    // Filtro "Pendientes" (pendientes + abonadas): TODAS, desde la base.
     t = Stopwatch()..start();
     c.filterByStatus(InvoiceStatus.pending);
-    await until(() => !c.isLoading && !c.isLoadingMore);
-    await Future.delayed(const Duration(milliseconds: 30));
-    await until(() => !c.isLoading && !c.isLoadingMore);
+    await until(() => !c.isLoading && !c.isLoadingMore && t.elapsedMilliseconds > 0);
+    final pendingMs = t.elapsedMilliseconds;
     final pendingReal = await isar.isarInvoices
         .filter()
         .statusEqualTo(IsarInvoiceStatus.pending)
@@ -256,25 +314,32 @@ void main() {
         .statusEqualTo(IsarInvoiceStatus.partiallyPaid)
         .count();
     out('$label | filtro estado Pendientes',
-        '${t.elapsedMilliseconds} ms (muestra ${c.filteredInvoices.length} tras leer ${c.invoices.length}; en la base hay $pendingReal; servidor +${remote.listCalls - calls})');
+        '$pendingMs ms (primera página ${c.filteredInvoices.length}, total ${c.totalItems}; en la base hay $pendingReal)');
+    fast(pendingMs, 'filtro Pendientes');
+    expect(c.totalItems, pendingReal, reason: 'Pendientes completo');
+    expect(c.filteredInvoices.length, pendingReal < 30 ? pendingReal : 30);
+    expect(
+        c.filteredInvoices.every((i) =>
+            i.status == InvoiceStatus.pending ||
+            i.status == InvoiceStatus.partiallyPaid),
+        isTrue);
     c.filterByStatus(null);
     await until(() => !c.isLoading);
 
     // Filtro por fechas: últimos 30 días.
-    calls = remote.listCalls;
     t = Stopwatch()..start();
     final now = DateTime.now();
     c.filterByDateRange(now.subtract(const Duration(days: 30)), now);
     await until(() => !c.isLoading && t.elapsedMilliseconds > 0);
     out('$label | filtro últimos 30 días',
-        '${t.elapsedMilliseconds} ms (${c.totalItems} facturas; servidor +${remote.listCalls - calls})');
+        '${t.elapsedMilliseconds} ms (${c.totalItems} facturas)');
+    fast(t.elapsedMilliseconds, 'filtro fechas');
 
-    // Un filtro pedido MIENTRAS otra carga está en curso: ¿se pierde?
+    // Dos filtros seguidos: gana el último.
     c.filterByDateRange(null, null);
     await until(() => !c.isLoading);
     c.filterByStatus(InvoiceStatus.paid);
     await Future.delayed(const Duration(milliseconds: 1));
-    final stillLoading = c.isLoading;
     c.filterByStatus(InvoiceStatus.cancelled);
     await until(() => !c.isLoading);
     await Future.delayed(const Duration(milliseconds: 300));
@@ -284,7 +349,17 @@ void main() {
         .statusEqualTo(IsarInvoiceStatus.cancelled)
         .count();
     out('$label | dos filtros seguidos (Pagadas y enseguida Anuladas)',
-        'el segundo llegó ${stillLoading ? "DURANTE" : "después de"} la carga; con "Anuladas" marcado la pantalla muestra ${c.filteredInvoices.length} filas y dice ${c.totalItems} en total (en la base hay $cancelledReal anuladas)');
+        'con "Anuladas" marcado la pantalla muestra ${c.filteredInvoices.length} filas y dice ${c.totalItems} en total (en la base hay $cancelledReal anuladas)');
+    expect(c.totalItems, cancelledReal);
+    expect(c.filteredInvoices, isNotEmpty);
+    expect(
+        c.filteredInvoices.every((i) => i.status == InvoiceStatus.cancelled),
+        isTrue);
+
+    expect(remote.listCalls, serverSoFar,
+        reason: '$label: los filtros no preguntan al servidor');
+    expect(remote.statsCalls + remote.overdueCalls, 0,
+        reason: '$label: las estadísticas salen del equipo');
   }
 
   test('equipo con todo descargado, servidor lento', () async {
@@ -355,9 +430,16 @@ void main() {
     // Va de última: vacía la base temporal.
     await isar.writeTxn(() => isar.isarInvoices.clear());
     wire(moduleReady: false);
+    final w = Stopwatch()..start();
     final c = Get.put(newController());
+    // De inmediato: estado liviano "Descargando tus facturas…".
+    final light = await until(() => c.isLoading && c.isHistoryDownloading);
+    out('equipo vacío+servidor lento | abrir: estado "Descargando tus facturas…"',
+        '$light ms');
+    expect(light, inInclusiveRange(0, 300));
     final ms = await until(() => !c.isLoading && remote.listCalls > 0);
-    out('equipo vacío+servidor lento | abrir',
-        '$ms ms mirando el cargando (servidor ${remote.listCalls} llamadas)');
+    out('equipo vacío+servidor lento | abrir: respuesta del servidor',
+        '${w.elapsedMilliseconds} ms (servidor ${remote.listCalls} llamadas; la pantalla no se bloquea)');
+    expect(ms, greaterThan(0));
   }, timeout: const Timeout(Duration(minutes: 5)));
 }
