@@ -1255,8 +1255,12 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     SettingsController controller,
     PrinterSettings printer,
   ) {
+    // Se cierra con el Navigator del propio diálogo: `Navigator.of(dialogContext).pop()` cierra
+    // primero un aviso abierto y dejaba el diálogo en pantalla, con lo que
+    // "Eliminar" se podía oprimir dos veces.
     Get.dialog(
-      AlertDialog(
+      Builder(
+        builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: ElegantLightTheme.backgroundColor,
         title: Row(
@@ -1292,7 +1296,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
           _buildFuturisticButton(
             text: 'Cancelar',
             icon: Icons.cancel,
-            onPressed: () => Get.back(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             gradient: ElegantLightTheme.glassGradient,
           ),
           const SizedBox(width: 8),
@@ -1300,12 +1304,13 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
             text: 'Eliminar',
             icon: Icons.delete,
             onPressed: () {
-              Get.back();
+              Navigator.of(dialogContext).pop();
               controller.deletePrinterSettings(printer.id);
             },
             gradient: ElegantLightTheme.errorGradient,
           ),
         ],
+      ),
       ),
     );
   }

@@ -1,7 +1,11 @@
 // lib/features/settings/presentation/controllers/settings_controller.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/printing/system_printer_discovery.dart';
 import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -96,8 +100,42 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   @override
   void onInit() {
     super.onInit();
-    setupSyncListener();
+    _attachSyncListener();
     loadAllSettings();
+  }
+
+  Timer? _syncListenerRetry;
+
+  /// Al arrancar, este controlador se registra antes que la cola de
+  /// sincronización (`InitialBinding`): si aún no existe, se engancha
+  /// apenas aparezca. Sin esto, las impresoras que baja la sincronización
+  /// no llegaban a memoria hasta abrir la pantalla de Impresoras.
+  void _attachSyncListener() {
+    if (Get.isRegistered<SyncService>()) {
+      setupSyncListener();
+      return;
+    }
+    var attempts = 0;
+    _syncListenerRetry = Timer.periodic(const Duration(milliseconds: 300), (
+      timer,
+    ) {
+      attempts++;
+      if (isClosed || attempts > 100) {
+        timer.cancel();
+        return;
+      }
+      if (!Get.isRegistered<SyncService>()) return;
+      timer.cancel();
+      setupSyncListener();
+      // Por si una sincronización terminó antes de engancharse.
+      loadPrinterSettings();
+    });
+  }
+
+  @override
+  void onClose() {
+    _syncListenerRetry?.cancel();
+    super.onClose();
   }
 
   @override
@@ -241,6 +279,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   Future<void> savePrinterSettings(PrinterSettings settings) async {
     try {
       _isSaving.value = true;
+      var saved = false;
 
       final result = await _savePrinterSettingsUseCase(
         SavePrinterSettingsParams(settings: settings),
@@ -248,32 +287,33 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          _showError('Error', 'No se pudo guardar la configuración de la impresora');
+          FuturisticNotifications.showError(
+            'No se guardó la impresora',
+            failure is ServerFailure
+                ? failure.message
+                : 'No se pudo guardar la impresora. Inténtalo de nuevo.',
+          );
         },
         (savedSettings) {
-          // Actualizar la lista local
-          final index = _printerSettings.indexWhere((p) => p.id == savedSettings.id);
-          if (index != -1) {
-            _printerSettings[index] = savedSettings;
-          } else {
-            _printerSettings.add(savedSettings);
-          }
-
-          // Actualizar impresora por defecto si corresponde
-          if (savedSettings.isDefault) {
-            _defaultPrinter.value = savedSettings;
-          }
-
-          _showSuccess('Configuración de impresora guardada exitosamente');
+          saved = true;
         },
       );
+      if (saved) {
+        // Lista y predeterminada tal como quedaron en este equipo.
+        await _reloadPrintersQuietly();
+        _showSuccess('Configuración de impresora guardada exitosamente');
+      }
     } catch (e) {
     } finally {
       _isSaving.value = false;
     }
   }
 
+  /// Impresoras que se están eliminando (evita un segundo "Eliminar").
+  final _deleting = <String>{};
+
   Future<void> deletePrinterSettings(String settingsId) async {
+    if (!_deleting.add(settingsId)) return;
     try {
       _isSaving.value = true;
 
@@ -281,26 +321,45 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
         DeletePrinterSettingsParams(settingsId: settingsId),
       );
 
-      result.fold(
-        (failure) {
-          _showError('Error', 'No se pudo eliminar la configuración de la impresora');
-        },
-        (_) {
-          // Remover de la lista local
-          _printerSettings.removeWhere((p) => p.id == settingsId);
-          
-          // Si era la impresora por defecto, limpiar
-          if (_defaultPrinter.value?.id == settingsId) {
-            _defaultPrinter.value = null;
-          }
+      final failure = result.fold<Failure?>((f) => f, (_) => null);
+      if (failure != null) {
+        FuturisticNotifications.showError(
+          'No se eliminó la impresora',
+          failure is ServerFailure || failure is CacheFailure
+              ? failure.message
+              : 'No se pudo eliminar la impresora. Inténtalo de nuevo.',
+        );
+        return;
+      }
 
-          _showSuccess('Configuración de impresora eliminada exitosamente');
-        },
+      // Quitarla de memoria ya, y recalcular con cuál se factura ahora
+      // (otra impresora, o ninguna).
+      _printerSettings.removeWhere((p) => p.id == settingsId);
+      if (_defaultPrinter.value?.id == settingsId) {
+        _defaultPrinter.value = null;
+      }
+      await _reloadPrintersQuietly();
+
+      FuturisticNotifications.showSuccess(
+        'Impresora eliminada',
+        _defaultPrinter.value == null
+            ? 'Ya no hay impresora para las facturas.'
+            : 'Las facturas saldrán por "${_defaultPrinter.value!.name}".',
       );
     } catch (e) {
     } finally {
+      _deleting.remove(settingsId);
       _isSaving.value = false;
     }
+  }
+
+  /// Vuelve a leer lista y predeterminada de la base local, sin el
+  /// indicador de carga (no hace parpadear la pantalla).
+  Future<void> _reloadPrintersQuietly() async {
+    final all = await _getAllPrinterSettingsUseCase(NoParams());
+    final chosen = await _getDefaultPrinterSettingsUseCase(NoParams());
+    all.fold((_) {}, (printers) => _printerSettings.value = printers);
+    chosen.fold((_) {}, (printer) => _defaultPrinter.value = printer);
   }
 
   Future<void> setDefaultPrinter(String settingsId) async {
