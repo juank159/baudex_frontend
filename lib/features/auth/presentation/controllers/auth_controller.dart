@@ -544,7 +544,7 @@ class AuthController extends GetxController {
             case LoginFailureKind.credentials:
               // Mensaje IDÉNTICO al de negocio que no coincide, para no
               // filtrar cuál de los tres campos falló.
-              _showGenericLoginError();
+              _showGenericLoginError(failure.code == 401 ? 'C1' : 'C2');
             case LoginFailureKind.connection:
             case LoginFailureKind.localStorage:
               Get.dialog(LoginProblemDialog(view: view, onClose: Get.back));
@@ -578,7 +578,7 @@ class AuthController extends GetxController {
             // No guardamos token, no navegamos. Mensaje genérico
             // indistinguible del de password incorrecta para no filtrar
             // si lo que falló fue la pass o el nombre del negocio.
-            _showGenericLoginError();
+            _showGenericLoginError('N1');
             return;
           }
 
@@ -1302,10 +1302,14 @@ class AuthController extends GetxController {
     );
   }
 
-  void _showGenericLoginError() {
+  /// [supportCode] le dice a soporte qué pasó sin revelarlo en pantalla:
+  /// C1 = el servidor rechazó correo/contraseña, C2 = sin conexión y no
+  /// coincide con la sesión guardada, N1 = el servidor aceptó pero el
+  /// "Negocio" escrito no coincide con el de la cuenta.
+  void _showGenericLoginError(String supportCode) {
     Get.snackbar(
       genericCredentialsTitle,
-      genericCredentialsMessage,
+      '$genericCredentialsMessage (Código $supportCode)',
       snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.red.shade100,
       colorText: Colors.red.shade800,
