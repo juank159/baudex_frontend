@@ -33,6 +33,8 @@ import '../../../settings/presentation/controllers/organization_controller.dart'
 import '../../../settings/domain/entities/organization.dart';
 import '../../../settings/domain/entities/printer_settings.dart' as settings;
 import '../../../settings/data/models/isar/isar_organization.dart';
+import '../../../settings/data/datasources/settings_local_datasource.dart';
+import '../../../settings/domain/rules/printer_rules.dart';
 
 // ==================== CONFIGURACIÓN ESPECÍFICA SAT Q22UE ====================
 
@@ -231,8 +233,12 @@ class ThermalPrinterController extends GetxController {
       _settingsController ??= Get.isRegistered<SettingsController>()
           ? Get.find<SettingsController>()
           : null;
-      final current = _settingsController?.defaultPrinter;
-      if (current != null) _currentPrinterConfig.value = current;
+      // Si Configuración está cargada, manda ella: también cuando ya no
+      // hay impresora (se eliminó), para no imprimir en una que no existe.
+      final settingsCtrl = _settingsController;
+      if (settingsCtrl != null) {
+        _currentPrinterConfig.value = settingsCtrl.defaultPrinter;
+      }
     } catch (_) {}
     try {
       if (Get.isRegistered<OrganizationController>()) {
@@ -290,17 +296,27 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
+  /// Lee de la base local la impresora con la que factura este equipo.
+  /// Funciona aunque Configuración no esté cargada (recién abierta la app).
   Future<void> _loadDefaultPrinterConfig() async {
-    if (_settingsController == null) return;
-
     try {
-      await _settingsController!.loadPrinterSettings();
-
-      final defaultPrinter = _settingsController!.defaultPrinter;
-      if (defaultPrinter != null) {
-        _currentPrinterConfig.value = defaultPrinter;
-      } else {
+      _settingsController ??= Get.isRegistered<SettingsController>()
+          ? Get.find<SettingsController>()
+          : null;
+      final settingsCtrl = _settingsController;
+      if (settingsCtrl != null) {
+        await settingsCtrl.loadPrinterSettings();
+        _currentPrinterConfig.value = settingsCtrl.defaultPrinter;
+        return;
       }
+
+      final local = Get.isRegistered<SettingsLocalDataSource>()
+          ? Get.find<SettingsLocalDataSource>()
+          : SettingsLocalDataSourceImpl();
+      final result = await local.getDefaultPrinterSettings();
+      result.fold((_) {}, (printer) {
+        if (printer != null) _currentPrinterConfig.value = printer;
+      });
     } catch (e) {
     }
   }
@@ -309,22 +325,13 @@ class ThermalPrinterController extends GetxController {
   /// Este método puede ser llamado desde enhanced_payment_dialog.dart antes de imprimir
   Future<bool> ensurePrinterConfigLoaded() async {
 
-    // Si ya tenemos configuración, verificar que sigue siendo válida
-    if (_currentPrinterConfig.value != null) {
-      return true;
-    }
+    // Lo que diga Configuración ahora mismo (también si se eliminó).
+    _refreshPrintContext();
 
-    // Intentar cargar SettingsController si no está disponible
-    if (_settingsController == null) {
-      try {
-        _settingsController = Get.find<SettingsController>();
-      } catch (e) {
-        return false;
-      }
+    // Nada en memoria: leer de la base local.
+    if (_currentPrinterConfig.value == null) {
+      await _loadDefaultPrinterConfig();
     }
-
-    // Cargar configuración de impresora
-    await _loadDefaultPrinterConfig();
 
     // También asegurar datos de organización
     if (_cachedOrganization == null) {
@@ -645,6 +652,7 @@ class ThermalPrinterController extends GetxController {
       // Impresora y datos del negocio vigentes (por si cambiaron en
       // Configuración); solo se lee de disco si no hay nada en memoria.
       _refreshPrintContext();
+      if (_currentPrinterConfig.value == null) await _loadDefaultPrinterConfig();
       if (_cachedOrganization == null) await _loadOrganizationData();
 
       final printerConfig = _currentPrinterConfig.value;
@@ -1240,11 +1248,13 @@ class ThermalPrinterController extends GetxController {
     // Camino normal: directo a la cola de impresión de Windows, sin abrir
     // PowerShell (que tardaba segundos por tiquete).
     String nativeFailure;
+    int? nativeCode;
     try {
       await sendRawToWindowsPrinter(usbPath, data);
       _jobKind = 'USB Windows (directo)';
       return true;
     } on WindowsRawPrintException catch (e) {
+      nativeCode = e.code;
       nativeFailure = 'código ${e.code}';
     } catch (e) {
       nativeFailure = e.runtimeType.toString();
@@ -1311,10 +1321,16 @@ class ThermalPrinterController extends GetxController {
       }
 
       await _cleanupTempFile(file);
-      _lastError.value = "No se pudo acceder a la impresora USB '$usbPath'";
+      _lastError.value = windowsUsbFailureMessage(
+        usbPath,
+        nativeCode: nativeCode,
+      );
       return false;
     } catch (e) {
-      _lastError.value = "Error USB Windows: $e";
+      _lastError.value = windowsUsbFailureMessage(
+        usbPath,
+        nativeCode: nativeCode,
+      );
       return false;
     }
   }

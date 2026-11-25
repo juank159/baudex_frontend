@@ -13,6 +13,7 @@ import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
 import '../../domain/entities/printer_settings.dart';
 import '../../domain/repositories/settings_repository.dart';
+import '../../domain/rules/printer_rules.dart';
 import '../datasources/settings_local_datasource.dart';
 import '../datasources/printer_settings_remote_datasource.dart';
 
@@ -95,15 +96,18 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, PrinterSettings>> savePrinterSettings(PrinterSettings settings) async {
     try {
-      final updatedSettings = settings.copyWith(updatedAt: DateTime.now());
+      var updatedSettings = settings.copyWith(updatedAt: DateTime.now());
 
-      // Determinar si es create o update
-      // Un ID del servidor es UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-      // Cualquier otro formato (vacío, printer_offline_*, timestamp puro) = create
-      final uuidPattern = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
-      final isCreate = settings.id.isEmpty ||
-          settings.id.startsWith('printer_offline_') ||
-          !uuidPattern.hasMatch(settings.id);
+      // Un id del servidor es un UUID; cualquier otro (vacío,
+      // printer_offline_*) es una impresora que el servidor aún no tiene.
+      final isCreate = !isServerPrinterId(settings.id);
+
+      // La primera impresora de este equipo queda para facturar, aunque
+      // el cajero no marque "predeterminada".
+      if (!updatedSettings.isDefault && await _isOnlyPrinter(settings.id)) {
+        updatedSettings = updatedSettings.copyWith(isDefault: true);
+      }
+
       final bool isOnline = _networkInfo != null && await _networkInfo.isConnected;
 
       if (isOnline && _printerRemoteDataSource != null) {
@@ -113,20 +117,55 @@ class SettingsRepositoryImpl implements SettingsRepository {
           PrinterSettings savedPrinter;
 
           if (isCreate) {
-            savedPrinter = await _printerRemoteDataSource!.createPrinterSetting(serverData);
+            savedPrinter = await _printerRemoteDataSource.createPrinterSetting(serverData);
           } else {
-            savedPrinter = await _printerRemoteDataSource!.updatePrinterSetting(
+            savedPrinter = await _printerRemoteDataSource.updatePrinterSetting(
               settings.id,
               serverData,
             );
           }
+          // La marca de predeterminada es de este equipo.
+          savedPrinter = savedPrinter.copyWith(isDefault: updatedSettings.isDefault);
 
-          // Guardar en ISAR con ID del servidor
           final localResult = await _localDataSource.savePrinterSettings(savedPrinter);
+          if (isCreate && settings.id.isNotEmpty) {
+            // Era una impresora creada sin internet: ya subió con otro id.
+            await _cancelPendingOperations(settings.id);
+            await _localDataSource.deletePrinterSettings(settings.id);
+            if (savedPrinter.isDefault) {
+              await _localDataSource.setDefaultPrinter(savedPrinter.id);
+            }
+          }
           return localResult;
         } on ServerException catch (e) {
-          // Si falla el servidor, guardar localmente y encolar
-          if (_networkInfo != null) {
+          final code = e.statusCode;
+          if (isPrinterPermissionDenied(code)) {
+            if (!isCreate) {
+              return const Left(
+                ServerFailure(
+                  'No tienes permiso para cambiar esta impresora. '
+                  'Pídele a un administrador que lo haga.',
+                ),
+              );
+            }
+            // El servidor no deja a este usuario guardar impresoras del
+            // negocio: queda solo en este equipo, sin cola (el servidor
+            // la rechazaría siempre).
+            return await _saveOnThisDeviceOnly(updatedSettings);
+          }
+          if (code != null && code >= 400 && code < 500 &&
+              code != 401 && code != 404 && code != 408 && code != 429) {
+            final reason = cleanServerMessage(e.message);
+            return Left(
+              ServerFailure(
+                reason.isEmpty
+                    ? 'El servidor no aceptó los datos de la impresora.'
+                    : 'El servidor no aceptó la impresora: $reason',
+              ),
+            );
+          }
+          // Sin respuesta o error del servidor: guardar aquí y encolar.
+          if (code == null || code >= 500) {
             _networkInfo.markServerUnreachable();
           }
           return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
@@ -145,27 +184,58 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, void>> deletePrinterSettings(String settingsId) async {
     try {
-      final bool isOnline = _networkInfo != null && await _networkInfo.isConnected;
-
-      // Solo sincronizar eliminación si tiene UUID del servidor
-      final uuidPattern = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
-      final hasServerId = uuidPattern.hasMatch(settingsId);
-
-      if (isOnline && _printerRemoteDataSource != null && hasServerId) {
-        try {
-          await _printerRemoteDataSource!.deletePrinterSetting(settingsId);
-        } on ServerException catch (e) {
-          if (_networkInfo != null) {
-            _networkInfo.markServerUnreachable();
-          }
-          await _enqueueOperation(settingsId, SyncOperationType.delete, {});
-        }
-      } else if (hasServerId) {
-        // Offline: encolar eliminación solo si tiene ID del servidor
-        await _enqueueOperation(settingsId, SyncOperationType.delete, {});
+      // Nunca subió al servidor: se cancela lo que tuviera en cola (si no,
+      // al volver el internet se crearía y reaparecería) y se borra aquí.
+      if (!isServerPrinterId(settingsId)) {
+        await _cancelPendingOperations(settingsId);
+        return await _localDataSource.deletePrinterSettings(settingsId);
       }
 
-      // Eliminar de ISAR siempre
+      final bool isOnline = _networkInfo != null && await _networkInfo.isConnected;
+      var mustEnqueue = !isOnline || _printerRemoteDataSource == null;
+
+      if (!mustEnqueue) {
+        try {
+          await _printerRemoteDataSource.deletePrinterSetting(settingsId);
+        } on ServerException catch (e) {
+          switch (classifyPrinterDeleteFailure(e.statusCode)) {
+            case PrinterDeleteOutcome.alreadyGone:
+              break; // El servidor ya no la tiene: hecho.
+            case PrinterDeleteOutcome.rejected:
+              // El servidor dijo que no: la impresora se queda.
+              return Left(
+                ServerFailure(
+                  printerDeleteRejectionMessage(e.statusCode, e.message),
+                  code: e.statusCode,
+                ),
+              );
+            case PrinterDeleteOutcome.retryLater:
+              if (e.statusCode == null || e.statusCode! >= 500) {
+                _networkInfo.markServerUnreachable();
+              }
+              mustEnqueue = true;
+          }
+        }
+      }
+
+      if (mustEnqueue) {
+        final queued = await _enqueueOperation(
+          settingsId,
+          SyncOperationType.delete,
+          {},
+        );
+        if (!queued) {
+          // Sin cola no se borra aquí: la próxima descarga la volvería a
+          // traer y el servidor nunca se enteraría.
+          return const Left(
+            CacheFailure(
+              'No se pudo eliminar la impresora en este momento. '
+              'Inténtalo de nuevo cuando haya conexión.',
+            ),
+          );
+        }
+      }
+
       return await _localDataSource.deletePrinterSettings(settingsId);
     } catch (e) {
       return Left(CacheFailure('Error al eliminar configuración de impresora'));
@@ -221,8 +291,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
     return localResult;
   }
 
-  /// Encolar operación en sync queue
-  Future<void> _enqueueOperation(
+  /// Encolar operación en sync queue. Devuelve false si no quedó en cola.
+  Future<bool> _enqueueOperation(
     String entityId,
     SyncOperationType operationType,
     Map<String, dynamic> data,
@@ -236,8 +306,40 @@ class SettingsRepositoryImpl implements SettingsRepository {
         data: data,
         priority: 2,
       );
+      return true;
     } catch (e) {
+      return false;
     }
+  }
+
+  /// Quita de la cola lo pendiente de una impresora que aún no subió.
+  Future<void> _cancelPendingOperations(String entityId) async {
+    try {
+      await Get.find<SyncService>().deleteSyncOperationsByEntityId(entityId);
+    } catch (_) {}
+  }
+
+  /// No hay otra impresora guardada en este equipo aparte de [settingsId].
+  Future<bool> _isOnlyPrinter(String settingsId) async {
+    final all = await _localDataSource.getAllPrinterSettings();
+    return all.fold(
+      (_) => false,
+      (printers) => printers.every((p) => p.id == settingsId),
+    );
+  }
+
+  /// Guarda la impresora solo en este equipo, sin cola.
+  Future<Either<Failure, PrinterSettings>> _saveOnThisDeviceOnly(
+    PrinterSettings settings,
+  ) async {
+    var printer = settings;
+    if (!printer.id.startsWith('printer_offline_')) {
+      printer = printer.copyWith(
+        id: 'printer_offline_${DateTime.now().millisecondsSinceEpoch}',
+      );
+    }
+    await _cancelPendingOperations(printer.id);
+    return _localDataSource.savePrinterSettings(printer);
   }
 
   /// Convertir entity a JSON para el servidor

@@ -38,4 +38,9 @@ class FakeSyncService extends SyncService {
     int priority = 0,
   }) async =>
       _add(entityType, entityId, operationType, data);
+
+  @override
+  Future<void> deleteSyncOperationsByEntityId(String entityId) async {
+    ops.removeWhere((op) => op['entityId'] == entityId);
+  }
 }

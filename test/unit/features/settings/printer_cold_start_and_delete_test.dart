@@ -180,22 +180,28 @@ void main() {
     );
 
     test(
-      'el mismo día funciona solo porque la página de prueba deja la '
-      'impresora en memoria (esto explica por qué "ahí sí imprime")',
+      'el mismo día sirve sin imprimir antes la página de prueba, y la '
+      'primera impresora queda como predeterminada',
       () async {
         when(() => remote.createPrinterSetting(any())).thenAnswer(
-          (_) async => fromServer(formPrinter(), _serverId),
+          (inv) async => fromServer(
+            formPrinter(
+              isDefault:
+                  (inv.positionalArguments.single as Map)['isDefault'] as bool,
+            ),
+            _serverId,
+          ),
         );
         final settings = await startSettings();
         await quiet(() => settings.savePrinterSettings(formPrinter()));
         final printer = Get.put(ThermalPrinterController());
 
-        // Sin página de prueba: no hay impresora para la factura.
-        expect(await printer.ensurePrinterConfigLoaded(), isFalse);
-
-        // Lo que hace "Imprimir página de prueba" antes de imprimir.
-        await printer.setTempPrinterConfig(settings.printerSettings.single);
         expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+        expect(settings.defaultPrinter?.id, _serverId);
+        expect(settings.printerSettings.single.isDefault, isTrue);
+        final sent =
+            verify(() => remote.createPrinterSetting(captureAny())).captured;
+        expect((sent.single as Map)['isDefault'], isTrue);
       },
     );
 
@@ -396,6 +402,290 @@ void main() {
           1,
           reason: 'Se borró local sin encolar: el servidor la conserva',
         );
+      },
+    );
+  });
+
+  group('simulaciones de uso', () {
+    Future<void> putServerPrinter(
+      String id,
+      String name, {
+      bool isDefault = false,
+    }) => isar.writeTxn(
+      () => isar.printerSettingsModels.putByServerId(
+        PrinterSettingsModel.fromEntity(
+          fromServer(formPrinter(name: name, isDefault: isDefault), id),
+        ),
+      ),
+    );
+
+    test('ir a productos y volver: la factura sigue con su impresora', () async {
+      await putServerPrinter(_serverId, 'POS-80');
+      await startSettings();
+      var printer = Get.put(ThermalPrinterController());
+      expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+
+      // Salir de facturación destruye el controlador; al volver se crea otro.
+      await Get.delete<ThermalPrinterController>(force: true);
+      printer = Get.put(ThermalPrinterController());
+
+      expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+      expect(printer.currentPrinterConfig?.id, _serverId);
+    });
+
+    test(
+      'sin el controlador de Configuración en memoria, la factura lee la '
+      'impresora de la base local',
+      () async {
+        await putServerPrinter(_serverId, 'POS-80');
+        final printer = Get.put(ThermalPrinterController());
+
+        expect(Get.isRegistered<SettingsController>(), isFalse);
+        expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+        expect(printer.currentPrinterConfig?.usbPath, 'POS-80');
+      },
+    );
+
+    test('sin internet al arrancar: no se consulta el servidor', () async {
+      await putServerPrinter(_serverId, 'POS-80');
+      when(() => network.isConnected).thenAnswer((_) async => false);
+
+      await startSettings();
+      final printer = Get.put(ThermalPrinterController());
+
+      expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+      verifyNever(() => remote.getAllPrinterSettings());
+      verifyZeroInteractions(remote);
+    });
+
+    test(
+      'dos impresoras: la que se elige en este equipo se mantiene al '
+      'cerrar y abrir',
+      () async {
+        await putServerPrinter(_serverId, 'Caja', isDefault: true);
+        await putServerPrinter(_serverId2, 'Cocina');
+        var settings = await startSettings();
+        expect(settings.defaultPrinter?.id, _serverId);
+
+        await quiet(() => settings.setDefaultPrinter(_serverId2));
+        expect(settings.defaultPrinter?.id, _serverId2);
+
+        settings = await restartApp();
+        final printer = Get.put(ThermalPrinterController());
+        expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+        expect(printer.currentPrinterConfig?.id, _serverId2);
+        expect(
+          settings.printerSettings.where((p) => p.isDefault).map((p) => p.id),
+          [_serverId2],
+        );
+      },
+    );
+
+    test(
+      'dos impresoras sin marcar ninguna: se factura con la primera por '
+      'nombre, siempre la misma',
+      () async {
+        await putServerPrinter(_serverId, 'Cocina');
+        await putServerPrinter(_serverId2, 'Caja');
+
+        final first = (await startSettings()).defaultPrinter?.name;
+        final again = (await restartApp()).defaultPrinter?.name;
+
+        expect(first, 'Caja');
+        expect(again, 'Caja');
+      },
+    );
+
+    test(
+      'dos impresoras: al eliminar la predeterminada la factura pasa a la '
+      'otra, también tras reiniciar',
+      () async {
+        when(() => remote.deletePrinterSetting(any())).thenAnswer((_) async {});
+        await putServerPrinter(_serverId, 'Caja', isDefault: true);
+        await putServerPrinter(_serverId2, 'Cocina');
+        final settings = await startSettings();
+        final printer = Get.put(ThermalPrinterController());
+        await printer.ensurePrinterConfigLoaded();
+        expect(printer.currentPrinterConfig?.id, _serverId);
+
+        await quiet(() => settings.deletePrinterSettings(_serverId));
+        await printer.ensurePrinterConfigLoaded();
+        expect(printer.currentPrinterConfig?.id, _serverId2);
+
+        await restartApp();
+        final reopened = Get.put(ThermalPrinterController());
+        expect(await reopened.ensurePrinterConfigLoaded(), isTrue);
+        expect(reopened.currentPrinterConfig?.id, _serverId2);
+      },
+    );
+
+    test(
+      'la impresora que otro equipo marcó como predeterminada no le quita '
+      'la suya a este equipo',
+      () async {
+        await putServerPrinter(_serverId, 'POS de este equipo');
+        final settings = await startSettings(withQueue: false);
+        queue = FakeSyncService();
+        Get.put<SyncService>(queue);
+        await quiet(() => settings.setDefaultPrinter(_serverId));
+
+        // Baja del servidor la USB de otro computador, marcada allá.
+        queue.syncStateObs.value = SyncState.syncing;
+        await putServerPrinter(_serverId2, 'USB de otro equipo', isDefault: true);
+        queue.syncStateObs.value = SyncState.idle;
+        await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+        expect(settings.printerSettings.length, 2);
+        expect(settings.defaultPrinter?.id, _serverId);
+      },
+    );
+
+    test('cerrar sesión y entrar al mismo negocio: sigue la impresora', () async {
+      await putServerPrinter(_serverId, 'POS-80');
+      final settings = await startSettings();
+      final printer = Get.put(ThermalPrinterController());
+      expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+
+      // Entrar de nuevo dispara una bajada que vuelve a traer lo mismo.
+      queue.syncStateObs.value = SyncState.syncing;
+      await putServerPrinter(_serverId, 'POS-80');
+      queue.syncStateObs.value = SyncState.idle;
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+
+      expect(settings.defaultPrinter?.id, _serverId);
+      expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+      expect((await stored()).length, 1);
+    });
+
+    test(
+      'entrar con otro negocio: la impresora del negocio anterior ya '
+      'sincronizada se va y se factura con la del nuevo',
+      () async {
+        await putServerPrinter(_serverId, 'Del negocio A');
+        final settings = await startSettings();
+        final printer = Get.put(ThermalPrinterController());
+        await printer.ensurePrinterConfigLoaded();
+        expect(printer.currentPrinterConfig?.id, _serverId);
+
+        // Lo que hace la bajada al detectar otro negocio
+        // (full_sync_service: conserva solo las no sincronizadas) y
+        // después descarga las del negocio nuevo.
+        queue.syncStateObs.value = SyncState.syncing;
+        await isar.writeTxn(() async {
+          final unsynced =
+              await isar.printerSettingsModels
+                  .filter()
+                  .isSyncedEqualTo(false)
+                  .findAll();
+          await isar.printerSettingsModels.clear();
+          await isar.printerSettingsModels.putAll(unsynced);
+        });
+        await putServerPrinter(_serverId2, 'Del negocio B');
+        queue.syncStateObs.value = SyncState.idle;
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+
+        expect(settings.printerSettings.map((p) => p.name), ['Del negocio B']);
+        expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+        expect(printer.currentPrinterConfig?.id, _serverId2);
+      },
+    );
+
+    test(
+      'cajero sin permiso agrega una impresora: queda en este equipo, sin '
+      'cola, y sirve al reiniciar',
+      () async {
+        when(() => remote.createPrinterSetting(any())).thenThrow(
+          const ServerException('Acceso denegado', statusCode: 403),
+        );
+        final settings = await startSettings();
+
+        await quiet(() => settings.savePrinterSettings(formPrinter()));
+
+        expect((await stored()).single.usbPath, 'POS-80');
+        expect(queue.ops, isEmpty);
+        verifyNever(() => network.markServerUnreachable());
+
+        await restartApp();
+        final printer = Get.put(ThermalPrinterController());
+        expect(await printer.ensurePrinterConfigLoaded(), isTrue);
+      },
+    );
+
+    test(
+      'cajero sin permiso cambia una impresora del negocio: no se cambia',
+      () async {
+        when(() => remote.updatePrinterSetting(any(), any())).thenThrow(
+          const ServerException('Acceso denegado', statusCode: 403),
+        );
+        await putServerPrinter(_serverId, 'POS-80');
+        final settings = await startSettings();
+
+        await quiet(
+          () => settings.savePrinterSettings(
+            settings.printerSettings.single.copyWith(name: 'Otro nombre'),
+          ),
+        );
+
+        expect((await stored()).single.name, 'POS-80');
+        expect(queue.ops, isEmpty);
+      },
+    );
+
+    test('dos "Eliminar" seguidos: al servidor solo va uno', () async {
+      when(() => remote.deletePrinterSetting(any())).thenAnswer(
+        (_) => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await putServerPrinter(_serverId, 'POS-80');
+      final settings = await startSettings();
+
+      await quiet(
+        () => Future.wait([
+          settings.deletePrinterSettings(_serverId),
+          settings.deletePrinterSettings(_serverId),
+        ]),
+      );
+
+      verify(() => remote.deletePrinterSetting(_serverId)).called(1);
+      expect(await stored(), isEmpty);
+    });
+
+    test(
+      'sin red al eliminar (sin respuesta): se borra aquí, queda en cola y '
+      'se marca el servidor como no disponible',
+      () async {
+        when(() => remote.deletePrinterSetting(any())).thenThrow(
+          const ServerException('Error al eliminar impresora: sin conexión'),
+        );
+        await putServerPrinter(_serverId, 'POS-80');
+        final settings = await startSettings();
+
+        await quiet(() => settings.deletePrinterSettings(_serverId));
+
+        expect(await stored(), isEmpty);
+        expect(queue.ops.single['op'], 'delete');
+        verify(() => network.markServerUnreachable()).called(1);
+      },
+    );
+
+    test(
+      'creada sin internet y guardada otra vez con internet: una sola '
+      'impresora, sin creación pendiente',
+      () async {
+        when(() => network.isConnected).thenAnswer((_) async => false);
+        final settings = await startSettings();
+        await quiet(() => settings.savePrinterSettings(formPrinter()));
+        final local = settings.printerSettings.single;
+        expect(queue.ops.single['op'], 'create');
+
+        when(() => network.isConnected).thenAnswer((_) async => true);
+        when(() => remote.createPrinterSetting(any())).thenAnswer(
+          (_) async => fromServer(local, _serverId),
+        );
+        await quiet(() => settings.savePrinterSettings(local));
+
+        expect((await stored()).map((p) => p.serverId), [_serverId]);
+        expect(queue.ops, isEmpty);
+        expect(settings.defaultPrinter?.id, _serverId);
       },
     );
   });
