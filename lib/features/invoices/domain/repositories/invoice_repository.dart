@@ -14,6 +14,7 @@ abstract class InvoiceRepository {
     int limit = 10,
     String? search,
     InvoiceStatus? status,
+    List<InvoiceStatus>? statuses, // varios estados a la vez (p. ej. "Pendientes" = pendientes + abonadas)
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,

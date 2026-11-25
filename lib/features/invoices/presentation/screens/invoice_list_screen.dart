@@ -433,7 +433,11 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               child: Column(
                 children: [
                   _DesktopToolbar(controller: controller),
-                  const Expanded(child: InvoiceSkeletonList(itemCount: 8)),
+                  Expanded(
+                    child: controller.isHistoryDownloading
+                        ? const _DownloadingInvoicesView()
+                        : const InvoiceSkeletonList(itemCount: 8),
+                  ),
                 ],
               ),
             ),
@@ -485,19 +489,28 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     return Obx(() {
       // ✅ Skeleton loading para carga inicial (sin datos previos)
       if (controller.isLoading && controller.filteredInvoices.isEmpty) {
-        return const InvoiceSkeletonList(itemCount: 8);
+        // Equipo sin facturas todavía (instalación nueva): una vista
+        // liviana que dice qué pasa, en vez de filas en gris.
+        return controller.isHistoryDownloading
+            ? const _DownloadingInvoicesView()
+            : const InvoiceSkeletonList(itemCount: 8);
       }
 
       final invoiceList = controller.filteredInvoices;
 
       if (invoiceList.isEmpty) {
-        return _EmptyState(isSearching: controller.searchQuery.isNotEmpty);
+        return _EmptyState(
+          isSearching: controller.searchQuery.isNotEmpty,
+          historyDownloading: controller.isHistoryDownloading,
+          searchingServer: controller.isSearchingServer,
+        );
       }
 
       return RefreshIndicator(
         onRefresh: () => controller.refreshAllData(showSuccessMessage: true),
         child: Column(
           children: [
+            if (controller.isHistoryDownloading) const _HistoryDownloadingNotice(),
             if (controller.totalPages > 1) _PaginationInfo(controller: controller),
 
             Expanded(
@@ -1832,34 +1845,172 @@ class _LoadMoreIndicatorState extends State<_LoadMoreIndicator> {
 class _EmptyState extends StatelessWidget {
   final bool isSearching;
 
-  const _EmptyState({required this.isSearching});
+  /// El historial aún baja: puede que la factura exista y no haya llegado.
+  final bool historyDownloading;
+
+  /// Se está preguntando al servidor por detrás.
+  final bool searchingServer;
+
+  const _EmptyState({
+    required this.isSearching,
+    this.historyDownloading = false,
+    this.searchingServer = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final String hint;
+    if (searchingServer) {
+      hint = 'Buscando también en el servidor…';
+    } else if (historyDownloading) {
+      hint = isSearching
+          ? 'El historial aún se está descargando: puede faltar alguna factura antigua'
+          : 'El historial aún se está descargando';
+    } else {
+      hint = isSearching
+          ? 'Intenta con otros términos de búsqueda'
+          : 'Crea tu primera factura';
+    }
     return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSearching ? Icons.search_off : Icons.receipt_long,
+              size: 64,
+              color: ElegantLightTheme.textTertiary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isSearching ? 'Sin resultados' : 'No hay facturas',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: ElegantLightTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (searchingServer) ...[
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    hint,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Aviso discreto sobre la lista mientras el historial termina de bajar.
+/// La lista ya muestra lo que hay en el equipo.
+class _HistoryDownloadingNotice extends StatelessWidget {
+  const _HistoryDownloadingNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+        ),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                ElegantLightTheme.primaryBlue,
+              ),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Descargando historial… puede faltar alguna factura antigua',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Equipo todavía sin facturas (instalación nueva): carga liviana con texto.
+class _DownloadingInvoicesView extends StatelessWidget {
+  const _DownloadingInvoicesView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            isSearching ? Icons.search_off : Icons.receipt_long,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            isSearching ? 'Sin resultados' : 'No hay facturas',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                ElegantLightTheme.primaryBlue,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 16),
           Text(
-            isSearching
-                ? 'Intenta con otros términos de búsqueda'
-                : 'Crea tu primera factura',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            'Descargando tus facturas…',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Aparecerán aquí apenas lleguen. Puedes seguir usando la app.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: ElegantLightTheme.textSecondary,
+            ),
           ),
         ],
       ),

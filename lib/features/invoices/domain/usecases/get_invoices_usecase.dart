@@ -20,6 +20,7 @@ class GetInvoicesUseCase
       limit: params.limit,
       search: params.search,
       status: params.status,
+      statuses: params.statuses,
       paymentMethod: params.paymentMethod,
       customerId: params.customerId,
       createdById: params.createdById,
@@ -40,6 +41,10 @@ class GetInvoicesParams {
   final int limit;
   final String? search;
   final InvoiceStatus? status;
+
+  /// Varios estados a la vez (p. ej. "Pendientes" = pendientes + abonadas).
+  /// El equipo los resuelve en la base; el servidor solo acepta uno.
+  final List<InvoiceStatus>? statuses;
   final PaymentMethod? paymentMethod;
   final String? customerId;
   final String? createdById;
@@ -57,6 +62,7 @@ class GetInvoicesParams {
     this.limit = 10,
     this.search,
     this.status,
+    this.statuses,
     this.paymentMethod,
     this.customerId,
     this.createdById,

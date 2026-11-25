@@ -16,6 +16,8 @@ import '../../../../app/core/services/conflict_resolver.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_stats.dart';
 import '../../domain/repositories/invoice_repository.dart';
+import '../../domain/services/invoice_history_lookup.dart';
+import '../../domain/usecases/get_invoices_usecase.dart';
 
 import '../datasources/invoice_local_datasource.dart';
 import '../datasources/invoice_remote_datasource.dart';
@@ -40,7 +42,8 @@ import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/data/local/isar_rekey.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
 
-class InvoiceRepositoryImpl implements InvoiceRepository {
+class InvoiceRepositoryImpl
+    implements InvoiceRepository, InvoiceHistoryLookup {
   final InvoiceRemoteDataSource remoteDataSource;
   final InvoiceLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
@@ -74,6 +77,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     int limit = 10,
     String? search,
     InvoiceStatus? status,
+    List<InvoiceStatus>? statuses,
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
@@ -86,84 +90,107 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     String sortBy = 'createdAt',
     String sortOrder = 'DESC',
   }) async {
-    // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
-    // La lista simple (sin búsqueda ni filtros) también sale del equipo
-    // mientras la descarga de facturas no ha terminado: baja primero lo
-    // reciente, así que las primeras filas ya son las correctas, y al
-    // terminar la descarga la pantalla se recarga sola. Antes esperaba al
-    // servidor en cada apertura (y si la red estaba lenta, hasta el límite
-    // de espera). Con búsqueda o filtros sigue esperando al servidor: con
-    // datos a medias el resultado podría faltar.
-    final plainList = (search == null || search.trim().isEmpty) &&
-        status == null &&
-        paymentMethod == null &&
-        customerId == null &&
-        createdById == null &&
-        bankAccountId == null &&
-        bankAccountName == null &&
-        startDate == null &&
-        endDate == null &&
-        minAmount == null &&
-        maxAmount == null;
+    // Local-first SIEMPRE que haya facturas en el equipo: abrir, buscar y
+    // filtrar salen de la base local al instante, aunque el historial siga
+    // bajando (la pantalla avisa que puede faltar alguna antigua, y si una
+    // búsqueda no encuentra nada pregunta al servidor por detrás: ver
+    // [InvoiceHistoryLookup]). Antes, con el historial a medias, cada
+    // búsqueda o filtro esperaba al servidor (4 s o más con la red lenta).
+    // Solo con el equipo VACÍO y sin descarga terminada se va al servidor.
     final local = await readLocalFirst<PaginatedResult<Invoice>>(
-      hasLocalData: () async =>
-          await _invoicesReady() || (plainList && await _hasLocalInvoices()),
-      read: () => _localInvoices.getInvoices(page: page, limit: limit, search: search, status: status, paymentMethod: paymentMethod, customerId: customerId, createdById: createdById, bankAccountId: bankAccountId, bankAccountName: bankAccountName, startDate: startDate, endDate: endDate, minAmount: minAmount, maxAmount: maxAmount, sortBy: sortBy, sortOrder: sortOrder),
+      hasLocalData: _hasInvoicesToShow,
+      read: () => _localInvoices.getInvoices(page: page, limit: limit, search: search, status: status, statuses: statuses, paymentMethod: paymentMethod, customerId: customerId, createdById: createdById, bankAccountId: bankAccountId, bankAccountName: bankAccountName, startDate: startDate, endDate: endDate, minAmount: minAmount, maxAmount: maxAmount, sortBy: sortBy, sortOrder: sortOrder),
     );
     if (local != null) return local;
 
+    return _getInvoicesRemoteThenCache(
+      GetInvoicesParams(page: page, limit: limit, search: search, status: status, statuses: statuses, paymentMethod: paymentMethod, customerId: customerId, createdById: createdById, bankAccountId: bankAccountId, bankAccountName: bankAccountName, startDate: startDate, endDate: endDate, minAmount: minAmount, maxAmount: maxAmount, sortBy: sortBy, sortOrder: sortOrder),
+      fallbackToLocal: true,
+    );
+  }
+
+  /// Hay algo que mostrar del equipo: el módulo ya bajó completo (aunque
+  /// esté vacío) o hay al menos una factura guardada.
+  Future<bool> _hasInvoicesToShow() async =>
+      await _invoicesReady() || await _hasLocalInvoices();
+
+  @override
+  Future<bool> isHistoryDownloading() async {
     try {
+      return !await _invoicesReady();
+    } catch (_) {
+      return false;
+    }
+  }
 
-      // Crear parámetros de query
-      final queryParams = InvoiceQueryParams(
-        page: page,
-        limit: limit,
-        search: search,
-        status: status,
-        paymentMethod: paymentMethod,
-        customerId: customerId,
-        createdById: createdById,
-        bankAccountId: bankAccountId,
-        bankAccountName: bankAccountName,
-        startDate: startDate,
-        endDate: endDate,
-        minAmount: minAmount,
-        maxAmount: maxAmount,
-        sortBy: sortBy,
-        sortOrder: sortOrder,
-      );
+  @override
+  Future<Either<Failure, PaginatedResult<Invoice>>> getInvoicesFromServer(
+    GetInvoicesParams params,
+  ) =>
+      _getInvoicesRemoteThenCache(params, fallbackToLocal: false);
 
-      if (await networkInfo.isConnected) {
-        // Intentar obtener desde el servidor
+  /// Pide la página al servidor y la guarda en el equipo. Con
+  /// [fallbackToLocal], si no hay internet o falla, responde lo del equipo.
+  Future<Either<Failure, PaginatedResult<Invoice>>> _getInvoicesRemoteThenCache(
+    GetInvoicesParams p, {
+    required bool fallbackToLocal,
+  }) async {
+    // El servidor solo sabe filtrar por UN estado; con varios se pide sin
+    // estado y quien llama filtra lo que llega.
+    final serverStatus = p.status ??
+        (p.statuses != null && p.statuses!.length == 1
+            ? p.statuses!.first
+            : null);
+    final queryParams = InvoiceQueryParams(
+      page: p.page,
+      limit: p.limit,
+      search: p.search,
+      status: serverStatus,
+      paymentMethod: p.paymentMethod,
+      customerId: p.customerId,
+      createdById: p.createdById,
+      bankAccountId: p.bankAccountId,
+      bankAccountName: p.bankAccountName,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      minAmount: p.minAmount,
+      maxAmount: p.maxAmount,
+      sortBy: p.sortBy,
+      sortOrder: p.sortOrder,
+    );
+    Future<Either<Failure, PaginatedResult<Invoice>>> onFailure(
+        Failure failure) async =>
+        fallbackToLocal
+            ? _getInvoicesFromCache(queryParams, statuses: p.statuses)
+            : Left(failure);
+    try {
+      if (!await networkInfo.isConnected) {
+        return onFailure(ConnectionFailure.noInternet);
+      }
+      try {
+        final remoteResponse = await remoteDataSource.getInvoices(queryParams);
+
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
+
+        // FASE 3: Cachear TODAS las páginas a ISAR (upsert por serverId evita duplicados)
         try {
-          final remoteResponse = await remoteDataSource.getInvoices(
-            queryParams,
-          );
-
-          // ✅ Resetear estado de conectividad si el servidor respondió
-          networkInfo.resetServerReachability();
-
-          // FASE 3: Cachear TODAS las páginas a ISAR (upsert por serverId evita duplicados)
-          try {
-            await localDataSource.cacheInvoices(remoteResponse.data);
-          } catch (e) {
-            // No es crítico, continuar
-          }
-
-          return Right(remoteResponse.toPaginatedResult());
-        } on ConnectionException catch (e) {
-          // ✅ Marcar servidor como no alcanzable para evitar timeouts repetidos
-          networkInfo.markServerUnreachable();
-          return _getInvoicesFromCache(queryParams);
-        } on ServerException catch (e) {
-          if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
-          return _getInvoicesFromCache(queryParams);
+          await localDataSource.cacheInvoices(remoteResponse.data);
         } catch (e) {
-          if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
-          return _getInvoicesFromCache(queryParams);
+          // No es crítico, continuar
         }
-      } else {
-        return _getInvoicesFromCache(queryParams);
+
+        return Right(remoteResponse.toPaginatedResult());
+      } on ConnectionException catch (e) {
+        // ✅ Marcar servidor como no alcanzable para evitar timeouts repetidos
+        networkInfo.markServerUnreachable();
+        return onFailure(ConnectionFailure(e.message));
+      } on ServerException catch (e) {
+        if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
+        return onFailure(ServerFailure(e.message));
+      } catch (e) {
+        if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
+        return onFailure(const ServerFailure('Error al obtener facturas'));
       }
     } catch (e) {
       return Left(ServerFailure('Error inesperado al obtener facturas'));
@@ -346,7 +373,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<Either<Failure, List<Invoice>>> getOverdueInvoices() async {
     // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
     final local = await readLocalFirst<List<Invoice>>(
-      hasLocalData: () => _invoicesReady(),
+      hasLocalData: _hasInvoicesToShow,
       read: () => _localInvoices.getOverdueInvoices(),
     );
     if (local != null) return local;
@@ -410,7 +437,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<Either<Failure, InvoiceStats>> getInvoiceStats() async {
     // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
     final local = await readLocalFirst<InvoiceStats>(
-      hasLocalData: () => _invoicesReady(),
+      hasLocalData: _hasInvoicesToShow,
       read: () => _localInvoices.getInvoiceStats(),
     );
     if (local != null) return local;
@@ -587,7 +614,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   ) async {
     // local-first: lo del equipo al instante; el servidor actualiza en segundo plano.
     final local = await readLocalFirst<List<Invoice>>(
-      hasLocalData: () => _invoicesReady(),
+      hasLocalData: _hasInvoicesToShow,
       read: () => _localInvoices.searchInvoices(searchTerm),
     );
     if (local != null) return local;
@@ -1290,8 +1317,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   /// Obtener facturas desde cache con filtrado básico
   /// ✅ IMPORTANTE: Intenta ISAR primero (más rápido), luego SecureStorage
   Future<Either<Failure, PaginatedResult<Invoice>>> _getInvoicesFromCache(
-    InvoiceQueryParams params,
-  ) async {
+    InvoiceQueryParams params, {
+    List<InvoiceStatus>? statuses,
+  }) async {
     // ✅ PASO 1: Intentar ISAR primero (más persistente y rápido)
     try {
       final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
@@ -1300,6 +1328,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         limit: params.limit,
         search: params.search,
         status: params.status,
+        statuses: statuses,
         paymentMethod: params.paymentMethod,
         customerId: params.customerId,
         createdById: params.createdById,

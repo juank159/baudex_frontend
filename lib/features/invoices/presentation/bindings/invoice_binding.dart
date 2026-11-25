@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/bindings/invoice_binding.dart
+import '../../domain/services/invoice_history_lookup.dart';
 import 'package:baudex_desktop/features/customers/domain/repositories/customer_repository.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:get/get.dart';
@@ -274,6 +275,15 @@ class InvoiceBinding extends Bindings {
 
   /// ✅ SOLUCIÓN: Registrar controlador de lista como PERMANENTE
   /// Esto evita que el controller se disponga al navegar entre pantallas
+  static InvoiceHistoryLookup? _historyLookup() {
+    try {
+      final Object repository = Get.find<InvoiceRepository>();
+      return repository is InvoiceHistoryLookup ? repository : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static void registerListController() {
     if (!Get.isRegistered<InvoiceListController>()) {
       try {
@@ -303,6 +313,9 @@ class InvoiceBinding extends Bindings {
             confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
             cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
             getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
+            // Aviso de "historial bajando" y consulta al servidor por
+            // detrás cuando una búsqueda no encuentra nada en el equipo.
+            historyLookup: _historyLookup(),
           ),
           permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
         );

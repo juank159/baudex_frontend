@@ -38,6 +38,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     int limit = 10,
     String? search,
     InvoiceStatus? status,
+    List<InvoiceStatus>? statuses, // no aplica en este camino
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,

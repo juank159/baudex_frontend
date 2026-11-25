@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../domain/entities/invoice.dart';
+import '../../domain/services/invoice_history_lookup.dart';
 import '../../domain/usecases/get_invoices_usecase.dart';
 import '../../domain/usecases/search_invoices_usecase.dart';
 import '../../domain/usecases/delete_invoice_usecase.dart';
@@ -25,6 +26,10 @@ class InvoiceListController extends GetxController
   final ConfirmInvoiceUseCase _confirmInvoiceUseCase;
   final CancelInvoiceUseCase _cancelInvoiceUseCase;
   final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
+
+  /// Estado de la descarga del historial y consulta directa al servidor
+  /// (opcional: sin él la lista trabaja solo con lo del equipo).
+  final InvoiceHistoryLookup? _historyLookup;
 
   // ==================== CACHÉ ESTÁTICO ====================
   // Caché estático para persistir datos entre recreaciones del controlador
@@ -66,7 +71,9 @@ class InvoiceListController extends GetxController
     required ConfirmInvoiceUseCase confirmInvoiceUseCase,
     required CancelInvoiceUseCase cancelInvoiceUseCase,
     required GetInvoiceByIdUseCase getInvoiceByIdUseCase,
-  }) : _getInvoicesUseCase = getInvoicesUseCase,
+    InvoiceHistoryLookup? historyLookup,
+  }) : _historyLookup = historyLookup,
+       _getInvoicesUseCase = getInvoicesUseCase,
        _searchInvoicesUseCase = searchInvoicesUseCase,
        _deleteInvoiceUseCase = deleteInvoiceUseCase,
        _confirmInvoiceUseCase = confirmInvoiceUseCase,
@@ -83,6 +90,14 @@ class InvoiceListController extends GetxController
   final _isSearching = false.obs;
   final _isRefreshing = false.obs;
   final _isPrinting = false.obs;
+
+  /// El historial de facturas aún se está descargando: la lista sale del
+  /// equipo y puede faltar alguna factura antigua (la pantalla lo avisa).
+  final _isHistoryDownloading = false.obs;
+
+  /// Una búsqueda sin resultados en el equipo se está consultando al
+  /// servidor por detrás (sin bloquear la pantalla).
+  final _isSearchingServer = false.obs;
 
   // Datos
   final _invoices = <Invoice>[].obs;
@@ -124,8 +139,15 @@ class InvoiceListController extends GetxController
   // ✅ AUTO-REFRESH: Intervalo mínimo entre refreshes (30 segundos)
   static const _minRefreshInterval = Duration(seconds: 30);
 
-  // ✅ GUARD: Prevenir llamadas concurrentes a loadInvoices
+  /// Hay una carga de la primera página en curso (para no repetirla al
+  /// abrir la pantalla).
   bool _isLoadInProgress = false;
+
+  /// Número de la última carga pedida. GANA LA ÚLTIMA: si mientras una
+  /// carga espera llega otro filtro o búsqueda, la respuesta vieja se
+  /// descarta al llegar. Antes la petición NUEVA era la que se descartaba y
+  /// la pantalla quedaba con el filtro marcado y los datos del anterior.
+  int _loadSeq = 0;
 
   /// Facturas por página (primera carga y cada vez que se baja).
   static const int pageSize = 30;
@@ -140,6 +162,8 @@ class InvoiceListController extends GetxController
   bool get isSearching => _isSearching.value;
   bool get isRefreshing => _isRefreshing.value;
   bool get isPrinting => _isPrinting.value;
+  bool get isHistoryDownloading => _isHistoryDownloading.value;
+  bool get isSearchingServer => _isSearchingServer.value;
 
   List<Invoice> get invoices => _invoices;
   List<Invoice> get filteredInvoices => _filteredInvoices;
@@ -213,7 +237,6 @@ class InvoiceListController extends GetxController
   @override
   Future<void> onSyncCompleted() async {
     invalidateCache();
-    _isLoadInProgress = false;
     _refreshInBackground();
   }
 
@@ -326,18 +349,53 @@ class InvoiceListController extends GetxController
 
   // ==================== CORE METHODS ====================
 
-  /// ✅ PAGINACIÓN PROFESIONAL: Cargar facturas con manejo de errores mejorado
+  /// Parámetros de la consulta según la búsqueda y los filtros a la vista.
+  GetInvoicesParams _queryParams({required int page}) {
+    // "Pendientes" son las pendientes Y las abonadas: se piden las dos por
+    // su índice de estado (antes se traían páginas sin filtrar y se
+    // escogían en pantalla: mostraba 11 de 1.252).
+    final pendingFilter = _selectedStatus.value == InvoiceStatus.pending;
+    return GetInvoicesParams(
+      page: page,
+      limit: pageSize,
+      search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
+      status: pendingFilter ? null : _selectedStatus.value,
+      statuses: pendingFilter
+          ? const [InvoiceStatus.pending, InvoiceStatus.partiallyPaid]
+          : null,
+      paymentMethod: _selectedPaymentMethod.value,
+      bankAccountId: _selectedBankAccountId.value,
+      bankAccountName: _selectedBankAccountName.value,
+      startDate: _startDate.value,
+      endDate: _endDate.value,
+      minAmount: _minAmount.value,
+      maxAmount: _maxAmount.value,
+      sortBy: _sortBy.value,
+      sortOrder: _sortOrder.value,
+    );
+  }
+
+  /// ¿El historial sigue bajando? (para el aviso de la pantalla)
+  Future<void> _refreshHistoryState() async {
+    final lookup = _historyLookup;
+    if (lookup == null) return;
+    try {
+      final downloading = await lookup.isHistoryDownloading();
+      if (!isClosed) _isHistoryDownloading.value = downloading;
+    } catch (_) {}
+  }
+
+  /// Cargar la primera página con la búsqueda y filtros a la vista.
+  /// Gana la última petición (ver [_loadSeq]).
   Future<void> loadInvoices({bool showLoading = true, bool forceRefresh = false}) async {
-    // ✅ GUARD: Prevenir llamadas concurrentes duplicadas
-    if (_isLoadInProgress && !forceRefresh) {
-      return;
-    }
+    final seq = ++_loadSeq;
     _isLoadInProgress = true;
+    _isSearchingServer.value = false;
+    _refreshHistoryState();
 
     try {
       // ✅ CACHÉ: Si hay caché válido y no es refresh forzado, usar caché
       if (!forceRefresh && _isCacheValid() && _searchQuery.value.isEmpty && !hasFilters) {
-        // print('⚡ Usando caché de facturas (${_cachedInvoices!.length} items)');
         _invoices.value = List.from(_cachedInvoices!);
         _paginationMeta.value = _cachedMeta;
         _applyLocalFilters();
@@ -350,29 +408,13 @@ class InvoiceListController extends GetxController
 
       if (showLoading) _isLoading.value = true;
 
-      // print('📋 CARGA INICIAL: Cargando primera página de facturas...');
+      final result = await _getInvoicesUseCase(_queryParams(page: 1));
 
-      final result = await _getInvoicesUseCase(
-        GetInvoicesParams(
-          page: 1, // ✅ Siempre empezar desde la página 1
-          limit: pageSize,
-          search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
-          status: _getServerFilterStatus(),
-          paymentMethod: _selectedPaymentMethod.value,
-          bankAccountId: _selectedBankAccountId.value,
-          bankAccountName: _selectedBankAccountName.value, // ✅ NUEVO: Filtro por nombre de método de pago
-          startDate: _startDate.value,
-          endDate: _endDate.value,
-          minAmount: _minAmount.value,
-          maxAmount: _maxAmount.value,
-          sortBy: _sortBy.value,
-          sortOrder: _sortOrder.value,
-        ),
-      );
+      // Llegó tarde: ya hay una petición más nueva en camino.
+      if (seq != _loadSeq || isClosed) return;
 
       result.fold(
         (failure) {
-          // print('❌ Error al cargar facturas: ${failure.message}');
           // No limpiar datos si ya tenemos facturas en caché (offline-first)
           if (_invoices.isEmpty) {
             _showError('Error al cargar facturas', failure.message);
@@ -381,14 +423,6 @@ class InvoiceListController extends GetxController
           }
         },
         (paginatedResult) {
-          // print('✅ CARGA INICIAL EXITOSA:');
-          // print('   - Facturas recibidas: ${paginatedResult.data.length}');
-          // print('   - Página actual: ${paginatedResult.meta.page}');
-          // print('   - Total páginas: ${paginatedResult.meta.totalPages}');
-          // print('   - Total facturas: ${paginatedResult.meta.totalItems}');
-          // print('   - Tiene siguiente: ${paginatedResult.meta.hasNextPage}');
-
-          // ✅ Asignar datos iniciales
           _invoices.value = paginatedResult.data;
           _paginationMeta.value = paginatedResult.meta;
 
@@ -397,23 +431,13 @@ class InvoiceListController extends GetxController
             _updateCache(paginatedResult.data, paginatedResult.meta);
           }
 
-          // ✅ Aplicar filtros locales
           _applyLocalFilters();
-
-          // print('✅ FILTRADO COMPLETADO:');
-          // print('   - Facturas sin filtrar: ${_invoices.length}');
-          // print('   - Facturas filtradas: ${_filteredInvoices.length}');
-
-          // ✅ AUTO-REFRESH: Actualizar timestamp de último refresh exitoso
           _lastRefreshTime = DateTime.now();
-
-          // ✅ FORZAR ACTUALIZACIÓN DE UI
           update();
         },
       );
-    } catch (e, stackTrace) {
-      // print('💥 Error inesperado al cargar facturas: $e');
-      // print('📍 Stack trace: $stackTrace');
+    } catch (e) {
+      if (seq != _loadSeq || isClosed) return;
       // No limpiar datos si ya tenemos facturas en caché (offline-first)
       if (_invoices.isEmpty) {
         _showError(
@@ -424,10 +448,47 @@ class InvoiceListController extends GetxController
         _paginationMeta.value = null;
       }
     } finally {
-      if (showLoading) _isLoading.value = false;
-      _isLoadInProgress = false;
+      // Solo la última petición apaga el "cargando": una vieja que llega
+      // tarde no debe apagarlo mientras la nueva sigue en camino.
+      if (seq == _loadSeq) {
+        _isLoading.value = false;
+        _isLoadInProgress = false;
+      }
     }
+    if (seq != _loadSeq || isClosed) return;
     await _fillFilteredList(target: pageSize);
+    if (seq != _loadSeq || isClosed) return;
+    await _lookUpOnServerIfNothingFound(seq);
+  }
+
+  /// Búsqueda sin resultados en el equipo y el historial todavía bajando:
+  /// se pregunta al servidor POR DETRÁS (la pantalla ya mostró "sin
+  /// resultados" y sigue respondiendo) y, si llega algo, se agrega.
+  Future<void> _lookUpOnServerIfNothingFound(int seq) async {
+    final lookup = _historyLookup;
+    if (lookup == null ||
+        _searchQuery.value.trim().isEmpty ||
+        _filteredInvoices.isNotEmpty) {
+      return;
+    }
+    try {
+      if (!await lookup.isHistoryDownloading()) return;
+      if (seq != _loadSeq || isClosed) return;
+      _isSearchingServer.value = true;
+      final result = await lookup.getInvoicesFromServer(_queryParams(page: 1));
+      if (seq != _loadSeq || isClosed) return;
+      result.fold((_) {}, (found) {
+        if (found.data.isEmpty) return;
+        _invoices.value = found.data;
+        _paginationMeta.value = found.meta;
+        _applyLocalFilters();
+        update();
+      });
+    } catch (_) {
+      // Sin internet o servidor caído: queda lo del equipo.
+    } finally {
+      if (seq == _loadSeq && !isClosed) _isSearchingServer.value = false;
+    }
   }
 
   /// Con el filtro "Pendientes" (se aplica en pantalla) trae páginas hasta
@@ -459,30 +520,17 @@ class InvoiceListController extends GetxController
 
   Future<void> _loadNextPage() async {
     if (_isLoadingMore.value || !hasNextPage) return;
+    // La página siguiente es de ESTA consulta: si mientras llega cambian la
+    // búsqueda o un filtro, no se mezcla con la lista nueva.
+    final seq = _loadSeq;
 
     try {
       _isLoadingMore.value = true;
-      // print('📋 InvoiceListController: Cargando más facturas...');
 
       final nextPage = currentPage + 1;
 
-      final result = await _getInvoicesUseCase(
-        GetInvoicesParams(
-          page: nextPage,
-          limit: pageSize,
-          search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
-          status: _getServerFilterStatus(),
-          paymentMethod: _selectedPaymentMethod.value,
-          bankAccountId: _selectedBankAccountId.value,
-          bankAccountName: _selectedBankAccountName.value, // ✅ NUEVO: Filtro por nombre de método de pago
-          startDate: _startDate.value,
-          endDate: _endDate.value,
-          minAmount: _minAmount.value,
-          maxAmount: _maxAmount.value,
-          sortBy: _sortBy.value,
-          sortOrder: _sortOrder.value,
-        ),
-      );
+      final result = await _getInvoicesUseCase(_queryParams(page: nextPage));
+      if (seq != _loadSeq || isClosed) return;
 
       result.fold(
         (failure) {
@@ -557,56 +605,23 @@ class InvoiceListController extends GetxController
     }
   }
 
-  /// ✅ CACHÉ: Refrescar datos en background sin bloquear la UI
+  /// Refrescar por detrás (al volver a la pantalla con caché, o cuando la
+  /// sincronización trae cambios) sin bloquear ni mostrar "cargando".
+  /// Respeta la búsqueda y los filtros a la vista. Antes recargaba siempre
+  /// la lista SIN filtros y podía pisar los resultados de una búsqueda.
   Future<void> _refreshInBackground() async {
+    final seq = _loadSeq;
     // Esperar un momento para no afectar la UI inicial
     await Future.delayed(const Duration(milliseconds: 500));
 
-    if (isClosed) return;
-
-    try {
-      // print('🔄 Refrescando facturas en background...');
-
-      final result = await _getInvoicesUseCase(
-        GetInvoicesParams(
-          page: 1,
-          limit: pageSize,
-          sortBy: _sortBy.value,
-          sortOrder: _sortOrder.value,
-        ),
-      );
-
-      if (isClosed) return;
-
-      result.fold(
-        (failure) {
-          // print('⚠️ Error en refresh background: ${failure.message}');
-        },
-        (paginatedResult) {
-          // Verificar si los datos cambiaron
-          final hasChanges = _cachedInvoices == null ||
-              _cachedInvoices!.length != paginatedResult.data.length ||
-              (paginatedResult.data.isNotEmpty &&
-                  _cachedInvoices!.isNotEmpty &&
-                  paginatedResult.data.first.id != _cachedInvoices!.first.id);
-
-          if (hasChanges) {
-            // print('✅ Datos actualizados en background');
-            _invoices.value = paginatedResult.data;
-            _paginationMeta.value = paginatedResult.meta;
-            _updateCache(paginatedResult.data, paginatedResult.meta);
-            _applyLocalFilters();
-            update();
-          } else {
-            // print('ℹ️ Sin cambios detectados en background');
-            // Actualizar solo el timestamp del caché
-            _lastCacheTime = DateTime.now();
-          }
-        },
-      );
-    } catch (e) {
-      // print('⚠️ Error en refresh background: $e');
+    // Si entre tanto el usuario buscó o filtró, esa carga ya trae lo nuevo.
+    if (isClosed || seq != _loadSeq) return;
+    // Ya bajó por la lista: no se le devuelve al comienzo.
+    if (currentPage > 1) {
+      _refreshHistoryState();
+      return;
     }
+    await loadInvoices(showLoading: false, forceRefresh: true);
   }
 
   /// Buscar facturas
@@ -647,17 +662,6 @@ class InvoiceListController extends GetxController
 
   // ==================== FILTER METHODS ====================
 
-  /// Obtener el estado a enviar al servidor
-  /// Para "pending" no enviamos filtro al servidor, lo manejamos localmente
-  InvoiceStatus? _getServerFilterStatus() {
-    if (_selectedStatus.value == InvoiceStatus.pending) {
-      // No filtrar en el servidor para poder obtener tanto pending como partiallyPaid
-      return null;
-    }
-    return _selectedStatus.value;
-  }
-
-  /// Aplicar filtro de estado
   void filterByStatus(InvoiceStatus? status) {
     _selectedStatus.value = status;
     // print('🔧 Filtro estado: ${status?.displayName ?? "Todos"}');
@@ -1050,21 +1054,8 @@ class InvoiceListController extends GetxController
       _isLoading.value = true;
       // print('📄 Navegando a página $pageNumber...');
 
-      final result = await _getInvoicesUseCase(
-        GetInvoicesParams(
-          page: pageNumber,
-          limit: pageSize,
-          search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
-          status: _getServerFilterStatus(),
-          paymentMethod: _selectedPaymentMethod.value,
-          startDate: _startDate.value,
-          endDate: _endDate.value,
-          minAmount: _minAmount.value,
-          maxAmount: _maxAmount.value,
-          sortBy: _sortBy.value,
-          sortOrder: _sortOrder.value,
-        ),
-      );
+      final result =
+          await _getInvoicesUseCase(_queryParams(page: pageNumber));
 
       result.fold(
         (failure) {

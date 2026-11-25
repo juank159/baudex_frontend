@@ -3,6 +3,7 @@
 // guardar:
 //
 //   BAUDEX_VISUAL_OUT=/ruta/de/salida flutter test test/visual/invoice_list_visual_test.dart
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -13,6 +14,11 @@ import 'package:baudex_desktop/app/data/local/local_first.dart';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/features/invoices/data/datasources/invoice_local_datasource.dart';
 import 'package:baudex_desktop/features/invoices/data/datasources/invoice_remote_datasource.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_response_models.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_stats_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/isar/isar_invoice.dart';
+import 'package:baudex_desktop/features/invoices/domain/services/invoice_history_lookup.dart';
 import 'package:baudex_desktop/features/invoices/data/repositories/invoice_offline_repository_simple.dart';
 import 'package:baudex_desktop/features/invoices/data/repositories/invoice_repository_impl.dart';
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
@@ -35,6 +41,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:isar/isar.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
@@ -71,6 +78,7 @@ void main() {
   }
 
   final boundaryKey = GlobalKey();
+  late Isar isar;
 
   setUpAll(() async {
     tzdata.initializeTimeZones();
@@ -87,24 +95,43 @@ void main() {
 
     await load('Roboto', ['Roboto-Regular.ttf', 'Roboto-Medium.ttf', 'Roboto-Bold.ttf', 'Roboto-Black.ttf']);
     await load('MaterialIcons', ['MaterialIcons-Regular.otf']);
-    await openBigInvoiceDb(invoices: 400, customers: 60);
+    registerFallbackValue(const InvoiceQueryParams());
+    isar = await openBigInvoiceDb(invoices: 400, customers: 60);
   });
 
-  Future<InvoiceListController> mount(WidgetTester tester, double w, double h) async {
+  /// [historyDone] = false: el historial de facturas todavía está bajando.
+  /// [serverNeverAnswers]: con internet, pero el servidor no responde aún.
+  Future<InvoiceListController> mount(
+    WidgetTester tester,
+    double w,
+    double h, {
+    bool historyDone = true,
+    bool serverNeverAnswers = false,
+  }) async {
     tester.view.physicalSize = Size(w, h);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     Get.testMode = true;
     resetLocalCollectionsReady();
     final net = _Net();
-    when(() => net.isConnected).thenAnswer((_) async => false);
+    when(() => net.isConnected).thenAnswer((_) async => serverNeverAnswers);
     final full = _Full();
-    when(() => full.isModuleDownloaded(any())).thenAnswer((_) async => true);
+    when(() => full.isModuleDownloaded(any()))
+        .thenAnswer((_) async => historyDone);
     Get.put<FullSyncService>(full);
     Get.put<SyncService>(_FakeSync());
     Get.put<TenantDateTimeService>(TenantDateTimeService());
+    final remote = _Remote();
+    if (serverNeverAnswers) {
+      when(() => remote.getInvoices(any()))
+          .thenAnswer((_) => Completer<InvoiceResponseModel>().future);
+      when(() => remote.getInvoiceStats())
+          .thenAnswer((_) => Completer<InvoiceStatsModel>().future);
+      when(() => remote.getOverdueInvoices())
+          .thenAnswer((_) => Completer<List<InvoiceModel>>().future);
+    }
     final InvoiceRepository repo = InvoiceRepositoryImpl(
-      remoteDataSource: _Remote(),
+      remoteDataSource: remote,
       localDataSource: _Local(),
       networkInfo: net,
       offlineRepository: InvoiceOfflineRepositorySimple(),
@@ -123,6 +150,7 @@ void main() {
         confirmInvoiceUseCase: ConfirmInvoiceUseCase(repo),
         cancelInvoiceUseCase: CancelInvoiceUseCase(repo),
         getInvoiceByIdUseCase: GetInvoiceByIdUseCase(repo),
+        historyLookup: repo as InvoiceHistoryLookup,
       ));
       await tester.pumpWidget(RepaintBoundary(
         key: boundaryKey,
@@ -188,6 +216,62 @@ void main() {
   testWidgets('celular', (tester) async {
     await mount(tester, 390, 844);
     await shot(tester, 'facturas_celular');
+    await cleanup(tester);
+  });
+
+  const notice = 'Descargando historial… puede faltar alguna factura antigua';
+
+  testWidgets('historial completo: sin aviso', (tester) async {
+    await mount(tester, 1440, 900);
+    expect(find.text(notice), findsNothing);
+    await cleanup(tester);
+  });
+
+  testWidgets('escritorio: historial bajando → aviso discreto sobre la lista',
+      (tester) async {
+    await mount(tester, 1440, 900, historyDone: false);
+    expect(find.byType(InvoiceCardWidget), findsWidgets);
+    expect(find.text(notice), findsOneWidget);
+    await shot(tester, 'facturas_escritorio_historial_bajando');
+    await cleanup(tester);
+  });
+
+  testWidgets('celular: historial bajando → aviso', (tester) async {
+    await mount(tester, 390, 844, historyDone: false);
+    expect(find.text(notice), findsOneWidget);
+    await shot(tester, 'facturas_celular_historial_bajando');
+    await cleanup(tester);
+  });
+
+  testWidgets('escritorio: búsqueda sin resultados con el historial bajando',
+      (tester) async {
+    final c = await mount(tester, 1440, 900, historyDone: false);
+    await tester.runAsync(() async {
+      c.searchController.text = 'FV-NO-EXISTE';
+      await Future.delayed(const Duration(milliseconds: 600));
+      await settle(tester);
+    });
+    expect(find.text('Sin resultados'), findsOneWidget);
+    expect(
+        find.text(
+            'El historial aún se está descargando: puede faltar alguna factura antigua'),
+        findsOneWidget);
+    await shot(tester, 'facturas_escritorio_sin_resultados_historial_bajando');
+    await tester.runAsync(() async {
+      c.searchController.text = '';
+      await Future.delayed(const Duration(milliseconds: 600));
+    });
+    await cleanup(tester);
+  });
+
+  testWidgets('equipo sin facturas todavía: "Descargando tus facturas…"',
+      (tester) async {
+    // Va de última: vacía la base temporal.
+    await tester.runAsync(() => isar.writeTxn(() => isar.isarInvoices.clear()));
+    await mount(tester, 1440, 900,
+        historyDone: false, serverNeverAnswers: true);
+    expect(find.text('Descargando tus facturas…'), findsOneWidget);
+    await shot(tester, 'facturas_escritorio_equipo_vacio');
     await cleanup(tester);
   });
 }

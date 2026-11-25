@@ -8,6 +8,9 @@ import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_rep
 import 'package:baudex_desktop/features/invoices/data/models/invoice_response_models.dart';
 import 'package:baudex_desktop/features/invoices/data/repositories/invoice_offline_repository_simple.dart';
 import 'package:baudex_desktop/features/invoices/data/repositories/invoice_repository_impl.dart';
+import 'package:baudex_desktop/features/invoices/data/models/isar/isar_invoice.dart';
+import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
+import 'package:baudex_desktop/features/invoices/domain/usecases/get_invoices_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
@@ -29,11 +32,12 @@ class _Full extends Mock implements FullSyncService {
 }
 
 /// La lista de facturas no espera al servidor para pintar: con la descarga
-/// de facturas aún sin terminar, la lista simple sale del equipo; con
-/// búsqueda o filtros sí se pregunta al servidor (los datos están a medias).
+/// de facturas aún sin terminar, la lista, la búsqueda, los filtros y las
+/// estadísticas salen del equipo. Solo con el equipo vacío se va al servidor.
 void main() {
   late Isar isar;
   late _Remote remote;
+  late _Net net;
   late InvoiceRepositoryImpl repo;
 
   setUpAll(() async {
@@ -48,7 +52,7 @@ void main() {
     final full = _Full();
     when(() => full.isModuleDownloaded(any())).thenAnswer((_) async => false);
     Get.put<FullSyncService>(full);
-    final net = _Net();
+    net = _Net();
     when(() => net.isConnected).thenAnswer((_) async => true);
     when(net.resetServerReachability).thenReturn(null);
     final local = _Local();
@@ -78,8 +82,63 @@ void main() {
     verifyNever(() => remote.getInvoices(any()));
   });
 
-  test('con búsqueda y descarga sin terminar: pregunta al servidor', () async {
-    await repo.getInvoices(page: 1, limit: 30, search: 'FV-0001');
+  test('con búsqueda o filtros y descarga sin terminar: también sale del equipo',
+      () async {
+    final found =
+        (await repo.getInvoices(page: 1, limit: 30, search: 'FV-000001'))
+            .getOrElse(() => throw 'falló');
+    expect(found.data.map((i) => i.number), contains('FV-000001'));
+    final paid = (await repo.getInvoices(
+            page: 1, limit: 30, status: InvoiceStatus.paid))
+        .getOrElse(() => throw 'falló');
+    expect(paid.data, isNotEmpty);
+    expect(paid.data.every((i) => i.status == InvoiceStatus.paid), isTrue);
+    verifyNever(() => remote.getInvoices(any()));
+  });
+
+  test('estadísticas y vencidas con descarga sin terminar: del equipo',
+      () async {
+    final stats = (await repo.getInvoiceStats()).getOrElse(() => throw 'falló');
+    expect(stats.total, 120);
+    expect((await repo.getOverdueInvoices()).isRight(), isTrue);
+    verifyNever(() => remote.getInvoiceStats());
+    verifyNever(() => remote.getOverdueInvoices());
+  });
+
+  test('la pantalla puede saber que el historial sigue bajando', () async {
+    expect(await repo.isHistoryDownloading(), isTrue);
+  });
+
+  test('consulta directa al servidor: llama una vez; sin internet, falla sin leer el equipo',
+      () async {
+    final r = await repo.getInvoicesFromServer(
+        const GetInvoicesParams(page: 1, limit: 30, search: 'FV-VIEJA'));
+    expect(r.getOrElse(() => throw 'falló').data, isEmpty);
+    final sent = verify(() => remote.getInvoices(captureAny())).captured.single
+        as InvoiceQueryParams;
+    expect(sent.search, 'FV-VIEJA');
+
+    when(() => net.isConnected).thenAnswer((_) async => false);
+    final offline = await repo.getInvoicesFromServer(
+        const GetInvoicesParams(page: 1, limit: 30, search: 'FV-VIEJA'));
+    expect(offline.isLeft(), isTrue);
+    verifyNever(() => remote.getInvoices(any()));
+  });
+
+  test('varios estados: al servidor va sin estado (solo sabe filtrar uno)',
+      () async {
+    await repo.getInvoicesFromServer(const GetInvoicesParams(
+        statuses: [InvoiceStatus.pending, InvoiceStatus.partiallyPaid]));
+    final sent = verify(() => remote.getInvoices(captureAny())).captured.single
+        as InvoiceQueryParams;
+    expect(sent.status, isNull);
+  });
+
+  test('equipo SIN facturas y descarga sin terminar: se pregunta al servidor',
+      () async {
+    // Va de última: vacía la base temporal.
+    await isar.writeTxn(() => isar.isarInvoices.clear());
+    await repo.getInvoices(page: 1, limit: 30);
     verify(() => remote.getInvoices(any())).called(1);
   });
 }
