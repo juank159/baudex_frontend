@@ -109,16 +109,22 @@ void main() {
         networkInfo: net,
         offlineRepository: InvoiceOfflineRepositorySimple(),
       );
-      Get.put(InvoiceStatsController(
-        getInvoiceStatsUseCase: GetInvoiceStatsUseCase(repo),
-        getOverdueInvoicesUseCase: GetOverdueInvoicesUseCase(repo),
-      ));
       InvoiceListController.invalidateCache();
 
       final watch = Stopwatch();
       int? dataMs;
+      late InvoiceStatsController stats;
       await tester.runAsync(() async {
         watch.start();
+        // Como el binding real: primero las estadísticas, luego la lista.
+        // Se crea AQUÍ (reloj real) y no fuera: sus lecturas a la base local
+        // son asíncronas de verdad; creadas en el reloj de mentiras de la
+        // prueba quedaban a medias al terminar, con su transacción de
+        // lectura abierta, y la apertura siguiente se quedaba esperando.
+        stats = Get.put(InvoiceStatsController(
+          getInvoiceStatsUseCase: GetInvoiceStatsUseCase(repo),
+          getOverdueInvoicesUseCase: GetOverdueInvoicesUseCase(repo),
+        ));
         Get.put(InvoiceListController(
           getInvoicesUseCase: GetInvoicesUseCase(repo),
           searchInvoicesUseCase: SearchInvoicesUseCase(repo),
@@ -146,7 +152,17 @@ void main() {
           'datos en ${dataMs ?? watch.elapsedMilliseconds} ms, primera fila en ${watch.elapsedMilliseconds} ms '
           '(${c.filteredInvoices.length} filas cargadas, servidor llamado ${remote.calls} veces)');
       expect(find.byType(InvoiceCardWidget), findsWidgets);
-      await tester.runAsync(() => Future.delayed(const Duration(seconds: 2)));
+      expect(c.isLoading, isFalse);
+      // Nada queda a medias: las estadísticas terminan antes de cerrar.
+      await tester.runAsync(() async {
+        final wait = Stopwatch()..start();
+        while (stats.isLoading && wait.elapsedMilliseconds < 10000) {
+          await Future.delayed(const Duration(milliseconds: 5));
+        }
+        await Future.delayed(const Duration(seconds: 2));
+      });
+      expect(stats.isLoading, isFalse,
+          reason: 'las estadísticas no pueden quedarse cargando');
       await tester.pumpWidget(const SizedBox());
       Get.reset();
       FlutterError.onError = previousOnError;

@@ -136,13 +136,15 @@ void main() {
       networkInfo: net,
       offlineRepository: InvoiceOfflineRepositorySimple(),
     );
-    Get.put(InvoiceStatsController(
-      getInvoiceStatsUseCase: GetInvoiceStatsUseCase(repo),
-      getOverdueInvoicesUseCase: GetOverdueInvoicesUseCase(repo),
-    ));
     InvoiceListController.invalidateCache();
     late InvoiceListController c;
     await tester.runAsync(() async {
+      // Dentro del reloj real: sus lecturas a la base local son asíncronas
+      // de verdad y no deben quedar a medias al terminar la prueba.
+      Get.put(InvoiceStatsController(
+        getInvoiceStatsUseCase: GetInvoiceStatsUseCase(repo),
+        getOverdueInvoicesUseCase: GetOverdueInvoicesUseCase(repo),
+      ));
       c = Get.put(InvoiceListController(
         getInvoicesUseCase: GetInvoicesUseCase(repo),
         searchInvoicesUseCase: SearchInvoicesUseCase(repo),
