@@ -79,7 +79,9 @@ void main() {
       final sku = (inv.positionalArguments.first as String).toLowerCase();
       return [arroz, leche, huevo].firstWhereOrNull((p) => p.sku.toLowerCase() == sku);
     });
-    when(() => controller.findProductByBarcode(any())).thenAnswer((inv) async {
+    when(() => controller.findProductByBarcode(any(),
+            localOnly: any(named: 'localOnly')))
+        .thenAnswer((inv) async {
       final code = inv.positionalArguments.first as String;
       return [arroz, leche].firstWhereOrNull((p) => p.barcode == code);
     });

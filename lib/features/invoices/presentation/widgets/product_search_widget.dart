@@ -20,6 +20,7 @@ import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../../domain/price_entry.dart';
 import '../../domain/invoice_entry_metrics.dart';
 import '../../../../app/core/utils/frame_timings_probe.dart';
+import '../../domain/scan_burst_detector.dart';
 import 'barcode_scan_queue.dart';
 import 'scanner_focus.dart';
 
@@ -79,6 +80,26 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   // Escaneos (Enter del lector): se buscan de una vez y en orden.
   late final BarcodeScanQueue _scanQueue;
 
+  // Ráfaga del lector: mientras las teclas llegan en milésimas, un valor
+  // (los primeros 7 dígitos de cualquier código) NO se pinta tecla a tecla.
+  // Si la ráfaga se corta sin Enter, se pinta a los [_burstFlushDelay].
+  final ScanBurstDetector _burst = ScanBurstDetector();
+  final Stopwatch _keyClock = Stopwatch()..start();
+  Timer? _burstFlushTimer;
+  String _previousText = '';
+  int _runStartFrame = 0;
+  static const Duration _burstFlushDelay = Duration(milliseconds: 60);
+
+  /// Solo para pruebas: reloj de las teclas (las pruebas de pantalla
+  /// manejan un tiempo simulado que el reloj real no ve).
+  @visibleForTesting
+  static Duration Function()? debugKeyClock;
+
+  Duration _keyTime() => debugKeyClock?.call() ?? _keyClock.elapsed;
+
+  // Lecturas en la cola, en orden: cronómetro desde su Enter.
+  final List<Stopwatch> _scanWatches = [];
+
   // Control para pausar la restauración automática de focus.
   // El padre (ej: CustomerSelectorWidget) lo puede activar mientras el
   // usuario está editando otros campos.
@@ -88,12 +109,16 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   void initState() {
     super.initState();
     _scanQueue = BarcodeScanQueue(
-      find: (code) => widget.controller.findProductByBarcode(code),
+      // Solo lo exacto del equipo: la cola nunca espera al servidor.
+      find: (code) =>
+          widget.controller.findProductByBarcode(code, localOnly: true),
       onFound: (product, _) {
-        if (mounted) _addScannedProduct(product);
+        final since = _takeScanWatch();
+        if (mounted) _addScannedProduct(product, since: since);
       },
       onNotFound: (code) {
-        if (mounted) _showBarcodeNotFound(code);
+        final since = _takeScanWatch();
+        if (mounted) unawaited(_resolveMissingScan(code, since));
       },
     );
     _searchController.addListener(_onSearchChanged);
@@ -158,6 +183,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
   void dispose() {
     try {
       _debounceTimer?.cancel();
+      _burstFlushTimer?.cancel();
       _valueCheckTimer?.cancel();
       _scanQueue.dispose();
 
@@ -360,7 +386,41 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
         child: RawKeyboardListener(
           focusNode: _keyboardFocusNode, // ✅ NUEVO: FocusNode separado para navegación
           onKey: _handleKeyboardNavigation,
-          child: TextField(
+          // Cada tecla repinta y vuelve a medir SOLO la caja (ver
+          // [_isolatedField]).
+          child: _isolatedField(_buildTextField(isMobileOrTablet)),
+        ),
+      ),
+    );
+  }
+
+  /// Alto de la caja con el tamaño de letra normal (el mínimo de un campo).
+  static const double _fieldHeight = 48;
+
+  /// Aísla la caja del resto de la pantalla: capa propia y tamaño fijo.
+  ///
+  /// Sin esto, cada dígito volvía a medir la caja y, con ella, toda la
+  /// columna hasta la página: la pantalla entera de la factura (cliente,
+  /// tabla, totales, sombras) se medía y se repintaba por tecla, 13 veces
+  /// por lectura. Con el tamaño fijo (todo el ancho disponible × el alto
+  /// mínimo de un campo) la medición termina en la caja, y la capa propia
+  /// hace que solo ella se repinte. Si el equipo usa letra agrandada se
+  /// deja como antes: el alto ya no es el mínimo.
+  ///
+  /// OJO: no usar `LayoutBuilder` aquí; al cambiar algo adentro pide medir
+  /// de nuevo hacia arriba y se pierde el aislamiento.
+  Widget _isolatedField(Widget field) {
+    final normalText = MediaQuery.textScalerOf(context).scale(12) == 12;
+    if (!normalText) return field;
+    return SizedBox(
+      width: double.infinity,
+      height: _fieldHeight,
+      child: RepaintBoundary(child: field),
+    );
+  }
+
+  Widget _buildTextField(bool isMobileOrTablet) {
+    return TextField(
             controller: _searchController,
             focusNode: _focusNode,
             style: const TextStyle(
@@ -413,6 +473,9 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
                 vertical: 14,
               ),
             ),
+            // Enter NO suelta el foco de la caja (por defecto lo soltaba y
+            // había que recuperarlo en cada lectura): solo confirma.
+            onEditingComplete: _searchController.clearComposing,
             onSubmitted: (value) {
               // ✅ CRÍTICO: Solo procesar onSubmitted si no hay selección activa
               final text = value.trim();
@@ -429,10 +492,7 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
                 }
               }
             },
-          ),
-        ),
-      ),
-    );
+          );
   }
 
   Widget _buildSearchResults(BuildContext context) {
@@ -850,8 +910,26 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
       
       // Cancelar timer anterior si existe
       _debounceTimer?.cancel();
+      _burstFlushTimer?.cancel();
 
       final query = _searchController.text.trim();
+
+      // ¿Tecla del lector? Solo cuenta un carácter agregado al final (una
+      // tecla); pegar texto o borrar empieza de cero. Un aviso sin cambio
+      // de texto (solo el cursor) no cuenta.
+      final text = _searchController.text;
+      var inBurst = false;
+      if (text != _previousText) {
+        final isKey = text.length == _previousText.length + 1 &&
+            text.startsWith(_previousText);
+        _previousText = text;
+        if (isKey) {
+          inBurst = _burst.addKey(_keyTime());
+          if (_burst.keys == 1) _runStartFrame = drawnFrameCount;
+        } else {
+          _burst.reset();
+        }
+      }
 
       // ✅ No auto-seleccionar durante la escritura para evitar cortar el código
 
@@ -879,6 +957,18 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
       // tecleo y sin depender de la base, del servidor ni de la
       // sincronización.
       if (_isUnregisteredProductQuery(query)) {
+        // En ráfaga del lector estos dígitos son el principio de un código,
+        // no un valor: no se pinta nada por tecla. Si la ráfaga se corta
+        // sin Enter (era un valor tecleado muy rápido), se pinta enseguida.
+        if (inBurst) {
+          _metrics.scanKeysNotRedrawn++;
+          _burstFlushTimer = Timer(_burstFlushDelay, () {
+            if (mounted && _searchController.text.trim() == query) {
+              _showValueNow(query);
+            }
+          });
+          return;
+        }
         _showValueNow(query);
         return;
       }
@@ -1050,18 +1140,86 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
   /// en la cola (en orden, sin perder ninguno).
   void _enqueueScan(String code) {
     _debounceTimer?.cancel();
+    _burstFlushTimer?.cancel();
+    _metrics.recordScan(
+      keys: _burst.keys,
+      avgGapMs: _burst.averageGapMs,
+      frames: drawnFrameCount - _runStartFrame,
+      burst: _burst.inBurst,
+    );
+    _burst.reset();
     _searchSeq++; // descarta una búsqueda en curso de este mismo texto
     _lastSearchTerm = '';
     _searchController.clear();
+    _scanWatches.add(Stopwatch()..start());
     _scanQueue.add(code);
+  }
+
+  Stopwatch? _takeScanWatch() =>
+      _scanWatches.isEmpty ? null : _scanWatches.removeAt(0);
+
+  /// El código no está en el equipo. Con el catálogo completo, no existe:
+  /// se avisa de una vez. Si el catálogo todavía está bajando y hay
+  /// internet, se pregunta al servidor FUERA de la cola (las lecturas
+  /// siguientes no esperan); si aparece, se agrega cuando llegue.
+  Future<void> _resolveMissingScan(String code, Stopwatch? since) async {
+    Product? product;
+    try {
+      if (await widget.controller.scanMayExistOnServer()) {
+        product = await widget.controller.findProductByBarcode(code);
+      }
+    } catch (_) {
+      product = null;
+    }
+    if (!mounted) return;
+    if (product != null) {
+      _addScannedProduct(product, since: since);
+    } else {
+      _showBarcodeNotFound(code);
+    }
+  }
+
+  /// Unidades en la factura ahora (`null` si no se puede leer).
+  double? _invoiceUnits() {
+    try {
+      var units = 0.0;
+      for (final item in widget.controller.invoiceItems) {
+        units += item.quantity;
+      }
+      return units;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Producto escaneado encontrado. La caja NO se borra: el siguiente código
   /// puede estar entrando.
-  void _addScannedProduct(Product product) {
+  void _addScannedProduct(Product product, {Stopwatch? since}) {
+    final before = since == null ? null : _invoiceUnits();
     widget.onProductSelected(product, 1);
+    if (since != null && before != null) _recordLineAdded(since, before);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_hasModalRouteAbove()) _focusNode.requestFocus();
+    });
+  }
+
+  /// Guarda cuánto pasó del Enter a la línea PINTADA en la factura. Se
+  /// revisa al final de cada cuadro (agregar la línea dibuja uno); si en
+  /// 3 s no entró (sin existencias, diálogo de presentaciones), se deja.
+  void _recordLineAdded(Stopwatch since, double before) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || since.elapsedMilliseconds > 3000) return;
+      final now = _invoiceUnits();
+      if (now == null) return;
+      if (now != before) {
+        _metrics.record(
+          EntryMetric.scanEnterToLine,
+          since.elapsedMicroseconds / 1000,
+          widget.controller.entryContext(),
+        );
+      } else {
+        _recordLineAdded(since, before);
+      }
     });
   }
 
@@ -1469,6 +1627,8 @@ AppLogger.e('❌ Error al abrir escáner: $e');
     final watch = Stopwatch()..start();
     // Cancelar cualquier búsqueda pendiente
     _debounceTimer?.cancel();
+    _burstFlushTimer?.cancel();
+    _burst.reset();
     _forgetValueCheck();
 
     // Limpiar búsqueda

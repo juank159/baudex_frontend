@@ -94,6 +94,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
   bool _handleGlobalKeyEvent(KeyEvent event) {
     if (!mounted) return false;
+    // Dígito sin Ctrl: no es un atajo (lo escribe el cajero o el lector).
+    if (isPlainDigitKey(event.logicalKey,
+        modifierPressed: shortcutModifierPressed())) {
+      return false;
+    }
 
     final controller = widget.controller;
     if (controller == null || controller.invoiceItems.isEmpty) return false;

@@ -55,7 +55,10 @@ enum EntryMetric {
   indexLoad('Carga del índice de códigos'),
 
   /// Búsqueda por texto (después de la pausa de tecleo).
-  textSearch('Búsqueda por texto');
+  textSearch('Búsqueda por texto'),
+
+  /// Lector: Enter del código → línea pintada en la factura.
+  scanEnterToLine('Lector: Enter → línea en la factura');
 
   const EntryMetric(this.title);
   final String title;
@@ -122,6 +125,44 @@ class InvoiceEntryMetrics {
   int framesOver50 = 0;
   int framesOver200 = 0;
   double worstFrameMs = 0;
+
+  /// Lecturas con el lector de código de barras (código + Enter): cuántas,
+  /// cuántas se reconocieron como ráfaga, cuántas teclas de ráfaga NO
+  /// redibujaron el buscador, y por lectura: ms entre teclas y cuadros de
+  /// pantalla desde la primera tecla hasta el Enter.
+  int scans = 0;
+  int scansAsBurst = 0;
+  int scanKeysNotRedrawn = 0;
+  final List<double> _scanGapsMs = [];
+  final List<double> _scanFrames = [];
+
+  /// Una lectura confirmada con Enter: [keys] teclas, [avgGapMs] entre
+  /// teclas (null si no se pudo medir: texto pegado o cámara), [frames]
+  /// cuadros desde la primera tecla, y si se reconoció como ráfaga.
+  void recordScan({
+    required int keys,
+    required double? avgGapMs,
+    required int frames,
+    required bool burst,
+  }) {
+    scans++;
+    if (burst) scansAsBurst++;
+    if (avgGapMs == null || keys < 2) return;
+    _scanGapsMs.add(avgGapMs);
+    _scanFrames.add(frames.toDouble());
+    if (_scanGapsMs.length > capacity) _scanGapsMs.removeAt(0);
+    if (_scanFrames.length > capacity) _scanFrames.removeAt(0);
+  }
+
+  /// (normal, peor) de una lista de muestras.
+  static (double, double)? _medianAndMax(List<double> values) {
+    if (values.isEmpty) return null;
+    final sorted = [...values]..sort();
+    return (sorted[(sorted.length - 1) ~/ 2], sorted.last);
+  }
+
+  (double, double)? get scanGapMs => _medianAndMax(_scanGapsMs);
+  (double, double)? get scanFrames => _medianAndMax(_scanFrames);
 
   /// Último estado visto al facturar (índice, sincronización, cola).
   EntryContext? lastContext;
@@ -224,6 +265,9 @@ class InvoiceEntryMetrics {
     _printFailures.clear();
     _printSlow.clear();
     valueKeysCertain = valueKeysUnconfirmed = 0;
+    scans = scansAsBurst = scanKeysNotRedrawn = 0;
+    _scanGapsMs.clear();
+    _scanFrames.clear();
     frames = framesOver50 = framesOver200 = 0;
     worstFrameMs = 0;
   }
@@ -237,6 +281,17 @@ class InvoiceEntryMetrics {
     final keys = valueKeysCertain + valueKeysUnconfirmed;
     b.writeln('  Teclas con un valor: $keys '
         '(opción segura: $valueKeysCertain, por confirmar: $valueKeysUnconfirmed)');
+    if (scans > 0) {
+      final gap = scanGapMs, perScan = scanFrames;
+      b.writeln('  Lecturas con el lector: $scans '
+          '(reconocidas como ráfaga: $scansAsBurst; '
+          'teclas que no redibujaron el buscador: $scanKeysNotRedrawn)');
+      if (gap != null && perScan != null) {
+        b.writeln('    Entre teclas: normal ${_f(gap.$1)} ms, peor ${_f(gap.$2)} ms. '
+            'Cuadros de pantalla por lectura: normal ${perScan.$1.toStringAsFixed(0)}, '
+            'peor ${perScan.$2.toStringAsFixed(0)}');
+      }
+    }
     var any = false;
     for (final m in EntryMetric.values) {
       final s = summary(m);
