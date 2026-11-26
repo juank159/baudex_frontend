@@ -83,7 +83,12 @@ class LectorProbeConfig {
     this.presentationsServerMs = 0,
     this.frameCostMs = 0,
     this.directKeys = true,
+    this.slowScannerInformative = false,
   });
+
+  /// La corrida "C" (lector a 10 ms por tecla) solo informa si el código se
+  /// vio a medias o salió la tarjeta; para corridas con cuadros caros.
+  final bool slowScannerInformative;
 
   /// Mayor que 0: las presentaciones NO están en el equipo (módulo sin
   /// terminar de bajar) y el servidor tarda esto en responder, como en un
@@ -270,6 +275,11 @@ class _Frame {
 
 class _Recorder {
   final List<int> keyDowns = [];
+
+  /// `KeyEvent.timeStamp` de cada tecla (µs), en el mismo orden que
+  /// [keyDowns]: para saber si trae la hora REAL de la tecla o la hora en
+  /// que la app la procesó.
+  final List<int> keyStamps = [];
   final List<int> enterDowns = [];
   final List<(int, int)> textChanges = []; // (µs, longitud)
   final List<(int, double)> unitChanges = []; // (µs, unidades)
@@ -288,6 +298,7 @@ class _Recorder {
         enterDowns.add(t);
       } else {
         keyDowns.add(t);
+        keyStamps.add(event.timeStamp.inMicroseconds);
       }
     }
     return false;
@@ -365,6 +376,8 @@ class _Scan {
   double? worstBuildMs;
   double? worstRasterMs;
   bool added = false;
+  int keyFrom = 0; // índices de sus teclas en el registro
+  int keyTo = 0;
 }
 
 // ───────────────────────── la sonda ─────────────────────────
@@ -514,6 +527,8 @@ Future<LectorProbeResult> runLectorProbe({
       final keys = recorder.keyDowns.sublist(keyFrom);
       final enters = recorder.enterDowns.sublist(enterFrom);
       s.keys = keys.length;
+      s.keyFrom = keyFrom;
+      s.keyTo = recorder.keyDowns.length;
       if (keys.isEmpty) return s;
       final first = keys.first;
       s.keysMs = _ms(first, keys.last);
@@ -572,6 +587,55 @@ Future<LectorProbeResult> runLectorProbe({
       return s;
     }
 
+    // ¿`KeyEvent.timeStamp` trae la hora real de la tecla? Se compara el
+    // intervalo con que se mandaron las teclas con el intervalo según esa
+    // marca y con el de llegada a la app. Si la marca sigue al programado
+    // aunque la llegada se atrase, es la hora real; si sigue a la llegada,
+    // es la hora de proceso.
+    void keyClock(String label, int programmedMs, List<(int, int)> ranges) {
+      final arrival = <double>[], stamps = <double>[];
+      var allZero = true;
+      for (final (from, to) in ranges) {
+        for (var i = from + 1; i < to; i++) {
+          arrival.add(_ms(recorder.keyDowns[i - 1], recorder.keyDowns[i]));
+          stamps.add(_ms(recorder.keyStamps[i - 1], recorder.keyStamps[i]));
+          if (recorder.keyStamps[i] != 0) allZero = false;
+        }
+      }
+      if (arrival.isEmpty) {
+        out('MEDICION LECTOR | RELOJ DE TECLAS | $label: sin teclas para medir');
+        return;
+      }
+      String stats(List<double> v) {
+        final sorted = [...v]..sort();
+        return 'mediana ${sorted[(sorted.length - 1) ~/ 2].toStringAsFixed(1)}, '
+            'mín ${sorted.first.toStringAsFixed(1)}, '
+            'máx ${sorted.last.toStringAsFixed(1)} ms';
+      }
+
+      final medianStamp = _median(stamps)!;
+      final medianArrival = _median(arrival)!;
+      final String verdict;
+      if (allZero) {
+        verdict = 'KeyEvent.timeStamp viene en cero: no sirve';
+      } else if ((medianStamp - medianArrival).abs() <= 1.0 &&
+          (medianArrival - programmedMs).abs() > 3) {
+        verdict = 'la marca sigue a la LLEGADA (hora de proceso)';
+      } else if ((medianStamp - programmedMs).abs() <=
+          (programmedMs * 0.3).clamp(2, 40)) {
+        verdict = (medianArrival - programmedMs).abs() <=
+                (programmedMs * 0.3).clamp(2, 40)
+            ? 'marca y llegada coinciden con lo programado (no distingue)'
+            : 'la marca sigue a lo PROGRAMADO (hora real del sistema)';
+      } else {
+        verdict = 'la marca no sigue ni a lo programado ni a la llegada';
+      }
+      out('MEDICION LECTOR | RELOJ DE TECLAS | $label: programado '
+          '$programmedMs ms entre teclas (${arrival.length} intervalos) · '
+          'según KeyEvent.timeStamp: ${stats(stamps)} · '
+          'según llegada a la app: ${stats(arrival)} → $verdict');
+    }
+
     void table(String title, List<_Scan> scans) {
       out('MEDICION LECTOR | $title');
       out('MEDICION LECTOR |  #  teclas  1ª→últ.tecla  1ª→código  cuadros  '
@@ -627,6 +691,10 @@ Future<LectorProbeResult> runLectorProbe({
       slow.add(await scan(probeCode(config.products ~/ 2 + n), gapMs: 10));
     }
     table('C. 5 lecturas con 10 ms entre teclas', slow);
+    keyClock('A (lector a ${config.keyGapMs} ms)', config.keyGapMs,
+        [for (final s in fresh) (s.keyFrom, s.keyTo)]);
+    keyClock('C (lector a 10 ms)', 10,
+        [for (final s in slow) (s.keyFrom, s.keyTo)]);
 
     // D. Lecturas pegadas: sin esperar a que entre la anterior.
     final unitsBeforeBurst = units();
@@ -692,6 +760,20 @@ Future<LectorProbeResult> runLectorProbe({
     await injector.backspace(recorder.field!.text.length);
     await _wait(600);
 
+    // F. Reloj de teclas a ritmo de persona: 6 dígitos seguidos a 120 ms.
+    final humanFrom = recorder.keyDowns.length;
+    await injector.type('250025', gapMs: config.humanGapMs, enter: false);
+    await _wait(400);
+    keyClock('F (a mano a ${config.humanGapMs} ms)', config.humanGapMs,
+        [(humanFrom, recorder.keyDowns.length)]);
+    out('MEDICION LECTOR | F. a mano "250025" seguido: caja "${recorder.field!.text}"');
+    if (recorder.field!.text != '250025') {
+      failures.add('a mano seguido: en la caja quedó '
+          '"${recorder.field!.text}", no "250025" (dígitos retenidos o perdidos)');
+    }
+    await injector.backspace(recorder.field!.text.length);
+    await _wait(600);
+
     // Cuadros de toda la corrida.
     final build = [for (final f in recorder.frames) f.buildMs];
     final raster = [for (final f in recorder.frames) f.rasterMs];
@@ -711,13 +793,26 @@ Future<LectorProbeResult> runLectorProbe({
       if (lost > 0) failures.add('$name: $lost lecturas no entraron');
       final short = scans.where((s) => s.keys != 13).length;
       if (short > 0) failures.add('$name: $short lecturas sin las 13 teclas');
+      // Con cuadros artificialmente caros, un lector de 10 ms por tecla
+      // puede verse como una persona (sus dos primeras teclas llegan a más
+      // de 60 ms): se prefiere eso a retener el tecleo a mano. Ahí "C" solo
+      // informa; perder lecturas o teclas sigue siendo falla.
+      final informative = name == 'C' && config.slowScannerInformative;
+      void visual(String message) {
+        if (informative) {
+          out('MEDICION LECTOR | INFORMATIVO (no falla): $message');
+        } else {
+          failures.add(message);
+        }
+      }
+
       final cards = scans.where((s) => s.cardFrames > 0).length;
       if (cards > 0) {
-        failures.add('$name: $cards lecturas pintaron la tarjeta "sin registrar"');
+        visual('$name: $cards lecturas pintaron la tarjeta "sin registrar"');
       }
       final partial = scans.where((s) => s.sawPartial).length;
       if (partial > 0) {
-        failures.add('$name: en $partial lecturas el código se vio a medias '
+        visual('$name: en $partial lecturas el código se vio a medias '
             '(dígitos entrando de a pocos)');
       }
     }

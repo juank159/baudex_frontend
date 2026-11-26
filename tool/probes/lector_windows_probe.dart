@@ -22,6 +22,7 @@
 //                          servidor tarda esto (equipo a medio sincronizar)
 //   BAUDEX_PROBE_FRAME_MS  >0: cada cuadro cuesta esto de más (equipo lento)
 //   BAUDEX_PROBE_DIRECT    0 = apaga la lectura directa (camino anterior)
+//   BAUDEX_PROBE_C_INFORMATIVO  1 = la corrida C (lector a 10 ms) solo informa
 //
 // Sale con 0 si todo bien, 1 si algún criterio falla, 2 si se colgó.
 import 'dart:async';
@@ -177,6 +178,7 @@ Future<void> main() async {
       presentationsServerMs: number('BAUDEX_PROBE_PRESENTATIONS_MS', 0),
       frameCostMs: number('BAUDEX_PROBE_FRAME_MS', 0),
       directKeys: (env['BAUDEX_PROBE_DIRECT'] ?? '1') != '0',
+      slowScannerInformative: (env['BAUDEX_PROBE_C_INFORMATIVO'] ?? '0') == '1',
     ),
     log: log,
   );

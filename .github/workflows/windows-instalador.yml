@@ -134,6 +134,9 @@ jobs:
             $env:BAUDEX_PROBE_KEYS = $c.teclas
             $env:BAUDEX_PROBE_PRESENTATIONS_MS = $c.pres
             $env:BAUDEX_PROBE_FRAME_MS = $c.cuadro
+            # Con cuadros caros, el lector de 10 ms por tecla (C) solo informa:
+            # A y B (1 ms, como el lector real) siguen siendo obligatorios.
+            $env:BAUDEX_PROBE_C_INFORMATIVO = if ($c.cuadro -ne '0') { '1' } else { '0' }
             Write-Host "===== Corrida $($c.nombre) (teclas: $($c.teclas)) ====="
             $p = Start-Process -FilePath $exe -PassThru
             if (-not $p.WaitForExit(8 * 60 * 1000)) {
