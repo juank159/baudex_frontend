@@ -1396,6 +1396,14 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     }
   }
 
+  /// Solo para pruebas y mediciones: ¿se está mostrando la tarjeta
+  /// "Producto sin registrar" (valor) ahora?
+  bool get debugValueOptionVisible =>
+      _showResults &&
+      _searchResults.isEmpty &&
+      !_isSearching &&
+      _isUnregisteredProductQuery(_searchController.text.trim());
+
   // ==================== FUNCIONES AUXILIARES ====================
 
   bool _isBarcodeQuery(String value) =>

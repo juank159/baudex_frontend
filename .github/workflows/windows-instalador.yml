@@ -33,8 +33,108 @@ on:
           - archivo
           - tcp
         default: archivo
+      probar_lector:
+        description: 'Medir el lector de código de barras en Windows real (teclas del sistema sobre la factura)'
+        type: boolean
+        default: false
+      lector_etiqueta:
+        description: 'Lector: etiqueta para el log (p. ej. "antes c05b2dd" o "después")'
+        required: false
+        default: ''
 
 jobs:
+  # Mide en un Windows real qué pasa cuando el lector de código de barras
+  # escribe en el buscador de la factura. Compila en modo release una app de
+  # medición (tool/probes/lector_windows_probe.dart) que abre el formulario
+  # real con 3.000 productos en una base temporal y le manda teclas de
+  # verdad al sistema (SendInput: 13 dígitos a 1 ms + Enter, como la
+  # pistola). En el log, las líneas "MEDICION LECTOR | ..." traen la tabla:
+  # llegada de las teclas, código completo, cuadros dibujados (armar/pintar),
+  # Enter → línea, y si se pintó la tarjeta "Producto sin registrar" o el
+  # código se vio a medias. Para comparar antes/después, lanzar el workflow
+  # sobre cada commit con su etiqueta.
+  probar-lector:
+    if: ${{ inputs.probar_lector }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+
+      - name: Crear .env de relleno (igual que compilar-windows.bat)
+        shell: pwsh
+        run: |
+          $c = @(
+            'SERVER_IP=baudex.baudity.tech',
+            'SERVER_PORT=443',
+            'APP_ENV=production',
+            'API_TIMEOUT=30000',
+            'DEBUG_MODE=false',
+            'SHOW_LOGS=false'
+          ) -join "`n"
+          foreach ($f in '.env', '.env.production', '.env.development', '.env.staging') {
+            Set-Content -Path $f -Value $c -NoNewline -Encoding utf8NoBOM
+          }
+
+      - run: flutter pub get
+
+      - name: Compilar la app de medición (release)
+        shell: pwsh
+        run: |
+          flutter build windows --release -t tool/probes/lector_windows_probe.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Medir el lector
+        shell: pwsh
+        run: |
+          $exe = 'build\windows\x64\runner\Release\Baudex.exe'
+          New-Item -ItemType Directory -Force C:\lector | Out-Null
+          $etiqueta = '${{ inputs.lector_etiqueta }}'
+          if ([string]::IsNullOrWhiteSpace($etiqueta)) { $etiqueta = "$env:GITHUB_SHA".Substring(0, 7) }
+          $fallas = 0
+          # Dos corridas con teclas del sistema (factura vacía y con 60
+          # líneas) y una de respaldo con mensajes directos a la ventana.
+          $corridas = @(
+            @{ nombre = 'vacia';    lineas = '0';  teclas = 'sendinput' },
+            @{ nombre = '60lineas'; lineas = '60'; teclas = 'sendinput' },
+            @{ nombre = 'mensajes'; lineas = '0';  teclas = 'postmessage' }
+          )
+          foreach ($c in $corridas) {
+            $salida = "C:\lector\lector-$($c.nombre).txt"
+            $env:BAUDEX_PROBE_OUT = $salida
+            $env:BAUDEX_PROBE_LABEL = "$etiqueta / $($c.nombre)"
+            $env:BAUDEX_PROBE_LINES = $c.lineas
+            $env:BAUDEX_PROBE_KEYS = $c.teclas
+            Write-Host "===== Corrida $($c.nombre) (teclas: $($c.teclas)) ====="
+            $p = Start-Process -FilePath $exe -PassThru
+            if (-not $p.WaitForExit(8 * 60 * 1000)) {
+              Write-Host "::error::La app de medición no terminó (corrida $($c.nombre))"
+              $p.Kill()
+              $fallas++
+            }
+            if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'MEDICION LECTOR | sin archivo de salida' }
+            Write-Host "Código de salida: $($p.ExitCode)"
+            # La de respaldo es informativa: no decide el resultado.
+            if ($p.ExitCode -ne 0 -and $c.teclas -eq 'sendinput') { $fallas++ }
+          }
+          if ($fallas -gt 0) {
+            Write-Host "::error::El lector no cumple los criterios (ver líneas 'MEDICION LECTOR | RESULTADO')"
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: medicion-lector
+          path: C:\lector\*.txt
+          if-no-files-found: warn
+
   # Comprueba en un Windows real que el tiquete sale directo por la cola de
   # impresión (windows_raw_printer.dart), sin PowerShell: instala una
   # impresora de mentira que deja en C:\tickets\salida.prn lo que recibe,
