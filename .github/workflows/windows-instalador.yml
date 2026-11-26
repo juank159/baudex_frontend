@@ -49,6 +49,10 @@ on:
         description: 'Arranque: commit anterior para comparar (su carpeta lib). Vacío = solo la versión actual'
         required: false
         default: '5b6ec2a'
+      probar_preferencias:
+        description: 'Probar en Windows real que las preferencias del equipo no se dañan (matar la app a mitad de escritura)'
+        type: boolean
+        default: false
       lector_etiqueta:
         description: 'Lector: etiqueta para el log (p. ej. "antes c05b2dd" o "después")'
         required: false
@@ -478,6 +482,11 @@ jobs:
         if: ${{ !cancelled() }}
         shell: pwsh
         run: |
+          # El archivo de la prueba está en UTF-8: que la consola lo muestre
+          # igual (si no, los acentos salen rotos en el log).
+          chcp 65001 | Out-Null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $exe = 'build\windows\x64\runner\Release\Baudex.exe'
           New-Item -ItemType Directory -Force C:\impresoras | Out-Null
           $salida = 'C:\impresoras\impresoras.txt'
@@ -510,6 +519,84 @@ jobs:
         with:
           name: prueba-impresoras
           path: C:\impresoras\*.txt
+          if-no-files-found: warn
+
+  # Preferencias del equipo (shared_preferences.json): compila en release
+  # tool/probes/prefs_windows_probe.dart, que lanza procesos que escriben
+  # 200 preferencias a la vez y los mata a mitad, varias veces, con el
+  # complemento original (para demostrar que deja el archivo ilegible) y
+  # con el almacén propio (que nunca debe perder lo guardado); y comprueba
+  # que un archivo dañado al arrancar se restaura de la copia.
+  # En el log: líneas "PRUEBA PREFERENCIAS | ...".
+  probar-preferencias:
+    if: ${{ inputs.probar_preferencias }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+
+      - name: Crear .env de relleno (igual que compilar-windows.bat)
+        shell: pwsh
+        run: |
+          $c = @(
+            'SERVER_IP=baudex.baudity.tech',
+            'SERVER_PORT=443',
+            'APP_ENV=production',
+            'API_TIMEOUT=30000',
+            'DEBUG_MODE=false',
+            'SHOW_LOGS=false'
+          ) -join "`n"
+          foreach ($f in '.env', '.env.production', '.env.development', '.env.staging') {
+            Set-Content -Path $f -Value $c -NoNewline -Encoding utf8NoBOM
+          }
+
+      - run: flutter pub get
+
+      - name: Pruebas del almacén de preferencias
+        timeout-minutes: 8
+        run: flutter test --timeout 120s test/unit/core/storage
+
+      - name: Compilar la app de prueba (release)
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          flutter build windows --release -t tool/probes/prefs_windows_probe.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Probar preferencias en Windows real
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          chcp 65001 | Out-Null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $exe = 'build\windows\x64\runner\Release\Baudex.exe'
+          New-Item -ItemType Directory -Force C:\preferencias | Out-Null
+          $salida = 'C:\preferencias\preferencias.txt'
+          $env:BAUDEX_PROBE_OUT = $salida
+          $p = Start-Process -FilePath $exe -PassThru
+          $termino = $p.WaitForExit(15 * 60 * 1000)
+          if (-not $termino) { $p.Kill() }
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'PRUEBA PREFERENCIAS | sin archivo de salida' }
+          Write-Host "Código de salida: $($p.ExitCode)"
+          Get-Process Baudex -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          if (-not $termino -or $p.ExitCode -ne 0) {
+            Write-Host "::error::Preferencias no cumple (ver líneas 'PRUEBA PREFERENCIAS | ... | FALLA')"
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: prueba-preferencias
+          path: C:\preferencias\*.txt
           if-no-files-found: warn
 
   # Comprueba en un Windows limpio que clonar + doble clic en

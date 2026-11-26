@@ -148,8 +148,10 @@ void main() {
     return startSettings(withQueue: withQueue);
   }
 
+  /// Impresoras guardadas (sin las marcas de "eliminada aquí", que solo
+  /// existen para que la bajada no las reviva).
   Future<List<PrinterSettingsModel>> stored() =>
-      isar.printerSettingsModels.where().findAll();
+      isar.printerSettingsModels.filter().deletedAtIsNull().findAll();
 
   group('arranque en frío con una impresora guardada', () {
     test(

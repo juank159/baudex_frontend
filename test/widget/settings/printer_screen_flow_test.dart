@@ -177,7 +177,27 @@ void main() {
   late _Network network;
   late FakeSyncService queue;
 
-  setUpAll(initIsarCore);
+  // La base se abre una vez, fuera de las pruebas: abrir y cerrar Isar
+  // dentro de cada prueba de pantalla dejaba la corrida colgada cuando una
+  // fallaba, y en Windows el borrado de la carpeta chocaba con el archivo
+  // todavía abierto.
+  setUpAll(() async {
+    await initIsarCore();
+    dir = await Directory.systemTemp.createTemp('baudex_printer_screen');
+    isar = await Isar.open(IsarDatabase.schemas, directory: dir.path);
+  });
+
+  tearDownAll(() async {
+    IsarDatabase.debugSetDatabase(null);
+    try {
+      await isar.close(deleteFromDisk: true).timeout(const Duration(seconds: 20));
+    } catch (_) {}
+    try {
+      await dir.delete(recursive: true);
+    } catch (_) {
+      // En Windows el archivo puede seguir tomado unos instantes.
+    }
+  });
 
   Future<void> boot(WidgetTester tester, {Size size = const Size(1400, 1000)}) async {
     tester.view.physicalSize = size;
@@ -193,10 +213,9 @@ void main() {
     addTearDown(() => FlutterError.onError = previousOnError);
     Get.testMode = true;
     SharedPreferences.setMockInitialValues({});
-    await tester.runAsync(() async {
-      dir = await Directory.systemTemp.createTemp('baudex_printer_screen');
-      isar = await Isar.open(IsarDatabase.schemas, directory: dir.path);
-    });
+    await tester.runAsync(
+      () => isar.writeTxn(() => isar.printerSettingsModels.clear()),
+    );
     IsarDatabase.debugSetDatabase(isar);
     server = _Server();
     network = _Network();
@@ -224,23 +243,26 @@ void main() {
       ),
       permanent: true,
     );
-    addTearDown(() async {
-      Get.reset();
-      IsarDatabase.debugSetDatabase(null);
-      await tester.runAsync(() async {
-        await isar.close(deleteFromDisk: true);
-        await dir.delete(recursive: true);
-      });
-    });
+    addTearDown(Get.reset);
   }
 
-  /// Deja correr el trabajo real (Isar) y repinta.
+  /// Deja correr el trabajo real (Isar) y repinta. No se conforma con un
+  /// número fijo de vueltas: espera a que el controlador termine (en un
+  /// equipo lento, como el de GitHub en Windows, tarda más).
   Future<void> settle(WidgetTester tester, {int rounds = 30}) async {
-    for (var i = 0; i < rounds; i++) {
+    bool busy() {
+      if (!Get.isRegistered<SettingsController>()) return false;
+      final c = Get.find<SettingsController>();
+      return c.isSaving || c.isLoadingPrinterSettings;
+    }
+
+    var quiet = 0;
+    for (var i = 0; i < 400 && (i < rounds || quiet < 8); i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 15)),
       );
       await tester.pump(const Duration(milliseconds: 120));
+      quiet = busy() ? 0 : quiet + 1;
     }
   }
 
@@ -277,16 +299,22 @@ void main() {
   }
 
   Future<List<PrinterSettingsModel>> stored(WidgetTester tester) async =>
-      (await tester.runAsync(() => isar.printerSettingsModels.where().findAll()))!;
+      (await tester.runAsync(
+        () => isar.printerSettingsModels.filter().deletedAtIsNull().findAll(),
+      ))!;
 
   SettingsController ctrl() => Get.find<SettingsController>();
 
   /// Prueba de pantalla: al final deja que los avisos terminen de cerrarse.
   void screenTest(String description, Future<void> Function(WidgetTester) body) {
     testWidgets(description, (tester) async {
-      await body(tester);
-      for (var i = 0; i < 12; i++) {
-        await tester.pump(const Duration(seconds: 1));
+      try {
+        await body(tester);
+      } finally {
+        // También si la prueba falla: sin esto quedan avisos a medio cerrar.
+        for (var i = 0; i < 12; i++) {
+          await tester.pump(const Duration(seconds: 1));
+        }
       }
     });
   }

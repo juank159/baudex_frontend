@@ -34,6 +34,7 @@ import '../../../settings/domain/entities/organization.dart';
 import '../../../settings/domain/entities/printer_settings.dart' as settings;
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../../settings/data/datasources/settings_local_datasource.dart';
+import '../../../../app/core/printing/system_printer_discovery.dart';
 import '../../../settings/data/printer_diagnostics.dart';
 import '../../../settings/domain/rules/printer_rules.dart';
 
@@ -1326,14 +1327,34 @@ class ThermalPrinterController extends GetxController {
       _lastError.value = windowsUsbFailureMessage(
         usbPath,
         nativeCode: nativeCode,
+        installed: await _isInstalledOnThisComputer(usbPath),
       );
       return false;
     } catch (e) {
       _lastError.value = windowsUsbFailureMessage(
         usbPath,
         nativeCode: nativeCode,
+        installed: await _isInstalledOnThisComputer(usbPath),
       );
       return false;
+    }
+  }
+
+  /// Solo cuando ya falló la impresión: ¿esa impresora está instalada en
+  /// este equipo? Sirve para decir "no está instalada aquí" (viene de otro
+  /// computador) en vez de "revisa que esté encendida". Null = no se supo.
+  Future<bool?> _isInstalledOnThisComputer(String printerName) async {
+    try {
+      final found = await discoverPrinters(
+        defaultPrinterSources(),
+      ).timeout(const Duration(seconds: 8));
+      return isPrinterInstalled(
+        printerName,
+        found: found.printers,
+        answered: found.source != null,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

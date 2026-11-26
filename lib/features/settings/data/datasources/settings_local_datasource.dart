@@ -449,10 +449,23 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   Future<Either<Failure, void>> deletePrinterSettings(String settingsId) async {
     try {
       await _isar.writeTxn(() async {
-        await _isar.printerSettingsModels
+        final rows = await _isar.printerSettingsModels
             .filter()
             .serverIdEqualTo(settingsId)
-            .deleteAll();
+            .findAll();
+        for (final row in rows) {
+          if (isServerPrinterId(row.serverId)) {
+            // El servidor la conoce: queda una marca de "eliminada aquí"
+            // para que la próxima bajada no la vuelva a traer mientras el
+            // servidor termina de enterarse (ver [mergeServerPrinters]).
+            row
+              ..deletedAt = DateTime.now()
+              ..isDefault = false;
+            await _isar.printerSettingsModels.put(row);
+          } else {
+            await _isar.printerSettingsModels.delete(row.id);
+          }
+        }
       });
     } catch (e, st) {
       reportPrinterProblem('eliminar impresora', e, st);
@@ -495,6 +508,93 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
           'No se pudo elegir la impresora: ${printerProblemDetail(e)}',
         ),
       );
+    }
+  }
+
+  /// Cuánto se respeta una fila local reciente que el servidor aún no
+  /// lista (recién creada, o la lista se pidió antes de crearla).
+  static const Duration _recentGrace = Duration(minutes: 3);
+
+  /// Deja la base local como el servidor después de una bajada, sin
+  /// deshacer lo que se hizo en este equipo:
+  ///  - una impresora eliminada aquí no revive aunque el servidor aún la
+  ///    liste (bajada que se cruzó con el borrado, o borrado en cola);
+  ///  - una fila con id del servidor que el servidor ya no tiene se quita
+  ///    (eliminada en otro equipo, o restos);
+  ///  - las creadas sin internet (`printer_offline_*`) no se tocan;
+  ///  - la marca de predeterminada de este equipo se conserva.
+  /// Devuelve cuántas quedaron visibles del servidor. Nunca lanza.
+  Future<int> mergeServerPrinters(
+    List<PrinterSettings> serverPrinters, {
+    DateTime? now,
+  }) async {
+    try {
+      final moment = now ?? DateTime.now();
+      var visible = 0;
+      await _isar.writeTxn(() async {
+        final local = await _isar.printerSettingsModels.where().findAll();
+        final byId = {for (final row in local) row.serverId: row};
+        final onServer = <String>{};
+
+        for (final printer in serverPrinters) {
+          if (!isServerPrinterId(printer.id)) continue;
+          onServer.add(printer.id);
+          final existing = byId[printer.id];
+          if (existing != null && existing.deletedAt != null) {
+            continue; // eliminada aquí: no revive
+          }
+          if (existing == null) {
+            await _isar.printerSettingsModels.put(
+              PrinterSettingsModel.fromEntity(printer),
+            );
+          } else {
+            final keepDefault = existing.isDefault;
+            existing.updateFromEntity(printer);
+            existing
+              ..isDefault = keepDefault
+              ..markAsSynced();
+            await _isar.printerSettingsModels.put(existing);
+          }
+          visible++;
+        }
+
+        // Una respuesta vacía no basta para quitar las de este equipo (un
+        // tropiezo del servidor dejaría la caja sin impresora): si de
+        // verdad sobran, se eliminan a mano y el servidor responde "ya no
+        // existe".
+        if (onServer.isEmpty) {
+          // Lo único que sí se limpia: marcas viejas de "eliminada aquí".
+          for (final row in local) {
+            final deletedAt = row.deletedAt;
+            if (deletedAt != null &&
+                moment.difference(deletedAt) > const Duration(minutes: 10)) {
+              await _isar.printerSettingsModels.delete(row.id);
+            }
+          }
+          return;
+        }
+
+        for (final row in local) {
+          if (!isServerPrinterId(row.serverId)) continue;
+          if (onServer.contains(row.serverId)) continue;
+          // El servidor ya no la tiene.
+          if (row.deletedAt != null) {
+            await _isar.printerSettingsModels.delete(row.id); // marca cumplida
+            continue;
+          }
+          final touched = row.updatedAt.isAfter(row.createdAt)
+              ? row.updatedAt
+              : row.createdAt;
+          final last = row.lastSyncAt ?? touched;
+          final newest = last.isAfter(touched) ? last : touched;
+          if (moment.difference(newest) < _recentGrace) continue;
+          await _isar.printerSettingsModels.delete(row.id);
+        }
+      });
+      return visible;
+    } catch (e, st) {
+      reportPrinterProblem('aplicar impresoras del servidor', e, st);
+      return 0;
     }
   }
 }

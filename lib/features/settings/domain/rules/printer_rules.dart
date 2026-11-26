@@ -103,13 +103,37 @@ String cleanServerMessage(String message) {
   return text;
 }
 
-/// Mensaje cuando Windows no pudo imprimir por USB. [nativeCode] es el
-/// código que devolvió la cola de impresión de Windows, si lo hubo.
-String windowsUsbFailureMessage(String printerName, {int? nativeCode}) {
-  if (nativeCode == windowsInvalidPrinterName) {
+/// Mensaje cuando Windows no pudo imprimir por USB.
+///
+/// [installed]: si la impresora aparece entre las instaladas en este
+/// equipo (null = no se pudo averiguar). Es lo que distingue "no está
+/// instalada aquí" de "apagada o desconectada".
+/// [nativeCode]: código de la cola de impresión de Windows, si lo hubo.
+/// Desde la app suele llegar 0 (el código real se pierde por el camino),
+/// así que no basta para decidir.
+String windowsUsbFailureMessage(
+  String printerName, {
+  int? nativeCode,
+  bool? installed,
+}) {
+  if (installed == false ||
+      (installed == null && nativeCode == windowsInvalidPrinterName)) {
     return 'La impresora "$printerName" no está instalada en este equipo. '
         'Ve a Configuración > Impresoras y elige la impresora de este equipo.';
   }
   return 'No se pudo imprimir en "$printerName". Revisa que esté encendida '
       'y conectada.';
+}
+
+/// ¿Está [printerName] entre las impresoras instaladas? [found] es la lista
+/// que devolvió el sistema y [answered] si alguna fuente respondió.
+/// Devuelve null cuando no se pudo averiguar.
+bool? isPrinterInstalled(
+  String printerName, {
+  required List<String> found,
+  required bool answered,
+}) {
+  final target = printerName.trim().toLowerCase();
+  if (found.any((p) => p.trim().toLowerCase() == target)) return true;
+  return answered ? false : null;
 }

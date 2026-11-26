@@ -10,6 +10,8 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'durable_prefs_store.dart';
+
 /// Si [file] existe y no es JSON válido, lo aparta (`.danado-<fecha>`) para
 /// que las preferencias vuelvan a funcionar. Devuelve true si lo apartó.
 /// Lo que había adentro ya no se podía leer; se conserva por si hace falta.
@@ -50,6 +52,9 @@ bool _setAside(File file, DateTime? now) {
 /// Windows y Linux (en macOS y celulares no es un archivo JSON).
 Future<bool> repairDevicePreferencesFile() async {
   if (!Platform.isWindows && !Platform.isLinux) return false;
+  // Con el almacén propio instalado el archivo ya se recuperó al arrancar
+  // y no se debe mover por detrás.
+  if (installedDurablePrefs != null) return false;
   try {
     final dir = await getApplicationSupportDirectory();
     final sep = Platform.pathSeparator;
