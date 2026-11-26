@@ -224,6 +224,25 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVO: Getters de observables para reactividad externa
   Rxn<int> get lastUpdatedItemIndexObs => _lastUpdatedItemIndex;
+
+  /// La lista de productos como observable: la pantalla la escucha para que
+  /// siempre haya una fila elegida mientras la factura tenga productos.
+  RxList<InvoiceItemFormData> get invoiceItemsObs => _invoiceItems;
+
+  /// Avisa cuál fila se acaba de agregar o cambiar, para que la pantalla la
+  /// deje elegida (a ella van los atajos Ctrl+número).
+  ///
+  /// Un producto nuevo entra siempre en la posición 0. Asignar 0 sobre 0 no
+  /// avisaba a nadie: tras vaciar la lista (o con otra fila elegida), el
+  /// producto recién agregado quedaba sin elegir. Por eso aquí se avisa
+  /// SIEMPRE, cambie o no el número.
+  void _markItemTouched(int index) {
+    if (_lastUpdatedItemIndex.value == index) {
+      _lastUpdatedItemIndex.refresh();
+    } else {
+      _lastUpdatedItemIndex.value = index;
+    }
+  }
   RxBool get shouldHighlightUpdatedItemObs => _shouldHighlightUpdatedItem;
 
   /// ¿Se puede cobrar esta venta por Bre-B? Solo ventas nuevas y negocios
@@ -1098,7 +1117,7 @@ class InvoiceFormController extends GetxController {
       _invoiceItems[existingIndex] = updatedItem;
 
       // ✅ NUEVO: Notificar que este item fue actualizado para selección automática
-      _lastUpdatedItemIndex.value = existingIndex;
+      _markItemTouched(existingIndex);
       _shouldHighlightUpdatedItem.value = true;
 
       // Limpiar el highlight después de un breve momento
@@ -1156,7 +1175,7 @@ class InvoiceFormController extends GetxController {
       _recalculateAverageTaxPercentage();
 
       // ✅ NUEVO: Notificar que se agregó un nuevo producto en el índice 0
-      _lastUpdatedItemIndex.value = 0;
+      _markItemTouched(0);
       _shouldHighlightUpdatedItem.value = true;
 
       // Limpiar el highlight después de un breve momento
@@ -1791,6 +1810,7 @@ class InvoiceFormController extends GetxController {
 
   void addItem(InvoiceItemFormData item) {
     _invoiceItems.insert(0, item); // Agregar al inicio
+    _markItemTouched(0);
     _recalculateTotals();
 
   }

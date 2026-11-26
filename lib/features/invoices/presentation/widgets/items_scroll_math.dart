@@ -30,3 +30,19 @@ double? scrollOffsetToReveal({
   if (maxOffset <= 0) return 0;
   return centered.clamp(0.0, maxOffset);
 }
+
+/// Fila que debe quedar elegida en la factura según cuántos productos hay.
+///
+/// Regla del negocio: mientras la factura tenga productos SIEMPRE hay una
+/// fila elegida, para que los atajos (Ctrl+número, +, -) funcionen sin tener
+/// que bajar con las flechas.
+/// - Sin productos: ninguna (-1).
+/// - Con productos y ninguna elegida: la primera (el último producto
+///   agregado entra arriba).
+/// - Elegida una que ya no existe: la última que queda.
+int normalizeSelectedIndex(int selected, int itemCount) {
+  if (itemCount <= 0) return -1;
+  if (selected < 0) return 0;
+  if (selected >= itemCount) return itemCount - 1;
+  return selected;
+}

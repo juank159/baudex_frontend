@@ -54,6 +54,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
   // Escucha del último producto modificado; se libera en dispose().
   Worker? _updatedItemWorker;
+  // Escucha de la lista de productos: mantiene siempre una fila elegida.
+  Worker? _itemsWorker;
 
   @override
   void initState() {
@@ -74,10 +76,43 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         int? index,
       ) {
         if (index != null && mounted) {
-          _selectedIndex = index;
+          _selectedIndex = normalizeSelectedIndex(
+            index,
+            controller.invoiceItems.length,
+          );
           _scrollToSelectedWithDelay();
         }
       });
+      // Cualquier cambio de la lista (agregar, quitar, vaciar, venta nueva,
+      // abrir una factura para editar): que nunca quede sin fila elegida
+      // habiendo productos, ni elegida una fila que ya no existe.
+      _itemsWorker = ever(controller.invoiceItemsObs, (_) {
+        if (mounted) _normalizeSelection();
+      });
+      // Al abrir la pantalla (o volver a esta pestaña) con productos ya
+      // puestos: elegir el último tocado, o el de arriba.
+      final count = controller.invoiceItems.length;
+      _selectedIndex = normalizeSelectedIndex(
+        controller.lastUpdatedItemIndex ?? _selectedIndex,
+        count,
+      );
+    }
+  }
+
+  void _normalizeSelection() {
+    final count = widget.controller?.invoiceItems.length ?? 0;
+    _selectedIndex = normalizeSelectedIndex(_selectedIndex, count);
+  }
+
+  @override
+  void didUpdateWidget(covariant InvoiceFormScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      // Otra factura (otra pestaña) en la misma pantalla: escuchar la nueva.
+      _updatedItemWorker?.dispose();
+      _itemsWorker?.dispose();
+      _selectedIndex = -1;
+      _setupUpdatedItemListener();
     }
   }
 
@@ -88,6 +123,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     // Sin esto, cada cambio de pestaña dejaba una escucha viva en el
     // controlador (y con ella, esta pantalla completa en memoria).
     _updatedItemWorker?.dispose();
+    _itemsWorker?.dispose();
     _productsScrollController.dispose();
     _selection.dispose();
     super.dispose();
