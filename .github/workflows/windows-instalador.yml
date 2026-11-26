@@ -300,7 +300,12 @@ jobs:
             # ahí no pide iniciar sesión, el paso no simula el problema).
             @{ nombre = '16 ALMACÉN SEGURO EN CEROS (apagón): reabrir';      prefs = 'sanas';   cerrar = '0'; almacen = 'dat-ceros'; espera = 'directo-copia'; esperaSin = 'login' },
             @{ nombre = '17 tras almacén en ceros: reabrir';                 prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
-            @{ nombre = '17a ALMACÉN SEGURO BORRADO: reabrir';               prefs = 'sanas';   cerrar = '0'; almacen = 'dat-borrado'; espera = 'directo-copia'; esperaSin = 'login' },
+            # En una versión sin copia este paso SÍ entra directo, y es lo
+            # correcto: el paso 16 la dejó en modo preferencias, al iniciar
+            # sesión guardó ahí el respaldo `secure_*`, y ese respaldo sigue
+            # hasta el segundo arranque; con el archivo borrado (no dañado)
+            # el almacén funciona y la sesión se repone desde ese respaldo.
+            @{ nombre = '17a ALMACÉN SEGURO BORRADO: reabrir';               prefs = 'sanas';   cerrar = '0'; almacen = 'dat-borrado'; espera = 'directo-copia'; esperaSin = 'directo' },
             @{ nombre = '17b tras almacén borrado: reabrir';                 prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
             @{ nombre = '18 ALMACÉN CORTADO y preferencias DAÑADAS: reabrir'; prefs = 'danadas'; cerrar = '0'; almacen = 'dat-cortado'; espera = 'directo-copia'; esperaSin = 'login' },
             @{ nombre = '19 tras almacén cortado y dañadas: reabrir';        prefs = 'sanas';   cerrar = '1'; espera = 'directo'; esperaSin = 'directo' },
@@ -329,6 +334,11 @@ jobs:
             $env:BAUDEX_PROBE_ALMACEN = if ($paso.almacen) { $paso.almacen } else { '' }
             $espera = if ($conCopia) { $paso.espera } else { $paso.esperaSin }
             $env:BAUDEX_PROBE_ESPERA = if ($espera) { $espera } else { '' }
+            # Arranque normal (entra directo, sin dañar nada) en la versión
+            # actual: el archivo del almacén de sesión se lee como mucho 20
+            # veces. No aplica a los pasos de tecleo ni a versiones viejas.
+            $normal = ($env:ARRANQUE_VERSION -ne 'anterior') -and ($espera -eq 'directo') -and (-not $paso.almacen) -and (-not $paso.tecleo)
+            $env:BAUDEX_PROBE_MAX_LECTURAS = if ($normal) { '20' } else { '' }
             $p = Start-Process -FilePath $exe -PassThru
             if ($paso.matar) {
               if (-not $p.WaitForExit($paso.matar * 1000)) { $p.Kill(); $p.WaitForExit() }

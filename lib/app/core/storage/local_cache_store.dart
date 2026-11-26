@@ -17,11 +17,16 @@ class LocalCacheStore {
 
   final String _prefix;
   static const FlutterSecureStorage _legacyKeychain = FlutterSecureStorage();
+  static final Set<String> _legacyChecked = <String>{};
 
   Future<String?> read({required String key}) async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString('$_prefix$key');
     if (value != null) return value;
+    // El llavero viejo se consulta una sola vez por clave en cada ejecución:
+    // en Windows cada consulta abre y descifra el archivo entero de la
+    // sesión, y una caché que aún no existe se pedía una y otra vez.
+    if (!_legacyChecked.add('$_prefix$key')) return null;
     try {
       final legacy = await _legacyKeychain.read(key: key);
       if (legacy != null) {

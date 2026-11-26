@@ -31,6 +31,8 @@
 //                       en este arranque. Si no se cumple (o el almacén no
 //                       quedó como se pidió) escribe "PASO VERIFICADO |
 //                       FALLA | …" y sale con 5.
+//   BAUDEX_PROBE_MAX_LECTURAS  tope de lecturas del archivo del almacén de
+//                       sesión en este arranque; si se supera, sale con 5.
 //   BAUDEX_PROBE_NEGOCIO a | b: usuario y negocio del servidor de mentira.
 //   BAUDEX_PROBE_CERRAR_SESION_AL_SALIR=1  al terminar borra el token (como
 //                       si el servidor ya no aceptara la sesión): el arranque
@@ -64,6 +66,7 @@ import 'package:baudex_desktop/app/config/constants/api_constants.dart';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import 'package:baudex_desktop/app/core/storage/secure_store_stats.dart';
 import 'package:baudex_desktop/app/core/storage/session_startup_trace.dart';
 import 'package:baudex_desktop/app/data/local/full_sync_service.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
@@ -952,5 +955,16 @@ Future<void> main() async {
   try {
     await isar.close();
   } catch (_) {}
-  exit(expectation.isNotEmpty && stepProblems.isNotEmpty ? 5 : 0);
+  // BAUDEX_PROBE_MAX_LECTURAS: tope de lecturas del ARCHIVO del almacén de
+  // sesión en todo el arranque (con la caché en memoria deben ser muy
+  // pocas; antes eran cientos por minuto, en el hilo de la pantalla).
+  final maxReads = int.tryParse(env['BAUDEX_PROBE_MAX_LECTURAS'] ?? '');
+  var tooManyReads = false;
+  if (maxReads != null) {
+    tooManyReads = secure.reads > maxReads;
+    log('PASO VERIFICADO | ${tooManyReads ? 'FALLA' : 'OK'} | lecturas del archivo del '
+        'almacén de sesión: ${secure.reads} (tope: $maxReads); escrituras: ${secure.writes}');
+  }
+  log('reporte de la app | ${SecureStoreStats.report().replaceAll('\n', ' | ')}');
+  exit((expectation.isNotEmpty && stepProblems.isNotEmpty) || tooManyReads ? 5 : 0);
 }

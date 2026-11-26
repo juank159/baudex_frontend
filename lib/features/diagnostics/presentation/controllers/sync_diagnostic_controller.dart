@@ -36,6 +36,7 @@ import '../../../../features/suppliers/data/models/isar/isar_supplier.dart';
 import '../../../../features/notifications/data/models/isar/isar_notification.dart';
 import '../../../../features/inventory/data/models/isar/isar_inventory_movement.dart';
 import '../../../../features/inventory/data/models/isar/isar_inventory_batch.dart';
+import '../../../../app/core/storage/secure_store_stats.dart';
 
 /// Resumen de conteos de una entidad para mostrar en la pantalla de
 /// diagnóstico.
@@ -461,6 +462,13 @@ class SyncDiagnosticController extends GetxController {
         (b) {
           b.write(debugBillingReport?.call() ??
               InvoiceEntryMetrics.instance.report());
+          b.writeln();
+        },
+      ),
+      (
+        'Almacén de sesión',
+        (b) {
+          b.writeln(SecureStoreStats.report());
           b.writeln();
         },
       ),

@@ -11,6 +11,7 @@ import '../../config/constants/api_constants.dart';
 import '../ops/ops_reporter.dart';
 import '../security/offline_password_hasher.dart';
 import 'secure_store_migration.dart';
+import 'secure_store_stats.dart';
 import 'durable_prefs_store.dart';
 import 'session_startup_trace.dart';
 import 'session_vault.dart';
@@ -103,39 +104,141 @@ class _TokenCipher {
 /// vive en un solo archivo cifrado con DPAPI y dos escrituras a la vez se
 /// pisan; ver [SerialQueue]).
 class _QueuedSecureStorage implements SecureKeyValueStore {
-  const _QueuedSecureStorage(this._inner);
+  const _QueuedSecureStorage(this._inner, {this.cached = true});
 
   final FlutterSecureStorage _inner;
+
+  /// false = cada operación va al archivo (para comprobar el almacén de
+  /// verdad al decidir dónde se guarda la sesión).
+  final bool cached;
   static final SerialQueue _queue = SerialQueue();
 
   bool get _serialize => defaultTargetPlatform == TargetPlatform.windows;
 
   Future<T> _run<T>(Future<T> Function() op) => _serialize ? _queue.run(op) : op();
 
-  @override
-  Future<String?> read(String key) => _run(() => _inner.read(key: key));
+  // ---- Caché en memoria (Windows) ----
+  //
+  // En Windows cada lectura abre `flutter_secure_storage.dat` entero y lo
+  // descifra, en el hilo de la pantalla, y la app lee el token en cada
+  // petición (cientos de veces por minuto). Además, si justo no puede
+  // leerlo, el complemento BORRA el archivo. Por eso el archivo se lee una
+  // vez por ejecución y después todo sale de memoria; escribir y borrar
+  // actualizan memoria y archivo, y solo tocan el archivo si algo cambió.
+  static Map<String, String>? _cache;
+
+  /// Olvida lo leído: la próxima lectura vuelve al archivo.
+  static void invalidateCache() => _cache = null;
+
+  bool get _useCache => cached && _serialize;
+
+  Future<Map<String, String>> _load() async {
+    final current = _cache;
+    if (current != null) return current;
+    final watch = Stopwatch()..start();
+    try {
+      final all = await _inner.readAll();
+      SecureStoreStats.fileRead(watch.elapsed);
+      return _cache = Map<String, String>.of(all);
+    } catch (_) {
+      SecureStoreStats.fileRead(watch.elapsed, failed: true);
+      rethrow;
+    }
+  }
+
+  Future<T> _timedRead<T>(Future<T> Function() op) async {
+    final watch = Stopwatch()..start();
+    try {
+      final result = await op();
+      SecureStoreStats.fileRead(watch.elapsed);
+      return result;
+    } catch (_) {
+      SecureStoreStats.fileRead(watch.elapsed, failed: true);
+      rethrow;
+    }
+  }
+
+  Future<void> _timedWrite(Future<void> Function() op) async {
+    final watch = Stopwatch()..start();
+    try {
+      await op();
+    } finally {
+      SecureStoreStats.fileWrite(watch.elapsed);
+    }
+  }
 
   @override
-  Future<void> write(String key, String value) => _run(() async {
-    if (_serialize) {
-      // En Windows cada escritura reescribe el archivo entero de la sesión:
-      // si el valor ya es ese, no se toca (menos ocasiones de que un corte
-      // lo deje a medias).
-      try {
-        if (await _inner.read(key: key) == value) return;
-      } catch (_) {}
-    }
-    await _inner.write(key: key, value: value);
+  Future<String?> read(String key) => _run(() async {
+    if (!_useCache) return _timedRead(() => _inner.read(key: key));
+    final hadCache = _cache != null;
+    final value = (await _load())[key];
+    if (hadCache) SecureStoreStats.memoryRead();
+    return value;
   });
 
   @override
-  Future<void> delete(String key) => _run(() => _inner.delete(key: key));
+  Future<void> write(String key, String value) => _run(() async {
+    if (!_useCache) {
+      await _timedWrite(() => _inner.write(key: key, value: value));
+      if (_serialize) _cache = null;
+      return;
+    }
+    Map<String, String>? map;
+    try {
+      map = await _load();
+    } catch (_) {
+      // Archivo dañado: el complemento ya lo borró; se escribe de cero.
+      try {
+        map = await _load();
+      } catch (_) {}
+    }
+    // Cada escritura reescribe el archivo entero de la sesión: si el valor
+    // ya es ese, no se toca.
+    if (map != null && map[key] == value) return;
+    try {
+      await _timedWrite(() => _inner.write(key: key, value: value));
+      map?[key] = value;
+    } catch (_) {
+      _cache = null; // no se sabe qué quedó: releer
+      rethrow;
+    }
+  });
 
-  Future<Map<String, String>> readAll() => _run(() => _inner.readAll());
+  @override
+  Future<void> delete(String key) => _run(() async {
+    if (!_useCache) {
+      await _timedWrite(() => _inner.delete(key: key));
+      if (_serialize) _cache = null;
+      return;
+    }
+    Map<String, String>? map;
+    try {
+      map = await _load();
+    } catch (_) {}
+    if (map != null && !map.containsKey(key)) return; // nada que borrar
+    try {
+      await _timedWrite(() => _inner.delete(key: key));
+      map?.remove(key);
+    } catch (_) {
+      _cache = null;
+      rethrow;
+    }
+  });
+
+  Future<Map<String, String>> readAll() => _run(() async {
+    if (!_useCache) return _timedRead(() => _inner.readAll());
+    final hadCache = _cache != null;
+    final all = Map<String, String>.of(await _load());
+    if (hadCache) SecureStoreStats.memoryRead();
+    return all;
+  });
 }
 
 class SecureStorageService {
   static const _storage = _QueuedSecureStorage(_plugin);
+
+  /// El mismo almacén sin memoria intermedia: para probarlo de verdad.
+  static const _rawStorage = _QueuedSecureStorage(_plugin, cached: false);
   static const _plugin = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     wOptions: WindowsOptions(),
@@ -163,6 +266,7 @@ class SecureStorageService {
   /// Solo para pruebas: simula un arranque nuevo de la app.
   @visibleForTesting
   static void debugSimulateRestart() {
+    _QueuedSecureStorage.invalidateCache();
     _vaultSeeded.clear();
     _vaultInstance = null;
     _windowsDecision = null;
@@ -304,7 +408,8 @@ class SecureStorageService {
     try {
       final outcome = await PrefsToSecureStoreMigration(
         prefs: prefs,
-        store: _storage,
+        // Sin caché: aquí se comprueba el archivo de verdad.
+        store: _rawStorage,
         decode: (key, stored) => _isSensitive(key) ? _TokenCipher.decrypt(stored) : stored,
         onProblem: (e, st, context) => OpsReporter.capture(
           e,
@@ -314,6 +419,8 @@ class SecureStorageService {
           context: context,
         ),
       ).run();
+      // El traslado pudo escribir o borrar: lo leído antes ya no vale.
+      _QueuedSecureStorage.invalidateCache();
       _useSharedPreferences = outcome.usePrefs;
       _mirrorToPrefs = outcome.mirrorToPrefs;
       SessionStartupTrace.storageMode = outcome.usePrefs
