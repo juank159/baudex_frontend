@@ -1,4 +1,6 @@
 // lib/features/auth/presentation/controllers/auth_controller.dart
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace_binding.dart';
 import 'package:flutter/material.dart';
 import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
@@ -170,9 +172,10 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _initializeTenant();
-    _checkAuthenticationStatus();
-    _loadSavedEmails();
+    final trace = StartupTrace.instance;
+    trace.task('sesión: negocio guardado', _initializeTenant);
+    trace.task('sesión: ¿hay sesión guardada?', _checkAuthenticationStatus);
+    trace.task('sesión: correos y negocio recordados', _loadSavedEmails);
     _setupEmailListener();
   }
 
@@ -536,10 +539,15 @@ class AuthController extends GetxController {
     _isLoginLoading.value = true;
 
     try {
-      final result = await _loginUseCase(
-        LoginParams(
-          email: loginEmailController.text.trim(),
-          password: loginPasswordController.text,
+      final trace = StartupTrace.instance;
+      trace.mark('iniciar sesión: botón');
+      final result = await trace.task(
+        'iniciar sesión: servidor y guardar la sesión',
+        () => _loginUseCase(
+          LoginParams(
+            email: loginEmailController.text.trim(),
+            password: loginPasswordController.text,
+          ),
         ),
       );
 
@@ -600,8 +608,10 @@ class AuthController extends GetxController {
           // ✅ CRÍTICO: detectar cambio de tenant ANTES de cualquier sync.
           // Solo se borra la BD ISAR si el usuario que entra es DIFERENTE
           // al que cerró sesión. Si es el mismo, el cache offline se preserva.
-          final canUseThisDevice =
-              await _handleTenantSwitchIfNeeded(authResult.user);
+          final canUseThisDevice = await trace.task(
+            'iniciar sesión: revisar negocio del equipo',
+            () => _handleTenantSwitchIfNeeded(authResult.user),
+          );
           if (!canUseThisDevice) {
             _forgetSyncBusiness();
             _isAuthenticated.value = false;
@@ -625,8 +635,11 @@ class AuthController extends GetxController {
           // cachea en memoria; las pantallas usarán PermissionsService.to
           // para verificar acceso a módulos y acciones.
           try {
-            await Get.find<PermissionsService>()
-                .loadCurrentUserPermissions(authResult.user.role);
+            await trace.task(
+              'iniciar sesión: permisos',
+              () => Get.find<PermissionsService>()
+                  .loadCurrentUserPermissions(authResult.user.role),
+            );
           } catch (e) {
           }
 
@@ -652,6 +665,8 @@ class AuthController extends GetxController {
           _clearLoginForm();
 
           // Navegar al dashboard
+          trace.mark('iniciar sesión: entra a la pantalla principal');
+          startStartupPhase('tras iniciar sesión');
           AppNav.offAllNamed(AppRoutes.dashboard);
           Get.snackbar(
             'Bienvenido',

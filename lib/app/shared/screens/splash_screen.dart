@@ -1,4 +1,5 @@
 // lib/app/shared/screens/splash_screen.dart
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'dart:math' as math;
 import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'dart:ui';
@@ -89,8 +90,10 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       if (isAuthenticated) {
+        StartupTrace.instance.mark('pantalla principal (sesión guardada)');
         AppNav.offAllNamed(AppRoutes.dashboard);
       } else {
+        StartupTrace.instance.mark('pantalla de iniciar sesión');
         AppNav.offAllNamed(AppRoutes.login);
       }
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -793,25 +794,25 @@ class SyncService extends GetxService {
     AppLogger.i('Inicializando SyncService...', tag: 'SYNC');
 
     // Verificar conectividad inicial
-    await _checkConnectivity();
+    await StartupTrace.instance.task('sincronización al abrir: checkConnectivity', _checkConnectivity);
 
     // Escuchar cambios de conectividad
     _listenToConnectivityChanges();
 
     // Actualizar conteo de operaciones pendientes
-    await _updatePendingCount();
+    await StartupTrace.instance.task('sincronización al abrir: updatePendingCount', _updatePendingCount);
 
     // 🧹 LIMPIEZA AUTOMÁTICA: Detectar y eliminar operaciones con categorías offline que no existen
-    await _cleanInvalidOfflineReferences();
+    await StartupTrace.instance.task('sincronización al abrir: cleanInvalidOfflineReferences', _cleanInvalidOfflineReferences);
 
     // 🗑️ LIMPIEZA ONE-TIME: Eliminar operación rota ID 9 (producto offline que ya fue creado)
-    await _cleanupBrokenOperation9();
+    await StartupTrace.instance.task('sincronización al abrir: cleanupBrokenOperation9', _cleanupBrokenOperation9);
 
     // 🔔 LIMPIEZA: Eliminar operaciones de notificaciones dinámicas que no deben sincronizarse
-    await _cleanupDynamicNotificationOperations();
+    await StartupTrace.instance.task('sincronización al abrir: cleanupDynamicNotificationOperations', _cleanupDynamicNotificationOperations);
 
     // 🔧 REPARACIÓN: Corregir movimientos de inventario con referenceId temporal
-    await _repairMovementsWithTempReferenceId();
+    await StartupTrace.instance.task('sincronización al abrir: repairMovementsWithTempReferenceId', _repairMovementsWithTempReferenceId);
 
     // ⚠️ LIMPIEZA DESACTIVADA EN INIT: borrar automáticamente ops con
     // retryCount>=maxRetries causaba pérdida silenciosa de datos del usuario
@@ -821,18 +822,18 @@ class SyncService extends GetxService {
     // await cleanPermanentlyFailedOperations();
 
     // 🔧 REPARACIÓN: Intentar reparar facturas con items vacíos
-    await repairInvoiceOperationsWithMissingItems();
+    await StartupTrace.instance.task('sincronización al abrir: repairInvoiceOperationsWithMissingItems', repairInvoiceOperationsWithMissingItems);
 
     // 🧹 LIMPIEZA: Eliminar batches/productos offline huérfanos que causan stock duplicado
-    await _cleanupOrphanedOfflineInventoryRecords();
+    await StartupTrace.instance.task('sincronización al abrir: cleanupOrphanedOfflineInventoryRecords', _cleanupOrphanedOfflineInventoryRecords);
 
     // 🧹 LIMPIEZA: Eliminar ops FIFO huérfanas cuya Invoice ya se sincronizó
-    await _cleanupOrphanedFifoOperations();
+    await StartupTrace.instance.task('sincronización al abrir: cleanupOrphanedFifoOperations', _cleanupOrphanedFifoOperations);
 
     // 🧹 PURGA: Eliminar ops FIFO bloqueadas (retry max). Endpoint no existe.
     // Sin esto, una op fantasma bloqueada se queda en la cola para siempre,
     // causando que el contador "pendientes" nunca llegue a 0.
-    await _purgeBlockedFifoOperations();
+    await StartupTrace.instance.task('sincronización al abrir: purgeBlockedFifoOperations', _purgeBlockedFifoOperations);
 
     // Configurar sincronización periódica (cada 5 minutos si hay internet)
     _setupPeriodicSync();

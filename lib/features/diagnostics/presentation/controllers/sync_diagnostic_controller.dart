@@ -1,4 +1,5 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../../domain/report_sections.dart';
 import 'dart:io' show Platform;
@@ -469,6 +470,13 @@ class SyncDiagnosticController extends GetxController {
         'Almacén de sesión',
         (b) {
           b.writeln(SecureStoreStats.report());
+          b.writeln();
+        },
+      ),
+      (
+        'Arranque de la app',
+        (b) {
+          b.write(StartupTrace.instance.report());
           b.writeln();
         },
       ),

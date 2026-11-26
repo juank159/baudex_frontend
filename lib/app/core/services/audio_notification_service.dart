@@ -1,4 +1,5 @@
 // lib/app/core/services/audio_notification_service.dart
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart';
 
@@ -27,7 +28,9 @@ class AudioNotificationService {
     try {
 
       // Configurar idioma a español
-      List<dynamic> languages = await _tts.getLanguages;
+      final trace = StartupTrace.instance;
+      List<dynamic> languages =
+          await trace.task('voz: lista de voces', () async => await _tts.getLanguages as List<dynamic>);
 
       // Intentar configurar español en orden de preferencia
       bool langSet = false;
@@ -35,7 +38,7 @@ class AudioNotificationService {
 
       for (String lang in spanishLanguages) {
         if (languages.contains(lang)) {
-          await _tts.setLanguage(lang);
+          await trace.task('voz: elegir idioma', () => _tts.setLanguage(lang));
           langSet = true;
           break;
         }
@@ -45,9 +48,11 @@ class AudioNotificationService {
       }
 
       // Configurar parámetros de voz
-      await _tts.setSpeechRate(_speechRate);
-      await _tts.setVolume(_volume);
-      await _tts.setPitch(_pitch);
+      await trace.task('voz: velocidad, volumen y tono', () async {
+        await _tts.setSpeechRate(_speechRate);
+        await _tts.setVolume(_volume);
+        await _tts.setPitch(_pitch);
+      });
 
       // Configurar callbacks
       _tts.setStartHandler(() {
@@ -79,11 +84,14 @@ class AudioNotificationService {
 
     try {
       // Si es prioritario, detener cualquier reproducción actual
-      if (priority) {
-        await _tts.stop();
-      }
-
-      await _tts.speak(text);
+      // Cada frase queda en la línea de tiempo: en Windows la primera
+      // carga la voz y puede trabar la ventana.
+      await StartupTrace.instance.task('voz: decir una frase', () async {
+        if (priority) {
+          await _tts.stop();
+        }
+        await _tts.speak(text);
+      });
     } catch (e) {
     }
   }

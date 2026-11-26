@@ -1,5 +1,6 @@
 // lib/features/subscriptions/presentation/controllers/subscription_controller.dart
 
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -124,7 +125,7 @@ class SubscriptionController extends GetxController {
         if (connected && wasOffline) {
           // Recargar suscripcion del servidor al reconectar
 
-          loadSubscription();
+          StartupTrace.instance.task('suscripción: cargar', loadSubscription);
         }
 
         if (connected && _wasExpiredWhileOffline.value) {

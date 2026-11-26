@@ -17,6 +17,8 @@ import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
 import 'app/core/navigation/route_stack_observer.dart';
 import 'app/core/network/bundled_roots.dart';
+import 'app/core/diagnostics/startup_trace.dart';
+import 'app/core/diagnostics/startup_trace_binding.dart';
 import 'app/core/ops/ops_reporter.dart';
 import 'app/core/storage/durable_prefs_store.dart';
 import 'app/core/storage/prefs_startup_report.dart';
@@ -29,6 +31,9 @@ import 'features/auth/presentation/controllers/auth_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Línea de tiempo del arranque (sale en Diagnóstico → Exportar reporte).
+  final trace = StartupTrace.instance;
+  startStartupPhase('al abrir');
 
   // Antes de cualquier conexión: en un Windows recién instalado falta la raíz
   // de Let's Encrypt y, sin esto, la app no logra hablar con el servidor.
@@ -74,29 +79,31 @@ void main() async {
 
   try {
     // PASO 1: Inicializar datos de localización y timezone
-    await initializeDateFormatting('es_CO', null);
-    tz.initializeTimeZones();
+    await trace.task('idioma y zonas horarias', () async {
+      await initializeDateFormatting('es_CO', null);
+      tz.initializeTimeZones();
+    });
     
     // PASO 1.5: Preferencias del equipo a prueba de apagones (Windows y
     // Linux). Va ANTES de cualquier uso de preferencias: el almacén de
     // sesión y la sincronización deciden su modo con lo que lean de ahí.
-    await installDurablePrefs(
+    await trace.task('preferencias del equipo', () => installDurablePrefs(
       onProblem: (e, st) => OpsReporter.capture(
         e,
         st,
         errorType: 'DevicePreferences',
         fingerprint: 'device_prefs|write',
       ),
-    );
+    ));
 
     // PASO 2: Inicializar configuración de entorno
-    await EnvConfig.initialize();
+    await trace.task('configuración (.env)', EnvConfig.initialize);
 
     // PASO 2.1: Central de errores (Ops API → Telegram). Sin OPS_URL queda apagado.
-    await _initOpsReporter();
+    await trace.task('central de errores', _initOpsReporter);
 
     // PASO 3: Inicializar base de datos ISAR
-    await IsarDatabase.instance.initialize();
+    await trace.task('abrir la base local', IsarDatabase.instance.initialize);
 
     // PASO 3.1: Si las preferencias estaban dañadas y hubo que recuperarlas,
     // dejarlo en Diagnóstico y en la central de errores.
@@ -117,7 +124,7 @@ void main() async {
     ApiConstants.printCurrentConfig();
 
     // PASO 5: Inicializar dependencias offline-first
-    InitialBinding().dependencies();
+    trace.taskSync('registrar servicios', () => InitialBinding().dependencies());
 
     // PASO 6: Vigilante automático de salud (reporta problemas a la Ops API)
     OpsHealthWatcher.start();
@@ -125,7 +132,9 @@ void main() async {
   } catch (e, stackTrace) {
   }
 
+  trace.mark('app montada');
   runApp(const MyApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) => trace.mark('primer cuadro'));
 }
 
 /// Configura el envío de errores a la Ops API con el cliente (organización)

@@ -1,4 +1,5 @@
 // lib/features/cash_register/presentation/controllers/cash_register_controller.dart
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'dart:async';
 import 'package:flutter/material.dart' show Color;
 import 'package:dartz/dartz.dart';
@@ -55,7 +56,9 @@ class CashRegisterController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    if (_moduleEnabled) loadCurrent();
+    if (_moduleEnabled) {
+      StartupTrace.instance.task('caja: estado actual', loadCurrent);
+    }
     // Auto-refresh cada 60s. El tick chequea el flag — si el admin
     // apaga/prende el módulo en runtime, el siguiente tick respeta
     // el nuevo estado automáticamente (sin recrear el timer).
