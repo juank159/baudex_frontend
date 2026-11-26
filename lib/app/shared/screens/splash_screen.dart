@@ -10,6 +10,10 @@ import '../../core/utils/responsive.dart';
 import '../../core/theme/elegant_light_theme.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 
+/// Lo mínimo que se ve el splash y lo máximo que espera a saber si hay sesión.
+const Duration splashMinimum = Duration(milliseconds: 400);
+const Duration splashMaximum = Duration(seconds: 6);
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -81,10 +85,16 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkInitialRoute() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 2500));
+      // Antes esperaba 2,5 s fijos; saber si hay sesión toma décimas de
+      // segundo. Ahora navega apenas se sabe, con un mínimo para que el
+      // logo no parpadee y un tope por si el almacén de sesión tarda.
+      final authController = Get.find<AuthController>();
+      await Future.wait([
+        Future<void>.delayed(splashMinimum),
+        authController.authChecked.timeout(splashMaximum, onTimeout: () {}),
+      ]);
       if (!mounted) return;
 
-      final authController = Get.find<AuthController>();
       final isAuthenticated = authController.isAuthenticated;
 
       if (!mounted) return;

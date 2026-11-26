@@ -1,3 +1,4 @@
+import 'dart:async';
 // lib/features/auth/presentation/controllers/auth_controller.dart
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace_binding.dart';
@@ -1200,6 +1201,12 @@ class AuthController extends GetxController {
   // ==================== MÉTODOS PRIVADOS ====================
 
   /// Verificar estado de autenticación al inicializar
+  final Completer<void> _authChecked = Completer<void>();
+
+  /// Termina cuando ya se sabe si hay sesión guardada (para que el splash
+  /// navegue apenas se sepa, sin esperar un tiempo fijo).
+  Future<void> get authChecked => _authChecked.future;
+
   Future<void> _checkAuthenticationStatus() async {
     try {
       final result = await _isAuthenticatedUseCase(const NoParams());
@@ -1222,6 +1229,8 @@ class AuthController extends GetxController {
     } catch (e) {
       _forgetSyncBusiness();
       _isAuthenticated.value = false;
+    } finally {
+      if (!_authChecked.isCompleted) _authChecked.complete();
     }
   }
 
