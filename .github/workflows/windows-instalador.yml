@@ -48,7 +48,7 @@ on:
       arranque_comparar:
         description: 'Arranque: commit anterior para comparar (su carpeta lib). Vacío = solo la versión actual'
         required: false
-        default: '5b6ec2a'
+        default: '60711e4'
       probar_preferencias:
         description: 'Probar en Windows real que las preferencias del equipo no se dañan (matar la app a mitad de escritura)'
         type: boolean
@@ -166,7 +166,7 @@ jobs:
   # arranque del .exe; entre pasos cambia el estado de las preferencias:
   # sanas, dañadas (archivo cortado, como tras un apagón) y vacías.
   # Corre dos veces en paralelo: con el lib actual y con el del commit de
-  # "arranque_comparar" (1.0.9), para comparar. En el log, las líneas
+  # "arranque_comparar" (la versión anterior), para comparar. En el log, las líneas
   # "MEDICION ARRANQUE | versión | paso | …" dicen: tiempo a la primera
   # pantalla, si entra directo o pide iniciar sesión, cuánto tarda iniciar
   # sesión, peticiones y registros descargados, trabas de la pantalla,
@@ -174,7 +174,7 @@ jobs:
   probar-arranque:
     if: ${{ inputs.probar_arranque }}
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -260,6 +260,14 @@ jobs:
             @{ nombre = '02 sanas: reabrir';                                 prefs = 'sanas';   cerrar = '0' },
             @{ nombre = '03 sanas: reabrir otra vez';                        prefs = 'sanas';   cerrar = '1' },
             @{ nombre = '04 sanas: iniciar sesión';                          prefs = 'sanas';   cerrar = '0' },
+            # Tecleo a mano (teclas del sistema a 120 ms): contraseña,
+            # buscador de la factura ("500"/"700" + Enter) y Diagnóstico.
+            # Líneas "MEDICION TECLEO | …". Criterio: tecla → visible
+            # < 50 ms y Enter → campo del nombre con foco < 150 ms.
+            @{ nombre = '04a TECLEO sin descarga';                           prefs = 'sanas';   cerrar = '0'; tecleo = '1' },
+            @{ nombre = '04b TECLEO versión recién instalada (descargando)'; prefs = 'sanas';   cerrar = '0'; tecleo = '1'; huella = 'nueva'; latencia = '300' },
+            @{ nombre = '04c TECLEO sin marcas (descargando)';               prefs = 'vacias';  cerrar = '1'; tecleo = '1'; latencia = '300' },
+            @{ nombre = '04d TECLEO iniciar sesión, versión nueva';          prefs = 'sanas';   cerrar = '0'; tecleo = '1'; huella = 'nueva'; latencia = '300' },
             @{ nombre = '05 DAÑADAS: reabrir';                               prefs = 'danadas'; cerrar = '0' },
             @{ nombre = '06 tras dañadas: reabrir';                          prefs = 'sanas';   cerrar = '0' },
             @{ nombre = '07 tras dañadas: reabrir otra vez';                 prefs = 'sanas';   cerrar = '1' },
@@ -279,6 +287,9 @@ jobs:
             $env:BAUDEX_PROBE_PASO = $paso.nombre
             $env:BAUDEX_PROBE_PREFS = $paso.prefs
             $env:BAUDEX_PROBE_CERRAR_SESION_AL_SALIR = $paso.cerrar
+            $env:BAUDEX_PROBE_TECLEO = if ($paso.tecleo) { $paso.tecleo } else { '0' }
+            $env:BAUDEX_PROBE_HUELLA = if ($paso.huella) { $paso.huella } else { '' }
+            $env:BAUDEX_PROBE_LATENCIA_MS = if ($paso.latencia) { $paso.latencia } else { '0' }
             $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             Write-Host "===== $($paso.nombre) ====="
             $p = Start-Process -FilePath $exe -PassThru
@@ -294,6 +305,8 @@ jobs:
           }
           Write-Host '===== RESULTADO ====='
           if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'MEDICION ARRANQUE | sin archivo de salida' }
+          Write-Host '===== SOLO TECLEO ====='
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String 'MEDICION TECLEO' | ForEach-Object { $_.Line } }
           if ($colgadas -gt 0) { exit 1 }
 
       - uses: actions/upload-artifact@v4

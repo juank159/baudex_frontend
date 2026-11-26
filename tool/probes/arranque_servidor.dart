@@ -30,6 +30,7 @@ class ArranqueServerConfig {
   const ArranqueServerConfig({
     this.invoices = 6000,
     this.products = 3000,
+    this.presentations = 2500,
     this.latencyMs = 0,
     this.port = 3990,
   });
@@ -38,6 +39,7 @@ class ArranqueServerConfig {
   final int port;
   final int invoices;
   final int products;
+  final int presentations;
 
   /// Demora por petición (internet de verdad no responde en 0 ms).
   final int latencyMs;
@@ -65,7 +67,7 @@ Future<({int port, Stream<ServedRequest> served})> startArranqueServer(
   });
   await Isolate.spawn(
     _serve,
-    [inbox.sendPort, config.invoices, config.products, config.latencyMs, config.port],
+    [inbox.sendPort, config.invoices, config.products, config.latencyMs, config.port, config.presentations],
     debugName: 'servidor_medicion',
   );
   return (port: await ready.future, served: served.stream);
@@ -159,6 +161,25 @@ Map<String, dynamic> _invoice(int n) {
   };
 }
 
+Map<String, dynamic> _presentation(int n) {
+  final at = _stamp(n);
+  return {
+    'id': _uuid(0x12, n),
+    'name': 'Caja x${6 + n % 6}',
+    'factor': 6 + n % 6,
+    'price': 9000 + n,
+    'currency': 'COP',
+    'barcode': '${7800000000000 + n}',
+    'sku': 'PRE-$n',
+    'isDefault': false,
+    'isActive': true,
+    'sortOrder': 0,
+    'productId': _uuid(0x0c, n),
+    'createdAt': at,
+    'updatedAt': at,
+  };
+}
+
 Map<String, dynamic> _user() => {
       'id': probeUserId,
       'firstName': 'Caja',
@@ -185,13 +206,18 @@ String _jwt() {
 
 Future<void> _serve(List<Object?> args) async {
   final out = args[0] as SendPort;
-  final totals = {'invoices': args[1] as int, 'products': args[2] as int};
+  final totals = {
+    'invoices': args[1] as int,
+    'products': args[2] as int,
+    'product_presentations': args[5] as int,
+  };
   final latency = Duration(milliseconds: args[3] as int);
   final builders = <String, Map<String, dynamic> Function(int)>{
     'invoices': _invoice,
     'products': _product,
+    'product_presentations': _presentation,
   };
-  final kinds = {'invoices': 0x0f, 'products': 0x0c};
+  final kinds = {'invoices': 0x0f, 'products': 0x0c, 'product_presentations': 0x12};
 
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, args[4] as int);
   out.send(server.port);
@@ -260,6 +286,22 @@ Future<void> _serve(List<Object?> args) async {
         body = {
           'success': true,
           'data': {'token': _jwt(), 'refreshToken': 'refresh-medicion'},
+        };
+      } else if (path.endsWith('/cash-register/current')) {
+        // Caja abierta: sin ella la app no deja entrar a facturar.
+        body = {
+          'success': true,
+          'data': {
+            'cashRegister': {
+              'id': _uuid(0x13, 1),
+              'status': 'open',
+              'openingAmount': 0,
+              'openedAt': DateTime.now().toUtc().toIso8601String(),
+              'openedById': probeUserId,
+              'openedBy': {'firstName': 'Caja', 'lastName': 'Medición'},
+            },
+            'expectedAmount': 0,
+          },
         };
       } else if (path.contains('/sync/changes/')) {
         entity = path.substring(path.lastIndexOf('/') + 1);

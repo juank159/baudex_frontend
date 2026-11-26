@@ -28,7 +28,15 @@
 //   BAUDEX_PROBE_IMPRESORAS=0  no leer las impresoras tras entrar.
 //   BAUDEX_PROBE_FACTURAS (6000), BAUDEX_PROBE_PRODUCTOS (3000),
 //   BAUDEX_PROBE_LATENCIA_MS (0), BAUDEX_PROBE_MAX_S (180),
-//   BAUDEX_PROBE_PUERTO (3990).
+//   BAUDEX_PROBE_PUERTO (3990), BAUDEX_PROBE_PRESENTACIONES (2500).
+//   BAUDEX_PROBE_HUELLA=nueva  la app cree que se acaba de instalar una
+//                       versión nueva (vuelve a bajar todos los módulos).
+//   BAUDEX_PROBE_TECLEO=1  mide el tecleo a mano (teclas del sistema a
+//                       120 ms): contraseña en iniciar sesión, buscador de
+//                       la factura ("500"/"700" + Enter, producto sin
+//                       registrar) y abrir Diagnóstico. Líneas
+//                       "MEDICION TECLEO | etiqueta | paso | …".
+//   BAUDEX_PROBE_TECLEO_REPS (6) repeticiones en la factura.
 //   BAUDEX_PROBE_SANDBOX=1  almacén seguro y preferencias de mentira dentro
 //                       de BAUDEX_PROBE_DIR (siempre así fuera de Windows:
 //                       no toca el llavero ni las preferencias del equipo).
@@ -50,6 +58,8 @@ import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/local_first.dart';
 import 'package:baudex_desktop/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:baudex_desktop/features/invoices/data/models/isar/isar_invoice.dart';
+import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
+import 'package:baudex_desktop/features/invoices/presentation/controllers/invoice_tabs_controller.dart';
 import 'package:baudex_desktop/features/products/data/models/isar/isar_product.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:baudex_desktop/main.dart' as app;
@@ -67,6 +77,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'arranque_servidor.dart';
+import 'tecleo_medicion.dart';
 
 // ==================== Preferencias medidas ====================
 
@@ -116,6 +127,58 @@ class _TimedPrefs extends SharedPreferencesStorePlatform {
   @override
   Future<bool> clearWithParameters(ClearParameters parameters) =>
       _timed(() => _inner.clearWithParameters(parameters));
+}
+
+/// Cuenta y cronometra cada operación del almacén de sesión (en Windows es
+/// un archivo cifrado: cada lectura lo abre y lo descifra).
+class _TimedSecure extends FlutterSecureStoragePlatform {
+  _TimedSecure(this._inner);
+  final FlutterSecureStoragePlatform _inner;
+  int reads = 0;
+  int writes = 0;
+  double readMs = 0;
+  double worstReadMs = 0;
+  double writeMs = 0;
+
+  Future<T> _time<T>(bool read, Future<T> Function() op) async {
+    final watch = Stopwatch()..start();
+    try {
+      return await op();
+    } finally {
+      final ms = watch.elapsedMicroseconds / 1000;
+      if (read) {
+        reads++;
+        readMs += ms;
+        if (ms > worstReadMs) worstReadMs = ms;
+      } else {
+        writes++;
+        writeMs += ms;
+      }
+    }
+  }
+
+  @override
+  Future<String?> read({required String key, required Map<String, String> options}) =>
+      _time(true, () => _inner.read(key: key, options: options));
+  @override
+  Future<bool> containsKey({required String key, required Map<String, String> options}) =>
+      _time(true, () => _inner.containsKey(key: key, options: options));
+  @override
+  Future<Map<String, String>> readAll({required Map<String, String> options}) =>
+      _time(true, () => _inner.readAll(options: options));
+  @override
+  Future<void> write({
+    required String key,
+    required String value,
+    required Map<String, String> options,
+  }) =>
+      _time(false, () => _inner.write(key: key, value: value, options: options));
+  @override
+  Future<void> delete({required String key, required Map<String, String> options}) =>
+      _time(false, () => _inner.delete(key: key, options: options));
+  @override
+  Future<void> deleteAll({required Map<String, String> options}) =>
+      _time(false, () => _inner.deleteAll(options: options));
 }
 
 /// Preferencias de mentira que se portan como el complemento de Windows: un
@@ -346,6 +409,8 @@ Future<void> main() async {
     FlutterSecureStoragePlatform.instance =
         _FileSecureStore.open(File('${dir.path}${sep}almacen_seguro.json'));
   }
+  final secure = _TimedSecure(FlutterSecureStoragePlatform.instance);
+  FlutterSecureStoragePlatform.instance = secure;
   final prefs = _TimedPrefs(SharedPreferencesStorePlatform.instance);
   SharedPreferencesStorePlatform.instance = prefs;
 
@@ -354,6 +419,7 @@ Future<void> main() async {
   final server = await startArranqueServer(ArranqueServerConfig(
     invoices: number('BAUDEX_PROBE_FACTURAS', 6000),
     products: number('BAUDEX_PROBE_PRODUCTOS', 3000),
+    presentations: number('BAUDEX_PROBE_PRESENTACIONES', 2500),
     latencyMs: number('BAUDEX_PROBE_LATENCIA_MS', 0),
     port: port,
   ));
@@ -415,6 +481,29 @@ Future<void> main() async {
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
   final mainMs = appWatch.elapsedMilliseconds;
+  if (env['BAUDEX_PROBE_HUELLA'] == 'nueva') {
+    // Como recién instalada: la huella guardada ya no coincide.
+    // ignore: invalid_use_of_visible_for_testing_member
+    Get.find<FullSyncService>().debugInstallFingerprint =
+        () async => 'medicion|$bootAt';
+    log('huella de instalación: NUEVA (la app cree que se acaba de actualizar)');
+  }
+  final tecleo = env['BAUDEX_PROBE_TECLEO'] == '1';
+  final medidor = MedidorDeTecleo();
+  void logTecleo(String text) {
+    final line = 'MEDICION TECLEO | $label | $step | $text';
+    // ignore: avoid_print
+    print(line);
+    sink.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
+  }
+
+  String veredicto(Tanda tanda) {
+    final peor = tanda.peorVisibleMs;
+    if (!tanda.todasVisibles) return 'NO CUMPLE (alguna tecla no se vio)';
+    return peor != null && peor < 50 ? 'cumple (<50 ms)' : 'NO CUMPLE (peor ${_f(peor ?? -1)} ms)';
+  }
+
+  if (tecleo) medidor.start();
 
   // ¿Cuánto tarda la app en saber si hay sesión? El splash decide a los
   // 2.500 ms con lo que haya: si aún no se sabe, manda a iniciar sesión.
@@ -475,6 +564,27 @@ Future<void> main() async {
       exit(4);
     }
     await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (tecleo) {
+      logTecleo(await ventanaAlFrente());
+      EditableTextState? box;
+      for (final candidate in cajasDeTexto()) {
+        if (identical(candidate.widget.controller, auth.loginPasswordController)) {
+          box = candidate;
+        }
+      }
+      if (box == null) {
+        logTecleo('iniciar sesión: no se encontró la caja de la contraseña');
+      } else {
+        box.widget.focusNode.requestFocus();
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        final before = requests;
+        final syncing = Get.find<FullSyncService>().isSyncing.value;
+        final tanda = await medidor.escribir(box, '12345678');
+        logTecleo('iniciar sesión, contraseña (8 teclas a 120 ms): ${veredicto(tanda)}; '
+            '${tanda.detalle}; ${tanda.cuadrosTexto}; '
+            'peticiones mientras tanto: ${requests - before}; descarga en curso: ${syncing ? 'sí' : 'no'}');
+      }
+    }
     auth.loginBusinessController.text = probeBusiness;
     auth.loginEmailController.text = probeEmail;
     auth.loginPasswordController.text = probePassword;
@@ -539,8 +649,136 @@ Future<void> main() async {
         'archivo de preferencias ahora: ${prefsHealth()}; apartados: ${setAside()}');
   }
 
-  // ---------- Esperar a que termine la descarga ----------
   final sync = Get.find<FullSyncService>();
+
+  // ---------- Tecleo a mano en la factura, con la descarga corriendo ----------
+  if (tecleo && onDashboard()) {
+    logTecleo(await ventanaAlFrente());
+    if (frames < 5) {
+      logTecleo('MEDICIÓN INVÁLIDA: la ventana no está dibujando (pantalla apagada, bloqueada o tapada)');
+    }
+    String descarga() => sync.isSyncing.value || sync.hasPendingFullDownload
+        ? 'EN CURSO'
+        : 'quieta';
+    final navMark = medidor.marca;
+    final navAt = stalls.nowMs;
+    // Como el menú lateral, sin la pregunta de "abrir caja" (la medición
+    // no abre caja).
+    if (Get.isDialogOpen == true) Get.back<void>();
+    NavigationGuard.instance.openModule(AppRoutes.invoicesWithTabs);
+    final opened = await medidor.esperar(
+      () => cajasDeTexto().isNotEmpty && route() == AppRoutes.invoicesWithTabs,
+      seconds: 20,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    logTecleo('abrir crear factura: ${opened ? '${stalls.nowMs - navAt - 1200} ms hasta tener cajas de texto' : 'NO ABRIÓ en 20 s'}; '
+        '${medidor.cuadrosDesde(navMark).cuadrosTexto}; descarga: ${descarga()}; '
+        'ruta: ${route()}, cajas de texto: ${cajasDeTexto().length}, diálogo abierto: ${Get.isDialogOpen == true}'
+        '${opened ? '' : '; en pantalla: ${textosEnPantalla()}'}');
+
+    EditableTextState? buscador() {
+      final focused = cajaConFoco();
+      if (focused != null) return focused;
+      final boxes = cajasDeTexto();
+      if (boxes.isEmpty) return null;
+      boxes.first.widget.focusNode.requestFocus();
+      return boxes.first;
+    }
+
+    final reps = number('BAUDEX_PROBE_TECLEO_REPS', 6);
+    for (var rep = 1; opened && rep <= reps; rep++) {
+      final search = buscador();
+      if (search == null) {
+        logTecleo('factura $rep: no hay caja de texto para escribir');
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (search.widget.controller.text.isNotEmpty) search.widget.controller.clear();
+      final value = rep.isOdd ? '500' : '700';
+      final before = requests;
+      final state = descarga();
+      final stallsBefore = stalls.over100;
+      final readsBefore = secure.reads;
+      final readMsBefore = secure.readMs;
+      final tanda = await medidor.escribir(search, value);
+      final card = await medidor.esperar(() => hayTexto('sin registrar'), seconds: 5);
+      final enter = await medidor.pulsar(
+        teclaEnter,
+        () {
+          final box = cajaConFoco();
+          return box != null && !identical(box, search);
+        },
+        box: search,
+      );
+      final nameBox = cajaConFoco();
+      String enterText((double?, double?) r) => r.$1 == null
+          ? 'NO APARECIÓ en 10 s'
+          : '${_f(r.$1!)} ms (visible ${r.$2 == null ? 'n/d' : _f(r.$2!)} ms) → '
+              '${r.$1! < 150 ? 'cumple (<150 ms)' : 'NO CUMPLE'}';
+      logTecleo('factura $rep "$value" (descarga: $state): tecleo ${veredicto(tanda)}; '
+          '${tanda.detalle}; "sin registrar" a la vista: ${card ? 'sí' : 'NO'}; '
+          'Enter → campo del nombre con foco: ${enterText(enter)}; '
+          '${tanda.cuadrosTexto}; trabas >100 ms: ${stalls.over100 - stallsBefore}; '
+          'peticiones mientras tanto: ${requests - before}; '
+          'lecturas del almacén de sesión: ${secure.reads - readsBefore} '
+          '(${_f(secure.readMs - readMsBefore)} ms)');
+
+      // Terminar la línea: un nombre corto + Enter (vuelve al buscador).
+      var back = false;
+      if (nameBox != null && !identical(nameBox, search)) {
+        final nombre = await medidor.escribir(nameBox, '9');
+        final done = await medidor.pulsar(
+          teclaEnter,
+          () {
+            final box = cajaConFoco();
+            return box != null && !identical(box, nameBox);
+          },
+          box: nameBox,
+          seconds: 6,
+        );
+        back = done.$1 != null;
+        logTecleo('factura $rep nombre "9": tecleo ${veredicto(nombre)}; ${nombre.detalle}; '
+            'Enter → otra caja con foco: ${done.$1 == null ? 'NO en 6 s' : '${_f(done.$1!)} ms'}');
+      }
+      if (!back) {
+        await medidor.pulsar(teclaEscape, () => false, seconds: 1);
+        if (Get.isDialogOpen == true) Get.back<void>();
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+      if (rep == (reps / 2).ceil()) {
+        try {
+          final before = stalls.nowMs;
+          Get.find<InvoiceTabsController>().currentTab!.controller.clearItems();
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+          logTecleo('factura vaciada tras $rep repeticiones (${stalls.nowMs - before} ms)');
+        } catch (e) {
+          logTecleo('no se pudo vaciar la factura: ${'$e'.split('\n').first}');
+        }
+      }
+    }
+
+    // ---------- Diagnóstico ----------
+    final diagMark = medidor.marca;
+    final diagStalls = stalls.over100;
+    final diagWorstBefore = stalls.worstMs;
+    stalls.worstMs = 0;
+    final diagAt = stalls.nowMs;
+    unawaited(Get.toNamed(AppRoutes.diagnostics));
+    final diagOpen = await medidor.esperar(() => route() == AppRoutes.diagnostics, seconds: 20);
+    final diagOpenMs = stalls.nowMs - diagAt;
+    await Future<void>.delayed(const Duration(seconds: 12));
+    logTecleo('Diagnóstico (12 s abierto, descarga: ${descarga()}): '
+        '${diagOpen ? 'abrió en $diagOpenMs ms' : 'NO ABRIÓ en 20 s'}; '
+        '${medidor.cuadrosDesde(diagMark).cuadrosTexto}; '
+        'trabas >100 ms: ${stalls.over100 - diagStalls}, peor traba: ${_f(stalls.worstMs)} ms');
+    if (stalls.worstMs < diagWorstBefore) stalls.worstMs = diagWorstBefore;
+    try {
+      Get.back<void>();
+    } catch (_) {}
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+  }
+
+  // ---------- Esperar a que termine la descarga ----------
   final idleFrom = stalls.nowMs;
   await Future<void>.delayed(const Duration(seconds: 6));
   final settled = await until(
@@ -569,6 +807,12 @@ Future<void> main() async {
   log('preferencias: ${prefs.writes} escrituras, ${_f(prefs.writeMs)} ms en total, '
       'peor ${_f(prefs.worstWriteMs)} ms; lecturas fallidas: ${prefs.failedReads}; '
       'archivo al cerrar: ${prefsHealth()}; apartados: ${setAside()}');
+  final minutes = stalls.nowMs / 60000;
+  logTecleo('almacén de sesión: ${secure.reads} lecturas en ${_f(stalls.nowMs / 1000)} s '
+      '(${_f(secure.reads / (minutes <= 0 ? 1 : minutes))} por minuto), '
+      '${secure.reads == 0 ? 0 : (secure.readMs / secure.reads).toStringAsFixed(1)} ms cada una, '
+      'peor ${_f(secure.worstReadMs)} ms, ${_f(secure.readMs)} ms en total; '
+      'escrituras: ${secure.writes} (${_f(secure.writeMs)} ms)');
   log('base local al cerrar: ${await isar.isarInvoices.count()} facturas, '
       '${await isar.isarProducts.count()} productos; '
       'sesión al cerrar: ${await Get.find<SecureStorageService>().isAuthenticated() ? 'sí' : 'NO'}; '
