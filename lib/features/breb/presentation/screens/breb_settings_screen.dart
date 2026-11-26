@@ -1,4 +1,5 @@
 // lib/features/breb/presentation/screens/breb_settings_screen.dart
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -47,8 +48,27 @@ class _BrebSettingsScreenState extends State<BrebSettingsScreen> {
     _loadServerData();
   }
 
+  /// La dirección de correo y los correos recientes son solo para quien
+  /// administra el negocio: el servidor se los niega a un cajero (403).
+  bool get _canSeeServerData {
+    try {
+      final user = Get.find<AuthController>().currentUser;
+      return user == null || user.isAdmin || user.isManager;
+    } catch (_) {
+      return true; // sin controlador de sesión (pruebas): como antes
+    }
+  }
+
   Future<void> _loadServerData() async {
     if (_refreshing) return;
+    if (!_canSeeServerData) {
+      setState(() {
+        _addressError = 'Solo un administrador del negocio puede ver esta '
+            'dirección.';
+        _recentEmails = const [];
+      });
+      return;
+    }
     setState(() => _refreshing = true);
     try {
       final address = await _api.inboundAddress();

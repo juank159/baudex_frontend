@@ -804,6 +804,16 @@ class InventoryMovementsController extends GetxController {
 
       result.fold(
         (failure) {
+          // El servidor no ofrece esta vista previa (la ruta no existe:
+          // 404). No es un error del usuario: se oculta la vista previa en
+          // vez de avisar cada vez que cambia el producto o la cantidad.
+          final unavailable = failure.code == 404 ||
+              failure.message.contains('no encontrado') ||
+              failure.message.contains('Cannot GET');
+          if (unavailable) {
+            showFifoPreview.value = false;
+            return;
+          }
           if (!AutomaticWork.swallow('Error FIFO', failure.message)) Get.snackbar(
             'Error FIFO',
             failure.message,

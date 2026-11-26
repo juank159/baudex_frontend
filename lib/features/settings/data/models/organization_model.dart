@@ -1,4 +1,5 @@
 // lib/features/settings/data/models/organization_model.dart
+import '../../../../app/core/utils/tolerant_json.dart';
 import '../../domain/entities/organization.dart';
 
 class OrganizationModel extends Organization {
@@ -30,62 +31,57 @@ class OrganizationModel extends Organization {
     super.isActivePlan,
   });
 
-  factory OrganizationModel.fromJson(Map<String, dynamic> json) {
-    return OrganizationModel(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      slug: json['slug'] ?? '',
-      domain: json['domain'],
-      logo: json['logo'],
-      settings: json['settings'] != null 
-        ? Map<String, dynamic>.from(json['settings'])
-        : null,
-      subscriptionPlan: SubscriptionPlan.fromString(json['subscriptionPlan'] ?? 'trial'),
-      subscriptionStatus: SubscriptionStatus.fromString(json['subscriptionStatus'] ?? 'active'),
-      isActive: json['isActive'] ?? true,
-      currency: json['currency'] ?? 'EUR',
-      locale: json['locale'] ?? 'es',
-      timezone: json['timezone'] ?? 'Europe/Madrid',
-      createdAt: json['createdAt'] != null 
-        ? DateTime.parse(json['createdAt'])
-        : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-        ? DateTime.parse(json['updatedAt'])
-        : DateTime.now(),
+  /// Lectura tolerante: ningún campo opcional nulo, de otro tipo o con una
+  /// fecha rara tumba la lectura del negocio. Lo que no llegó como se
+  /// esperaba queda en [issues] (campo y tipo, nunca el valor).
+  factory OrganizationModel.fromJson(
+    Object? json, {
+    List<JsonIssue>? issues,
+  }) {
+    final r = TolerantJson(json);
+    final settings = r.child('settings');
+    final now = DateTime.now();
+    final model = OrganizationModel(
+      id: r.string('id') ?? '',
+      name: r.string('name') ?? '',
+      slug: r.string('slug') ?? '',
+      domain: r.string('domain'),
+      logo: r.string('logo'),
+      settings: r.object('settings'),
+      subscriptionPlan:
+          SubscriptionPlan.fromString(r.string('subscriptionPlan') ?? 'trial'),
+      subscriptionStatus: SubscriptionStatus.fromString(
+          r.string('subscriptionStatus') ?? 'active'),
+      isActive: r.boolean('isActive') ?? true,
+      currency: r.string('currency') ?? 'EUR',
+      locale: r.string('locale') ?? 'es',
+      timezone: r.string('timezone') ?? 'Europe/Madrid',
+      createdAt: r.date('createdAt') ?? now,
+      updatedAt: r.date('updatedAt') ?? now,
       // Extraer margen de ganancia desde settings
-      defaultProfitMarginPercentage: json['settings'] != null &&
-        json['settings']['defaultProfitMarginPercentage'] != null
-        ? (json['settings']['defaultProfitMarginPercentage'] as num).toDouble()
-        : null,
+      defaultProfitMarginPercentage:
+          settings.decimal('defaultProfitMarginPercentage'),
       // settings.multiCurrencyEnabled es la fuente de verdad (es lo que enviamos con PATCH).
       // El campo top-level json['multiCurrencyEnabled'] es computado por el backend y puede estar desactualizado.
-      multiCurrencyEnabled: (json['settings'] is Map ? json['settings']['multiCurrencyEnabled'] as bool? : null)
-        ?? json['multiCurrencyEnabled'] as bool?
-        ?? false,
+      multiCurrencyEnabled: settings.boolean('multiCurrencyEnabled') ??
+          r.boolean('multiCurrencyEnabled') ??
+          false,
       // Caja registradora — leemos de settings JSONB; default `true` si
       // el campo no existe (organizaciones legacy / clientes existentes
       // ven el módulo activado como hasta hoy).
-      cashRegisterEnabled: (json['settings'] is Map
-              ? json['settings']['cashRegisterEnabled'] as bool?
-              : null) ??
-          true,
-      subscriptionStartDate: json['subscriptionStartDate'] != null
-        ? DateTime.parse(json['subscriptionStartDate'])
-        : null,
-      subscriptionEndDate: json['subscriptionEndDate'] != null 
-        ? DateTime.parse(json['subscriptionEndDate'])
-        : null,
-      trialStartDate: json['trialStartDate'] != null 
-        ? DateTime.parse(json['trialStartDate'])
-        : null,
-      trialEndDate: json['trialEndDate'] != null 
-        ? DateTime.parse(json['trialEndDate'])
-        : null,
-      hasValidSubscription: json['hasValidSubscription'],
-      isTrialExpired: json['isTrialExpired'],
-      daysUntilExpiration: json['daysUntilExpiration'],
-      isActivePlan: json['isActivePlan'],
+      cashRegisterEnabled: settings.boolean('cashRegisterEnabled') ?? true,
+      subscriptionStartDate: r.date('subscriptionStartDate'),
+      subscriptionEndDate: r.date('subscriptionEndDate'),
+      trialStartDate: r.date('trialStartDate'),
+      trialEndDate: r.date('trialEndDate'),
+      hasValidSubscription: r.boolean('hasValidSubscription'),
+      isTrialExpired: r.boolean('isTrialExpired'),
+      daysUntilExpiration: r.integer('daysUntilExpiration'),
+      isActivePlan: r.boolean('isActivePlan'),
     );
+    issues?.addAll(r.issues);
+    issues?.addAll(settings.issues);
+    return model;
   }
 
   Map<String, dynamic> toJson() {

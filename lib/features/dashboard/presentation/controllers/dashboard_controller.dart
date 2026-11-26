@@ -821,16 +821,11 @@ class DashboardController extends GetxController
     }
   }
 
-  Future<void> loadUnreadNotificationsCount() async {
-    if (!_isAlive) return;
-    final result = await _getUnreadNotificationsCountUseCase(NoParams());
-
-    if (!_isAlive) return;
-    result.fold(
-      (failure) => {},
-      (count) => _unreadNotificationsCount.value = count,
-    );
-  }
+  /// El número de avisos sin leer ya llega con la lista de avisos
+  /// ([loadNotifications]). Antes se pedía aparte a una ruta que el
+  /// servidor no tiene (/dashboard/notifications/unread-count → 404 en
+  /// cada entrada y tras cada sincronización).
+  Future<void> loadUnreadNotificationsCount() async {}
 
   Future<void> markNotificationAsRead(String notificationId) async {
     if (!_isAlive) return;

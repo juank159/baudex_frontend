@@ -1,4 +1,6 @@
 // lib/features/settings/data/datasources/organization_remote_datasource.dart
+import '../../../../app/core/errors/automatic_work.dart';
+import '../../../../app/core/utils/tolerant_json.dart';
 import 'package:dio/dio.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
@@ -22,7 +24,7 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   Future<OrganizationModel> getCurrentOrganization() async {
     try {
       final response = await dioClient.get('/organizations/current');
-      return OrganizationModel.fromJson(response.data['data']);
+      return _read(response.data, response.requestOptions.path);
     } on DioException catch (e) {
       throw _handleDioException(e, 'obtener organización actual');
     } on AppException {
@@ -46,7 +48,7 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
         '/organizations/current',
         data: updates,
       );
-      return OrganizationModel.fromJson(response.data['data']);
+      return _read(response.data, response.requestOptions.path);
     } on DioException catch (e) {
       throw _handleDioException(e, 'actualizar organización');
     } on AppException {
@@ -65,7 +67,7 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   Future<OrganizationModel> getOrganizationById(String id) async {
     try {
       final response = await dioClient.get('/organizations/$id');
-      return OrganizationModel.fromJson(response.data['data']);
+      return _read(response.data, response.requestOptions.path);
     } on DioException catch (e) {
       throw _handleDioException(e, 'obtener organización');
     } on AppException {
@@ -141,5 +143,29 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
         return ServerException('Error desconocido: ${e.message}',
             statusCode: 500);
     }
+  }
+
+  /// Lee el negocio de la respuesta sin fallar por un campo raro. Lo que no
+  /// llegó como se esperaba queda anotado para Diagnóstico (campo y tipo,
+  /// sin valores). Solo falla si la respuesta no trae un negocio.
+  OrganizationModel _read(Object? body, String route) {
+    final data = unwrapData(body,
+        looksLikeIt: (m) => m.containsKey('id') && m.containsKey('name'));
+    final issues = <JsonIssue>[];
+    final model = OrganizationModel.fromJson(data, issues: issues);
+    if (issues.isNotEmpty) {
+      BackgroundFailureLog.instance.noteNotice(
+        AutomaticWork.current ?? BackgroundFailureLog.userAction,
+        'Lectura del negocio ($route)',
+        issues.take(12).join('; '),
+      );
+    }
+    if (model.id.isEmpty) {
+      throw const ServerException(
+        'El servidor respondió sin los datos del negocio',
+        statusCode: 200,
+      );
+    }
+    return model;
   }
 }

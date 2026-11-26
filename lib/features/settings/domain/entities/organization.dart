@@ -146,7 +146,12 @@ class Organization extends Equatable {
   List<Map<String, dynamic>> get acceptedCurrencies {
     final currencies = settings?['acceptedCurrencies'];
     if (currencies is List) {
-      return currencies.cast<Map<String, dynamic>>();
+      // Tolerante: un elemento que no sea un objeto no tumba la lista.
+      return [
+        for (final c in currencies)
+          if (c is Map)
+            {for (final e in c.entries) e.key.toString(): e.value},
+      ];
     }
     return [];
   }

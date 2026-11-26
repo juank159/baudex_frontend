@@ -1,4 +1,5 @@
 // lib/features/inventory/data/datasources/inventory_remote_datasource.dart
+import '../../../../app/core/utils/tolerant_json.dart';
 import 'package:dio/dio.dart';
 import '../../../../app/core/errors/exceptions.dart' show AppException;
 import '../../../../app/config/constants/api_constants.dart';
@@ -1449,9 +1450,12 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<int> getActiveWarehousesCount() async {
     try {
-      final response = await dio.get('/warehouses/count/active');
-
-      return response.data['data']['count'] as int;
+      // El servidor no tiene una ruta de conteo: se cuentan los almacenes
+      // activos de la lista (antes se pedía /warehouses/count/active, que
+      // no existe y respondía 404).
+      final response = await dio.get('/warehouses/active');
+      final data = unwrapData(response.data);
+      return data is List ? data.length : 0;
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
