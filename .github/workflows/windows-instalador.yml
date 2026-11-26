@@ -214,7 +214,7 @@ jobs:
               # La sonda usa la línea de tiempo del arranque: si esa versión
               # no la traía, se le pone la de ahora (sin instrumentar, pero
               # con las trabas y los cuadros lentos).
-              git checkout $env:GITHUB_SHA -- lib/app/core/diagnostics/startup_trace.dart lib/app/core/diagnostics/startup_trace_binding.dart
+              git checkout $env:GITHUB_SHA -- lib/app/core/diagnostics/startup_trace.dart lib/app/core/diagnostics/startup_trace_binding.dart lib/app/core/diagnostics/paint_probe.dart
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
               $etiqueta = "anterior $ref"
             }

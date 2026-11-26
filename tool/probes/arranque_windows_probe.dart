@@ -72,6 +72,7 @@ import 'dart:io';
 import 'package:baudex_desktop/app/config/constants/api_constants.dart';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
+import 'package:baudex_desktop/app/core/diagnostics/paint_probe.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
@@ -874,6 +875,15 @@ Future<void> main() async {
       return boxes.first;
     }
 
+    // Espera en calma antes del primer tecleo: que la pantalla termine de
+    // abrirse y de pintarse, para que dos versiones sean comparables.
+    final calma = number('BAUDEX_PROBE_CALMA_S', 8);
+    await Future<void>.delayed(Duration(seconds: calma));
+    logTecleo('factura: $calma s en calma antes de teclear; descarga: ${descarga()}');
+    final visibles = <double>[];
+    final enters = <double>[];
+    final segundos = <double>[];
+    var noVistas = 0;
     final reps = number('BAUDEX_PROBE_TECLEO_REPS', 6);
     for (var rep = 1; opened && rep <= reps; rep++) {
       final search = buscador();
@@ -889,7 +899,16 @@ Future<void> main() async {
       final stallsBefore = stalls.over100;
       final readsBefore = secure.reads;
       final readMsBefore = secure.readMs;
+      final paintsBefore = PaintCounters.snapshot();
       final tanda = await medidor.escribir(search, value);
+      final capasTecleo = PaintCounters.since(paintsBefore);
+      for (final k in tanda.porTecla) {
+        if (k.$4 == null) {
+          noVistas++;
+        } else {
+          visibles.add(k.$4!);
+        }
+      }
       final card = await medidor.esperar(() => hayTexto('sin registrar'), seconds: 5);
       final enter = await medidor.pulsar(
         teclaEnter,
@@ -900,6 +919,7 @@ Future<void> main() async {
         box: search,
       );
       final nameBox = cajaConFoco();
+      if (enter.$2 != null) enters.add(enter.$2!);
       String enterText((double?, double?) r) => r.$1 == null
           ? 'NO APARECIÓ en 10 s'
           : '${_f(r.$1!)} ms (visible ${r.$2 == null ? 'n/d' : _f(r.$2!)} ms) → '
@@ -910,7 +930,9 @@ Future<void> main() async {
           '${tanda.cuadrosTexto}; trabas >100 ms: ${stalls.over100 - stallsBefore}; '
           'peticiones mientras tanto: ${requests - before}; '
           'lecturas del almacén de sesión: ${secure.reads - readsBefore} '
-          '(${_f(secure.readMs - readMsBefore)} ms)');
+          '(${_f(secure.readMs - readMsBefore)} ms); '
+          'capas pintadas al teclear: $capasTecleo; '
+          'capas pintadas en toda la repetición: ${PaintCounters.since(paintsBefore)}');
 
       // Terminar la línea: un nombre corto + Enter (vuelve al buscador).
       var back = false;
@@ -926,6 +948,7 @@ Future<void> main() async {
           seconds: 6,
         );
         back = done.$1 != null;
+        if (done.$2 != null) segundos.add(done.$2!);
         logTecleo('factura $rep nombre "9": tecleo ${veredicto(nombre)}; ${nombre.detalle}; '
             'segundo Enter (línea agregada → buscador con foco): '
             '${done.$1 == null ? 'NO en 6 s' : '${_f(done.$1!)} ms (visible ${done.$2 == null ? 'n/d' : _f(done.$2!)} ms) → ${done.$1! < 150 ? 'cumple (<150 ms)' : 'NO CUMPLE'}'}');
@@ -946,6 +969,18 @@ Future<void> main() async {
         }
       }
     }
+
+    String resumen(List<double> values) {
+      if (values.isEmpty) return 'sin datos';
+      final sorted = [...values]..sort();
+      return 'mediana ${_f(sorted[(sorted.length - 1) ~/ 2])} ms, peor ${_f(sorted.last)} ms '
+          '(${sorted.length} muestras)';
+    }
+
+    logTecleo('factura RESUMEN ($reps repeticiones): tecla → visible: ${resumen(visibles)}'
+        '${noVistas > 0 ? ', $noVistas tecla(s) sin verse' : ''}; '
+        'Enter → nombre visible: ${resumen(enters)}; '
+        'segundo Enter → buscador visible: ${resumen(segundos)}');
 
     // ---------- Diagnóstico ----------
     final diagMark = medidor.marca;

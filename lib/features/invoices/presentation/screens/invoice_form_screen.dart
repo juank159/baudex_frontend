@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/screens/invoice_form_screen.dart
+import 'package:baudex_desktop/app/core/diagnostics/paint_probe.dart';
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
 import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:baudex_desktop/features/invoices/presentation/widgets/modern_invoice_items_table.dart';
@@ -484,7 +485,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     }
 
     // ✅ Usar el controlador específico con Obx para reactividad
-    return Scaffold(
+    // Lo que no está en una capa propia (fondo, textos de la barra…): si
+    // esto se pinta con cada tecla, algo de afuera se está ensuciando.
+    return PaintProbe(
+      name: 'factura: resto de la pantalla',
+      child: Scaffold(
       appBar: _buildAppBar(context, controller),
       backgroundColor: Colors.transparent,
       body: Container(
@@ -507,8 +512,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   ? _buildLoadingView()
                   : context.isMobile
                   ? _buildMobileLayout(context, controller)
-                  : _buildDesktopLayout(context, controller),
+                  // Capa propia: lo que se reacomoda adentro no repinta
+                  // el fondo degradado ni la barra superior.
+                  : PaintProbe(
+                    name: 'factura: cuerpo',
+                    child: _buildDesktopLayout(context, controller),
+                  ),
         ),
+      ),
       ),
     );
   }
@@ -658,12 +669,23 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       children: [
         // Sección superior con scroll
         Expanded(
-          child: SingleChildScrollView(
+          // Capa propia y casi vacía (sus hijos tienen la suya): cada tecla
+          // del buscador reacomoda esta zona y, sin esta capa, eso obligaba
+          // a repintar el fondo y la barra de toda la pantalla.
+          child: PaintProbe(
+            name: 'factura: zona de contenido',
+            child: SingleChildScrollView(
             padding: context.responsivePadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CustomerSelectorWidget(
+                // Cada parte en su propia capa: al escribir en el buscador
+                // solo se repinta el buscador, no el cliente, la tabla ni
+                // los totales (antes se repintaba toda la pantalla por
+                // tecla, y en equipos que pintan lento eso se nota).
+                PaintProbe(
+                  name: 'factura: cliente',
+                  child: CustomerSelectorWidget(
                   key: _customerSelectorKey,
                   selectedCustomer: controller.selectedCustomer,
                   onCustomerSelected: controller.selectCustomer,
@@ -677,9 +699,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       _productSearchKey.currentState?.resumeFocusRestoration();
                     }
                   },
+                  ),
                 ),
                 SizedBox(height: context.verticalSpacing * 0.4),
-                ProductSearchWidget(
+                PaintProbe(
+                  name: 'factura: buscador',
+                  child: ProductSearchWidget(
                   key: _productSearchKey,
                   controller: controller,
                   autoFocus: true,
@@ -692,12 +717,15 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     // que se actualizó): forzar la 0 mandaba el siguiente
                     // Ctrl+número a otro producto.
                   },
+                  ),
                 ),
                 SizedBox(height: context.verticalSpacing * 0.4),
                 // La tabla de productos con altura dinámica para desktop
                 SizedBox(
                   height: MediaQuery.of(context).size.height * 0.5,
-                  child: ValueListenableBuilder<int>(
+                  child: PaintProbe(
+                    name: 'factura: tabla de líneas',
+                    child: ValueListenableBuilder<int>(
                     valueListenable: _selection,
                     builder:
                         (context, selected, _) => ModernInvoiceItemsTable(
@@ -712,9 +740,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           scrollController:
                               _productsScrollController, // Para scroll automático
                         ),
+                    ),
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ),
@@ -735,7 +765,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               ),
             ),
           ),
-          child: _buildTotalsSection(context, controller),
+          child: PaintProbe(
+            name: 'factura: totales',
+            child: _buildTotalsSection(context, controller),
+          ),
         ),
       ],
     );
@@ -750,10 +783,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
       elevation: 0,
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.primaryGradient,
-          boxShadow: ElegantLightTheme.elevatedShadow,
+      flexibleSpace: PaintProbe(
+        name: 'factura: barra superior (fondo)',
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.primaryGradient,
+            boxShadow: ElegantLightTheme.elevatedShadow,
+          ),
         ),
       ),
       actions: _buildAppBarActions(context, controller),
