@@ -15,6 +15,7 @@ import '../../domain/entities/printer_settings.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../../domain/rules/printer_rules.dart';
 import '../datasources/settings_local_datasource.dart';
+import '../printer_diagnostics.dart';
 import '../datasources/printer_settings_remote_datasource.dart';
 
 class SettingsRepositoryImpl implements SettingsRepository {
@@ -175,15 +176,23 @@ class SettingsRepositoryImpl implements SettingsRepository {
             _networkInfo.markServerUnreachable();
           }
           return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
-        } catch (e) {
+        } catch (e, st) {
+          // Algo inesperado al hablar con el servidor: que quede constancia,
+          // y la impresora se guarda aquí de todos modos.
+          reportPrinterProblem('guardar impresora (servidor)', e, st);
           return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
         }
       } else {
         // OFFLINE: Guardar localmente y encolar
         return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
       }
-    } catch (e) {
-      return Left(CacheFailure('Error al guardar configuración de impresora'));
+    } catch (e, st) {
+      reportPrinterProblem('guardar impresora (repositorio)', e, st);
+      return Left(
+        CacheFailure(
+          'No se pudo guardar la impresora: ${printerProblemDetail(e)}',
+        ),
+      );
     }
   }
 
@@ -243,8 +252,13 @@ class SettingsRepositoryImpl implements SettingsRepository {
       }
 
       return await _localDataSource.deletePrinterSettings(settingsId);
-    } catch (e) {
-      return Left(CacheFailure('Error al eliminar configuración de impresora'));
+    } catch (e, st) {
+      reportPrinterProblem('eliminar impresora (repositorio)', e, st);
+      return Left(
+        CacheFailure(
+          'No se pudo eliminar la impresora: ${printerProblemDetail(e)}',
+        ),
+      );
     }
   }
 
@@ -313,7 +327,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
         priority: 2,
       );
       return true;
-    } catch (e) {
+    } catch (e, st) {
+      reportPrinterProblem('encolar impresora', e, st);
       return false;
     }
   }
@@ -322,7 +337,9 @@ class SettingsRepositoryImpl implements SettingsRepository {
   Future<void> _cancelPendingOperations(String entityId) async {
     try {
       await Get.find<SyncService>().deleteSyncOperationsByEntityId(entityId);
-    } catch (_) {}
+    } catch (e, st) {
+      reportPrinterProblem('cancelar operaciones pendientes', e, st);
+    }
   }
 
   /// No hay otra impresora guardada en este equipo aparte de [settingsId].

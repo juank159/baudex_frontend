@@ -6,7 +6,9 @@ import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/storage/shared_prefs_repair.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../printer_diagnostics.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
 import '../../domain/entities/printer_settings.dart';
@@ -29,6 +31,13 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   static const String _appSettingsKey = 'app_settings';
   static const String _invoiceSettingsKey = 'invoice_settings';
   static const String _defaultPrinterKey = 'default_printer_id';
+
+  SettingsLocalDataSourceImpl({Future<bool> Function()? repairPreferences})
+    : _repairPreferences = repairPreferences ?? repairDevicePreferencesFile;
+
+  /// Aparta el archivo de preferencias si está dañado (ver
+  /// `shared_prefs_repair.dart`). Reemplazable en pruebas.
+  final Future<bool> Function() _repairPreferences;
 
   SharedPreferences? _prefs;
 
@@ -256,8 +265,67 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   }
 
   // ==================== PRINTER SETTINGS (ISAR) ====================
+  //
+  // La base local (Isar) es la verdad. Las preferencias del equipo solo
+  // guardan "cuál elegí aquí" y son opcionales: en Windows ese archivo se
+  // puede dañar (apagón mientras se escribe) y entonces cada lectura lanza
+  // un error. Nada de impresoras puede fallar por eso: si las preferencias
+  // no responden, manda la marca `isDefault` que queda en la base.
 
   Isar get _isar => IsarDatabase.instance.database;
+
+  bool _repairTried = false;
+
+  /// La impresora elegida en este equipo, o null si no hay o no se pudo leer.
+  Future<String?> _deviceChoice() async {
+    try {
+      return (await _preferences).getString(_defaultPrinterKey);
+    } catch (e, st) {
+      if (await _tryRepairPreferences(e, st)) {
+        try {
+          return (await _preferences).getString(_defaultPrinterKey);
+        } catch (_) {}
+      }
+      return null;
+    }
+  }
+
+  /// Recuerda (o borra, con null) la elección de este equipo. Si las
+  /// preferencias no responden no pasa nada: la marca queda en la base.
+  Future<void> _rememberDeviceChoice(String? settingsId) async {
+    Future<void> write() async {
+      final prefs = await _preferences;
+      if (settingsId == null) {
+        await prefs.remove(_defaultPrinterKey);
+      } else {
+        await prefs.setString(_defaultPrinterKey, settingsId);
+      }
+    }
+
+    try {
+      await write();
+    } catch (e, st) {
+      if (await _tryRepairPreferences(e, st)) {
+        try {
+          await write();
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Una sola vez por ejecución: deja constancia del fallo e intenta
+  /// apartar el archivo dañado. Devuelve true si vale la pena reintentar.
+  Future<bool> _tryRepairPreferences(Object error, StackTrace stack) async {
+    if (_repairTried) return false;
+    _repairTried = true;
+    reportPrinterProblem('preferencias del equipo', error, stack);
+    try {
+      _prefs = null;
+      return await _repairPreferences();
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Impresoras guardadas en este equipo y cuál usa para facturar.
   /// "Predeterminada" se calcula aquí (regla [pickBillingPrinter]): es una
@@ -268,10 +336,9 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
         await _isar.printerSettingsModels.filter().deletedAtIsNull().findAll();
     final raw = isarPrinters.map((m) => m.toEntity()).toList();
 
-    final prefs = await _preferences;
     final chosen = pickBillingPrinter(
       raw,
-      deviceChoiceId: prefs.getString(_defaultPrinterKey),
+      deviceChoiceId: await _deviceChoice(),
     );
 
     final printers =
@@ -290,8 +357,11 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   Future<Either<Failure, List<PrinterSettings>>> getAllPrinterSettings() async {
     try {
       return Right((await _readPrinters()).printers);
-    } catch (e) {
-      return Right(<PrinterSettings>[]);
+    } catch (e, st) {
+      reportPrinterProblem('cargar impresoras', e, st);
+      return Left(
+        CacheFailure('No se pudieron leer las impresoras: ${printerProblemDetail(e)}'),
+      );
     }
   }
 
@@ -299,28 +369,36 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   Future<Either<Failure, PrinterSettings?>> getDefaultPrinterSettings() async {
     try {
       return Right((await _readPrinters()).billing);
-    } catch (e) {
-      return const Right(null);
+    } catch (e, st) {
+      reportPrinterProblem('cargar impresora predeterminada', e, st);
+      return Left(
+        CacheFailure('No se pudo leer la impresora: ${printerProblemDetail(e)}'),
+      );
     }
   }
 
-  /// Deja la marca de predeterminada solo en [settingsId] (dentro de una
-  /// transacción). No cambia `isSynced`: la marca es de este equipo.
+  /// Deja la marca de predeterminada solo en [settingsId]. No cambia
+  /// `isSynced`: la marca es de este equipo. Tolerante a fallos: marcar no
+  /// puede tumbar un guardado.
   Future<void> _markOnlyDefault(String settingsId) async {
-    final marked =
-        await _isar.printerSettingsModels.filter().isDefaultEqualTo(true).findAll();
-    for (final other in marked) {
-      if (other.serverId == settingsId) continue;
-      other.isDefault = false;
-      await _isar.printerSettingsModels.put(other);
-    }
-    final chosen = await _isar.printerSettingsModels
-        .filter()
-        .serverIdEqualTo(settingsId)
-        .findFirst();
-    if (chosen != null && !chosen.isDefault) {
-      chosen.isDefault = true;
-      await _isar.printerSettingsModels.put(chosen);
+    try {
+      await _isar.writeTxn(() async {
+        final all = await _isar.printerSettingsModels.where().findAll();
+        final changed = <PrinterSettingsModel>[];
+        for (final printer in all) {
+          final shouldBe =
+              printer.serverId == settingsId && printer.deletedAt == null;
+          if (printer.isDefault != shouldBe) {
+            printer.isDefault = shouldBe;
+            changed.add(printer);
+          }
+        }
+        if (changed.isNotEmpty) {
+          await _isar.printerSettingsModels.putAll(changed);
+        }
+      });
+    } catch (e, st) {
+      reportPrinterProblem('marcar impresora predeterminada', e, st);
     }
   }
 
@@ -328,9 +406,9 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   Future<Either<Failure, PrinterSettings>> savePrinterSettings(
     PrinterSettings settings,
   ) async {
+    // 1. Lo único que puede hacer fallar el guardado: escribir la fila.
     try {
       await _isar.writeTxn(() async {
-        // Buscar si ya existe
         final existing = await _isar.printerSettingsModels
             .filter()
             .serverIdEqualTo(settings.id)
@@ -338,6 +416,8 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
 
         if (existing != null) {
           existing.updateFromEntity(settings);
+          // Si estaba borrada (restos de versiones anteriores), revive.
+          existing.deletedAt = null;
           existing.markAsUnsynced();
           await _isar.printerSettingsModels.put(existing);
         } else {
@@ -345,57 +425,55 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
           newModel.isSynced = false;
           await _isar.printerSettingsModels.put(newModel);
         }
-        if (settings.isDefault) await _markOnlyDefault(settings.id);
       });
-
-      // Si es default, guardar referencia device-local
-      if (settings.isDefault) {
-        final prefs = await _preferences;
-        await prefs.setString(_defaultPrinterKey, settings.id);
-      }
-
-      return Right(settings);
-    } catch (e) {
-      return Left(CacheFailure('Error guardando impresora en ISAR: ${e.toString()}'));
+    } catch (e, st) {
+      reportPrinterProblem('guardar impresora', e, st);
+      return Left(
+        CacheFailure(
+          'No se pudo guardar la impresora en este equipo: '
+          '${printerProblemDetail(e)}',
+        ),
+      );
     }
+
+    // 2. Predeterminada: aparte y sin poder tumbar lo ya guardado.
+    if (settings.isDefault) {
+      await _markOnlyDefault(settings.id);
+      await _rememberDeviceChoice(settings.id);
+    }
+
+    return Right(settings);
   }
 
   @override
   Future<Either<Failure, void>> deletePrinterSettings(String settingsId) async {
     try {
       await _isar.writeTxn(() async {
-        final printer = await _isar.printerSettingsModels
+        await _isar.printerSettingsModels
             .filter()
             .serverIdEqualTo(settingsId)
-            .findFirst();
-
-        if (printer != null) {
-          await _isar.printerSettingsModels.delete(printer.id);
-        }
+            .deleteAll();
       });
-
-      // Si era default, limpiar referencia
-      final prefs = await _preferences;
-      final defaultId = prefs.getString(_defaultPrinterKey);
-      if (defaultId == settingsId) {
-        await prefs.remove(_defaultPrinterKey);
-      }
-
-      return const Right(null);
-    } catch (e) {
-      return Left(CacheFailure('Error eliminando impresora de ISAR: ${e.toString()}'));
+    } catch (e, st) {
+      reportPrinterProblem('eliminar impresora', e, st);
+      return Left(
+        CacheFailure(
+          'No se pudo eliminar la impresora de este equipo: '
+          '${printerProblemDetail(e)}',
+        ),
+      );
     }
+
+    // Si era la elegida en este equipo, olvidarla (sin poder fallar).
+    if (await _deviceChoice() == settingsId) {
+      await _rememberDeviceChoice(null);
+    }
+    return const Right(null);
   }
 
   @override
   Future<Either<Failure, PrinterSettings>> setDefaultPrinter(String settingsId) async {
     try {
-      // Guardar referencia device-local (NO sincronizado)
-      final prefs = await _preferences;
-      await prefs.setString(_defaultPrinterKey, settingsId);
-      await _isar.writeTxn(() => _markOnlyDefault(settingsId));
-
-      // Buscar la impresora para retornarla
       final printer = await _isar.printerSettingsModels
           .filter()
           .serverIdEqualTo(settingsId)
@@ -406,9 +484,17 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
         return Left(CacheFailure('Impresora no encontrada'));
       }
 
+      await _markOnlyDefault(settingsId);
+      await _rememberDeviceChoice(settingsId);
+
       return Right(printer.toEntity().copyWith(isDefault: true));
-    } catch (e) {
-      return Left(CacheFailure('Error estableciendo impresora por defecto: ${e.toString()}'));
+    } catch (e, st) {
+      reportPrinterProblem('elegir impresora predeterminada', e, st);
+      return Left(
+        CacheFailure(
+          'No se pudo elegir la impresora: ${printerProblemDetail(e)}',
+        ),
+      );
     }
   }
 }

@@ -9,6 +9,7 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/printing/system_printer_discovery.dart';
 import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import '../../data/printer_diagnostics.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
 import '../../domain/entities/printer_settings.dart';
@@ -270,7 +271,13 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       allPrintersResult.fold(
         (failure) {
-          _showError('Error', 'No se pudo cargar la configuración de impresoras');
+          FuturisticNotifications.showError(
+            'No se cargaron las impresoras',
+            _printerFailureText(
+              'No se pudieron leer las impresoras de este equipo.',
+              failure,
+            ),
+          );
         },
         (printers) {
           _printerSettings.value = printers;
@@ -278,25 +285,21 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       );
 
       defaultPrinterResult.fold(
-        (failure) {
-        },
-        (defaultPrinter) {
-          _defaultPrinter.value = defaultPrinter;
-          if (defaultPrinter != null) {
-          }
-        },
+        (failure) {},
+        (defaultPrinter) => _defaultPrinter.value = defaultPrinter,
       );
       _printersLoadedOnce = true;
-    } catch (e) {
+    } catch (e, st) {
+      reportPrinterProblem('cargar impresoras (pantalla)', e, st);
     } finally {
       _isLoadingPrinterSettings.value = false;
     }
   }
 
   Future<void> savePrinterSettings(PrinterSettings settings) async {
+    var saved = false;
     try {
       _isSaving.value = true;
-      var saved = false;
 
       final result = await _savePrinterSettingsUseCase(
         SavePrinterSettingsParams(settings: settings),
@@ -306,9 +309,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
         (failure) {
           FuturisticNotifications.showError(
             'No se guardó la impresora',
-            failure is ServerFailure
-                ? failure.message
-                : 'No se pudo guardar la impresora. Inténtalo de nuevo.',
+            _printerFailureText('No se pudo guardar la impresora.', failure),
           );
         },
         (savedSettings) {
@@ -320,11 +321,28 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
         await refreshPrintersQuietly();
         _showSuccess('Configuración de impresora guardada exitosamente');
       }
-    } catch (e) {
+    } catch (e, st) {
+      reportPrinterProblem('guardar impresora (pantalla)', e, st);
+      if (!saved) {
+        FuturisticNotifications.showError(
+          'No se guardó la impresora',
+          _printerErrorText('No se pudo guardar la impresora.', e),
+        );
+      }
     } finally {
       _isSaving.value = false;
     }
   }
+
+  /// Texto del aviso cuando falla algo de impresoras: lo que pasó y, en una
+  /// línea, el motivo real (para poder diagnosticarlo con una captura).
+  String _printerFailureText(String what, Failure failure) {
+    if (failure is ServerFailure) return failure.message;
+    return '$what\nDetalle técnico: ${printerProblemDetail(failure.message)}';
+  }
+
+  String _printerErrorText(String what, Object error) =>
+      '$what\nDetalle técnico: ${printerProblemDetail(error)}';
 
   /// Impresoras que se están eliminando (evita un segundo "Eliminar").
   final _deleting = <String>{};
@@ -342,9 +360,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       if (failure != null) {
         FuturisticNotifications.showError(
           'No se eliminó la impresora',
-          failure is ServerFailure || failure is CacheFailure
-              ? failure.message
-              : 'No se pudo eliminar la impresora. Inténtalo de nuevo.',
+          _printerFailureText('No se pudo eliminar la impresora.', failure),
         );
         return;
       }
@@ -363,7 +379,8 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
             ? 'Ya no hay impresora para las facturas.'
             : 'Las facturas saldrán por "${_defaultPrinter.value!.name}".',
       );
-    } catch (e) {
+    } catch (e, st) {
+      reportPrinterProblem('eliminar impresora (pantalla)', e, st);
     } finally {
       _deleting.remove(settingsId);
       _isSaving.value = false;
@@ -373,10 +390,14 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   /// Vuelve a leer lista y predeterminada de la base local, sin el
   /// indicador de carga (no hace parpadear la pantalla).
   Future<void> refreshPrintersQuietly() async {
-    final all = await _getAllPrinterSettingsUseCase(NoParams());
-    final chosen = await _getDefaultPrinterSettingsUseCase(NoParams());
-    all.fold((_) {}, (printers) => _printerSettings.value = printers);
-    chosen.fold((_) {}, (printer) => _defaultPrinter.value = printer);
+    try {
+      final all = await _getAllPrinterSettingsUseCase(NoParams());
+      final chosen = await _getDefaultPrinterSettingsUseCase(NoParams());
+      all.fold((_) {}, (printers) => _printerSettings.value = printers);
+      chosen.fold((_) {}, (printer) => _defaultPrinter.value = printer);
+    } catch (e, st) {
+      reportPrinterProblem('recargar impresoras', e, st);
+    }
   }
 
   Future<void> setDefaultPrinter(String settingsId) async {
@@ -389,7 +410,13 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
       result.fold(
         (failure) {
-          _showError('Error', 'No se pudo establecer la impresora por defecto');
+          FuturisticNotifications.showError(
+            'No se cambió la impresora',
+            _printerFailureText(
+              'No se pudo establecer la impresora por defecto.',
+              failure,
+            ),
+          );
         },
         (defaultPrinter) {
           // Actualizar todas las impresoras en la lista
@@ -403,7 +430,8 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
           _showSuccess('Impresora por defecto establecida exitosamente');
         },
       );
-    } catch (e) {
+    } catch (e, st) {
+      reportPrinterProblem('elegir impresora predeterminada (pantalla)', e, st);
     } finally {
       _isSaving.value = false;
     }

@@ -37,6 +37,10 @@ on:
         description: 'Medir el lector de código de barras en Windows real (teclas del sistema sobre la factura)'
         type: boolean
         default: false
+      probar_impresoras:
+        description: 'Probar en Windows real agregar, reiniciar, facturar y eliminar impresoras (impresora de mentira)'
+        type: boolean
+        default: false
       lector_etiqueta:
         description: 'Lector: etiqueta para el log (p. ej. "antes c05b2dd" o "después")'
         required: false
@@ -249,6 +253,107 @@ jobs:
           Get-Printer | Format-Table Name, DriverName, PortName, PrinterStatus, JobCount
           Get-PrintJob -PrinterName $env:BAUDEX_PRUEBA_IMPRESORA -ErrorAction SilentlyContinue | Format-Table Id, JobStatus, Size, DocumentName
           Get-ChildItem C:\tickets -ErrorAction SilentlyContinue | Format-Table Name, Length, LastWriteTime
+
+  # Recorre en un Windows real lo que hace un cajero con las impresoras:
+  # compila en release tool/probes/impresoras_windows_probe.dart y la corre
+  # con una base temporal, un servidor de mentira y la impresora de mentira
+  # BaudexPrueba (lo que recibe queda en C:\tickets\salida.prn). Antes de
+  # empezar daña a propósito shared_preferences.json de ESE equipo de
+  # pruebas, para comprobar que agregar/eliminar no dependen de él.
+  # En el log: líneas "PRUEBA IMPRESORAS | paso | OK/FALLA".
+  probar-impresoras:
+    if: ${{ inputs.probar_impresoras }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+      BAUDEX_PRUEBA_IMPRESORA: BaudexPrueba
+      BAUDEX_PRUEBA_SALIDA: C:\tickets\salida.prn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+
+      - name: Instalar la impresora de mentira (puerto a archivo)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force C:\tickets | Out-Null
+          icacls C:\tickets /grant 'Everyone:(OI)(CI)F' | Out-Null
+          Set-Service -Name Spooler -StartupType Automatic
+          if ((Get-Service Spooler).Status -ne 'Running') { Start-Service Spooler }
+          Add-PrinterDriver -Name 'Generic / Text Only'
+          Add-PrinterPort -Name 'C:\tickets\salida.prn'
+          Add-Printer -Name $env:BAUDEX_PRUEBA_IMPRESORA -DriverName 'Generic / Text Only' -PortName 'C:\tickets\salida.prn'
+          Get-Printer | Format-Table Name, DriverName, PortName, PrinterStatus
+
+      - name: Crear .env de relleno (igual que compilar-windows.bat)
+        shell: pwsh
+        run: |
+          $c = @(
+            'SERVER_IP=baudex.baudity.tech',
+            'SERVER_PORT=443',
+            'APP_ENV=production',
+            'API_TIMEOUT=30000',
+            'DEBUG_MODE=false',
+            'SHOW_LOGS=false'
+          ) -join "`n"
+          foreach ($f in '.env', '.env.production', '.env.development', '.env.staging') {
+            Set-Content -Path $f -Value $c -NoNewline -Encoding utf8NoBOM
+          }
+
+      - run: flutter pub get
+
+      - name: Pruebas de impresoras (reglas, base con restos, pantalla)
+        run: flutter test test/unit/features/settings test/widget/settings test/probes/impresoras_probe_test.dart
+
+      - name: Compilar la app de prueba (release)
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          flutter build windows --release -t tool/probes/impresoras_windows_probe.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Probar impresoras en Windows real
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $exe = 'build\windows\x64\runner\Release\Baudex.exe'
+          New-Item -ItemType Directory -Force C:\impresoras | Out-Null
+          $salida = 'C:\impresoras\impresoras.txt'
+          $env:BAUDEX_PROBE_OUT = $salida
+          $env:BAUDEX_PROBE_CORRUPT_PREFS = '1'
+          $env:BAUDEX_PROBE_LABEL = "$env:GITHUB_SHA".Substring(0, 7)
+          $p = Start-Process -FilePath $exe -PassThru
+          $termino = $p.WaitForExit(10 * 60 * 1000)
+          if (-not $termino) { $p.Kill() }
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'PRUEBA IMPRESORAS | sin archivo de salida' }
+          Write-Host "Código de salida: $($p.ExitCode)"
+          if (-not $termino) {
+            Write-Host '::error::La app de prueba de impresoras no terminó'
+            exit 1
+          }
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::Impresoras no cumple (ver líneas 'PRUEBA IMPRESORAS | ... | FALLA')"
+            exit 1
+          }
+
+      - name: Estado de la cola (para diagnosticar)
+        if: ${{ always() }}
+        shell: powershell
+        run: |
+          Get-Printer | Format-Table Name, DriverName, PortName, PrinterStatus, JobCount
+          Get-ChildItem C:\tickets -ErrorAction SilentlyContinue | Format-Table Name, Length, LastWriteTime
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: prueba-impresoras
+          path: C:\impresoras\*.txt
+          if-no-files-found: warn
 
   # Comprueba en un Windows limpio que clonar + doble clic en
   # compilar-windows.bat produce el instalador.

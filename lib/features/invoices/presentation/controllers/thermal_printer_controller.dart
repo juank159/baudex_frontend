@@ -34,6 +34,7 @@ import '../../../settings/domain/entities/organization.dart';
 import '../../../settings/domain/entities/printer_settings.dart' as settings;
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../../settings/data/datasources/settings_local_datasource.dart';
+import '../../../settings/data/printer_diagnostics.dart';
 import '../../../settings/domain/rules/printer_rules.dart';
 
 // ==================== CONFIGURACIÓN ESPECÍFICA SAT Q22UE ====================
@@ -317,7 +318,8 @@ class ThermalPrinterController extends GetxController {
       result.fold((_) {}, (printer) {
         if (printer != null) _currentPrinterConfig.value = printer;
       });
-    } catch (e) {
+    } catch (e, st) {
+      reportPrinterProblem('cargar impresora para imprimir', e, st);
     }
   }
 
