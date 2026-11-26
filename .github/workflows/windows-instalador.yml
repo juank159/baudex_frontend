@@ -291,26 +291,27 @@ jobs:
             @{ nombre = '14 VACÍAS: cierre a la fuerza a los 9 s';           prefs = 'vacias';  cerrar = '0'; matar = 9 },
             @{ nombre = '15 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' },
             # --- Pasos que se VERIFICAN (el job falla si no se cumplen) ---
-            # almacen: llave = la app borra, antes de arrancar, la credencial
-            # que guarda la llave del almacén seguro; archivos = borra los
-            # .secure. En ambos casos comprueba que el almacén devuelve null.
+            # almacen: antes de arrancar, la app de medición deja el archivo
+            # del almacén seguro (flutter_secure_storage.dat) en ceros
+            # (apagón), cortado (cierre a mitad de escritura) o borrado. El
+            # complemento borra ese archivo cuando no lo puede descifrar.
             # espera: lo que debe pasar con la copia protegida de la sesión.
             # esperaSin: lo que debe pasar en una versión SIN esa copia (si
             # ahí no pide iniciar sesión, el paso no simula el problema).
-            @{ nombre = '16 LLAVE DEL ALMACÉN PERDIDA (como al encender): reabrir'; prefs = 'sanas'; cerrar = '0'; almacen = 'llave'; espera = 'directo-copia'; esperaSin = 'login' },
-            @{ nombre = '17 tras llave perdida: reabrir';                    prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
-            @{ nombre = '17a ARCHIVOS .secure BORRADOS: reabrir';            prefs = 'sanas';   cerrar = '0'; almacen = 'archivos'; espera = 'directo-copia'; esperaSin = 'login' },
-            @{ nombre = '17b tras archivos borrados: reabrir';               prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
-            @{ nombre = '18 LLAVE PERDIDA y preferencias DAÑADAS: reabrir';  prefs = 'danadas'; cerrar = '0'; almacen = 'llave'; espera = 'directo-copia'; esperaSin = 'login' },
-            @{ nombre = '19 tras llave perdida y dañadas: reabrir';          prefs = 'sanas';   cerrar = '1'; espera = 'directo'; esperaSin = 'directo' },
+            @{ nombre = '16 ALMACÉN SEGURO EN CEROS (apagón): reabrir';      prefs = 'sanas';   cerrar = '0'; almacen = 'dat-ceros'; espera = 'directo-copia'; esperaSin = 'login' },
+            @{ nombre = '17 tras almacén en ceros: reabrir';                 prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
+            @{ nombre = '17a ALMACÉN SEGURO BORRADO: reabrir';               prefs = 'sanas';   cerrar = '0'; almacen = 'dat-borrado'; espera = 'directo-copia'; esperaSin = 'login' },
+            @{ nombre = '17b tras almacén borrado: reabrir';                 prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
+            @{ nombre = '18 ALMACÉN CORTADO y preferencias DAÑADAS: reabrir'; prefs = 'danadas'; cerrar = '0'; almacen = 'dat-cortado'; espera = 'directo-copia'; esperaSin = 'login' },
+            @{ nombre = '19 tras almacén cortado y dañadas: reabrir';        prefs = 'sanas';   cerrar = '1'; espera = 'directo'; esperaSin = 'directo' },
             # Una sesión CERRADA no puede revivir de la copia protegida.
-            @{ nombre = '20 SESIÓN CERRADA y LLAVE PERDIDA: debe PEDIR login'; prefs = 'sanas'; cerrar = '1'; almacen = 'llave'; espera = 'login'; esperaSin = 'login' },
-            @{ nombre = '21 SESIÓN CERRADA, LLAVE PERDIDA y preferencias DAÑADAS: debe PEDIR login'; prefs = 'danadas'; cerrar = '1'; almacen = 'llave'; espera = 'login'; esperaSin = 'login' },
-            # Dos negocios en el mismo equipo: tras entrar con B, perder la
-            # llave no puede traer nada de A.
+            @{ nombre = '20 SESIÓN CERRADA y ALMACÉN EN CEROS: debe PEDIR login'; prefs = 'sanas'; cerrar = '1'; almacen = 'dat-ceros'; espera = 'login'; esperaSin = 'login' },
+            @{ nombre = '21 SESIÓN CERRADA, ALMACÉN CORTADO y preferencias DAÑADAS: debe PEDIR login'; prefs = 'danadas'; cerrar = '1'; almacen = 'dat-cortado'; espera = 'login'; esperaSin = 'login' },
+            # Dos negocios en el mismo equipo: tras entrar con B, perder el
+            # almacén no puede traer nada de A.
             @{ nombre = '22 negocio B: iniciar sesión';                      prefs = 'sanas';   cerrar = '0'; negocio = 'b'; espera = 'login'; esperaSin = 'login' },
             @{ nombre = '23 negocio B: reabrir';                             prefs = 'sanas';   cerrar = '0'; negocio = 'b'; espera = 'directo'; esperaSin = 'directo' },
-            @{ nombre = '24 negocio B y LLAVE PERDIDA: debe entrar directo como B'; prefs = 'sanas'; cerrar = '0'; negocio = 'b'; almacen = 'llave'; espera = 'directo-copia'; esperaSin = 'login' }
+            @{ nombre = '24 negocio B y ALMACÉN EN CEROS: debe entrar directo como B'; prefs = 'sanas'; cerrar = '0'; negocio = 'b'; almacen = 'dat-ceros'; espera = 'directo-copia'; esperaSin = 'login' }
           )
           $conCopia = ($env:ARRANQUE_VERSION -ne 'anterior') -or ($env:ARRANQUE_CON_COPIA -eq 'si')
           $fallas = 0
@@ -348,7 +349,7 @@ jobs:
           Write-Host '===== SOLO TECLEO ====='
           if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String 'MEDICION TECLEO' | ForEach-Object { $_.Line } }
           Write-Host '===== PASOS VERIFICADOS ====='
-          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String -Pattern 'PASO VERIFICADO|almacén seguro devolvió|llave del almacén|archivos .secure' | ForEach-Object { $_.Line } }
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String -Pattern 'PASO VERIFICADO|almacén seguro|modo de sesión' | ForEach-Object { $_.Line } }
           if ($colgadas -gt 0 -or $fallas -gt 0) {
             Write-Host "::error::Arranque: $colgadas paso(s) colgado(s), $fallas paso(s) verificado(s) que no cumplen"
             exit 1

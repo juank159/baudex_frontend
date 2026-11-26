@@ -9,14 +9,30 @@ class MemoryStore implements SecureKeyValueStore {
   String? failWriteOn;
   String? corruptReadOn;
 
+  /// El archivo del almacén está dañado: la primera operación falla (el
+  /// complemento lo borra) y las siguientes ya funcionan, vacías.
+  bool corruptFile = false;
+  int writes = 0;
+
+  void _corruptCheck() {
+    if (!corruptFile) return;
+    corruptFile = false;
+    data.clear();
+    throw Exception('Failure on CryptUnprotectData()');
+  }
+
   @override
   Future<String?> read(String key) async {
+    _corruptCheck();
+    if (failProbe && key.contains('probe')) throw Exception('DPAPI no disponible');
     if (key == corruptReadOn) return 'otra cosa';
     return data[key];
   }
 
   @override
   Future<void> write(String key, String value) async {
+    _corruptCheck();
+    writes++;
     if (failProbe && key.contains('probe')) throw Exception('DPAPI no disponible');
     if (key == failWriteOn) throw Exception('disco lleno');
     data[key] = value;
@@ -244,5 +260,35 @@ void main() {
     final q = SerialQueue();
     await expectLater(q.run(() async => throw Exception('x')), throwsException);
     expect(await q.run(() async => 42), 42);
+  });
+
+  test('con el traslado confirmado la prueba del almacén no escribe nada '
+      '(no se reescribe el archivo de la sesión en cada arranque)', () async {
+    SharedPreferences.setMockInitialValues({
+      PrefsToSecureStoreMigration.doneFlag: true,
+    });
+    store.data['auth_token'] = 'jwt';
+    store.writes = 0;
+
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.alreadyMigrated);
+    expect(store.writes, 0);
+    expect(store.data, {'auth_token': 'jwt'});
+  });
+
+  test('archivo del almacén dañado: falla una vez, el complemento lo borra y '
+      'el segundo intento ya funciona (se sigue con el almacén, y se reporta)', () async {
+    SharedPreferences.setMockInitialValues({
+      PrefsToSecureStoreMigration.doneFlag: true,
+    });
+    store.data['auth_token'] = 'jwt';
+    store.corruptFile = true;
+
+    final outcome = await (await migration()).run();
+
+    expect(outcome, SecureMigrationOutcome.alreadyMigrated);
+    expect(store.data, isEmpty, reason: 'lo guardado se perdió con el archivo');
+    expect(problems.single['step'], 'probe-recovered');
   });
 }

@@ -101,16 +101,37 @@ class PrefsToSecureStoreMigration {
   Future<SecureMigrationOutcome> run() async {
     String step = 'probe';
     final wasDone = prefs.getBool(doneFlag) == true;
-    try {
+    // En Windows el almacén seguro es UN archivo (`flutter_secure_storage
+    // .dat`) que el complemento reescribe entero en cada cambio y BORRA si
+    // no lo puede descifrar. Por eso:
+    //  - con el traslado ya confirmado la prueba es solo de lectura (no se
+    //    reescribe el archivo de la sesión en cada arranque);
+    //  - si falla se reintenta una vez: cuando el archivo estaba dañado el
+    //    complemento lo borra al primer intento y el segundo ya funciona.
+    Future<void> probeOnce() async {
+      if (wasDone) {
+        await store.read(_probeKey);
+        return;
+      }
       final probe = DateTime.now().microsecondsSinceEpoch.toString();
       await store.write(_probeKey, probe);
       final back = await store.read(_probeKey);
       await store.delete(_probeKey);
       if (back != probe) throw StateError('el almacén seguro no devolvió lo escrito');
-    } catch (e, st) {
-      _report(e, st, {'step': step, 'confirmed_before': wasDone});
-      await markPending(prefs);
-      return SecureMigrationOutcome.storeUnavailable;
+    }
+
+    try {
+      await probeOnce();
+    } catch (first, firstStack) {
+      try {
+        await probeOnce();
+        // Se recuperó solo: queda anotado que el archivo estaba dañado.
+        _report(first, firstStack, {'step': 'probe-recovered', 'confirmed_before': wasDone});
+      } catch (e, st) {
+        _report(e, st, {'step': step, 'confirmed_before': wasDone});
+        await markPending(prefs);
+        return SecureMigrationOutcome.storeUnavailable;
+      }
     }
 
     final keys = prefs.getKeys().where((k) => k.startsWith(keyPrefix)).toList();

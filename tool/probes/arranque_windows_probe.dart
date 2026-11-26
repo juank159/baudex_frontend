@@ -22,10 +22,10 @@
 //   BAUDEX_PROBE_PREFS  sanas (no tocar) | vacias (borra el archivo) |
 //                       danadas (lo deja cortado, como tras un apagón).
 //   BAUDEX_PROBE_T0_MS  hora (ms desde 1970) en que se lanzó el proceso.
-//   BAUDEX_PROBE_ALMACEN  llave | archivos: antes de arrancar borra la
-//                       credencial que guarda la llave del almacén seguro, o
-//                       los archivos .secure, y comprueba leyendo el almacén
-//                       directamente que ya devuelve null (ver
+//   BAUDEX_PROBE_ALMACEN  dat-ceros | dat-cortado | dat-borrado: antes de
+//                       arrancar deja así el archivo del almacén seguro
+//                       (flutter_secure_storage.dat), como tras un apagón
+//                       o un cierre a mitad de escritura (ver
 //                       almacen_seguro_windows.dart).
 //   BAUDEX_PROBE_ESPERA  directo-copia | login | directo: lo que debe pasar
 //                       en este arranque. Si no se cumple (o el almacén no
@@ -424,49 +424,41 @@ Future<void> main() async {
         _FileSecureStore.open(File('${dir.path}${sep}almacen_seguro.json'));
   }
   // ---------- Almacén seguro en el estado pedido ----------
-  // BAUDEX_PROBE_ALMACEN: llave (borra la credencial que guarda la llave
-  // del almacén) | archivos (borra los .secure). Va ANTES de que la app
-  // toque el almacén, y se comprueba leyendo el almacén directamente.
+  // BAUDEX_PROBE_ALMACEN: dat-ceros | dat-cortado | dat-borrado. Va ANTES
+  // de que la app toque el almacén (ver almacen_seguro_windows.dart).
   final storeState = env['BAUDEX_PROBE_ALMACEN'] ?? '';
   final expectation = env['BAUDEX_PROBE_ESPERA'] ?? '';
   final stepProblems = <String>[];
-  String? directRead = 'sin leer';
-  if (storeState.isNotEmpty) {
-    if (sandbox) {
-      stepProblems.add('el paso necesita los complementos reales de Windows');
-    } else {
-      const direct = FlutterSecureStorage();
-      String? before;
-      try {
-        before = await direct.read(key: ApiConstants.tokenKey);
-      } catch (e) {
-        log('almacén seguro antes de tocarlo: error $e');
-      }
-      if (storeState == 'llave') {
-        final existed = secureStorageKeyExists();
-        final gone = deleteSecureStorageKey();
-        log('llave del almacén (${secureStorageKeyCredential()}): '
-            'existía: ${existed ? 'sí' : 'NO'}; borrada: ${gone ? 'sí' : 'NO'}');
-        if (!existed) stepProblems.add('no había llave que borrar');
-        if (existed && !gone) stepProblems.add('la llave no se pudo borrar');
-      } else if (storeState == 'archivos') {
-        final support = await getApplicationSupportDirectory();
-        final deleted = deleteSecureFiles(support);
-        log('archivos .secure borrados de ${support.path}: $deleted');
-        if (deleted == 0) stepProblems.add('no había archivos .secure que borrar');
-      }
-      try {
-        directRead = await direct.read(key: ApiConstants.tokenKey);
-      } catch (e) {
-        directRead = null;
-        log('almacén seguro tras tocarlo: error $e');
-      }
-      log('almacén seguro devolvió: ${directRead == null ? 'null' : 'valor'} '
-          '(antes de tocarlo: ${before == null ? 'null' : 'valor'})');
-      if (directRead != null) {
-        stepProblems.add('el almacén seguro siguió devolviendo el token: el paso no simula nada');
+  if (!sandbox) {
+    final support = await getApplicationSupportDirectory();
+    log(describeSessionOnDisk(support, prefsFile));
+    if (storeState.isNotEmpty) {
+      final done = sabotageSecureStorage(support, storeState);
+      log('almacén seguro ($secureStorageFileName): '
+          '${done == null ? 'NO había archivo que tocar' : 'dejado $done'}');
+      if (done == null) {
+        stepProblems.add('no había archivo del almacén seguro: el paso no simula nada');
+      } else if (storeState == 'dat-borrado') {
+        // Aquí sí se puede leer sin alterar lo que verá la app.
+        String? value;
+        try {
+          value = await const FlutterSecureStorage().read(key: ApiConstants.tokenKey);
+        } catch (e) {
+          log('almacén seguro al leer: error $e');
+        }
+        log('almacén seguro devolvió: ${value == null ? 'null' : 'valor'}');
+        if (value != null) {
+          stepProblems.add('el almacén seguro siguió devolviendo el token: el paso no simula nada');
+        }
+      } else {
+        // Dañado: no se lee aquí (el complemento lo borraría antes de que
+        // la app lo vea). Que no se puede leer lo prueba el veredicto: el
+        // token debe venir de la copia protegida, o pedirse inicio de sesión.
+        log('almacén seguro devolvió: (no se lee antes; la app lo encuentra dañado)');
       }
     }
+  } else if (storeState.isNotEmpty) {
+    stepProblems.add('el paso necesita los complementos reales de Windows');
   }
 
   // Después de tocar el almacén: de aquí en adelante se cuenta cada lectura.
@@ -628,6 +620,13 @@ Future<void> main() async {
         '${mezclada ? ' | MEZCLADA CON OTRO NEGOCIO' : ''}');
   } catch (e) {
     log('sesión guardada | no se pudo leer: $e');
+  }
+  if (!sandbox) {
+    try {
+      final support = await getApplicationSupportDirectory();
+      log('tras arrancar | ${describeSessionOnDisk(support, prefsFile)} | '
+          'la app dice: ${SessionStartupTrace.storageMode}');
+    } catch (_) {}
   }
   if (expectation.isNotEmpty) {
     // directo-copia: entra directo y el token vino de la copia protegida.

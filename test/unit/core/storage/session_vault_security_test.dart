@@ -14,8 +14,6 @@ import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart'
-    show InMemorySharedPreferencesAsync;
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
@@ -312,12 +310,13 @@ void main() {
 
       await startPrefs();
 
+      // Solo los nombres: en Windows las rutas mezclan / y \.
       final left = file.parent
           .listSync()
-          .map((f) => f.path)
-          .where((p) => p.contains('.danado-'))
+          .map((f) => f.uri.pathSegments.last)
+          .where((name) => name.contains('.danado-'))
           .toList();
-      expect(left, [damaged(3000)]);
+      expect(left, ['shared_preferences.json.danado-3000']);
       final text = File(damaged(3000)).readAsStringSync();
       expect(text, contains('sync_wm_v1'));
       expect(text, isNot(contains('secure_')));

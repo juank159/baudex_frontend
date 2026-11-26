@@ -1,77 +1,67 @@
 // tool/probes/almacen_seguro_windows.dart
 //
 // Para las pruebas en Windows real: provocar DE VERDAD que el almacén
-// seguro (`flutter_secure_storage_windows` 3.1.2) no devuelva lo guardado.
+// seguro no devuelva la sesión, como puede pasar al apagar el equipo.
 //
-// Cómo guarda ese complemento (leído de su .cpp y su CMakeLists):
-//  - Cada valor va a un archivo `<prefijo><clave>.secure` en
-//    %APPDATA%\<empresa>\<producto> (los del recurso de versión del .exe),
-//    cifrado con AES-GCM.
-//  - La llave AES vive en el Administrador de credenciales como credencial
-//    genérica `key_<prefijo>`, con <prefijo> = `<NOMBRE DEL EJECUTABLE>_
-//    VGhpcyBpcyB0aGUgcHJlZml4IGZv_`.
-//  - Al leer: si la credencial no existe crea una llave NUEVA; el archivo
-//    viejo ya no se puede descifrar y devuelve null, sin error. Si el
-//    archivo no existe también devuelve null.
-import 'dart:ffi';
+// Cómo guarda `flutter_secure_storage_windows` 3.1.2 (la parte que de
+// verdad se usa es la de Dart, `lib/src/flutter_secure_storage_windows_
+// ffi.dart`; el .cpp es solo compatibilidad con versiones viejas):
+//  - TODO va en un solo archivo, `flutter_secure_storage.dat`, en
+//    %APPDATA%\<empresa>\<producto> (la misma carpeta de las
+//    preferencias): un JSON cifrado con DPAPI.
+//  - Cada cambio reescribe el archivo entero, encima del anterior.
+//  - Al leer, si no lo puede descifrar o no es JSON, BORRA el archivo y
+//    lanza error: la sesión se pierde sin aviso.
 import 'dart:io';
 
-import 'package:ffi/ffi.dart';
-import 'package:win32/win32.dart';
+const String secureStorageFileName = 'flutter_secure_storage.dat';
 
-const _suffix = '_VGhpcyBpcyB0aGUgcHJlZml4IGZv_';
-const _credTypeGeneric = 1;
+File secureStorageFile(Directory supportDirectory) => File(
+  '${supportDirectory.path}${Platform.pathSeparator}$secureStorageFileName',
+);
 
-/// Prefijo que el complemento antepone a todo (depende del nombre del .exe).
-String secureStoragePrefix() {
-  final exe = Platform.resolvedExecutable.split(Platform.pathSeparator).last;
-  final name = exe.toLowerCase().endsWith('.exe')
-      ? exe.substring(0, exe.length - 4)
-      : exe;
-  return '$name$_suffix';
-}
-
-/// Nombre exacto de la credencial que guarda la llave.
-String secureStorageKeyCredential() => 'key_${secureStoragePrefix()}';
-
-/// ¿Existe la credencial de la llave?
-bool secureStorageKeyExists() {
-  if (!Platform.isWindows) return false;
-  final target = secureStorageKeyCredential().toNativeUtf16();
-  final out = calloc<Pointer<CREDENTIAL>>();
-  try {
-    final ok = CredRead(target, _credTypeGeneric, 0, out) != 0;
-    if (ok) CredFree(out.value);
-    return ok;
-  } finally {
-    calloc.free(target);
-    calloc.free(out);
+/// Deja el archivo del almacén seguro en el estado pedido y dice qué hizo.
+/// [state]: dat-ceros (mismo tamaño, lleno de ceros: apagón), dat-cortado
+/// (a la mitad: cierre a mitad de escritura), dat-borrado.
+/// Devuelve null si no había archivo que tocar.
+String? sabotageSecureStorage(Directory supportDirectory, String state) {
+  final file = secureStorageFile(supportDirectory);
+  if (!file.existsSync()) return null;
+  final size = file.lengthSync();
+  if (size == 0) return null;
+  switch (state) {
+    case 'dat-ceros':
+      file.writeAsBytesSync(List<int>.filled(size, 0), flush: true);
+      return 'en ceros ($size bytes)';
+    case 'dat-cortado':
+      final bytes = file.readAsBytesSync();
+      file.writeAsBytesSync(bytes.sublist(0, size ~/ 2), flush: true);
+      return 'cortado a ${size ~/ 2} de $size bytes';
+    case 'dat-borrado':
+      file.deleteSync();
+      return 'borrado ($size bytes)';
   }
+  return null;
 }
 
-/// Borra la credencial de la llave. Devuelve true si existía y ya no está.
-bool deleteSecureStorageKey() {
-  if (!Platform.isWindows || !secureStorageKeyExists()) return false;
-  final target = secureStorageKeyCredential().toNativeUtf16();
+/// Lo que hay en disco de la sesión, para saber en qué modo está el equipo.
+String describeSessionOnDisk(Directory supportDirectory, File prefsFile) {
+  final dat = secureStorageFile(supportDirectory);
+  final datText = dat.existsSync() ? '${dat.lengthSync()} bytes' : 'no existe';
+  var backups = 0;
+  var hasCopy = false;
   try {
-    CredDelete(target, _credTypeGeneric, 0);
-  } finally {
-    calloc.free(target);
-  }
-  return !secureStorageKeyExists();
-}
-
-/// Borra los archivos `.secure` de [directory]. Devuelve cuántos borró.
-int deleteSecureFiles(Directory directory) {
-  var deleted = 0;
-  if (!directory.existsSync()) return 0;
-  for (final f in directory.listSync().whereType<File>()) {
-    if (f.path.toLowerCase().endsWith('.secure')) {
-      try {
-        f.deleteSync();
-        deleted++;
-      } catch (_) {}
+    if (prefsFile.existsSync()) {
+      final text = prefsFile.readAsStringSync();
+      backups = RegExp(r'"flutter\.secure_').allMatches(text).length;
+      hasCopy = text.contains('"flutter.vault_session_v2"');
     }
-  }
-  return deleted;
+  } catch (_) {}
+  final mode = backups > 0 && !dat.existsSync()
+      ? 'preferencias'
+      : dat.existsSync()
+      ? 'almacén seguro'
+      : 'ninguno (sin sesión guardada)';
+  return 'modo de sesión: $mode | $secureStorageFileName: $datText; '
+      'respaldo secure_* en preferencias: $backups; copia protegida: ${hasCopy ? 'sí' : 'no'}';
 }

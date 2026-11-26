@@ -116,8 +116,17 @@ class _QueuedSecureStorage implements SecureKeyValueStore {
   Future<String?> read(String key) => _run(() => _inner.read(key: key));
 
   @override
-  Future<void> write(String key, String value) =>
-      _run(() => _inner.write(key: key, value: value));
+  Future<void> write(String key, String value) => _run(() async {
+    if (_serialize) {
+      // En Windows cada escritura reescribe el archivo entero de la sesión:
+      // si el valor ya es ese, no se toca (menos ocasiones de que un corte
+      // lo deje a medias).
+      try {
+        if (await _inner.read(key: key) == value) return;
+      } catch (_) {}
+    }
+    await _inner.write(key: key, value: value);
+  });
 
   @override
   Future<void> delete(String key) => _run(() => _inner.delete(key: key));

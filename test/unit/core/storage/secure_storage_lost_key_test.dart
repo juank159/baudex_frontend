@@ -31,6 +31,17 @@ class FakeProtector implements ValueProtector {
       : utf8.decode(base64Decode(stored.substring(5)));
 }
 
+/// Sin copia protegida, como las versiones anteriores. (No basta con dejar
+/// `debugProtector` en null: en Windows real la app usaría DPAPI de
+/// verdad y la prueba dejaría de simular la versión vieja.)
+class NoProtector implements ValueProtector {
+  const NoProtector();
+  @override
+  String? protect(String plain) => null;
+  @override
+  String? unprotect(String stored) => null;
+}
+
 /// Almacén seguro al que se le puede "perder la llave" (todo lee null,
 /// como hace el complemento) o dejar sin responder.
 class FragileStore extends TestFlutterSecureStoragePlatform {
@@ -95,15 +106,14 @@ void main() {
 
   test('sin copia protegida (como en 1.0.11): perder la llave del almacén '
       'deja la app sin sesión', () async {
-    SecureStorageService.debugProtector = null;
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    SecureStorageService.debugProtector = const NoProtector();
     var service = restart();
     await login(service);
     expect(await service.getToken(), 'jwt.de.hoy'); // cerrar y abrir: sigue
 
     store.loseKey(); // apagar y encender
     service = restart();
-    // En pruebas no hay DPAPI: es exactamente el comportamiento anterior.
+    // Sin copia: es exactamente el comportamiento anterior.
     expect(await service.getToken(), isNull);
   });
 
@@ -143,7 +153,7 @@ void main() {
 
   test('sesión abierta en una versión anterior: se copia al leerla y ya '
       'aguanta perder la llave', () async {
-    SecureStorageService.debugProtector = null;
+    SecureStorageService.debugProtector = const NoProtector();
     var service = restart();
     await login(service);
 
@@ -230,5 +240,24 @@ void main() {
     expect(lines.first, startsWith('Sesión: entró directo (token leído de: almacén seguro)'));
     expect(lines.last, startsWith('Preferencias:'));
     SessionStartupTrace.debugReset();
+  });
+
+  test('modo preferencias y el respaldo `secure_*` ya no se puede descifrar '
+      '(cambió el nombre del equipo o la versión de Windows): se usa la copia', () async {
+    var service = restart();
+    await login(service);
+    // El almacén no responde → la app sigue con preferencias.
+    store.unavailable = true;
+    service = restart();
+    await service.saveToken('jwt.en.preferencias');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('secure_auth_token'), startsWith('enc:v1:'));
+
+    // Como si la clave del cifrado casero ya fuera otra.
+    await prefs.setString('secure_auth_token', 'enc:v1:${base64Encode(List<int>.filled(48, 7))}');
+    service = restart();
+
+    expect(await service.getToken(), 'jwt.en.preferencias');
+    expect(SessionStartupTrace.tokenSource, 'copia protegida');
   });
 }
