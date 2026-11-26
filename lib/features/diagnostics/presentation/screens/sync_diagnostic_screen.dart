@@ -32,9 +32,12 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
             child: Obx(() {
               if (controller.isLoading.value &&
                   controller.entityCounts.isEmpty) {
+                // Capa propia: el giro repinta solo el indicador.
                 return const Center(
-                  child: CircularProgressIndicator(
-                    color: ElegantLightTheme.primaryBlue,
+                  child: RepaintBoundary(
+                    child: CircularProgressIndicator(
+                      color: ElegantLightTheme.primaryBlue,
+                    ),
                   ),
                 );
               }
@@ -227,9 +230,12 @@ class _HealthScoreSection extends GetView<SyncDiagnosticController> {
                         ),
                       ),
                     ] else
-                      CircularProgressIndicator(
-                        strokeWidth: 6,
-                        color: Colors.grey[300],
+                      // Capa propia: el giro no repinta toda la pantalla.
+                      RepaintBoundary(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 6,
+                          color: Colors.grey[300],
+                        ),
                       ),
                     Column(
                       mainAxisSize: MainAxisSize.min,
@@ -786,12 +792,14 @@ class _DiagnosticHeader extends GetView<SyncDiagnosticController> {
             ),
           ),
           Obx(() => controller.isLoading.value
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ? const RepaintBoundary(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
                   ),
                 )
               : IconButton(

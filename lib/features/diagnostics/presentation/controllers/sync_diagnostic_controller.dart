@@ -179,7 +179,13 @@ class SyncDiagnosticController extends GetxController {
   final RxList<ModuleDownloadStatus> downloadStatuses = <ModuleDownloadStatus>[].obs;
   /// Registros de cada módulo que ya hay en el equipo.
   final RxMap<String, int> localCountsByEntity = <String, int>{}.obs;
-  Timer? _downloadStatusTimer;
+  Worker? _syncWorker;
+  DateTime? _lastHealthAt;
+
+  /// Cada cuánto, como mucho, se rehace el análisis de salud al terminar
+  /// una sincronización (no lee nada: usa lo ya cargado).
+  @visibleForTesting
+  static Duration healthRefreshEvery = const Duration(seconds: 30);
 
   // ==================== LIFECYCLE ====================
 
@@ -194,13 +200,12 @@ class SyncDiagnosticController extends GetxController {
     super.onInit();
     unawaited(AppVersion.load());
     if (background) return;
+    // Se carga UNA vez al entrar; después, con el botón "Refrescar".
+    // Antes el estado de la descarga se releía solo cada 5 s (12 lecturas
+    // del almacén de sesión + 12 conteos de la base por vuelta): con la
+    // descarga de fondo corriendo, la app se sentía lenta con solo tener
+    // esta pantalla abierta.
     refreshAll();
-    // Mientras la pantalla está abierta, el estado de la descarga se
-    // actualiza solo (cada 5 s) para ver cómo avanza.
-    _downloadStatusTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => refreshDownloadStatus(),
-    );
     // Si al abrir diagnósticos hay un sync en progreso (arrancado en background
     // por el timer periódico o por reconexión), esperamos a que termine y
     // re-analizamos la salud para que el score refleje el estado real.
@@ -213,10 +218,16 @@ class SyncDiagnosticController extends GetxController {
     if (!Get.isRegistered<FullSyncService>()) return;
     final svc = Get.find<FullSyncService>();
     // Escuchar el flag isSyncing: cuando pase de true → false, re-analizar.
-    ever(svc.isSyncing, (bool syncing) {
+    _syncWorker = ever(svc.isSyncing, (bool syncing) {
       if (!syncing && !isLoading.value) {
         // Sync terminó — actualizar timestamp y re-analizar health score sin
-        // recargar todos los datos (solo el análisis es suficiente).
+        // recargar todos los datos (solo el análisis es suficiente). Con la
+        // descarga de fondo una sincronización termina cada pocos
+        // segundos: como mucho una vez cada [healthRefreshEvery].
+        final now = DateTime.now();
+        final last = _lastHealthAt;
+        if (last != null && now.difference(last) < healthRefreshEvery) return;
+        _lastHealthAt = now;
         lastFullSyncAt.value = svc.lastFullSyncAt;
         _analyzeHealth();
       }
@@ -570,7 +581,8 @@ class SyncDiagnosticController extends GetxController {
 
   @override
   void onClose() {
-    _downloadStatusTimer?.cancel();
+    // Sin esto, cada visita dejaba una escucha viva sobre la sincronización.
+    _syncWorker?.dispose();
     super.onClose();
   }
 
