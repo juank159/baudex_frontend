@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
+import 'package:baudex_desktop/app/data/local/full_sync_service.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/sync_queue.dart';
 import 'package:baudex_desktop/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart';
@@ -36,6 +37,45 @@ IsarProduct _product(int i) => (IsarProduct.create(
       hasRetention: false,
     ))
       ..id = i + 1;
+
+/// Descarga de fondo de mentira: cuenta las relecturas de su estado.
+class _FakeSync implements FullSyncService {
+  @override
+  final RxBool isSyncing = false.obs;
+  int statusReads = 0;
+
+  @override
+  InternalFinalCallback<void> get onStart =>
+      InternalFinalCallback(callback: () {});
+  @override
+  InternalFinalCallback<void> get onDelete =>
+      InternalFinalCallback(callback: () {});
+  @override
+  DateTime? get lastFullSyncAt => DateTime(2026, 11, 25, 10);
+
+  @override
+  Future<List<ModuleDownloadStatus>> downloadStatus() async {
+    statusReads++;
+    return [
+      for (final (label, entity) in const [
+        ('Productos', 'products'),
+        ('Presentaciones', 'product_presentations'),
+        ('Clientes', 'customers'),
+        ('Facturas', 'invoices'),
+      ])
+        ModuleDownloadStatus(
+          label: label,
+          entity: entity,
+          downloaded: entity != 'invoices',
+          pageSize: 200,
+          defaultPageSize: 200,
+        ),
+    ];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   late Isar isar;
@@ -215,7 +255,55 @@ void main() {
     await close(t);
   });
 
+  testWidgets('medición: un minuto con Diagnóstico abierta y la descarga de '
+      'fondo terminando una sincronización cada 2 s', (t) async {
+    final sync = _FakeSync();
+    Get.put<FullSyncService>(sync);
+    final c = await open(t);
+    expect(c.isLoading.value, isFalse);
+    final readsAtOpen = sync.statusReads;
+    var analyses = 0;
+    final worker = ever(c.healthReport, (_) => analyses++);
+    var rebuilds = 0;
+    debugOnRebuildDirtyWidget = (_, __) => rebuilds++;
+    for (var second = 0; second < 60; second++) {
+      // Cada 2 s empieza y termina una sincronización.
+      if (second.isEven) {
+        sync.isSyncing.value = true;
+      } else {
+        sync.isSyncing.value = false;
+      }
+      for (var f = 0; f < 4; f++) {
+        await t.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 2)));
+        await t.pump(const Duration(milliseconds: 250));
+      }
+    }
+    debugOnRebuildDirtyWidget = null;
+    worker.dispose();
+    final reads = sync.statusReads - readsAtOpen;
+    // ignore: avoid_print
+    print('MEDICION DIAGNOSTICO | por minuto con la pantalla abierta: '
+        'relecturas del estado de descarga $reads '
+        '(cada una: 12 lecturas del almacén de sesión + 12 conteos de la base), '
+        'análisis de salud $analyses, widgets rearmados $rebuilds');
+    expect(reads, 0, reason: 'nada se relee solo: se carga al entrar y con Refrescar');
+    expect(analyses, lessThanOrEqualTo(2),
+        reason: 'el análisis de salud, como mucho cada 30 s');
+    // Refrescar sigue funcionando.
+    await t.tap(find.byTooltip('Refrescar'));
+    for (var i = 0; i < 150 && (i < 5 || c.isLoading.value); i++) {
+      await t.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    expect(sync.statusReads, readsAtOpen + 1);
+    expect(c.isLoading.value, isFalse);
+    await close(t);
+  });
+
   testWidgets('una sección que falla al dibujarse muestra un aviso corto, no '
+
       'un recuadro que tapa toda la pantalla', (t) async {
     final previous = FlutterError.onError;
     FlutterError.onError = (_) {};

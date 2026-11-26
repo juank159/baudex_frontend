@@ -22,6 +22,16 @@
 //   BAUDEX_PROBE_PREFS  sanas (no tocar) | vacias (borra el archivo) |
 //                       danadas (lo deja cortado, como tras un apagón).
 //   BAUDEX_PROBE_T0_MS  hora (ms desde 1970) en que se lanzó el proceso.
+//   BAUDEX_PROBE_ALMACEN  llave | archivos: antes de arrancar borra la
+//                       credencial que guarda la llave del almacén seguro, o
+//                       los archivos .secure, y comprueba leyendo el almacén
+//                       directamente que ya devuelve null (ver
+//                       almacen_seguro_windows.dart).
+//   BAUDEX_PROBE_ESPERA  directo-copia | login | directo: lo que debe pasar
+//                       en este arranque. Si no se cumple (o el almacén no
+//                       quedó como se pidió) escribe "PASO VERIFICADO |
+//                       FALLA | …" y sale con 5.
+//   BAUDEX_PROBE_NEGOCIO a | b: usuario y negocio del servidor de mentira.
 //   BAUDEX_PROBE_CERRAR_SESION_AL_SALIR=1  al terminar borra el token (como
 //                       si el servidor ya no aceptara la sesión): el arranque
 //                       siguiente mide el inicio de sesión.
@@ -50,9 +60,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:baudex_desktop/app/config/constants/api_constants.dart';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import 'package:baudex_desktop/app/core/storage/session_startup_trace.dart';
 import 'package:baudex_desktop/app/data/local/full_sync_service.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/local_first.dart';
@@ -65,6 +77,7 @@ import 'package:baudex_desktop/features/settings/presentation/controllers/settin
 import 'package:baudex_desktop/main.dart' as app;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
@@ -76,6 +89,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences_platform_interface/types.dart';
 
+import 'almacen_seguro_windows.dart';
 import 'arranque_servidor.dart';
 import 'tecleo_medicion.dart';
 
@@ -409,6 +423,53 @@ Future<void> main() async {
     FlutterSecureStoragePlatform.instance =
         _FileSecureStore.open(File('${dir.path}${sep}almacen_seguro.json'));
   }
+  // ---------- Almacén seguro en el estado pedido ----------
+  // BAUDEX_PROBE_ALMACEN: llave (borra la credencial que guarda la llave
+  // del almacén) | archivos (borra los .secure). Va ANTES de que la app
+  // toque el almacén, y se comprueba leyendo el almacén directamente.
+  final storeState = env['BAUDEX_PROBE_ALMACEN'] ?? '';
+  final expectation = env['BAUDEX_PROBE_ESPERA'] ?? '';
+  final stepProblems = <String>[];
+  String? directRead = 'sin leer';
+  if (storeState.isNotEmpty) {
+    if (sandbox) {
+      stepProblems.add('el paso necesita los complementos reales de Windows');
+    } else {
+      const direct = FlutterSecureStorage();
+      String? before;
+      try {
+        before = await direct.read(key: ApiConstants.tokenKey);
+      } catch (e) {
+        log('almacén seguro antes de tocarlo: error $e');
+      }
+      if (storeState == 'llave') {
+        final existed = secureStorageKeyExists();
+        final gone = deleteSecureStorageKey();
+        log('llave del almacén (${secureStorageKeyCredential()}): '
+            'existía: ${existed ? 'sí' : 'NO'}; borrada: ${gone ? 'sí' : 'NO'}');
+        if (!existed) stepProblems.add('no había llave que borrar');
+        if (existed && !gone) stepProblems.add('la llave no se pudo borrar');
+      } else if (storeState == 'archivos') {
+        final support = await getApplicationSupportDirectory();
+        final deleted = deleteSecureFiles(support);
+        log('archivos .secure borrados de ${support.path}: $deleted');
+        if (deleted == 0) stepProblems.add('no había archivos .secure que borrar');
+      }
+      try {
+        directRead = await direct.read(key: ApiConstants.tokenKey);
+      } catch (e) {
+        directRead = null;
+        log('almacén seguro tras tocarlo: error $e');
+      }
+      log('almacén seguro devolvió: ${directRead == null ? 'null' : 'valor'} '
+          '(antes de tocarlo: ${before == null ? 'null' : 'valor'})');
+      if (directRead != null) {
+        stepProblems.add('el almacén seguro siguió devolviendo el token: el paso no simula nada');
+      }
+    }
+  }
+
+  // Después de tocar el almacén: de aquí en adelante se cuenta cada lectura.
   final secure = _TimedSecure(FlutterSecureStoragePlatform.instance);
   FlutterSecureStoragePlatform.instance = secure;
   final prefs = _TimedPrefs(SharedPreferencesStorePlatform.instance);
@@ -541,6 +602,66 @@ Future<void> main() async {
   log('¿hay sesión guardada?: ${sessionAtStart == null ? 'aún no se sabe' : sessionAtStart! ? 'sí' : 'no'}; '
       'la app lo supo a los ${sessionKnownMs ?? '>${appWatch.elapsedMilliseconds}'} ms '
       '(el splash decide a los 2500 ms)');
+  // Lo mismo que queda en Diagnóstico para el dueño del negocio.
+  log('diagnóstico | ${SessionStartupTrace.sessionLine()}');
+  log('diagnóstico | ${SessionStartupTrace.prefsLine()}');
+  // ---------- Veredicto del paso (si el job pidió uno) ----------
+  final firstScreen = direct ? 'principal' : onLogin() ? 'login' : 'otra';
+  var mixed = false;
+  String? savedUserOrg;
+  try {
+    final storage = Get.find<SecureStorageService>();
+    final user = await storage.getUserData();
+    final org = await storage.getCurrentOrganization();
+    final token = await storage.getToken();
+    final esperado = probeOrganizationId;
+    final delUsuario = user?['organizationId'];
+    final delNegocio = org?['id'];
+    final mezclada = token != null &&
+        ((delUsuario != null && delUsuario != esperado) ||
+            (delNegocio != null && delNegocio != esperado));
+    mixed = mezclada;
+    savedUserOrg = delUsuario?.toString();
+    log('sesión guardada | token: ${token == null ? 'no' : 'sí'}; '
+        'negocio del usuario: ${delUsuario ?? '-'}; negocio guardado: ${delNegocio ?? '-'}; '
+        'negocio de esta corrida: $esperado'
+        '${mezclada ? ' | MEZCLADA CON OTRO NEGOCIO' : ''}');
+  } catch (e) {
+    log('sesión guardada | no se pudo leer: $e');
+  }
+  if (expectation.isNotEmpty) {
+    // directo-copia: entra directo y el token vino de la copia protegida.
+    // login: la primera pantalla es iniciar sesión.
+    // directo: entra directo (sin exigir de dónde vino el token).
+    switch (expectation) {
+      case 'directo-copia':
+        if (firstScreen != 'principal') {
+          stepProblems.add('debía entrar directo y la primera pantalla fue: $firstScreen');
+        }
+        if (SessionStartupTrace.tokenSource != 'copia protegida') {
+          stepProblems.add(
+            'el token no vino de la copia protegida (vino de: ${SessionStartupTrace.tokenSource ?? 'no se sabe'})',
+          );
+        }
+        if (savedUserOrg != probeOrganizationId) {
+          stepProblems.add('la sesión es de otro negocio: $savedUserOrg');
+        }
+      case 'login':
+        if (firstScreen != 'login') {
+          stepProblems.add('debía pedir iniciar sesión y la primera pantalla fue: $firstScreen');
+        }
+      case 'directo':
+        if (firstScreen != 'principal') {
+          stepProblems.add('debía entrar directo y la primera pantalla fue: $firstScreen');
+        }
+      default:
+        stepProblems.add('expectativa desconocida: $expectation');
+    }
+    if (mixed) stepProblems.add('sesión MEZCLADA con otro negocio');
+    log('PASO VERIFICADO | ${stepProblems.isEmpty ? 'OK' : 'FALLA'} | espera: $expectation'
+        '${storeState.isEmpty ? '' : '; almacén: $storeState'}'
+        '${stepProblems.isEmpty ? '' : ' | ${stepProblems.join('; ')}'}');
+  }
 
   /// Espera a que la pantalla deje de trabarse: 600 ms seguidos sin una
   /// traba de más de 100 ms. Devuelve los ms desde [from].
@@ -832,5 +953,5 @@ Future<void> main() async {
   try {
     await isar.close();
   } catch (_) {}
-  exit(0);
+  exit(expectation.isNotEmpty && stepProblems.isNotEmpty ? 5 : 0);
 }

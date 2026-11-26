@@ -1616,34 +1616,63 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
   /// se agrega ese; si no, se abre el diálogo del nombre (como siempre):
   /// Enter otra vez lo agrega como "Producto sin registrar".
   ///
-  /// Con el índice seguro no espera nada. Si no lo está, espera como mucho
-  /// [_enterCheckTimeout] a la confirmación local (que normalmente ya
-  /// terminó mientras se tecleaba); nunca al servidor.
+  /// El diálogo sale DE INMEDIATO. Con el índice seguro no se consulta
+  /// nada. Si no lo está (índice sin cargar, catálogo bajando o la
+  /// sincronización escribiendo productos), se le da UN cuadro
+  /// ([_enterGrace]) a la confirmación local, que casi siempre ya terminó
+  /// mientras se tecleaba; si no alcanzó, el diálogo sale igual y la
+  /// respuesta se usa cuando llegue: si existe un producto con ese código,
+  /// se agrega ese (el registrado gana), antes o al confirmar el nombre.
+  /// Antes el diálogo esperaba hasta 250 ms esa confirmación.
   Future<void> _resolvePriceEnter(String q) async {
     final watch = Stopwatch()..start();
     _debounceTimer?.cancel();
     final seq = ++_searchSeq;
     final guess = widget.controller.guessValueEntry(q);
     final localId = guess.existingLocalId;
+    final price = priceFromEntry(q);
     if (localId == null && guess.certain) {
-      _createUnregisteredProduct(priceFromEntry(q), since: watch);
+      _createUnregisteredProduct(price, since: watch);
       return;
     }
+    final check = _registeredFor(q, localId);
     Product? match;
-    try {
-      if (localId != null) {
-        match = await widget.controller.productByLocalId(localId);
-      }
-      match ??= await _checkValue(q)
-          .timeout(_enterCheckTimeout, onTimeout: () => null);
-    } catch (_) {}
+    var answered = false;
+    await Future.any<void>([
+      check.then((product) {
+        match = product;
+        answered = true;
+      }),
+      Future<void>.delayed(_enterGrace),
+    ]);
     if (!mounted || seq != _searchSeq || _searchController.text.trim() != q) {
       return;
     }
     if (match != null) {
-      _selectProduct(match);
+      _selectProduct(match!);
     } else {
-      _createUnregisteredProduct(priceFromEntry(q), since: watch);
+      _createUnregisteredProduct(
+        price,
+        since: watch,
+        registered: answered ? null : check,
+      );
+    }
+  }
+
+  /// Espera máxima del diálogo por la confirmación local: un cuadro.
+  static const Duration _enterGrace = Duration(milliseconds: 16);
+
+  /// Producto registrado con ese código, solo con lo del equipo. Nunca
+  /// falla ni espera al servidor.
+  Future<Product?> _registeredFor(String q, int? localId) async {
+    try {
+      Product? match;
+      if (localId != null) {
+        match = await widget.controller.productByLocalId(localId);
+      }
+      return match ?? await _checkValue(q);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -1663,9 +1692,15 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
   bool _isUnregisteredProductQuery(String value) =>
       classifySearchEntry(value) == SearchEntryKind.price;
 
-  void _createUnregisteredProduct(double price, {Stopwatch? since}) {
+  /// [registered]: confirmación local todavía en curso de "¿existe un
+  /// producto con ese código?" (ver [_resolvePriceEnter]).
+  void _createUnregisteredProduct(
+    double price, {
+    Stopwatch? since,
+    Future<Product?>? registered,
+  }) {
     // Primero el diálogo; la voz no debe retrasarlo.
-    _showProductNameDialog(price);
+    _showProductNameDialog(price, registered: registered);
     if (since != null) {
       final context = widget.controller.entryContext();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1681,28 +1716,61 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     ));
   }
 
-  void _showProductNameDialog(double price) {
-    final TextEditingController nameController = TextEditingController();
-    nameController.text = unregisteredProductName;
+  void _showProductNameDialog(double price, {Future<Product?>? registered}) {
+    // El nombre sale ya escrito y seleccionado: listo para Enter o para
+    // escribir encima, desde el primer cuadro.
+    final nameController = TextEditingController.fromValue(
+      const TextEditingValue(
+        text: unregisteredProductName,
+        selection: TextSelection(
+          baseOffset: 0,
+          extentOffset: unregisteredProductName.length,
+        ),
+      ),
+    );
 
-    // Seleccionar todo el texto cuando se abra el diálogo
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      nameController.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: nameController.text.length,
-      );
+    // El diálogo sigue abierto y nadie lo ha resuelto todavía.
+    var open = true;
+    Product? found;
+
+    // La confirmación local llegó con el diálogo abierto y SÍ existe un
+    // producto con ese código: se cierra y se agrega ese (el registrado
+    // gana, como siempre).
+    registered?.then((product) {
+      found = product;
+      if (product == null || !open || !mounted) return;
+      open = false;
+      Navigator.of(context, rootNavigator: true).pop();
+      _selectProduct(product);
     });
 
-    void submit(BuildContext dialogContext) {
+    Future<void> submit(BuildContext dialogContext) async {
       final name = nameController.text.trim();
-      if (name.isEmpty) return;
+      if (name.isEmpty || !open) return;
+      open = false;
       Navigator.of(dialogContext).pop();
-      _createProductWithName(name, price);
+      // Si la confirmación aún no llega, se espera aquí (ya sin nada en
+      // pantalla que frenar) lo mismo que antes: 250 ms como mucho.
+      var product = found;
+      if (product == null && registered != null) {
+        product = await registered.timeout(
+          _enterCheckTimeout,
+          onTimeout: () => null,
+        );
+      }
+      if (!mounted) return;
+      if (product != null) {
+        _selectProduct(product);
+      } else {
+        _createProductWithName(name, price);
+      }
     }
 
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
+      // Sin animación de entrada: el campo queda listo en el primer cuadro.
+      animationStyle: AnimationStyle.noAnimation,
       builder: (dialogContext) => brebAlertDialog(
         title: brebDialogTitle(
           Icons.add_shopping_cart,
@@ -1750,6 +1818,8 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
           TextButton(
             style: brebTextButtonStyle(),
             onPressed: () {
+              if (!open) return;
+              open = false;
               Navigator.of(dialogContext).pop();
               // Mantener focus para continuar escaneando después de cancelar
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1767,7 +1837,7 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
           ),
         ],
       ),
-    );
+    ).whenComplete(() => open = false);
   }
 
   void _createProductWithName(String productName, double price) {

@@ -20,6 +20,7 @@ import 'app/core/network/bundled_roots.dart';
 import 'app/core/ops/ops_reporter.dart';
 import 'app/core/storage/durable_prefs_store.dart';
 import 'app/core/storage/prefs_startup_report.dart';
+import 'app/core/storage/session_startup_trace.dart';
 import 'app/core/ops/ops_health_watcher.dart';
 import 'app/core/navigation/getx_route_janitor.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -100,6 +101,17 @@ void main() async {
     // PASO 3.1: Si las preferencias estaban dañadas y hubo que recuperarlas,
     // dejarlo en Diagnóstico y en la central de errores.
     reportDurablePrefsStartup();
+    // Los renglones "sesión: …" y "preferencias: …" de este arranque se
+    // escriben en Diagnóstico cuando ya se sabe de qué negocio es el equipo.
+    SessionStartupTrace.organizationKnown = () {
+      try {
+        if (!Get.isRegistered<AuthController>()) return false;
+        final org = Get.find<AuthController>().currentUser?.organizationId;
+        return org != null && org.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    };
 
     // PASO 4: Mostrar configuración
     ApiConstants.printCurrentConfig();
@@ -191,6 +203,11 @@ class _MyAppState extends State<MyApp> {
   /// despega), y sus transacciones son ACID + auto-flush, así que no
   /// perdemos datos aunque el SO mate el proceso de golpe.
   Future<AppExitResponse> _onExitRequested() async {
+    // Lo último guardado en preferencias (sesión, marcas) queda en disco
+    // antes de salir; con tope para no frenar el cierre.
+    try {
+      await installedDurablePrefs?.flush().timeout(const Duration(seconds: 3));
+    } catch (_) {}
     return AppExitResponse.exit;
   }
 

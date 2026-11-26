@@ -477,8 +477,9 @@ class ApiInterceptor extends Interceptor {
           return _RefreshResult(token: token);
         }
       }
-      // Respuesta sin token = auth error
-      return _RefreshResult(wasAuthError: true);
+      // Respuesta 200 sin token: no es un rechazo del servidor (puede ser
+      // una página de un proxy o del wifi). No se cierra la sesión por eso.
+      return _RefreshResult(wasNetworkError: true);
     } on DioException catch (e) {
       // 401/403 del endpoint de refresh = refresh token inválido/expirado
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
