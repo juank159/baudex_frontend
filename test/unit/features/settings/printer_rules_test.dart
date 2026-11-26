@@ -71,4 +71,30 @@ void main() {
       contains('Revisa que esté encendida'),
     );
   });
+
+  test('"no instalada" se decide por la lista de impresoras del equipo, '
+      'porque el código de Windows llega en 0', () {
+    bool? installed(String name, List<String> found, {bool answered = true}) =>
+        isPrinterInstalled(name, found: found, answered: answered);
+
+    expect(installed('pos-80', ['POS-80', 'Fax']), isTrue);
+    expect(installed('De otro equipo', ['POS-80']), isFalse);
+    expect(installed('De otro equipo', []), isFalse);
+    expect(installed('POS-80', [], answered: false), isNull);
+
+    expect(
+      windowsUsbFailureMessage('X', nativeCode: 0, installed: false),
+      contains('no está instalada en este equipo'),
+    );
+    // Instalada pero no imprime: apagada o desconectada.
+    expect(
+      windowsUsbFailureMessage('X', nativeCode: 0, installed: true),
+      contains('Revisa que esté encendida'),
+    );
+    // No se pudo averiguar: no se afirma que falte.
+    expect(
+      windowsUsbFailureMessage('X', nativeCode: 0),
+      contains('Revisa que esté encendida'),
+    );
+  });
 }

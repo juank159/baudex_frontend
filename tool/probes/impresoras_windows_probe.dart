@@ -50,7 +50,16 @@ Future<void> main() async {
       home: Scaffold(body: Center(child: Text('Prueba de impresoras'))),
     ),
   );
-  await Future<void>.delayed(const Duration(seconds: 1));
+  // Esperar a que la pantalla exista de verdad: los avisos de la app
+  // necesitan dónde dibujarse (si no, fallan con "Null check operator").
+  try {
+    await WidgetsBinding.instance.endOfFrame.timeout(const Duration(seconds: 10));
+  } catch (_) {}
+  for (var i = 0; i < 50 && Get.overlayContext == null; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  log('PRUEBA IMPRESORAS | pantalla lista para avisos | '
+      '${Get.overlayContext != null ? 'SI' : 'NO'}');
 
   File? prefsFile;
   if (env['BAUDEX_PROBE_CORRUPT_PREFS'] == '1') {
@@ -73,7 +82,17 @@ Future<void> main() async {
       ),
       log: log,
     ),
-    (error, stack) => log('PRUEBA IMPRESORAS | error suelto | $error'),
+    (error, stack) {
+      // Con de dónde salió, para no tener que adivinar.
+      final where = stack
+          .toString()
+          .split('\n')
+          .where((l) => l.trim().isNotEmpty)
+          .take(6)
+          .map((l) => l.trim())
+          .join(' <- ');
+      log('PRUEBA IMPRESORAS | error suelto | $error | $where');
+    },
   );
   exit((await result)?.ok == true ? 0 : 1);
 }

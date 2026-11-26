@@ -325,6 +325,11 @@ jobs:
         if: ${{ !cancelled() }}
         shell: pwsh
         run: |
+          # El archivo de la prueba está en UTF-8: que la consola lo muestre
+          # igual (si no, los acentos salen rotos en el log).
+          chcp 65001 | Out-Null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $exe = 'build\windows\x64\runner\Release\Baudex.exe'
           New-Item -ItemType Directory -Force C:\impresoras | Out-Null
           $salida = 'C:\impresoras\impresoras.txt'
