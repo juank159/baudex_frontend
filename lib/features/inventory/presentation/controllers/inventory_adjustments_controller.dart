@@ -12,6 +12,7 @@ import '../../domain/entities/inventory_balance.dart';
 import '../../domain/entities/warehouse.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InventoryAdjustmentsController extends GetxController {
   final CreateStockAdjustmentUseCase createStockAdjustmentUseCase;
@@ -290,7 +291,7 @@ class InventoryAdjustmentsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -337,7 +338,7 @@ class InventoryAdjustmentsController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -355,7 +356,7 @@ class InventoryAdjustmentsController extends GetxController {
 
   bool _validateForm() {
     if (selectedProductId.value.isEmpty) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un producto')) Get.snackbar(
         'Error',
         'Debe seleccionar un producto',
         snackPosition: SnackPosition.TOP,
@@ -366,7 +367,7 @@ class InventoryAdjustmentsController extends GetxController {
     }
 
     if (selectedWarehouseId.value.isEmpty) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un almacén donde aplicar el ajuste')) Get.snackbar(
         'Error',
         'Debe seleccionar un almacén donde aplicar el ajuste',
         snackPosition: SnackPosition.TOP,
@@ -377,7 +378,7 @@ class InventoryAdjustmentsController extends GetxController {
     }
 
     if (newQuantity.value < 0) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'La cantidad no puede ser negativa')) Get.snackbar(
         'Error',
         'La cantidad no puede ser negativa',
         snackPosition: SnackPosition.TOP,
@@ -388,7 +389,7 @@ class InventoryAdjustmentsController extends GetxController {
     }
 
     if (reason.value.isEmpty && reasonController.text.trim().isEmpty) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Debe especificar una razón para el ajuste')) Get.snackbar(
         'Error',
         'Debe especificar una razón para el ajuste',
         snackPosition: SnackPosition.TOP,

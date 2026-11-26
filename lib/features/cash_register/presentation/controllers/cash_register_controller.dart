@@ -11,6 +11,7 @@ import '../../domain/entities/cash_register.dart';
 import '../../domain/repositories/cash_register_repository.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controlador de Caja Registradora.
 ///
@@ -269,7 +270,7 @@ class CashRegisterController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar(
+    if (!AutomaticWork.swallow('Error', message)) Get.snackbar(
       'Error',
       message,
       snackPosition: SnackPosition.TOP,

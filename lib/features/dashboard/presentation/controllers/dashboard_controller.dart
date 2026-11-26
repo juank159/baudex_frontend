@@ -30,6 +30,7 @@ import '../../domain/entities/smart_notification.dart';
 import '../../domain/entities/notification.dart' as dashboard;
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class DashboardController extends GetxController
     with SyncAutoRefreshMixin {
@@ -839,7 +840,7 @@ class DashboardController extends GetxController
 
     result.fold(
       (failure) {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', _mapFailureToMessage(failure))) Get.snackbar(
           'Error',
           _mapFailureToMessage(failure),
           snackPosition: SnackPosition.TOP,

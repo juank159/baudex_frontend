@@ -659,7 +659,7 @@ class OrganizationController extends GetxController
     // en pantalla: queda anotada para Diagnóstico.
     if (AutomaticWork.swallow('Error', message)) return;
 
-    Get.snackbar(
+    if (!AutomaticWork.swallow('Error', message)) Get.snackbar(
       'Error',
       message,
       snackPosition: SnackPosition.TOP,

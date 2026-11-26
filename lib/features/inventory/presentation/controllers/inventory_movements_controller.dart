@@ -22,6 +22,7 @@ import '../../../products/domain/usecases/search_products_usecase.dart';
 import '../services/inventory_export_service.dart';
 import '../../domain/entities/inventory_balance.dart';
 import '../widgets/fifo_consumption_widget.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InventoryMovementsController extends GetxController {
   final GetInventoryMovementsUseCase getInventoryMovementsUseCase;
@@ -232,7 +233,7 @@ class InventoryMovementsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -281,7 +282,7 @@ class InventoryMovementsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -342,7 +343,7 @@ class InventoryMovementsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -373,7 +374,7 @@ class InventoryMovementsController extends GetxController {
 
   bool _validateForm() {
     if (selectedProductId.value.isEmpty) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un producto')) Get.snackbar(
         'Error',
         'Debe seleccionar un producto',
         snackPosition: SnackPosition.TOP,
@@ -384,7 +385,7 @@ class InventoryMovementsController extends GetxController {
     }
 
     if (quantity.value <= 0) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'La cantidad debe ser mayor a cero')) Get.snackbar(
         'Error',
         'La cantidad debe ser mayor a cero',
         snackPosition: SnackPosition.TOP,
@@ -396,7 +397,7 @@ class InventoryMovementsController extends GetxController {
 
     // Validate unit cost when required
     if (_isUnitCostRequired() && unitCost.value <= 0) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'El costo de compra es requerido para este tipo de movimiento')) Get.snackbar(
         'Error',
         'El costo de compra es requerido para este tipo de movimiento',
         snackPosition: SnackPosition.TOP,
@@ -446,7 +447,7 @@ class InventoryMovementsController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -467,7 +468,7 @@ class InventoryMovementsController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -487,7 +488,7 @@ class InventoryMovementsController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -508,7 +509,7 @@ class InventoryMovementsController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -803,7 +804,7 @@ class InventoryMovementsController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error FIFO', failure.message)) Get.snackbar(
             'Error FIFO',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -832,7 +833,7 @@ class InventoryMovementsController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado calculando FIFO: $e')) Get.snackbar(
         'Error',
         'Error inesperado calculando FIFO: $e',
         snackPosition: SnackPosition.TOP,
@@ -896,7 +897,7 @@ class InventoryMovementsController extends GetxController {
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a PDF: $e')) Get.snackbar(
         'Error',
         'Error exportando a PDF: $e',
         snackPosition: SnackPosition.TOP,
@@ -932,7 +933,7 @@ class InventoryMovementsController extends GetxController {
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a Excel: $e')) Get.snackbar(
         'Error',
         'Error exportando a Excel: $e',
         snackPosition: SnackPosition.TOP,

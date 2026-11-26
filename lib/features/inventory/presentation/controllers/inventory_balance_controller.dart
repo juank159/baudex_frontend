@@ -9,6 +9,7 @@ import '../../domain/usecases/get_inventory_balances_usecase.dart';
 import '../../domain/usecases/get_inventory_valuation_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InventoryBalanceController extends GetxController {
   final GetInventoryBalancesUseCase getInventoryBalancesUseCase;
@@ -233,7 +234,7 @@ class InventoryBalanceController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error al cargar inventario', failure.message)) Get.snackbar(
             'Error al cargar inventario',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -272,7 +273,7 @@ class InventoryBalanceController extends GetxController {
       );
     } catch (e, stackTrace) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar inventario', 'Error inesperado: $e')) Get.snackbar(
         'Error al cargar inventario',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -684,7 +685,7 @@ class InventoryBalanceController extends GetxController {
       if (e.toString().contains('cancelada por el usuario')) {
         Get.snackbar('Cancelado', 'Descarga cancelada');
       } else {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) Get.snackbar(
           'Error',
           'Error descargando PDF: $e',
           snackPosition: SnackPosition.TOP,
@@ -761,7 +762,7 @@ class InventoryBalanceController extends GetxController {
       if (e.toString().contains('cancelada por el usuario')) {
         Get.snackbar('Cancelado', 'Descarga cancelada');
       } else {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) Get.snackbar(
           'Error',
           'Error descargando Excel: $e',
           snackPosition: SnackPosition.TOP,

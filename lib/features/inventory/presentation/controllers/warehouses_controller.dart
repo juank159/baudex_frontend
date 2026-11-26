@@ -168,7 +168,7 @@ class WarehousesController extends GetxController {
       
       // Solo mostrar snackbar si no es un error de red ya manejado
       if (!WarehouseNetworkService.isRetrying) {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', errorMessage)) Get.snackbar(
           'Error',
           errorMessage,
           snackPosition: SnackPosition.TOP,
@@ -419,7 +419,7 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.exportToExcel(warehousesOnly);
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a Excel: $e')) Get.snackbar(
         'Error de Exportación',
         'No se pudo exportar a Excel: $e',
         snackPosition: SnackPosition.TOP,
@@ -449,7 +449,7 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.exportToCsv(warehousesOnly);
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a CSV: $e')) Get.snackbar(
         'Error de Exportación',
         'No se pudo exportar a CSV: $e',
         snackPosition: SnackPosition.TOP,
@@ -479,7 +479,7 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.exportToPdf(warehousesOnly);
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a PDF: $e')) Get.snackbar(
         'Error de Exportación',
         'No se pudo exportar a PDF: $e',
         snackPosition: SnackPosition.TOP,
@@ -509,7 +509,7 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.printWarehouses(warehousesOnly);
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Impresión', 'No se pudo imprimir: $e')) Get.snackbar(
         'Error de Impresión',
         'No se pudo imprimir: $e',
         snackPosition: SnackPosition.TOP,
@@ -560,7 +560,7 @@ class WarehousesController extends GetxController {
       
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -585,7 +585,7 @@ class WarehousesController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,

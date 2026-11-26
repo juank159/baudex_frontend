@@ -14,6 +14,7 @@ import '../../domain/usecases/get_remaining_creditable_amount.dart';
 import '../../domain/usecases/get_available_quantities_for_credit_note.dart';
 import '../../../invoices/domain/entities/invoice.dart';
 import '../../../invoices/domain/usecases/get_invoice_by_id_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CreditNoteFormController extends GetxController {
   // Dependencies
@@ -176,7 +177,7 @@ class CreditNoteFormController extends GetxController {
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -207,7 +208,7 @@ class CreditNoteFormController extends GetxController {
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -235,7 +236,7 @@ class CreditNoteFormController extends GetxController {
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudieron cargar las cantidades disponibles: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudieron cargar las cantidades disponibles: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -552,7 +553,7 @@ class CreditNoteFormController extends GetxController {
     result.fold(
       (failure) {
         replacePreviousSnackbar();
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -595,7 +596,7 @@ class CreditNoteFormController extends GetxController {
     result.fold(
       (failure) {
         replacePreviousSnackbar();
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,

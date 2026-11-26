@@ -7,6 +7,7 @@ import '../../domain/entities/kardex_report.dart';
 import '../../domain/usecases/get_kardex_report_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class KardexController extends GetxController {
   final GetKardexReportUseCase getKardexReportUseCase;
@@ -80,7 +81,7 @@ class KardexController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error al cargar kardex', failure.message)) Get.snackbar(
             'Error al cargar kardex',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -94,7 +95,7 @@ class KardexController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar kardex', 'Error inesperado: $e')) Get.snackbar(
         'Error al cargar kardex',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -212,7 +213,7 @@ class KardexController extends GetxController {
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando kardex a PDF: $e')) Get.snackbar(
         'Error',
         'Error exportando kardex a PDF: $e',
         snackPosition: SnackPosition.TOP,
@@ -250,7 +251,7 @@ class KardexController extends GetxController {
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando kardex a Excel: $e')) Get.snackbar(
         'Error',
         'Error exportando kardex a Excel: $e',
         snackPosition: SnackPosition.TOP,
@@ -298,7 +299,7 @@ class KardexController extends GetxController {
       if (e.toString().contains('cancelada por el usuario')) {
         Get.snackbar('Cancelado', 'Descarga cancelada');
       } else {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) Get.snackbar(
           'Error',
           'Error descargando Excel: $e',
           snackPosition: SnackPosition.TOP,
@@ -345,7 +346,7 @@ class KardexController extends GetxController {
       if (e.toString().contains('cancelada por el usuario')) {
         Get.snackbar('Cancelado', 'Descarga cancelada');
       } else {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) Get.snackbar(
           'Error',
           'Error descargando PDF: $e',
           snackPosition: SnackPosition.TOP,
@@ -375,7 +376,7 @@ class KardexController extends GetxController {
       isLoading.value = true;
       await InventoryExportService.shareKardexToPdf(kardexReport.value!);
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al compartir', 'No se pudo compartir el archivo PDF: $e')) Get.snackbar(
         'Error al compartir',
         'No se pudo compartir el archivo PDF: $e',
         snackPosition: SnackPosition.TOP,

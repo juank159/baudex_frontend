@@ -13,6 +13,7 @@ import '../../domain/usecases/get_suppliers_usecase.dart';
 import '../../domain/usecases/delete_supplier_usecase.dart';
 import '../../domain/usecases/search_suppliers_usecase.dart';
 import '../../domain/usecases/get_supplier_stats_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class SuppliersController extends GetxController
     with CacheFirstMixin<Supplier>, SyncAutoRefreshMixin {
@@ -222,7 +223,7 @@ class SuppliersController extends GetxController
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -256,7 +257,7 @@ class SuppliersController extends GetxController
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -451,7 +452,7 @@ class SuppliersController extends GetxController
 
         deleteResult.fold(
           (failure) {
-            Get.snackbar(
+            if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
               'Error',
               failure.message,
               snackPosition: SnackPosition.TOP,
@@ -475,7 +476,7 @@ class SuppliersController extends GetxController
         );
       }
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,

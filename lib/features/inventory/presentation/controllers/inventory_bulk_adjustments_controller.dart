@@ -16,6 +16,7 @@ import '../../domain/entities/inventory_balance.dart';
 import '../../domain/entities/warehouse.dart';
 import 'inventory_controller.dart';
 import 'inventory_balance_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class BulkAdjustmentItem {
   final String id;
@@ -369,7 +370,7 @@ class InventoryBulkAdjustmentsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,

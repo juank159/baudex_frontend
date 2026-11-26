@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../domain/usecases/get_inventory_aging_usecase.dart';
 import '../services/inventory_export_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InventoryAgingController extends GetxController {
   final GetInventoryAgingUseCase getInventoryAgingUseCase;
@@ -45,7 +46,7 @@ class InventoryAgingController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error al cargar reporte', failure.message)) Get.snackbar(
             'Error al cargar reporte',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -60,7 +61,7 @@ class InventoryAgingController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar reporte', 'Error inesperado: $e')) Get.snackbar(
         'Error al cargar reporte',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -156,7 +157,7 @@ class InventoryAgingController extends GetxController {
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a Excel: $e')) Get.snackbar(
         'Error',
         'Error exportando a Excel: $e',
         snackPosition: SnackPosition.TOP,
@@ -192,7 +193,7 @@ class InventoryAgingController extends GetxController {
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a PDF: $e')) Get.snackbar(
         'Error',
         'Error exportando a PDF: $e',
         snackPosition: SnackPosition.TOP,

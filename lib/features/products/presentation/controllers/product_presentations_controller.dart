@@ -7,6 +7,7 @@ import '../../domain/usecases/get_product_presentations_usecase.dart';
 import '../../domain/usecases/create_product_presentation_usecase.dart';
 import '../../domain/usecases/update_product_presentation_usecase.dart';
 import '../../domain/usecases/delete_product_presentation_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ProductPresentationsController extends GetxController
     with SyncAutoRefreshMixin {
@@ -121,7 +122,7 @@ class ProductPresentationsController extends GetxController
     return result.fold(
       (failure) {
         replacePreviousSnackbar();
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -185,7 +186,7 @@ class ProductPresentationsController extends GetxController
     return result.fold(
       (failure) {
         replacePreviousSnackbar();
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -235,7 +236,7 @@ class ProductPresentationsController extends GetxController
     return result.fold(
       (failure) {
         replacePreviousSnackbar();
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,

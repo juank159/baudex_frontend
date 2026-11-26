@@ -18,6 +18,7 @@ import '../../domain/usecases/get_near_expiry_products_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
 import 'inventory_transfers_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InventoryController extends GetxController
     with SyncAutoRefreshMixin {
@@ -181,7 +182,7 @@ class InventoryController extends GetxController
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -238,7 +239,7 @@ class InventoryController extends GetxController
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -823,7 +824,7 @@ class InventoryController extends GetxController
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando balances a Excel: $e')) Get.snackbar(
         'Error',
         'Error exportando balances a Excel: $e',
         snackPosition: SnackPosition.TOP,
@@ -859,7 +860,7 @@ class InventoryController extends GetxController
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando movimientos a Excel: $e')) Get.snackbar(
         'Error',
         'Error exportando movimientos a Excel: $e',
         snackPosition: SnackPosition.TOP,
@@ -913,7 +914,7 @@ class InventoryController extends GetxController
         colorText: Colors.green.shade800,
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando reporte a PDF: $e')) Get.snackbar(
         'Error',
         'Error exportando reporte a PDF: $e',
         snackPosition: SnackPosition.TOP,

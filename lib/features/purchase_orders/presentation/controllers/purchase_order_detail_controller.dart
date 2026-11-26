@@ -20,6 +20,7 @@ import '../../../inventory/data/models/warehouse_model.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 import 'purchase_orders_controller.dart';
 import '../../../../app/data/local/sync_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// ¿Id temporal de una orden creada sin conexión (aún sin id del servidor)?
 bool isTemporaryPurchaseOrderId(String id) => !RegExp(
@@ -219,7 +220,7 @@ class PurchaseOrderDetailController extends GetxController
             Get.back();
           }
 
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -258,7 +259,7 @@ class PurchaseOrderDetailController extends GetxController
         Get.back();
       }
 
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -279,7 +280,7 @@ class PurchaseOrderDetailController extends GetxController
       // Cambiar de draft a pending
       await updatePurchaseOrderStatus(PurchaseOrderStatus.pending);
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -311,7 +312,7 @@ class PurchaseOrderDetailController extends GetxController
             Get.back();
           }
 
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -344,7 +345,7 @@ class PurchaseOrderDetailController extends GetxController
         Get.back();
       }
 
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -399,7 +400,7 @@ class PurchaseOrderDetailController extends GetxController
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -463,7 +464,7 @@ class PurchaseOrderDetailController extends GetxController
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -629,7 +630,7 @@ class PurchaseOrderDetailController extends GetxController
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -660,7 +661,7 @@ class PurchaseOrderDetailController extends GetxController
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -709,7 +710,7 @@ class PurchaseOrderDetailController extends GetxController
 
         deleteResult.fold(
           (failure) {
-            Get.snackbar(
+            if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
               'Error',
               failure.message,
               snackPosition: SnackPosition.TOP,
@@ -732,7 +733,7 @@ class PurchaseOrderDetailController extends GetxController
         );
       }
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -805,7 +806,7 @@ class PurchaseOrderDetailController extends GetxController
 
         cancelResult.fold(
           (failure) {
-            Get.snackbar(
+            if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
               'Error',
               failure.message,
               snackPosition: SnackPosition.TOP,
@@ -837,7 +838,7 @@ class PurchaseOrderDetailController extends GetxController
         );
       }
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,

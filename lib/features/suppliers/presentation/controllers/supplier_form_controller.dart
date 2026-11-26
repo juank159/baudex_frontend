@@ -10,6 +10,7 @@ import '../../domain/usecases/create_supplier_usecase.dart';
 import '../../domain/usecases/update_supplier_usecase.dart';
 import '../../domain/usecases/get_supplier_by_id_usecase.dart';
 import '../../domain/usecases/check_document_uniqueness_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class SupplierFormController extends GetxController {
   final CreateSupplierUseCase createSupplierUseCase;
@@ -190,7 +191,7 @@ class SupplierFormController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -205,7 +206,7 @@ class SupplierFormController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -396,7 +397,7 @@ class SupplierFormController extends GetxController {
 
   Future<void> saveSupplier() async {
     if (!isFormValid.value || !formKey.currentState!.validate()) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Por favor complete los campos requeridos')) Get.snackbar(
         'Error',
         'Por favor complete los campos requeridos',
         snackPosition: SnackPosition.TOP,
@@ -417,7 +418,7 @@ class SupplierFormController extends GetxController {
       }
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -498,7 +499,7 @@ class SupplierFormController extends GetxController {
     result.fold(
       (failure) {
         error.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -598,7 +599,7 @@ class SupplierFormController extends GetxController {
     result.fold(
       (failure) {
         error.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,

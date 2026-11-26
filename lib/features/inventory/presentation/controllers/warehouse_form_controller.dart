@@ -9,6 +9,7 @@ import '../../domain/usecases/update_warehouse_usecase.dart';
 import '../../domain/usecases/get_warehouse_by_id_usecase.dart';
 import '../../domain/usecases/check_warehouse_code_exists_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 enum FormMode { create, edit }
 
@@ -131,7 +132,7 @@ class WarehouseFormController extends GetxController {
       result.fold(
         (failure) {
           _error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -180,7 +181,7 @@ class WarehouseFormController extends GetxController {
       final codeValidation = await validateCodeUnique(codeController.text);
       if (codeValidation != null) {
         _error.value = codeValidation;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error de Validación', codeValidation)) Get.snackbar(
           'Error de Validación',
           codeValidation,
           snackPosition: SnackPosition.TOP,
@@ -198,7 +199,7 @@ class WarehouseFormController extends GetxController {
       }
     } catch (e) {
       _error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -232,7 +233,7 @@ class WarehouseFormController extends GetxController {
     result.fold(
       (failure) {
         _error.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -276,7 +277,7 @@ class WarehouseFormController extends GetxController {
     result.fold(
       (failure) {
         _error.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,

@@ -19,6 +19,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 const String _draftStorageKey = 'initial_inventory_draft';
 
@@ -579,7 +580,7 @@ class InitialInventoryController extends GetxController {
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudieron cargar las categorias: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudieron cargar las categorias: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -838,7 +839,7 @@ class InitialInventoryController extends GetxController {
       }
     } catch (e) {
       replacePreviousSnackbar();
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,

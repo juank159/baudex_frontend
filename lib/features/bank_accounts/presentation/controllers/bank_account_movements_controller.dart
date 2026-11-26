@@ -8,6 +8,7 @@ import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 import 'bank_accounts_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controlador para la pantalla de movimientos de cuentas bancarias
 class BankAccountMovementsController extends GetxController
@@ -366,7 +367,7 @@ class BankAccountMovementsController extends GetxController
     return result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -400,7 +401,7 @@ class BankAccountMovementsController extends GetxController
     return result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -437,7 +438,7 @@ class BankAccountMovementsController extends GetxController
     return result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,

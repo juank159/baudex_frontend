@@ -11,6 +11,7 @@ import '../../domain/usecases/delete_expense_usecase.dart';
 import '../../domain/usecases/get_expense_stats_usecase.dart';
 import '../../domain/usecases/approve_expense_usecase.dart';
 import '../../domain/usecases/submit_expense_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class EnhancedExpensesController extends GetxController {
   // Dependencies
@@ -188,7 +189,7 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudieron cargar los gastos: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudieron cargar los gastos: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -212,7 +213,7 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado al cargar gastos')) Get.snackbar(
         'Error',
         'Error inesperado al cargar gastos',
         snackPosition: SnackPosition.TOP,
@@ -516,7 +517,7 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudo eliminar el gasto: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudo eliminar el gasto: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -543,7 +544,7 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado al eliminar el gasto')) Get.snackbar(
         'Error',
         'Error inesperado al eliminar el gasto',
         snackPosition: SnackPosition.TOP,
@@ -592,7 +593,7 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudo aprobar el gasto: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudo aprobar el gasto: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -623,7 +624,7 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado al aprobar el gasto')) Get.snackbar(
         'Error',
         'Error inesperado al aprobar el gasto',
         snackPosition: SnackPosition.TOP,
@@ -646,7 +647,7 @@ class EnhancedExpensesController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudo enviar el gasto: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudo enviar el gasto: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -677,7 +678,7 @@ class EnhancedExpensesController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado al enviar el gasto')) Get.snackbar(
         'Error',
         'Error inesperado al enviar el gasto',
         snackPosition: SnackPosition.TOP,

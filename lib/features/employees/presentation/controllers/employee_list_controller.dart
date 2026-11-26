@@ -4,6 +4,7 @@ import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/repositories/employee_repository.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controller del listado de empleados.
 /// Online-only. Carga al entrar y permite filtrar/buscar.
@@ -222,7 +223,7 @@ class EmployeeListController extends GetxController {
 
   void _err(String msg) {
     errorMessage.value = msg;
-    Get.snackbar(
+    if (!AutomaticWork.swallow('Error', msg)) Get.snackbar(
       'Error',
       msg,
       snackPosition: SnackPosition.TOP,

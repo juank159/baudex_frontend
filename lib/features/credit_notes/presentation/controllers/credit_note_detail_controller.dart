@@ -13,6 +13,7 @@ import '../../domain/usecases/confirm_credit_note.dart';
 import '../../domain/usecases/cancel_credit_note.dart';
 import '../../domain/usecases/delete_credit_note.dart';
 import '../../domain/usecases/download_credit_note_pdf.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CreditNoteDetailController extends GetxController
     with SyncAutoRefreshMixin {
@@ -93,7 +94,7 @@ class CreditNoteDetailController extends GetxController
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -248,7 +249,7 @@ class CreditNoteDetailController extends GetxController
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -283,7 +284,7 @@ class CreditNoteDetailController extends GetxController
       await result.fold(
         (failure) async {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,

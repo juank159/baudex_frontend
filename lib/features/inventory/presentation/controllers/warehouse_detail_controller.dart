@@ -7,6 +7,7 @@ import '../../domain/usecases/get_warehouse_by_id_usecase.dart';
 import '../../domain/usecases/delete_warehouse_usecase.dart';
 import '../../domain/usecases/check_warehouse_has_movements_usecase.dart';
 import '../../domain/usecases/get_active_warehouses_count_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class WarehouseDetailController extends GetxController {
   // Casos de uso
@@ -96,7 +97,7 @@ class WarehouseDetailController extends GetxController {
       result.fold(
         (failure) {
           _error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -274,7 +275,7 @@ class WarehouseDetailController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -300,7 +301,7 @@ class WarehouseDetailController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -397,7 +398,7 @@ class WarehouseDetailController extends GetxController {
         icon: const Icon(Icons.check, color: Colors.green),
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error al cambiar estado: $e')) Get.snackbar(
         'Error',
         'Error al cambiar estado: $e',
         snackPosition: SnackPosition.TOP,

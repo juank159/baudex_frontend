@@ -6,6 +6,7 @@ import '../../../invoices/presentation/controllers/invoice_list_controller.dart'
 import '../../data/models/customer_credit_model.dart';
 import '../../domain/entities/customer_credit.dart';
 import '../../domain/repositories/customer_credit_repository.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controlador para gestión de créditos de clientes
 class CustomerCreditController extends GetxController
@@ -361,7 +362,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -466,7 +467,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -672,7 +673,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -723,7 +724,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -763,7 +764,7 @@ class CustomerCreditController extends GetxController
     int count = 0;
     result.fold(
       (failure) {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -935,7 +936,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -984,7 +985,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -1098,7 +1099,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -1143,7 +1144,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -1186,7 +1187,7 @@ class CustomerCreditController extends GetxController
     result.fold(
       (failure) {
         errorMessage.value = failure.message;
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,

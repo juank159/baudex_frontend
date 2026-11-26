@@ -15,6 +15,7 @@ import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InventoryTransfersController extends GetxController {
   final CreateInventoryTransferUseCase createTransferUseCase;
@@ -161,7 +162,7 @@ class InventoryTransfersController extends GetxController {
 
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar transferencias', 'Error inesperado: $e')) Get.snackbar(
         'Error al cargar transferencias',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -220,7 +221,7 @@ class InventoryTransfersController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error al crear transferencia', failure.message)) Get.snackbar(
             'Error al crear transferencia',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -244,7 +245,7 @@ class InventoryTransfersController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al crear transferencia', 'Error inesperado: $e')) Get.snackbar(
         'Error al crear transferencia',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -262,7 +263,7 @@ class InventoryTransfersController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error al confirmar transferencia', failure.message)) Get.snackbar(
             'Error al confirmar transferencia',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -282,7 +283,7 @@ class InventoryTransfersController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error al confirmar transferencia', 'Error inesperado: $e')) Get.snackbar(
         'Error al confirmar transferencia',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -382,7 +383,7 @@ class InventoryTransfersController extends GetxController {
     }
 
     if (selectedFromWarehouseId.value == selectedToWarehouseId.value) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Los almacenes de origen y destino deben ser diferentes')) Get.snackbar(
         'Error',
         'Los almacenes de origen y destino deben ser diferentes',
       );
@@ -409,7 +410,7 @@ class InventoryTransfersController extends GetxController {
     }
 
     if (selectedFromWarehouseId.value == selectedToWarehouseId.value) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Los almacenes de origen y destino deben ser diferentes')) Get.snackbar(
         'Error',
         'Los almacenes de origen y destino deben ser diferentes',
       );
@@ -477,7 +478,7 @@ class InventoryTransfersController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -499,7 +500,7 @@ class InventoryTransfersController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -908,7 +909,7 @@ class InventoryTransfersController extends GetxController {
       if (e.toString().contains('cancelada por el usuario')) {
         Get.snackbar('Cancelado', 'Descarga cancelada');
       } else {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) Get.snackbar(
           'Error',
           'Error descargando Excel: $e',
           snackPosition: SnackPosition.TOP,
@@ -974,7 +975,7 @@ class InventoryTransfersController extends GetxController {
       if (e.toString().contains('cancelada por el usuario')) {
         Get.snackbar('Cancelado', 'Descarga cancelada');
       } else {
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) Get.snackbar(
           'Error',
           'Error descargando PDF: $e',
           snackPosition: SnackPosition.TOP,

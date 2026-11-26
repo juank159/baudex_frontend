@@ -40,6 +40,7 @@ import '../../../../app/data/local/full_sync_service.dart';
 import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 import '../../../cash_register/presentation/controllers/cash_register_controller.dart';
 import '../../../../app/core/services/permissions_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class AuthController extends GetxController {
   // Dependencies
@@ -695,7 +696,7 @@ class AuthController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error Inesperado', 'Ocurrió un error inesperado: $e')) Get.snackbar(
         'Error Inesperado',
         'Ocurrió un error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -729,7 +730,7 @@ class AuthController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error de Registro', failure.message)) Get.snackbar(
             'Error de Registro',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -757,7 +758,7 @@ class AuthController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error Inesperado', 'Ocurrió un error inesperado: $e')) Get.snackbar(
         'Error Inesperado',
         'Ocurrió un error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -779,7 +780,7 @@ class AuthController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', 'No se pudo obtener el perfil: ${failure.message}')) Get.snackbar(
             'Error',
             'No se pudo obtener el perfil: ${failure.message}',
             snackPosition: SnackPosition.TOP,
@@ -1009,7 +1010,7 @@ class AuthController extends GetxController {
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -1081,7 +1082,7 @@ class AuthController extends GetxController {
       );
       return result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,

@@ -17,6 +17,7 @@ import '../../domain/entities/invoice_item.dart';
 import '../../domain/entities/product_exchange.dart';
 import '../../domain/repositories/invoice_repository.dart';
 import '../../domain/usecases/exchange_products_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ProductExchangeController extends GetxController {
   final ExchangeProductsUseCase _exchangeUseCase;
@@ -246,7 +247,7 @@ class ProductExchangeController extends GetxController {
             );
           } else {
             replacePreviousSnackbar();
-            Get.snackbar(
+            if (!AutomaticWork.swallow('Error al procesar cambio', failure.message)) Get.snackbar(
               'Error al procesar cambio',
               failure.message,
               snackPosition: SnackPosition.TOP,

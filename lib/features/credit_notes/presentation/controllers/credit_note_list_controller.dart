@@ -19,6 +19,7 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/server_rejection.dart';
 import '../../../../app/core/theme/futuristic_notifications.dart';
 import 'package:dartz/dartz.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CreditNoteListController extends GetxController
     with CacheFirstMixin<CreditNote>, SyncAutoRefreshMixin {
@@ -203,7 +204,7 @@ class CreditNoteListController extends GetxController
     result.fold(
       (failure) {
         replacePreviousSnackbar();
-        Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
           'Error',
           failure.message,
           snackPosition: SnackPosition.TOP,
@@ -407,7 +408,7 @@ class CreditNoteListController extends GetxController
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -432,7 +433,7 @@ class CreditNoteListController extends GetxController
       );
     } catch (e) {
       replacePreviousSnackbar();
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error al eliminar: $e')) Get.snackbar(
         'Error',
         'Error al eliminar: $e',
         snackPosition: SnackPosition.TOP,
@@ -461,7 +462,7 @@ class CreditNoteListController extends GetxController
       result.fold(
         (failure) {
           replacePreviousSnackbar();
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -495,7 +496,7 @@ class CreditNoteListController extends GetxController
       );
     } catch (e) {
       replacePreviousSnackbar();
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error al descargar PDF: $e')) Get.snackbar(
         'Error',
         'Error al descargar PDF: $e',
         snackPosition: SnackPosition.TOP,

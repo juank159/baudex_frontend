@@ -7,6 +7,7 @@ import '../../domain/entities/supplier.dart';
 import '../../domain/usecases/get_supplier_by_id_usecase.dart';
 import '../../domain/usecases/delete_supplier_usecase.dart';
 import '../../domain/usecases/update_supplier_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class SupplierDetailController extends GetxController with SyncAutoRefreshMixin {
   final GetSupplierByIdUseCase getSupplierByIdUseCase;
@@ -78,7 +79,7 @@ class SupplierDetailController extends GetxController with SyncAutoRefreshMixin 
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -92,7 +93,7 @@ class SupplierDetailController extends GetxController with SyncAutoRefreshMixin 
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -130,7 +131,7 @@ class SupplierDetailController extends GetxController with SyncAutoRefreshMixin 
 
       result.fold(
         (failure) {
-          Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
@@ -156,7 +157,7 @@ class SupplierDetailController extends GetxController with SyncAutoRefreshMixin 
         },
       );
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
@@ -203,7 +204,7 @@ class SupplierDetailController extends GetxController with SyncAutoRefreshMixin 
 
         deleteResult.fold(
           (failure) {
-            Get.snackbar(
+            if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
               'Error',
               failure.message,
               snackPosition: SnackPosition.TOP,
@@ -226,7 +227,7 @@ class SupplierDetailController extends GetxController with SyncAutoRefreshMixin 
         );
       }
     } catch (e) {
-      Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
