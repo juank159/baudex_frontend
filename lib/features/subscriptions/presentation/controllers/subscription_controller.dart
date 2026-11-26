@@ -1,6 +1,7 @@
 // lib/features/subscriptions/presentation/controllers/subscription_controller.dart
 
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
+import 'package:baudex_desktop/app/core/session/session_gate.dart';
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -100,7 +101,14 @@ class SubscriptionController extends GetxController {
   }
 
   Future<void> _initializeSubscription() async {
-    await loadSubscription();
+    // Sin sesión el servidor no responde (no hay token): se espera a que
+    // haya sesión mirando solo la memoria, y entonces se carga igual que
+    // antes. Así el login no compite con peticiones ni reintentos.
+    while (sessionKnownClosed()) {
+      if (isClosed) return;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    await StartupTrace.instance.task('suscripción: cargar', loadSubscription);
     if (isExpired) {
       // NetworkInfo cachea "sin servidor" por 30s. Reintentar en 5s, 15s, 35s y 65s
       // cubre el caso donde el primer intento cae dentro del cooldown de 30s.
@@ -125,7 +133,8 @@ class SubscriptionController extends GetxController {
         if (connected && wasOffline) {
           // Recargar suscripcion del servidor al reconectar
 
-          StartupTrace.instance.task('suscripción: cargar', loadSubscription);
+          // Sin sesión no se pregunta al servidor (sin token no responde).
+          if (!sessionKnownClosed()) loadSubscription();
         }
 
         if (connected && _wasExpiredWhileOffline.value) {

@@ -1,5 +1,6 @@
 // lib/features/cash_register/presentation/controllers/cash_register_controller.dart
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
+import 'package:baudex_desktop/app/core/session/session_gate.dart';
 import 'dart:async';
 import 'package:flutter/material.dart' show Color;
 import 'package:dartz/dartz.dart';
@@ -56,7 +57,9 @@ class CashRegisterController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    if (_moduleEnabled) {
+    // Sin sesión no se consulta la caja (ni la cola, ni la red, ni el
+    // servidor sin token): la carga quien inicia o recupera la sesión.
+    if (_moduleEnabled && !sessionKnownClosed()) {
       StartupTrace.instance.task('caja: estado actual', loadCurrent);
     }
     // Auto-refresh cada 60s. El tick chequea el flag — si el admin
@@ -65,6 +68,7 @@ class CashRegisterController extends GetxController {
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (isSubmitting.value) return;
       if (!_moduleEnabled) return;
+      if (sessionKnownClosed()) return;
       loadCurrent(silent: true);
     });
   }

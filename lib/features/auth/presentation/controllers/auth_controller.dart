@@ -313,6 +313,16 @@ class AuthController extends GetxController {
     _triggerFullSyncWithRetry(attempt: 1);
   }
 
+  /// La caja ya no se consulta sin sesión (competía con el tecleo del
+  /// login): se carga aquí, apenas hay sesión.
+  void _loadCashRegisterForSession() {
+    try {
+      if (Get.isRegistered<CashRegisterController>()) {
+        Get.find<CashRegisterController>().loadCurrent(silent: true);
+      }
+    } catch (_) {}
+  }
+
   /// La sincronización recuerda el negocio en memoria: al cambiar la sesión
   /// debe volver a leerlo.
   void _forgetSyncBusiness() {
@@ -625,6 +635,8 @@ class AuthController extends GetxController {
 
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
           await _setTenantAfterLogin(authResult.user);
+
+          _loadCashRegisterForSession();
 
           // Recargar suscripción ahora que tenemos JWT válido
           if (Get.isRegistered<SubscriptionController>()) {
@@ -1199,6 +1211,7 @@ class AuthController extends GetxController {
         _isAuthenticated.value = isAuth;
         SessionStartupTrace.authChecked(isAuth);
         if (isAuth) {
+          _loadCashRegisterForSession();
           getProfile(); // Cargar perfil si está autenticado
           // Recargar suscripción con JWT válido
           if (Get.isRegistered<SubscriptionController>()) {

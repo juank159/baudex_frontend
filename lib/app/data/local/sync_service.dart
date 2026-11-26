@@ -1,4 +1,5 @@
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
+import 'package:baudex_desktop/app/core/session/session_gate.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -802,38 +803,15 @@ class SyncService extends GetxService {
     // Actualizar conteo de operaciones pendientes
     await StartupTrace.instance.task('sincronización al abrir: updatePendingCount', _updatePendingCount);
 
-    // 🧹 LIMPIEZA AUTOMÁTICA: Detectar y eliminar operaciones con categorías offline que no existen
-    await StartupTrace.instance.task('sincronización al abrir: cleanInvalidOfflineReferences', _cleanInvalidOfflineReferences);
-
-    // 🗑️ LIMPIEZA ONE-TIME: Eliminar operación rota ID 9 (producto offline que ya fue creado)
-    await StartupTrace.instance.task('sincronización al abrir: cleanupBrokenOperation9', _cleanupBrokenOperation9);
-
-    // 🔔 LIMPIEZA: Eliminar operaciones de notificaciones dinámicas que no deben sincronizarse
-    await StartupTrace.instance.task('sincronización al abrir: cleanupDynamicNotificationOperations', _cleanupDynamicNotificationOperations);
-
-    // 🔧 REPARACIÓN: Corregir movimientos de inventario con referenceId temporal
-    await StartupTrace.instance.task('sincronización al abrir: repairMovementsWithTempReferenceId', _repairMovementsWithTempReferenceId);
-
-    // ⚠️ LIMPIEZA DESACTIVADA EN INIT: borrar automáticamente ops con
-    // retryCount>=maxRetries causaba pérdida silenciosa de datos del usuario
-    // cuando un fix llegaba después del retry límite. Ahora la limpieza solo
-    // se ejecuta cuando el usuario lo solicita desde Diagnóstico (botón
-    // "Limpiar fallidas") o desde el indicador de estado del sync.
-    // await cleanPermanentlyFailedOperations();
-
-    // 🔧 REPARACIÓN: Intentar reparar facturas con items vacíos
-    await StartupTrace.instance.task('sincronización al abrir: repairInvoiceOperationsWithMissingItems', repairInvoiceOperationsWithMissingItems);
-
-    // 🧹 LIMPIEZA: Eliminar batches/productos offline huérfanos que causan stock duplicado
-    await StartupTrace.instance.task('sincronización al abrir: cleanupOrphanedOfflineInventoryRecords', _cleanupOrphanedOfflineInventoryRecords);
-
-    // 🧹 LIMPIEZA: Eliminar ops FIFO huérfanas cuya Invoice ya se sincronizó
-    await StartupTrace.instance.task('sincronización al abrir: cleanupOrphanedFifoOperations', _cleanupOrphanedFifoOperations);
-
-    // 🧹 PURGA: Eliminar ops FIFO bloqueadas (retry max). Endpoint no existe.
-    // Sin esto, una op fantasma bloqueada se queda en la cola para siempre,
-    // causando que el contador "pendientes" nunca llegue a 0.
-    await StartupTrace.instance.task('sincronización al abrir: purgeBlockedFifoOperations', _purgeBlockedFifoOperations);
+    // Las limpiezas y reparaciones de la cola leen la cola entera varias
+    // veces y recorren productos y lotes. Sin sesión no hay nada que subir:
+    // se dejan para cuando haya sesión (antes de la primera subida), para
+    // no competir con el tecleo en la pantalla de iniciar sesión.
+    if (sessionKnownClosed()) {
+      AppLogger.i('Sin sesión: mantenimiento de la cola aplazado', tag: 'SYNC');
+    } else {
+      await _ensureStartupMaintenance(spaced: false);
+    }
 
     // Configurar sincronización periódica (cada 5 minutos si hay internet)
     _setupPeriodicSync();
@@ -844,6 +822,35 @@ class SyncService extends GetxService {
       tag: 'SYNC',
     );
     AppLogger.i('Operaciones pendientes: $pendingOperationsCount', tag: 'SYNC');
+  }
+
+  Future<void>? _startupMaintenance;
+
+  /// Limpiezas y reparaciones de la cola: una vez por ejecución y siempre
+  /// antes de la primera subida. [spaced]: con un respiro entre pasos para
+  /// que la pantalla siga atendiendo (cuando corre ya con la app en uso).
+  Future<void> _ensureStartupMaintenance({bool spaced = true}) =>
+      _startupMaintenance ??= _runStartupMaintenance(spaced: spaced);
+
+  Future<void> _runStartupMaintenance({required bool spaced}) async {
+    final steps = <(String, Future<void> Function())>[
+      ('cleanInvalidOfflineReferences', _cleanInvalidOfflineReferences),
+      ('cleanupBrokenOperation9', _cleanupBrokenOperation9),
+      ('cleanupDynamicNotificationOperations', _cleanupDynamicNotificationOperations),
+      ('repairMovementsWithTempReferenceId', _repairMovementsWithTempReferenceId),
+      ('repairInvoiceOperationsWithMissingItems', repairInvoiceOperationsWithMissingItems),
+      ('cleanupOrphanedOfflineInventoryRecords', _cleanupOrphanedOfflineInventoryRecords),
+      ('cleanupOrphanedFifoOperations', _cleanupOrphanedFifoOperations),
+      ('purgeBlockedFifoOperations', _purgeBlockedFifoOperations),
+    ];
+    for (final (name, step) in steps) {
+      try {
+        await StartupTrace.instance.task('mantenimiento de la cola: $name', step);
+      } catch (e) {
+        AppLogger.e('Mantenimiento de la cola ($name) falló: $e', tag: 'SYNC');
+      }
+      if (spaced) await Future<void>.delayed(const Duration(milliseconds: 40));
+    }
   }
 
   @override
@@ -967,6 +974,11 @@ class SyncService extends GetxService {
     _periodicSyncTimer = Timer.periodic(
       const Duration(seconds: 10), // Verificar cada 10 segundos
       (timer) async {
+        // Sin sesión (pantalla de iniciar sesión) no hay nada que subir ni
+        // que bajar: ni se lee el almacén ni se toca la cola.
+        if (sessionKnownClosed()) return;
+        await _ensureStartupMaintenance();
+
         // Si figuramos sin red, re-verificar: no siempre llega el evento de
         // "volvió la conexión" (red que cambia sin desconectarse, arranque
         // con error al consultar la interfaz...). `_checkConnectivity`
@@ -1250,6 +1262,9 @@ class SyncService extends GetxService {
   /// Este método usa un mutex para garantizar que solo una sincronización
   /// se ejecute a la vez, previniendo race conditions.
   Future<void> syncAll({bool ignoreBackoff = false}) async {
+    // Sin sesión el servidor rechazaría cada operación: no se intenta.
+    if (sessionKnownClosed()) return;
+    await _ensureStartupMaintenance();
     if (!_isOnline.value) {
       AppLogger.w('Sin conexión, no se puede sincronizar', tag: 'SYNC');
       return;
