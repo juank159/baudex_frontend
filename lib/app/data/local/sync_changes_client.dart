@@ -179,26 +179,56 @@ class SyncChangesClient {
 
 /// Hasta dónde se descargó cada módulo, por negocio. Se guarda fuera de ISAR
 /// (SharedPreferences) y se borra junto con los datos locales.
+///
+/// En Windows las preferencias son un archivo que se puede dañar (apagón
+/// mientras se escribe) y entonces cada lectura lanza un error. La descarga
+/// no puede morir por eso: lo que no se pudo leer o guardar se lleva en
+/// memoria durante esta ejecución (antes, con el archivo dañado, la app no
+/// volvía a descargar NADA del servidor).
 class SyncWatermarkStore {
   static const String _prefix = 'sync_wm_v1|';
+
+  /// Respaldo en memoria de lo que las preferencias no aceptaron. Una
+  /// clave con valor null significa "borrada".
+  static final Map<String, String?> _memory = {};
+
+  /// Solo para pruebas: olvida el respaldo en memoria (app recién abierta).
+  static void debugForgetMemory() => _memory.clear();
+
+  Future<String?> _read(String key) async {
+    if (_memory.containsKey(key)) return _memory[key];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _write(String key, String? value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ok = value == null
+          ? await prefs.remove(key)
+          : await prefs.setString(key, value);
+      if (!ok) throw StateError('las preferencias no guardaron $key');
+      _memory.remove(key);
+    } catch (_) {
+      _memory[key] = value;
+    }
+  }
 
   String _key(String organizationKey, String entity) =>
       '$_prefix$organizationKey|$entity';
 
-  Future<String?> get(String organizationKey, String entity) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_key(organizationKey, entity));
-  }
+  Future<String?> get(String organizationKey, String entity) =>
+      _read(_key(organizationKey, entity));
 
-  Future<void> set(String organizationKey, String entity, String value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key(organizationKey, entity), value);
-  }
+  Future<void> set(String organizationKey, String entity, String value) =>
+      _write(_key(organizationKey, entity), value);
 
-  Future<void> remove(String organizationKey, String entity) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key(organizationKey, entity));
-  }
+  Future<void> remove(String organizationKey, String entity) =>
+      _write(_key(organizationKey, entity), null);
 
   // Descarga a medias (para seguirla tras reiniciar la app). Comparte el
   // prefijo para que [clearAll] también la borre.
@@ -207,8 +237,7 @@ class SyncWatermarkStore {
 
   Future<Map<String, dynamic>?> getProgress(
       String organizationKey, String entity) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_progressKey(organizationKey, entity));
+    final raw = await _read(_progressKey(organizationKey, entity));
     if (raw == null) return null;
     try {
       return Map<String, dynamic>.from(jsonDecode(raw) as Map);
@@ -218,23 +247,24 @@ class SyncWatermarkStore {
   }
 
   Future<void> setProgress(
-      String organizationKey, String entity, Map<String, dynamic> value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-        _progressKey(organizationKey, entity), jsonEncode(value));
-  }
+          String organizationKey, String entity, Map<String, dynamic> value) =>
+      _write(_progressKey(organizationKey, entity), jsonEncode(value));
 
-  Future<void> removeProgress(String organizationKey, String entity) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_progressKey(organizationKey, entity));
-  }
+  Future<void> removeProgress(String organizationKey, String entity) =>
+      _write(_progressKey(organizationKey, entity), null);
 
   /// Olvida todas las marcas (de todos los negocios). Se usa cuando se
   /// borran los datos locales: la siguiente descarga debe ser completa.
   Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    for (final key in prefs.getKeys().where((k) => k.startsWith(_prefix))) {
-      await prefs.remove(key);
+    _memory.clear();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final key
+          in prefs.getKeys().where((k) => k.startsWith(_prefix)).toList()) {
+        await prefs.remove(key);
+      }
+    } catch (_) {
+      // Preferencias ilegibles: no hay marcas que se puedan leer tampoco.
     }
   }
 
