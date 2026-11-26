@@ -591,6 +591,13 @@ class GlassCard extends StatelessWidget {
   final Color? borderColor;
   final double blurIntensity;
 
+  /// `false`: sin desenfocar lo que hay detrás. Sobre un fondo liso el
+  /// desenfoque no cambia nada a la vista, pero la tarjeta gráfica lo
+  /// recalcula cada vez que algo se repinta encima (cada tecla en un campo
+  /// de texto): en equipos modestos eso se nota al escribir. Úsese `false`
+  /// en tarjetas con campos de texto.
+  final bool backdropBlur;
+
   const GlassCard({
     super.key,
     required this.child,
@@ -602,6 +609,7 @@ class GlassCard extends StatelessWidget {
     this.gradient,
     this.borderColor,
     this.blurIntensity = 10,
+    this.backdropBlur = true,
   });
 
   @override
@@ -612,24 +620,28 @@ class GlassCard extends StatelessWidget {
       margin: margin,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: blurIntensity,
-            sigmaY: blurIntensity,
-          ),
-          child: Container(
-            padding: padding ?? const EdgeInsets.all(24),
-            decoration: ElegantLightTheme.glassDecoration(
-              borderColor: borderColor,
-              borderRadius: borderRadius,
-              gradient: gradient,
-            ),
-            child: child,
-          ),
-        ),
+        child: backdropBlur
+            ? BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: blurIntensity,
+                  sigmaY: blurIntensity,
+                ),
+                child: _surface(),
+              )
+            : _surface(),
       ),
     );
   }
+
+  Widget _surface() => Container(
+        padding: padding ?? const EdgeInsets.all(24),
+        decoration: ElegantLightTheme.glassDecoration(
+          borderColor: borderColor,
+          borderRadius: borderRadius,
+          gradient: gradient,
+        ),
+        child: child,
+      );
 }
 
 // Alias para compatibilidad con código existente

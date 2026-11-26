@@ -76,7 +76,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
 
     _animationController.forward();
-    _backgroundController.repeat();
+    // El fondo queda quieto: animado, cada cuadro obligaba a la tarjeta
+    // gráfica a volver a desenfocar todas las tarjetas de vidrio del
+    // tablero, sin parar, mientras se cargan los datos.
+    // _backgroundController.repeat();
   }
 
   @override

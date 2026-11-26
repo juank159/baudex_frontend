@@ -12,6 +12,10 @@ import '../controllers/auth_controller.dart';
 import '../widgets/auth_header_widget.dart';
 import '../widgets/email_autocomplete_field.dart';
 
+/// Solo en pruebas: veces que se ha pintado el fondo animado del panel
+/// izquierdo (no debe pintarse mientras se teclea).
+int debugLoginBackgroundPaints = 0;
+
 class LoginScreen extends GetView<AuthController> {
   const LoginScreen({super.key});
 
@@ -70,8 +74,11 @@ class LoginScreen extends GetView<AuthController> {
                           : 'Bienvenido de vuelta',
                     )),
                 SizedBox(height: context.verticalSpacing * 2),
-                GlassCard(
-                  child: _buildLoginForm(context),
+                RepaintBoundary(
+                  child: GlassCard(
+                    backdropBlur: false,
+                    child: _buildLoginForm(context),
+                  ),
                 ),
                 SizedBox(height: context.verticalSpacing),
                 _buildFooter(context),
@@ -113,8 +120,11 @@ class LoginScreen extends GetView<AuthController> {
                                   : 'Accede a tu cuenta',
                             )),
                         SizedBox(height: context.verticalSpacing * 2),
-                        GlassCard(
-                          child: _buildLoginForm(context),
+                        RepaintBoundary(
+                          child: GlassCard(
+                            backdropBlur: false,
+                            child: _buildLoginForm(context),
+                          ),
                         ),
                         SizedBox(height: context.verticalSpacing),
                         _buildFooter(context),
@@ -309,7 +319,7 @@ class _LeftBrandingPanel extends StatefulWidget {
 }
 
 class _LeftBrandingPanelState extends State<_LeftBrandingPanel>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _bgController;
   late Animation<double> _bgAnimation;
 
@@ -323,11 +333,61 @@ class _LeftBrandingPanelState extends State<_LeftBrandingPanel>
     _bgAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _bgController, curve: Curves.linear),
     );
-    _bgController.repeat();
+    WidgetsBinding.instance.addObserver(this);
+    FocusManager.instance.addListener(_syncAnimation);
+    _syncAnimation();
+  }
+
+  bool _appInFront = true;
+
+  /// El fondo solo se mueve cuando nadie está escribiendo y la ventana está
+  /// al frente: mientras se teclea, cada cuadro debe ser para la tecla.
+  void _syncAnimation() {
+    if (!mounted) return;
+    final typing = _focusIsOnTextField();
+    final shouldRun = _appInFront && !typing;
+    if (shouldRun && !_bgController.isAnimating) {
+      _bgController.repeat();
+    } else if (!shouldRun && _bgController.isAnimating) {
+      _bgController.stop();
+    }
+  }
+
+  /// ¿El cursor está en una caja de texto? (la caja puede ser el foco, su
+  /// ancestro o estar dentro de quien tiene el foco).
+  bool _focusIsOnTextField() {
+    final node = FocusManager.instance.primaryFocus;
+    final focused = node?.context;
+    // Un ámbito de foco (la página entera) no es una caja de texto.
+    if (node == null || focused == null || node is FocusScopeNode) return false;
+    if (focused.widget is EditableText ||
+        focused.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return true;
+    }
+    var found = false;
+    void visit(Element element) {
+      if (found) return;
+      if (element.widget is EditableText) {
+        found = true;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (focused as Element).visitChildren(visit);
+    return found;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appInFront = state == AppLifecycleState.resumed;
+    _syncAnimation();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    FocusManager.instance.removeListener(_syncAnimation);
     _bgController.dispose();
     super.dispose();
   }
@@ -337,28 +397,27 @@ class _LeftBrandingPanelState extends State<_LeftBrandingPanel>
     return Stack(
       children: [
         // Fondo con gradiente
-        AnimatedBuilder(
-          animation: _bgAnimation,
-          builder: (context, child) {
-            return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF2563EB), // Blue 600
-                    Color(0xFF1D4ED8), // Blue 700
-                    Color(0xFF1E40AF), // Blue 800
-                  ],
-                  stops: [0.0, 0.5, 1.0],
-                ),
+        // En su propia capa: su movimiento no obliga a repintar el resto
+        // de la pantalla (ni el formulario).
+        RepaintBoundary(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF2563EB), // Blue 600
+                  Color(0xFF1D4ED8), // Blue 700
+                  Color(0xFF1E40AF), // Blue 800
+                ],
+                stops: [0.0, 0.5, 1.0],
               ),
-              child: CustomPaint(
-                painter: _LoginPatternPainter(animation: _bgAnimation),
-                child: const SizedBox.expand(),
-              ),
-            );
-          },
+            ),
+            child: CustomPaint(
+              painter: _LoginPatternPainter(animation: _bgAnimation),
+              child: const SizedBox.expand(),
+            ),
+          ),
         ),
         // Contenido sobre el fondo
         Center(
@@ -373,7 +432,10 @@ class _LeftBrandingPanelState extends State<_LeftBrandingPanel>
                   height: 100,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
-                    color: Colors.white.withOpacity(0.15),
+                    // Sin desenfoque detrás (se recalculaba en cada cuadro
+                    // por el fondo animado): un blanco translúcido algo más
+                    // denso da el mismo vidrio esmerilado.
+                    color: Colors.white.withOpacity(0.2),
                     border: Border.all(
                       color: Colors.white.withOpacity(0.3),
                       width: 1.5,
@@ -388,14 +450,11 @@ class _LeftBrandingPanelState extends State<_LeftBrandingPanel>
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Image.asset(
-                          'assets/images/baudex_logo.png',
-                          fit: BoxFit.contain,
-                        ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Image.asset(
+                        'assets/images/baudex_logo.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -489,6 +548,10 @@ class _LoginPatternPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    assert(() {
+      debugLoginBackgroundPaints++;
+      return true;
+    }());
     final paint = Paint()..style = PaintingStyle.fill;
     final time = animation.value * 2 * math.pi;
 
@@ -513,7 +576,8 @@ class _LoginPatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LoginPatternPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _LoginPatternPainter oldDelegate) =>
+      oldDelegate.animation != animation;
 }
 
 class _CircleData {
