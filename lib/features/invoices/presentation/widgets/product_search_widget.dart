@@ -1280,9 +1280,10 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
       _scanKeys.add(digit);
       _consumedKeys.add(event.logicalKey);
       _scanKeysTimer?.cancel();
+      _scanKeysGrace = 0;
       _scanKeysTimer = Timer(
         _scanKeys.length == 1 ? _firstDigitHold : _burstKeysHold,
-        _releaseScanKeys,
+        _scanKeysWaitOver,
       );
       return KeyEventResult.handled;
     }
@@ -1307,6 +1308,28 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     _releaseScanKeys();
     return null;
   }
+
+  /// Se acabó la espera por otra tecla. Si este aviso llegó TARDE (la
+  /// pantalla estaba ocupada dibujando un cuadro lento), las teclas del
+  /// lector pueden estar en fila detrás de él: se da un respiro corto para
+  /// atenderlas antes de decidir que era una persona. Sin esto, en un equipo
+  /// lento una lectura de cada tantas soltaba el primer dígito a la caja.
+  void _scanKeysWaitOver() {
+    if (_scanKeys.isEmpty || !mounted) return;
+    final hold = _scanKeys.length == 1 ? _firstDigitHold : _burstKeysHold;
+    final late = _keyTime() - _scanKeysLast - hold;
+    if (late > _lateTimerSlack && _scanKeysGrace < _maxGraces) {
+      _scanKeysGrace++;
+      _scanKeysTimer = Timer(_graceAfterLateTimer, _scanKeysWaitOver);
+      return;
+    }
+    _releaseScanKeys();
+  }
+
+  int _scanKeysGrace = 0;
+  static const Duration _lateTimerSlack = Duration(milliseconds: 8);
+  static const Duration _graceAfterLateTimer = Duration(milliseconds: 12);
+  static const int _maxGraces = 3;
 
   /// Saca los dígitos retenidos (y sus datos para la medición).
   _DirectScan _takeScanKeys() {

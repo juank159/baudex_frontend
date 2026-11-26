@@ -24,7 +24,8 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
     return Scaffold(
       backgroundColor: ElegantLightTheme.backgroundColor,
       drawer: const AppDrawer(),
-      body: Column(
+      body: DiagnosticSectionGuard(
+          child: Column(
         children: [
           _DiagnosticHeader(isNarrow: isNarrow),
           Expanded(
@@ -102,9 +103,69 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
           ),
           _FixedFooter(isNarrow: isNarrow),
         ],
+      )),
+    );
+  }
+}
+
+/// Mientras Diagnóstico está abierta, una sección que falla al dibujarse
+/// muestra un aviso corto ("Sección no disponible: <error>") en vez del
+/// recuadro gris de Flutter, que en una lista mide cien mil píxeles de
+/// alto y deja la pantalla entera "en blanco" tapando todo lo demás.
+class DiagnosticSectionGuard extends StatefulWidget {
+  const DiagnosticSectionGuard({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<DiagnosticSectionGuard> createState() => _DiagnosticSectionGuardState();
+}
+
+class _DiagnosticSectionGuardState extends State<DiagnosticSectionGuard> {
+  late final ErrorWidgetBuilder _previous;
+
+  static Widget _sectionError(FlutterErrorDetails details) {
+    final error = details.exceptionAsString().split('\n').first;
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 96),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: ElegantLightTheme.accentOrange.withOpacity(0.5)),
+      ),
+      child: Text(
+        'Sección no disponible: $error',
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        textDirection: TextDirection.ltr,
+        style: const TextStyle(
+          fontSize: 12,
+          color: ElegantLightTheme.textSecondary,
+          decoration: TextDecoration.none,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
+
+  @override
+  void initState() {
+    super.initState();
+    _previous = ErrorWidget.builder;
+    ErrorWidget.builder = _sectionError;
+  }
+
+  @override
+  void dispose() {
+    if (ErrorWidget.builder == _sectionError) ErrorWidget.builder = _previous;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 // ==================== HEALTH SCORE ====================

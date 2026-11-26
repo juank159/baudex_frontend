@@ -326,12 +326,31 @@ class InvoiceEntryMetrics {
   String report({EntryContext? current}) {
     final b = StringBuffer();
     b.writeln('Rendimiento al facturar (desde que se abrió la app):');
-    final state = current ?? lastContext;
-    if (state != null) b.writeln('  Último estado al facturar: ${state.label}');
-    final keys = valueKeysCertain + valueKeysUnconfirmed;
-    b.writeln('  Teclas con un valor: $keys '
-        '(opción segura: $valueKeysCertain, por confirmar: $valueKeysUnconfirmed)');
-    if (scans > 0) {
+    // Por partes: si una falla, salen las demás y una línea que lo dice.
+    void part(String name, void Function(StringBuffer out) write) {
+      final out = StringBuffer();
+      try {
+        write(out);
+        b.write(out);
+      } catch (e) {
+        b.write(out);
+        if (out.isNotEmpty && !out.toString().endsWith('\n')) b.writeln();
+        b.writeln('  Sección "$name" no disponible: '
+            '${'$e'.split('\n').first}');
+      }
+    }
+
+    part('estado', (b) {
+      final state = current ?? lastContext;
+      if (state != null) {
+        b.writeln('  Último estado al facturar: ${state.label}');
+      }
+      final keys = valueKeysCertain + valueKeysUnconfirmed;
+      b.writeln('  Teclas con un valor: $keys '
+          '(opción segura: $valueKeysCertain, por confirmar: $valueKeysUnconfirmed)');
+    });
+    part('lecturas con el lector', (b) {
+      if (scans == 0) return;
       final gap = scanGapMs, perScan = scanFrames;
       b.writeln('  Lecturas con el lector: $scans '
           '(directas por teclas, sin pasar por la caja: $scansDirect; '
@@ -344,42 +363,49 @@ class InvoiceEntryMetrics {
             'Cuadros de pantalla por lectura: normal ${perScan.$1.toStringAsFixed(0)}, '
             'peor ${perScan.$2.toStringAsFixed(0)}');
       }
-    }
-    var any = false;
-    for (final m in EntryMetric.values) {
-      final s = summary(m);
-      if (s == null) continue;
-      any = true;
-      b.writeln('  ${m.title}: ${s.count} veces, '
-          'normal ${_f(s.medianMs)} ms, 95 % bajo ${_f(s.p95Ms)} ms, '
-          'peor ${_f(s.maxMs)} ms, última ${_f(s.lastMs)} ms');
-    }
-    if (!any) b.writeln('  (todavía no se ha facturado en esta sesión)');
-    b.writeln('  Cuadros de pantalla: $frames, de más de 50 ms: $framesOver50, '
-        'de más de 200 ms: $framesOver200, peor: ${_f(worstFrameMs)} ms');
-    if (frames > 0 && (_buildSumMs > 0 || _rasterSumMs > 0)) {
-      b.writeln('    Armar (hilo de la app): promedio ${_f(_buildSumMs / frames)} ms, '
-          'peor ${_f(worstBuildMs)} ms, de más de 16 ms: $buildOver16. '
-          'Pintar (gráfica): promedio ${_f(_rasterSumMs / frames)} ms, '
-          'peor ${_f(worstRasterMs)} ms, de más de 16 ms: $rasterOver16, '
-          'de más de 50 ms: $rasterOver50');
-    }
-    if (presentationsFromServer > 0) {
-      b.writeln('  Productos cuyas presentaciones se pidieron al servidor '
-          '(sin frenar la línea): $presentationsFromServer');
-    }
-    if (indexLoadFailures > 0) {
-      b.writeln('  Cargas del índice de códigos que FALLARON: '
-          '$indexLoadFailures (último error: $lastIndexLoadError)');
-    }
-    if (_slow.isNotEmpty) {
+    });
+    part('tiempos', (b) {
+      var any = false;
+      for (final m in EntryMetric.values) {
+        final s = summary(m);
+        if (s == null) continue;
+        any = true;
+        b.writeln('  ${m.title}: ${s.count} veces, '
+            'normal ${_f(s.medianMs)} ms, 95 % bajo ${_f(s.p95Ms)} ms, '
+            'peor ${_f(s.maxMs)} ms, última ${_f(s.lastMs)} ms');
+      }
+      if (!any) b.writeln('  (todavía no se ha facturado en esta sesión)');
+    });
+    part('cuadros de pantalla', (b) {
+      b.writeln('  Cuadros de pantalla: $frames, de más de 50 ms: $framesOver50, '
+          'de más de 200 ms: $framesOver200, peor: ${_f(worstFrameMs)} ms');
+      if (frames > 0 && (_buildSumMs > 0 || _rasterSumMs > 0)) {
+        b.writeln('    Armar (hilo de la app): promedio ${_f(_buildSumMs / frames)} ms, '
+            'peor ${_f(worstBuildMs)} ms, de más de 16 ms: $buildOver16. '
+            'Pintar (gráfica): promedio ${_f(_rasterSumMs / frames)} ms, '
+            'peor ${_f(worstRasterMs)} ms, de más de 16 ms: $rasterOver16, '
+            'de más de 50 ms: $rasterOver50');
+      }
+    });
+    part('presentaciones e índice', (b) {
+      if (presentationsFromServer > 0) {
+        b.writeln('  Productos cuyas presentaciones se pidieron al servidor '
+            '(sin frenar la línea): $presentationsFromServer');
+      }
+      if (indexLoadFailures > 0) {
+        b.writeln('  Cargas del índice de códigos que FALLARON: '
+            '$indexLoadFailures (último error: $lastIndexLoadError)');
+      }
+    });
+    part('lentas', (b) {
+      if (_slow.isEmpty) return;
       b.writeln('  Lentas (≥ ${slowMs.toStringAsFixed(0)} ms), últimas ${_slow.length}:');
       for (final (m, s) in _slow.reversed.take(15)) {
         b.writeln('    [${s.at.toIso8601String()}] ${m.title}: '
             '${_f(s.ms)} ms — ${s.context.label}');
       }
-    }
-    _writePrints(b);
+    });
+    part('impresión', _writePrints);
     return b.toString();
   }
 
@@ -415,5 +441,6 @@ class InvoiceEntryMetrics {
     }
   }
 
-  static String _f(double ms) => ms.toStringAsFixed(ms < 10 ? 1 : 0);
+  static String _f(double ms) =>
+      ms.isFinite ? ms.toStringAsFixed(ms < 10 ? 1 : 0) : 'n/d';
 }
