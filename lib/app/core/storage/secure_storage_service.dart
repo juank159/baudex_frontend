@@ -173,8 +173,20 @@ class SecureStorageService {
   }
 
   static Future<bool> _decideWindowsStorage() async {
+    final SharedPreferences prefs;
     try {
-      final prefs = await SharedPreferences.getInstance();
+      prefs = await SharedPreferences.getInstance();
+    } catch (e, st) {
+      // Las preferencias no se pueden leer: NO son un respaldo utilizable.
+      // Antes se elegía "seguir con preferencias" y cada lectura del token
+      // fallaba; la sesión está (o se guardará) en el almacén seguro.
+      OpsReporter.capture(e, st,
+          errorType: 'SecureStoreMigration', fingerprint: 'secure_store_migration|prefs_unreadable');
+      _useSharedPreferences = false;
+      _mirrorToPrefs = false;
+      return false;
+    }
+    try {
       final outcome = await PrefsToSecureStoreMigration(
         prefs: prefs,
         store: _storage,

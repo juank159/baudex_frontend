@@ -489,7 +489,8 @@ Future<ImpresorasProbeResult> runImpresorasProbe({
       await settings.savePrinterSettings(form(name: 'Barra', usb: usbName));
       if (byName('Barra') == null) return 'la última alta no quedó';
       if (queue.ops.isNotEmpty) return 'cola: ${queue.ops}';
-      final stored = await isar.printerSettingsModels.count();
+      final stored =
+          await isar.printerSettingsModels.filter().deletedAtIsNull().count();
       return stored == 2 ? null : 'filas en la base: $stored';
     });
 
@@ -531,6 +532,36 @@ Future<ImpresorasProbeResult> runImpresorasProbe({
       return settings.printerSettings.isEmpty
           ? null
           : 'no se pudieron eliminar: ${settings.printerSettings.map((p) => p.name)}';
+    });
+
+    await step('eliminar varias con la bajada cruzándose: no reviven al reiniciar', () async {
+      for (final p in [...settings.printerSettings]) {
+        await settings.deletePrinterSettings(p.id);
+      }
+      for (var i = 1; i <= 4; i++) {
+        await settings.savePrinterSettings(form(name: 'Repetida $i', usb: usbName));
+      }
+      if (settings.printerSettings.length != 4) {
+        return 'no se crearon las 4: ${settings.printerSettings.length}';
+      }
+      final local = SettingsLocalDataSourceImpl();
+      for (final p in [...settings.printerSettings]) {
+        // La bajada pidió la lista antes de que el servidor borrara esta.
+        final stale = server.rows.values.toList();
+        await settings.deletePrinterSettings(p.id);
+        await local.mergeServerPrinters(stale);
+        await settings.refreshPrintersQuietly();
+      }
+      if (settings.printerSettings.isNotEmpty) {
+        return 'siguen en la lista: ${settings.printerSettings.map((p) => p.name)}';
+      }
+      await local.mergeServerPrinters(server.rows.values.toList());
+      await restart();
+      if (settings.printerSettings.isNotEmpty) {
+        return 'reaparecieron al reiniciar: ${settings.printerSettings.map((p) => p.name)}';
+      }
+      if (server.rows.isNotEmpty) return 'quedaron en el servidor: ${server.rows.length}';
+      return queue.ops.isEmpty ? null : 'cola: ${queue.ops}';
     });
 
     await step('impresora que no está instalada en este equipo: aviso claro', () async {

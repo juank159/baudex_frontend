@@ -18,6 +18,8 @@ import 'app/core/navigation/app_route_observer.dart';
 import 'app/core/navigation/route_stack_observer.dart';
 import 'app/core/network/bundled_roots.dart';
 import 'app/core/ops/ops_reporter.dart';
+import 'app/core/storage/durable_prefs_store.dart';
+import 'app/core/storage/prefs_startup_report.dart';
 import 'app/core/ops/ops_health_watcher.dart';
 import 'app/core/navigation/getx_route_janitor.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -74,6 +76,18 @@ void main() async {
     await initializeDateFormatting('es_CO', null);
     tz.initializeTimeZones();
     
+    // PASO 1.5: Preferencias del equipo a prueba de apagones (Windows y
+    // Linux). Va ANTES de cualquier uso de preferencias: el almacén de
+    // sesión y la sincronización deciden su modo con lo que lean de ahí.
+    await installDurablePrefs(
+      onProblem: (e, st) => OpsReporter.capture(
+        e,
+        st,
+        errorType: 'DevicePreferences',
+        fingerprint: 'device_prefs|write',
+      ),
+    );
+
     // PASO 2: Inicializar configuración de entorno
     await EnvConfig.initialize();
 
@@ -82,6 +96,10 @@ void main() async {
 
     // PASO 3: Inicializar base de datos ISAR
     await IsarDatabase.instance.initialize();
+
+    // PASO 3.1: Si las preferencias estaban dañadas y hubo que recuperarlas,
+    // dejarlo en Diagnóstico y en la central de errores.
+    reportDurablePrefsStartup();
 
     // PASO 4: Mostrar configuración
     ApiConstants.printCurrentConfig();
@@ -149,6 +167,8 @@ class _MyAppState extends State<MyApp> {
       // como best-effort fire-and-forget. La ruta principal de cierre limpio
       // es onExitRequested, que SÍ es awaitable.
       onDetach: () {
+        // Lo último que se guardó en preferencias, a disco.
+        installedDurablePrefs?.flush();
         _flushAndCloseIsar();
       },
     );

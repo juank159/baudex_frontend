@@ -32,6 +32,7 @@ import '../../../features/subscriptions/data/datasources/subscription_cache.dart
 import '../../../features/settings/data/datasources/organization_remote_datasource.dart';
 import '../../../features/settings/data/datasources/printer_settings_remote_datasource.dart';
 import '../../../features/settings/data/models/isar/isar_organization.dart';
+import '../../../features/settings/data/datasources/settings_local_datasource.dart';
 import '../../../features/settings/data/models/printer_settings_model.dart';
 import '../../../features/settings/data/repositories/organization_offline_repository.dart';
 import '../../../features/settings/data/organization_write_clock.dart';
@@ -2448,16 +2449,9 @@ class FullSyncService extends GetxService {
 
     final printers = await remoteDS.getAllPrinterSettings();
 
-    if (printers.isEmpty) return 0;
-
-    await _isar.writeTxn(() async {
-      final isarModels = printers.map((entity) {
-        return PrinterSettingsModel.fromEntity(entity);
-      }).toList();
-      await _isar.printerSettingsModels.putAllByServerId(isarModels);
-    });
-
-    return printers.length;
+    // No se pisa a ciegas: una impresora eliminada en este equipo no debe
+    // revivir, ni quedarse una que el servidor ya no tiene.
+    return SettingsLocalDataSourceImpl().mergeServerPrinters(printers);
   }
 
   /// Sincronizar órdenes de compra del server a ISAR

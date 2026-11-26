@@ -299,7 +299,9 @@ void main() {
   }
 
   Future<List<PrinterSettingsModel>> stored(WidgetTester tester) async =>
-      (await tester.runAsync(() => isar.printerSettingsModels.where().findAll()))!;
+      (await tester.runAsync(
+        () => isar.printerSettingsModels.filter().deletedAtIsNull().findAll(),
+      ))!;
 
   SettingsController ctrl() => Get.find<SettingsController>();
 

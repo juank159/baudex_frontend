@@ -151,7 +151,10 @@ void main() {
       final result = await local.deletePrinterSettings(_id);
 
       expect(result.isRight(), isTrue, reason: '$result');
-      expect(await isar.printerSettingsModels.count(), 0);
+      expect(
+        await isar.printerSettingsModels.filter().deletedAtIsNull().count(),
+        0,
+      );
     });
 
     test('elegir predeterminada funciona y se recuerda en la base', () async {
