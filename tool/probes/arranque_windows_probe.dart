@@ -49,6 +49,11 @@
 //                       registrar) y abrir Diagnóstico. Líneas
 //                       "MEDICION TECLEO | etiqueta | paso | …".
 //   BAUDEX_PROBE_TECLEO_REPS (6) repeticiones en la factura.
+//   BAUDEX_PROBE_RENDIMIENTO  full (por defecto) | light | auto: tema
+//                       completo, liviano forzado o automático.
+//   BAUDEX_PROBE_CAPTURAS=<carpeta>  guarda capturas reales de la ventana
+//                       (login, tablero, factura, diálogo de sin registrar).
+//   BAUDEX_PROBE_CALMA_S (8) espera en calma antes de teclear en la factura.
 //   BAUDEX_PROBE_LENTO=1  modo "equipo lento": la app queda con
 //                       BAUDEX_PROBE_NUCLEOS (2) núcleos y prioridad baja,
 //                       con BAUDEX_PROBE_CARGA_CPU (2) bucles de procesador
@@ -68,6 +73,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:baudex_desktop/app/config/constants/api_constants.dart';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
@@ -76,6 +82,7 @@ import 'package:baudex_desktop/app/core/diagnostics/paint_probe.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import 'package:baudex_desktop/app/core/theme/performance_mode.dart';
 import 'package:baudex_desktop/app/core/storage/secure_store_stats.dart';
 import 'package:baudex_desktop/app/core/storage/session_startup_trace.dart';
 import 'package:baudex_desktop/app/data/local/full_sync_service.dart';
@@ -88,6 +95,7 @@ import 'package:baudex_desktop/features/invoices/presentation/controllers/invoic
 import 'package:baudex_desktop/features/products/data/models/isar/isar_product.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:baudex_desktop/main.dart' as app;
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -355,6 +363,27 @@ class _Stalls {
 
 String _f(num ms) => ms.toStringAsFixed(0);
 
+/// Captura REAL de la ventana (lo que pintó el motor, con desenfoques y
+/// sombras) a un PNG. Devuelve la ruta o un texto con el motivo.
+Future<String> _capture(String dir, String name) async {
+  try {
+    final view = WidgetsBinding.instance.renderViews.first;
+    // ignore: invalid_use_of_protected_member
+    final layer = view.layer! as OffsetLayer;
+    // La capa raíz está en píxeles del equipo (pantallas de alta densidad).
+    final size = view.size * view.flutterView.devicePixelRatio;
+    final image = await layer.toImage(Offset.zero & size, pixelRatio: 1);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    final safe = name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_');
+    final file = File('$dir${Platform.pathSeparator}$safe.png');
+    file.parent.createSync(recursive: true);
+    file.writeAsBytesSync(data!.buffer.asUint8List());
+    return file.path;
+  } catch (e) {
+    return 'no se pudo capturar ($e)';
+  }
+}
+
 Future<void> main() async {
   final bootAt = DateTime.now().millisecondsSinceEpoch;
   WidgetsFlutterBinding.ensureInitialized();
@@ -586,6 +615,18 @@ Future<void> main() async {
     sink.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
   }
 
+  final capturas = env['BAUDEX_PROBE_CAPTURAS'] ?? '';
+  Future<void> captura(String what) async {
+    if (capturas.isEmpty) return;
+    final mode = env['BAUDEX_PROBE_RENDIMIENTO'] ?? 'full';
+    logLento('captura $what: ${await _capture(capturas, '${step.split(' ').first}-$mode-$what')}');
+  }
+
+  // Tema de la medición: completo (por defecto, para comparar versiones),
+  // liviano forzado o automático (la app decide según cómo pinta).
+  await PerformanceMode.choose(
+    PerformanceSetting.fromId(env['BAUDEX_PROBE_RENDIMIENTO'] ?? 'full'),
+  );
   logLento('modo: ${lento ? 'EQUIPO LENTO' : 'normal'}'
       '${notasLento.isEmpty ? '' : '; ${notasLento.join('; ')}'}');
   if (StartupTrace.instance.phases.isEmpty) {
@@ -728,6 +769,7 @@ Future<void> main() async {
       exit(4);
     }
     await Future<void>.delayed(const Duration(milliseconds: 300));
+    await captura('login');
     if (tecleo) {
       logTecleo(await ventanaAlFrente());
       EditableTextState? box;
@@ -850,6 +892,8 @@ Future<void> main() async {
     String descarga() => sync.isSyncing.value || sync.hasPendingFullDownload
         ? 'EN CURSO'
         : 'quieta';
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    await captura('tablero');
     final navMark = medidor.marca;
     final navAt = stalls.nowMs;
     // Como el menú lateral, sin la pregunta de "abrir caja" (la medición
@@ -880,6 +924,7 @@ Future<void> main() async {
     final calma = number('BAUDEX_PROBE_CALMA_S', 8);
     await Future<void>.delayed(Duration(seconds: calma));
     logTecleo('factura: $calma s en calma antes de teclear; descarga: ${descarga()}');
+    await captura('factura');
     final visibles = <double>[];
     final enters = <double>[];
     final segundos = <double>[];
@@ -920,6 +965,10 @@ Future<void> main() async {
       );
       final nameBox = cajaConFoco();
       if (enter.$2 != null) enters.add(enter.$2!);
+      if (rep == 1) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await captura('sin-registrar');
+      }
       String enterText((double?, double?) r) => r.$1 == null
           ? 'NO APARECIÓ en 10 s'
           : '${_f(r.$1!)} ms (visible ${r.$2 == null ? 'n/d' : _f(r.$2!)} ms) → '
@@ -1032,6 +1081,7 @@ Future<void> main() async {
   log('preferencias: ${prefs.writes} escrituras, ${_f(prefs.writeMs)} ms en total, '
       'peor ${_f(prefs.worstWriteMs)} ms; lecturas fallidas: ${prefs.failedReads}; '
       'archivo al cerrar: ${prefsHealth()}; apartados: ${setAside()}');
+  logLento(PerformanceMode.describe());
   for (final line in StartupTrace.instance.timelineLines()) {
     logLento(line);
   }

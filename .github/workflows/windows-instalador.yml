@@ -214,7 +214,7 @@ jobs:
               # La sonda usa la línea de tiempo del arranque: si esa versión
               # no la traía, se le pone la de ahora (sin instrumentar, pero
               # con las trabas y los cuadros lentos).
-              git checkout $env:GITHUB_SHA -- lib/app/core/diagnostics/startup_trace.dart lib/app/core/diagnostics/startup_trace_binding.dart lib/app/core/diagnostics/paint_probe.dart
+              git checkout $env:GITHUB_SHA -- lib/app/core/diagnostics/startup_trace.dart lib/app/core/diagnostics/startup_trace_binding.dart lib/app/core/diagnostics/paint_probe.dart lib/app/core/theme/performance_mode.dart
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
               $etiqueta = "anterior $ref"
             }
@@ -276,6 +276,7 @@ jobs:
           $env:BAUDEX_PROBE_DIR = 'C:\arranque\base'
           $env:BAUDEX_PROBE_LABEL = $env:ARRANQUE_ETIQUETA
           $env:BAUDEX_PROBE_MAX_S = '240'
+          $env:BAUDEX_PROBE_CAPTURAS = 'C:\arranque\capturas'
           # prefs: estado del archivo de preferencias ANTES de abrir.
           # cerrar: 1 = al salir borra el token (el siguiente paso mide el
           # inicio de sesión con los datos ya en el equipo).
@@ -299,6 +300,10 @@ jobs:
             # "MEDICION ARRANQUE LENTO | versión | paso | t=… ms | tarea | duró …".
             @{ nombre = '04e LOGIN RECORDADO, equipo normal';                prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150' },
             @{ nombre = '04f LOGIN RECORDADO, EQUIPO LENTO (2 núcleos)';     prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '2' },
+            # El mismo equipo lento con el tema LIVIANO forzado y en
+            # automático (la app debe pasar sola a liviano).
+            @{ nombre = '04h EQUIPO LENTO, tema LIVIANO forzado';            prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '2'; rendimiento = 'light' },
+            @{ nombre = '04i EQUIPO LENTO, tema AUTOMÁTICO';                 prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '2'; rendimiento = 'auto' },
             @{ nombre = '04g LOGIN RECORDADO, EQUIPO MUY LENTO (1 núcleo)';  prefs = 'sanas';   cerrar = '0'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '1' },
             @{ nombre = '05 DAÑADAS: reabrir';                               prefs = 'danadas'; cerrar = '0' },
             @{ nombre = '06 tras dañadas: reabrir';                          prefs = 'sanas';   cerrar = '0' },
@@ -353,6 +358,7 @@ jobs:
             $env:BAUDEX_PROBE_HUELLA = if ($paso.huella) { $paso.huella } else { '' }
             $env:BAUDEX_PROBE_LENTO = if ($paso.lento) { $paso.lento } else { '0' }
             $env:BAUDEX_PROBE_NUCLEOS = if ($paso.nucleos) { $paso.nucleos } else { '2' }
+            $env:BAUDEX_PROBE_RENDIMIENTO = if ($paso.rendimiento) { $paso.rendimiento } else { 'full' }
             $env:BAUDEX_PROBE_LATENCIA_MS = if ($paso.latencia) { $paso.latencia } else { '0' }
             $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             Write-Host "===== $($paso.nombre) ====="
@@ -396,7 +402,9 @@ jobs:
         if: ${{ always() && steps.lib.outputs.medir == 'si' }}
         with:
           name: medicion-arranque-${{ matrix.version }}
-          path: C:\arranque\*.txt
+          path: |
+            C:\arranque\*.txt
+            C:\arranque\capturas\*.png
           if-no-files-found: warn
 
   # Comprueba en un Windows real que el tiquete sale directo por la cola de
