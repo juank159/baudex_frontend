@@ -29,6 +29,9 @@ void main() {
       id: 'huevo', name: 'Huevo AA', sku: '500', barcode: null);
   final index = ShortCodeIndex.build(const [], complete: true);
 
+  setUpAll(() => registerFallbackValue(
+      ProductFixtures.createProductEntity(id: 'x', name: 'x', sku: 'x')));
+
   setUp(() {
     InvoiceEntryMetrics.instance.reset();
     Get.testMode = true;
@@ -107,17 +110,16 @@ void main() {
     await tester.pump();
     expectNameFieldReady(tester);
     expect(localLookups, 1, reason: 'una sola consulta local');
-    // El cajero acepta el nombre: la base por fin responde que no existe.
+    // El cajero acepta el nombre: la línea entra YA, sin esperar a la base.
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
-    expect(find.text('Nombre en la factura'), findsNothing,
-        reason: 'el diálogo se cierra ya');
-    expect(added, isEmpty, reason: 'espera la respuesta (250 ms como mucho)');
-    local.complete(null);
-    await tester.pump();
-    expect(added, ['${added.single.split(':').first}:$unregisteredProductName']);
+    expect(find.text('Nombre en la factura'), findsNothing);
     expect(added.single, startsWith('temp_'));
+    expect(added.single, endsWith(':$unregisteredProductName'));
+    local.complete(null);
     await tester.pump(const Duration(seconds: 1));
+    expect(added, hasLength(1));
+    verifyNever(() => controller.replaceUnregisteredLine(any(), any()));
   });
 
   testWidgets('la base responde enseguida que no existe: diálogo sin esperar '
@@ -162,7 +164,8 @@ void main() {
   });
 
   testWidgets('Enter en el nombre antes de que la base responda, y SÍ existía: '
-      'entra el registrado, no uno sin registrar', (tester) async {
+      'la línea entra ya y se cambia por el registrado al llegar la respuesta',
+      (tester) async {
     // Dentro de la prueba: así su respuesta corre con el reloj simulado.
     local = Completer();
     await typeValueAndEnter(tester);
@@ -170,15 +173,16 @@ void main() {
     await tester.pump();
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
+    expect(added.single, startsWith('temp_'), reason: 'sin esperar');
+    final tempId = added.single.split(':').first;
     local.complete(huevo);
     await tester.pump();
-    expect(added, ['huevo:Huevo AA']);
+    verify(() => controller.replaceUnregisteredLine(tempId, huevo)).called(1);
     await tester.pump(const Duration(seconds: 1));
-    expect(added, hasLength(1));
   });
 
-  testWidgets('la base nunca responde: a los 250 ms entra como sin registrar '
-      'con el nombre escrito', (tester) async {
+  testWidgets('la base nunca responde: la línea sin registrar entra en el '
+      'mismo cuadro del Enter, con el nombre escrito', (tester) async {
     // Dentro de la prueba: así su respuesta corre con el reloj simulado.
     local = Completer();
     await typeValueAndEnter(tester);
@@ -186,11 +190,15 @@ void main() {
     await tester.pump();
     await tester.enterText(nameField(), 'Bolsa grande');
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump(const Duration(milliseconds: 249));
-    expect(added, isEmpty);
-    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump();
     expect(added.single, endsWith(':Bolsa grande'));
-    await tester.pump(const Duration(seconds: 1));
+    // Foco de vuelta en el buscador, listo para lo siguiente.
+    await tester.pump();
+    final search = tester.widget<EditableText>(find.byType(EditableText).first);
+    expect(search.focusNode.hasFocus, isTrue);
+    expect(search.controller.text, isEmpty);
+    await tester.pump(const Duration(seconds: 4));
+    verifyNever(() => controller.replaceUnregisteredLine(any(), any()));
   });
 
   testWidgets('Cancelar: no agrega nada, aunque la base responda después',
