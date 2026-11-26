@@ -1,25 +1,35 @@
 // tool/probes/prefs_windows_probe.dart
 //
 // Prueba en Windows real de las preferencias del equipo
-// (lib/app/core/storage/durable_prefs_store.dart):
+// (lib/app/core/storage/durable_prefs_store.dart).
 //
-//  1. Un proceso hijo escribe 200 preferencias a la vez, sin parar, y se le
-//     mata a mitad, varias veces. Con el almacén nuevo el archivo SIEMPRE
-//     se puede abrir y conserva lo guardado. Con el complemento original
-//     se cuenta cuántas veces quedó ilegible o vacío (demuestra la causa).
-//  2. Archivo dañado al arrancar: se restaura de la copia y siguen la
-//     marca de sesión, el negocio y las marcas de sincronización.
+// Reglas que debe cumplir el almacén nuevo:
+//  1. Un dato cuyo `set*` ya devolvió sobrevive a matar el proceso.
+//  2. Un dato viejo nunca se pierde por una escritura posterior cortada.
 //
-//   flutter build windows --release -t tool/probes/prefs_windows_probe.dart
+// Baudex solo deja abrir UNA copia a la vez (el ejecutable tiene un
+// candado de instancia única), así que no puede lanzar procesos hijos de
+// sí mismo: la primera versión de esta prueba lo intentaba, los hijos se
+// cerraban al instante sin escribir nada y el resultado no valía. Ahora el
+// flujo de GitHub abre la app de una en una, según BAUDEX_PREFS_PROBE_MODE:
 //
-// Variables: BAUDEX_PROBE_OUT (obligatoria: sin ella no hace nada),
-// BAUDEX_PROBE_ROUNDS (por defecto 12). Solo para el equipo de pruebas:
-// el modo "original" escribe en las preferencias reales de ese equipo.
+//   escribir  escribe 200 preferencias a la vez, sin parar; tras cada tanda
+//             cuyo `set*` devolvió, anota el número de tanda en un archivo
+//             aparte (con flush). El flujo la mata a mitad.
+//   revisar   abre lo que quedó, lo compara con la última tanda anotada y
+//             agrega una línea al conteo.
+//   (vacío)   imprime el conteo, prueba "archivo dañado al arrancar" y
+//             decide el resultado.
+//
+// BAUDEX_PREFS_PROBE_STORE = original | nuevo
+// BAUDEX_PREFS_PROBE_DIR   = carpeta de trabajo (obligatoria)
+// BAUDEX_PROBE_OUT         = archivo de salida (modo final)
+// Solo para el equipo de pruebas: "original" usa las preferencias reales
+// de ese equipo.
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:baudex_desktop/app/core/storage/durable_prefs_store.dart';
 import 'package:flutter/widgets.dart';
@@ -28,40 +38,235 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 const _sentinel = 'flutter.centinela';
+const _sentinelValue = 'dato viejo';
 const _keys = 200;
+final _sep = Platform.pathSeparator;
 
-Future<void> _writer(String store, String filePath) async {
+int _roundOf(Object? value) =>
+    value is String ? int.tryParse(value.split('-').first) ?? 0 : 0;
+
+Future<File> _prefsFile(String store, String dir) async => store == 'nuevo'
+    ? File('$dir${_sep}nuevo${_sep}shared_preferences.json')
+    : File(
+        '${(await getApplicationSupportDirectory()).path}'
+        '${_sep}shared_preferences.json',
+      );
+
+File _ackFile(String dir, String store) => File('$dir${_sep}confirmado-$store.txt');
+File _tallyFile(String dir) => File('$dir${_sep}conteo.txt');
+
+/// Última tanda anotada completa (0 si el escritor no alcanzó a anotar).
+int _lastAck(File ack) {
+  if (!ack.existsSync()) return 0;
+  final lines = ack.readAsStringSync().split('\n');
+  // La última línea puede haber quedado a medias: solo valen las cerradas.
+  for (var i = lines.length - 2; i >= 0; i--) {
+    final n = int.tryParse(lines[i].trim());
+    if (n != null) return n;
+  }
+  return 0;
+}
+
+Future<void> probeWrite(String store, String dir, {int? maxRounds}) async {
+  final file = await _prefsFile(store, dir);
   final SharedPreferencesStorePlatform target;
   if (store == 'nuevo') {
-    target = DurablePrefsStore(File(filePath))..open();
+    target = DurablePrefsStore(file)..open();
   } else {
-    // El complemento original, tal como viene registrado en Windows.
-    target = SharedPreferencesStorePlatform.instance;
+    target = SharedPreferencesStorePlatform.instance; // el complemento
   }
-  await target.setValue('String', _sentinel, 'sigo aquí');
+  final before = await target.getAllWithPrefix('');
+  var round = _roundOf(before['flutter.k0']);
+  final ack = _ackFile(dir, store)..parent.createSync(recursive: true);
+  ack.writeAsStringSync('');
+
+  await target.setValue('String', _sentinel, _sentinelValue);
   final payload = 'x' * 20000;
-  var round = 0;
-  while (true) {
+  final stopAt = maxRounds == null ? null : round + maxRounds;
+  while (stopAt == null || round < stopAt) {
     round++;
     await Future.wait([
       for (var i = 0; i < _keys; i++)
         target.setValue('String', 'flutter.k$i', '$round-$payload'),
     ]);
+    // Todos los `set*` de la tanda devolvieron: queda prometida.
+    ack.writeAsStringSync('$round\n', mode: FileMode.append, flush: true);
   }
+}
+
+Future<void> probeCheck(String store, String dir) async {
+  final file = await _prefsFile(store, dir);
+  final ackFile = _ackFile(dir, store);
+  final acked = _lastAck(ackFile);
+  String outcome;
+  var detail = '';
+
+  if (acked == 0) {
+    // Sin ninguna tanda prometida la vuelta no prueba nada.
+    outcome = 'sin_escritura';
+  } else if (store == 'nuevo') {
+    final loaded = loadDurablePrefs(file);
+    final values = loaded.values;
+    final rounds = [for (var i = 0; i < _keys; i++) _roundOf(values['flutter.k$i'])];
+    final lowest = rounds.reduce((a, b) => a < b ? a : b);
+    if (loaded.report.source == PrefsLoadSource.empty) {
+      outcome = 'irrecuperable';
+    } else if (values[_sentinel] != _sentinelValue) {
+      outcome = 'perdio_dato_viejo';
+    } else if (lowest < acked) {
+      outcome = 'perdio_confirmado';
+      detail = 'en disco tanda $lowest, prometida $acked';
+    } else {
+      outcome = loaded.report.recovered ? 'ok_recuperado' : 'ok';
+      detail = loaded.report.source.name;
+    }
+    // Dejarlo como lo dejaría el arranque de la app, para la vuelta siguiente.
+    if (loaded.report.recovered && values.isNotEmpty) {
+      await writeDurablePrefs(file, values);
+    }
+  } else {
+    // Lo que encontraría la app al abrir, leído como lee el complemento.
+    if (!file.existsSync()) {
+      outcome = 'falta_archivo';
+    } else {
+      try {
+        final text = file.readAsStringSync();
+        if (text.isEmpty) {
+          outcome = 'vacio';
+        } else {
+          final data = json.decode(text) as Map;
+          final lowest = [
+            for (var i = 0; i < _keys; i++) _roundOf(data['flutter.k$i']),
+          ].reduce((a, b) => a < b ? a : b);
+          if (data[_sentinel] != _sentinelValue) {
+            outcome = 'perdio_dato_viejo';
+          } else if (lowest < acked) {
+            outcome = 'perdio_confirmado';
+          } else {
+            outcome = 'ok';
+          }
+        }
+      } catch (_) {
+        outcome = 'ilegible';
+      }
+    }
+    // La vuelta siguiente del original parte de cero si quedó mal.
+    if (outcome != 'ok' && file.existsSync()) file.deleteSync();
+  }
+
+  _tallyFile(dir).writeAsStringSync(
+    '$store|$outcome|$acked|$detail\n',
+    mode: FileMode.append,
+    flush: true,
+  );
+  if (ackFile.existsSync()) ackFile.deleteSync();
+}
+
+Future<int> probeFinish(String dir, void Function(String) log) async {
+  var failures = 0;
+  log('PRUEBA PREFERENCIAS | inicio | ${Platform.operatingSystem} '
+      '${Platform.operatingSystemVersion}');
+
+  final tally = _tallyFile(dir);
+  final lines = tally.existsSync()
+      ? tally.readAsLinesSync().where((l) => l.trim().isNotEmpty).toList()
+      : <String>[];
+  for (final store in ['original', 'nuevo']) {
+    final counts = <String, int>{};
+    final details = <String>[];
+    for (final line in lines) {
+      final parts = line.split('|');
+      if (parts.first != store) continue;
+      counts[parts[1]] = (counts[parts[1]] ?? 0) + 1;
+      if (parts[1].startsWith('perdio') && parts.length > 3 && parts[3].isNotEmpty) {
+        details.add(parts[3]);
+      }
+    }
+    final total = counts.values.fold<int>(0, (a, b) => a + b);
+    final valid = total - (counts['sin_escritura'] ?? 0);
+    final good = (counts['ok'] ?? 0) + (counts['ok_recuperado'] ?? 0);
+    final summary = (counts.entries.toList()..sort((a, b) => a.key.compareTo(b.key)))
+        .map((e) => '${e.key}: ${e.value}')
+        .join(', ');
+    if (store == 'original') {
+      log('PRUEBA PREFERENCIAS | complemento original, matar a mitad | '
+          '${valid == 0
+              ? 'SIN DATOS'
+              : good == valid
+              ? 'no se dañó en este equipo'
+              : 'CAUSA DEMOSTRADA'} | '
+          'vueltas válidas: $valid de $total | $summary');
+    } else {
+      final ok = valid >= 6 && good == valid;
+      if (!ok) failures++;
+      log('PRUEBA PREFERENCIAS | almacén nuevo, matar a mitad | '
+          '${ok ? 'OK' : 'FALLA'} | vueltas válidas: $valid de $total | $summary'
+          '${details.isEmpty ? '' : ' | ${details.take(3).join('; ')}'}'
+          '${valid < 6 ? ' | pocas vueltas válidas: la prueba no es concluyente' : ''}');
+    }
+  }
+
+  // ---- Archivo dañado al arrancar ----
+  final bootFile = File('$dir${_sep}arranque${_sep}shared_preferences.json');
+  const kept = {
+    'baudex_secure_store_migrated_v1': 'true',
+    'full_sync_business_v1': 'negocio-1',
+    'sync_wm_v1|negocio-1|products': '2026-11-25T10:00:00.000Z',
+    'default_printer_id': 'impresora-1',
+  };
+  await installDurablePrefs(fileOverride: bootFile);
+  var prefs = await SharedPreferences.getInstance();
+  for (final e in kept.entries) {
+    await prefs.setString(e.key, e.value);
+  }
+  await prefs.setString('ultimo', 'cambio');
+  // Apagón: el archivo queda con su tamaño pero lleno de ceros.
+  bootFile.writeAsBytesSync(List<int>.filled(bootFile.lengthSync(), 0), flush: true);
+  final report = await installDurablePrefs(fileOverride: bootFile);
+  prefs = await SharedPreferences.getInstance();
+  final missing = [
+    for (final e in kept.entries)
+      if (prefs.getString(e.key) != e.value) e.key,
+  ];
+  final ok = report != null && report.source == PrefsLoadSource.backup && missing.isEmpty;
+  if (!ok) failures++;
+  log('PRUEBA PREFERENCIAS | archivo dañado al arrancar | ${ok ? 'OK' : 'FALLA'} | '
+      'origen: ${report?.source.name}, claves: ${report?.keys}'
+      '${missing.isEmpty ? '' : ' | faltan: $missing'}');
+
+  log('PRUEBA PREFERENCIAS | RESULTADO: ${failures == 0 ? 'CUMPLE' : 'FALLA'}');
+  return failures;
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final env = Platform.environment;
+  final dir = env['BAUDEX_PREFS_PROBE_DIR'] ?? '';
+  // Nunca correr por accidente en el equipo de un cliente.
+  if (dir.isEmpty) exit(3);
+  Directory(dir).createSync(recursive: true);
+  final mode = env['BAUDEX_PREFS_PROBE_MODE'] ?? '';
+  final store = env['BAUDEX_PREFS_PROBE_STORE'] ?? 'nuevo';
 
-  final mode = env['BAUDEX_PREFS_PROBE_WRITER'];
-  if (mode != null) {
-    await _writer(mode, env['BAUDEX_PREFS_PROBE_FILE'] ?? '');
-    return;
+  try {
+    if (mode == 'escribir') {
+      await probeWrite(store, dir); // no termina: la matan
+      return;
+    }
+    if (mode == 'revisar') {
+      await probeCheck(store, dir);
+      exit(0);
+    }
+  } catch (e) {
+    File('$dir${_sep}errores.txt').writeAsStringSync(
+      '$mode $store: $e\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+    exit(4);
   }
 
-  final outPath = env['BAUDEX_PROBE_OUT'];
-  if (outPath == null || outPath.isEmpty) exit(3);
+  final outPath = env['BAUDEX_PROBE_OUT'] ?? '$dir${_sep}preferencias.txt';
   final sink = File(outPath)..parent.createSync(recursive: true);
   sink.writeAsStringSync('');
   void log(String line) {
@@ -70,123 +275,20 @@ Future<void> main() async {
     sink.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
   }
 
-  Timer(const Duration(minutes: 12), () {
-    log('PRUEBA PREFERENCIAS | RESULTADO: FALLA — no terminó en 12 minutos');
+  Timer(const Duration(minutes: 5), () {
+    log('PRUEBA PREFERENCIAS | RESULTADO: FALLA — no terminó en 5 minutos');
     exit(2);
   });
-
-  var failures = 0;
-  final rounds = int.tryParse(env['BAUDEX_PROBE_ROUNDS'] ?? '') ?? 12;
-  final random = Random(7);
-  final dir = await Directory.systemTemp.createTemp('baudex_prefs_probe');
-  log('PRUEBA PREFERENCIAS | inicio | ${Platform.operatingSystem} '
-      '${Platform.operatingSystemVersion} | $rounds vueltas por almacén');
-
+  var failures = 1;
   try {
-    final support = await getApplicationSupportDirectory();
-    final originalFile = File(
-      '${support.path}${Platform.pathSeparator}shared_preferences.json',
-    );
-    final newFile = File('${dir.path}${Platform.pathSeparator}shared_preferences.json');
-
-    for (final store in ['original', 'nuevo']) {
-      final file = store == 'nuevo' ? newFile : originalFile;
-      var unreadable = 0, empty = 0, lost = 0, recovered = 0;
-      for (var i = 0; i < rounds; i++) {
-        if (store == 'original' && file.existsSync()) {
-          // Cada vuelta del original parte de un archivo sano.
-          try {
-            json.decode(file.readAsStringSync());
-          } catch (_) {
-            file.deleteSync();
-          }
-        }
-        final child = await Process.start(Platform.resolvedExecutable, [], environment: {
-          'BAUDEX_PREFS_PROBE_WRITER': store,
-          'BAUDEX_PREFS_PROBE_FILE': file.path,
-        });
-        unawaited(child.stdout.drain<void>());
-        unawaited(child.stderr.drain<void>());
-        // Arranque del motor + un momento cualquiera en plena escritura.
-        await Future<void>.delayed(
-          Duration(milliseconds: 2500 + random.nextInt(2500)),
-        );
-        child.kill();
-        await child.exitCode.timeout(const Duration(seconds: 20), onTimeout: () => -1);
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-
-        if (store == 'original') {
-          // Lo que encontraría la app al abrir (así lee el complemento).
-          try {
-            final text = file.existsSync() ? file.readAsStringSync() : '';
-            if (text.isEmpty) {
-              empty++;
-            } else {
-              final data = json.decode(text) as Map;
-              if (!data.containsKey(_sentinel)) lost++;
-            }
-          } catch (_) {
-            unreadable++;
-          }
-        } else {
-          final loaded = loadDurablePrefs(file);
-          if (loaded.report.recovered) recovered++;
-          if (loaded.report.source == PrefsLoadSource.empty) unreadable++;
-          if (loaded.values[_sentinel] != 'sigo aquí') lost++;
-        }
-      }
-      if (store == 'original') {
-        final bad = unreadable + empty + lost;
-        log('PRUEBA PREFERENCIAS | complemento original, matar a mitad | '
-            'ilegible: $unreadable, vacío: $empty, sin el dato: $lost de $rounds '
-            '| ${bad > 0 ? 'CAUSA DEMOSTRADA' : 'no se reprodujo en este equipo'}');
-      } else {
-        final ok = unreadable == 0 && lost == 0;
-        if (!ok) failures++;
-        log('PRUEBA PREFERENCIAS | almacén nuevo, matar a mitad | '
-            '${ok ? 'OK' : 'FALLA'} | irrecuperable: $unreadable, '
-            'sin el dato: $lost, recuperado de copia/temporal: $recovered de $rounds');
-      }
+    failures = await probeFinish(dir, log);
+    final errors = File('$dir${_sep}errores.txt');
+    if (errors.existsSync()) {
+      log('PRUEBA PREFERENCIAS | errores de la prueba | ${errors.readAsStringSync().trim()}');
     }
-
-    // ---- Archivo dañado al arrancar ----
-    final bootFile = File('${dir.path}${Platform.pathSeparator}arranque.json');
-    const kept = {
-      'baudex_secure_store_migrated_v1': 'true',
-      'full_sync_business_v1': 'negocio-1',
-      'sync_wm_v1|negocio-1|products': '2026-11-25T10:00:00.000Z',
-      'default_printer_id': 'impresora-1',
-    };
-    await installDurablePrefs(fileOverride: bootFile);
-    var prefs = await SharedPreferences.getInstance();
-    for (final e in kept.entries) {
-      await prefs.setString(e.key, e.value);
-    }
-    await prefs.setString('ultimo', 'cambio');
-    await installedDurablePrefs!.flush();
-    // Apagón: el archivo queda con el tamaño correcto pero lleno de ceros.
-    bootFile.writeAsBytesSync(List<int>.filled(bootFile.lengthSync(), 0), flush: true);
-
-    final report = await installDurablePrefs(fileOverride: bootFile);
-    prefs = await SharedPreferences.getInstance();
-    final missing = [
-      for (final e in kept.entries)
-        if (prefs.getString(e.key) != e.value) e.key,
-    ];
-    final ok = report != null && report.source == PrefsLoadSource.backup && missing.isEmpty;
-    if (!ok) failures++;
-    log('PRUEBA PREFERENCIAS | archivo dañado al arrancar | ${ok ? 'OK' : 'FALLA'} | '
-        '$report${missing.isEmpty ? '' : ' | faltan: $missing'}');
   } catch (e, st) {
-    failures++;
     log('PRUEBA PREFERENCIAS | excepción | FALLA | $e');
     log(st.toString().split('\n').take(6).join('\n'));
-  } finally {
-    try {
-      dir.deleteSync(recursive: true);
-    } catch (_) {}
   }
-
-  log('PRUEBA PREFERENCIAS | RESULTADO: ${failures == 0 ? 'CUMPLE' : 'FALLA'}');
   exit(failures == 0 ? 0 : 1);
 }

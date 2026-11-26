@@ -425,16 +425,40 @@ jobs:
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $exe = 'build\windows\x64\runner\Release\Baudex.exe'
-          New-Item -ItemType Directory -Force C:\preferencias | Out-Null
-          $salida = 'C:\preferencias\preferencias.txt'
-          $env:BAUDEX_PROBE_OUT = $salida
-          $p = Start-Process -FilePath $exe -PassThru
-          $termino = $p.WaitForExit(15 * 60 * 1000)
-          if (-not $termino) { $p.Kill() }
-          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'PRUEBA PREFERENCIAS | sin archivo de salida' }
-          Write-Host "Código de salida: $($p.ExitCode)"
-          Get-Process Baudex -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          if (-not $termino -or $p.ExitCode -ne 0) {
+          $dir = 'C:\preferencias'
+          Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $env:BAUDEX_PREFS_PROBE_DIR = $dir
+          $env:BAUDEX_PROBE_OUT = "$dir\preferencias.txt"
+          $azar = [System.Random]::new(7)
+          # Baudex solo deja abrir una copia a la vez: se abre, se mata y se
+          # revisa, de una en una.
+          foreach ($almacen in 'original', 'nuevo') {
+            $env:BAUDEX_PREFS_PROBE_STORE = $almacen
+            for ($i = 1; $i -le 12; $i++) {
+              $env:BAUDEX_PREFS_PROBE_MODE = 'escribir'
+              $p = Start-Process -FilePath $exe -PassThru
+              Start-Sleep -Milliseconds (4000 + $azar.Next(4000))
+              $vivo = -not $p.HasExited
+              Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+              $p.WaitForExit(20000) | Out-Null
+              if (-not $vivo) { Write-Host "PRUEBA PREFERENCIAS | aviso | $almacen vuelta ${i}: el escritor ya se había cerrado solo (código $($p.ExitCode))" }
+              Start-Sleep -Milliseconds 500
+              $env:BAUDEX_PREFS_PROBE_MODE = 'revisar'
+              $r = Start-Process -FilePath $exe -PassThru
+              if (-not $r.WaitForExit(60000)) { $r.Kill() }
+            }
+          }
+          $env:BAUDEX_PREFS_PROBE_MODE = ''
+          $f = Start-Process -FilePath $exe -PassThru
+          $termino = $f.WaitForExit(6 * 60 * 1000)
+          if (-not $termino) { $f.Kill() }
+          Write-Host '--- conteo por vuelta (almacén|resultado|tanda prometida|detalle) ---'
+          if (Test-Path "$dir\conteo.txt") { Get-Content "$dir\conteo.txt" -Encoding utf8 }
+          Write-Host '--- resultado ---'
+          if (Test-Path $env:BAUDEX_PROBE_OUT) { Get-Content $env:BAUDEX_PROBE_OUT -Encoding utf8 } else { Write-Host 'PRUEBA PREFERENCIAS | sin archivo de salida' }
+          Write-Host "Código de salida: $($f.ExitCode)"
+          if (-not $termino -or $f.ExitCode -ne 0) {
             Write-Host "::error::Preferencias no cumple (ver líneas 'PRUEBA PREFERENCIAS | ... | FALLA')"
             exit 1
           }
@@ -443,7 +467,10 @@ jobs:
         if: ${{ always() }}
         with:
           name: prueba-preferencias
-          path: C:\preferencias\*.txt
+          path: |
+            C:\preferencias\preferencias.txt
+            C:\preferencias\conteo.txt
+            C:\preferencias\errores.txt
           if-no-files-found: warn
 
   # Comprueba en un Windows limpio que clonar + doble clic en
