@@ -564,9 +564,9 @@ class InitialBinding implements Bindings {
 
     // AudioNotificationService inicialización asíncrona
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AudioNotificationService.instance.initialize().then((_) {
-      }).catchError((e) {
-      });
+      // Con precalentamiento: la primera frase ya no frena la primera
+      // venta (ver [AudioNotificationService.warmUp]).
+      AudioNotificationService.instance.warmUp().catchError((e) {});
     });
 
   }

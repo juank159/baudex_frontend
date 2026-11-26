@@ -430,6 +430,99 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  // ───────────── la captura solo actúa en el buscador ─────────────
+
+  testWidgets('diálogo del nombre: dígitos y letras se escriben ahí; la '
+      'captura del lector no los toca ("7up", "2 litros")', (tester) async {
+    await open(tester);
+    await tester.enterText(find.byType(TextField).first, '500');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    await tester.pump();
+    final name = find.descendant(
+        of: find.byType(AlertDialog), matching: find.byType(EditableText));
+    final nameController = tester.widget<EditableText>(name).controller;
+    expect(tester.widget<EditableText>(name).focusNode.hasPrimaryFocus, isTrue);
+
+    Future<bool> typeInName(LogicalKeyboardKey key, String ch) async {
+      final consumed = await tester.sendKeyDownEvent(key, character: ch);
+      if (!consumed) {
+        final sel = nameController.selection;
+        final text = nameController.text.replaceRange(sel.start, sel.end, ch);
+        tester.testTextInput.updateEditingValue(TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: sel.start + 1),
+        ));
+      }
+      await tester.sendKeyUpEvent(key);
+      await tester.pump(const Duration(milliseconds: 5));
+      return consumed;
+    }
+
+    // "7up": el 7 reemplaza el nombre seleccionado (por eso el texto queda
+    // MÁS CORTO que antes: 1 carácter en vez de 22).
+    expect(await typeInName(LogicalKeyboardKey.digit7, '7'), isFalse);
+    expect(nameController.text, '7');
+    expect(await typeInName(LogicalKeyboardKey.keyU, 'u'), isFalse);
+    expect(await typeInName(LogicalKeyboardKey.keyP, 'p'), isFalse);
+    // Dígitos seguidos, rapidísimo (como un precio o "2 litros").
+    for (final d in '2500'.split('')) {
+      expect(
+          await typeInName(LogicalKeyboardKey(0x30 + int.parse(d)), d), isFalse);
+    }
+    expect(nameController.text, '7up2500');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(nameController.text, '7up2500', reason: 'nada retenido que caiga después');
+    expect(field(tester).text, '500', reason: 'el buscador no recibe nada');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(added.single, startsWith('temp_'));
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('otro campo con el foco (cantidad, precio, cliente…): los '
+      'dígitos no se retienen aunque el buscador esté vacío', (tester) async {
+    final other = TextEditingController();
+    final start = tester.binding.clock.now();
+    ProductSearchWidgetState.debugKeyClock =
+        () => tester.binding.clock.now().difference(start);
+    await tester.pumpWidget(GetMaterialApp(
+      home: Scaffold(
+        body: Column(
+          children: [
+            ProductSearchWidget(
+              controller: controller,
+              onProductSelected: (p, qty) => added.add('${p.id}x$qty'),
+            ),
+            TextField(key: const Key('cantidad'), controller: other),
+          ],
+        ),
+      ),
+    ));
+    await tester.showKeyboard(find.byKey(const Key('cantidad')));
+    await tester.pump();
+    for (final d in '125'.split('')) {
+      final consumed = await tester.sendKeyDownEvent(
+          LogicalKeyboardKey(0x30 + int.parse(d)),
+          character: d);
+      expect(consumed, isFalse, reason: 'dígito $d en otro campo');
+      if (!consumed) {
+        tester.testTextInput.updateEditingValue(TextEditingValue(
+          text: other.text + d,
+          selection: TextSelection.collapsed(offset: other.text.length + 1),
+        ));
+      }
+      await tester.sendKeyUpEvent(LogicalKeyboardKey(0x30 + int.parse(d)));
+      await tester.pump(const Duration(milliseconds: 2));
+    }
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(other.text, '125');
+    expect(field(tester).text, isEmpty);
+    expect(added, isEmpty);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('apagada la lectura directa, todo va por la caja como antes',
       (tester) async {
     ProductSearchWidgetState.debugDirectScanKeys = false;

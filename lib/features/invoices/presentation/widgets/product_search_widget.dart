@@ -73,9 +73,6 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   Future<Product?>? _valueCheckFuture;
   static const Duration _valueCheckDelay = Duration(milliseconds: 80);
 
-  /// Tope de espera del Enter por esa confirmación (lecturas por índice).
-  static const Duration _enterCheckTimeout = Duration(milliseconds: 250);
-
   InvoiceEntryMetrics get _metrics => InvoiceEntryMetrics.instance;
 
   // Escaneos (Enter del lector): se buscan de una vez y en orden.
@@ -211,7 +208,9 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   /// ✅ NUEVO: Inicializar servicio de notificaciones de audio
   Future<void> _initializeAudioService() async {
     try {
-      await AudioNotificationService.instance.initialize();
+      // Incluye el precalentamiento de la voz (una sola vez por sesión):
+      // que su primer costo no caiga en el primer Enter.
+      await AudioNotificationService.instance.warmUp();
     } catch (e) {
 AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
     }
@@ -1258,6 +1257,12 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
           ? KeyEventResult.handled
           : null;
     }
+    // Solo con el cursor en ESTA caja. Con el foco en otro campo o en un
+    // diálogo (el del nombre, cantidad, cliente…) nunca se retiene nada.
+    if (!_focusNode.hasPrimaryFocus) {
+      if (_scanKeys.isNotEmpty) _releaseScanKeys();
+      return null;
+    }
     final digit = plainDigitOf(
       event.character,
       modifierPressed: shortcutModifierPressed(),
@@ -1711,9 +1716,14 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
         );
       });
     }
-    unawaited(Future<void>.microtask(
-      AudioNotificationService.instance.announceProductNotRegistered,
-    ));
+    // La voz, DESPUÉS de que el diálogo ya está en pantalla: si el motor
+    // de voz se demora (la primera frase en Windows), no retrasa el campo.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Timer(const Duration(milliseconds: 60), () {
+        unawaited(
+            AudioNotificationService.instance.announceProductNotRegistered());
+      });
+    });
   }
 
   void _showProductNameDialog(double price, {Future<Product?>? registered}) {
@@ -1736,7 +1746,10 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     // La confirmación local llegó con el diálogo abierto y SÍ existe un
     // producto con ese código: se cierra y se agrega ese (el registrado
     // gana, como siempre).
+    var answered = registered == null;
+    bool registeredAnswered() => answered;
     registered?.then((product) {
+      answered = true;
       found = product;
       if (product == null || !open || !mounted) return;
       open = false;
@@ -1749,20 +1762,22 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
       if (name.isEmpty || !open) return;
       open = false;
       Navigator.of(dialogContext).pop();
-      // Si la confirmación aún no llega, se espera aquí (ya sin nada en
-      // pantalla que frenar) lo mismo que antes: 250 ms como mucho.
-      var product = found;
-      if (product == null && registered != null) {
-        product = await registered.timeout(
-          _enterCheckTimeout,
-          onTimeout: () => null,
-        );
-      }
-      if (!mounted) return;
+      final product = found;
       if (product != null) {
         _selectProduct(product);
-      } else {
-        _createProductWithName(name, price);
+        return;
+      }
+      // La línea entra YA, sin esperar a la base. Si la confirmación local
+      // sigue pendiente y al llegar resulta que sí existía un producto con
+      // ese código, la línea se cambia por el registrado (por detrás).
+      final tempId = _createProductWithName(name, price);
+      if (registered != null && !registeredAnswered()) {
+        unawaited(registered
+            .timeout(_lateRegisteredTimeout, onTimeout: () => null)
+            .then((late) {
+          if (late == null || !mounted) return;
+          widget.controller.replaceUnregisteredLine(tempId, late);
+        }).catchError((_) {}));
       }
     }
 
@@ -1840,7 +1855,11 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     ).whenComplete(() => open = false);
   }
 
-  void _createProductWithName(String productName, double price) {
+  /// Tope para cambiar por detrás la línea por el producto registrado.
+  static const Duration _lateRegisteredTimeout = Duration(seconds: 3);
+
+  /// Agrega la línea sin registrar; devuelve el id temporal del producto.
+  String _createProductWithName(String productName, double price) {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
 
     final unregisteredProduct = Product(
@@ -1896,6 +1915,7 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     );
 
     _selectProduct(unregisteredProduct);
+    return unregisteredProduct.id;
   }
 
   // ==================== SCANNER FUNCTIONALITY ====================

@@ -13,6 +13,62 @@ class AudioNotificationService {
 
   final FlutterTts _tts = FlutterTts();
   bool _isInitialized = false;
+
+  /// Precalentamiento en curso o hecho (ver [warmUp]).
+  Future<void>? _warmUp;
+
+  /// Para el diagnóstico: cuánto tardó el precalentamiento, la primera
+  /// frase y la más lenta (ms que la app esperó al motor de voz), y
+  /// cuántas pasaron de 100 ms.
+  double? warmUpMs;
+  double? firstPhraseMs;
+  double worstPhraseMs = 0;
+  int phrases = 0;
+  int slowPhrases = 0;
+
+  /// Deja el motor de voz listo ANTES de que haga falta: dice una sílaba
+  /// sin volumen. En Windows la primera frase carga la voz y el
+  /// reproductor, y eso puede frenar la app de medio segundo a varios
+  /// segundos; antes ese costo caía en el primer Enter de "Producto sin
+  /// registrar" (el diálogo del nombre tardaba en salir). Se hace una vez.
+  Future<void> warmUp() => _warmUp ??= _doWarmUp();
+
+  Future<void> _doWarmUp() async {
+    await initialize();
+    if (!_isInitialized || !_isEnabled) return;
+    final watch = Stopwatch()..start();
+    final silent = _silentSyllable();
+    _muted = silent;
+    await silent;
+    _muted = null;
+    warmUpMs = watch.elapsedMicroseconds / 1000;
+  }
+
+  /// Mientras se dice la sílaba sin volumen: las frases de verdad esperan
+  /// a que termine, para no salir mudas.
+  Future<void>? _muted;
+
+  Future<void> _silentSyllable() async {
+    try {
+      await _tts.setVolume(0);
+      await _tts.speak('a');
+      await _tts.stop();
+    } catch (_) {
+      // Sin voz en este equipo: no pasa nada.
+    } finally {
+      try {
+        await _tts.setVolume(_volume);
+      } catch (_) {}
+    }
+  }
+
+  /// Texto para el reporte de diagnóstico.
+  String report() {
+    String f(double? v) => v == null ? 'n/d' : '${v.toStringAsFixed(0)} ms';
+    return 'Voz: precalentamiento ${f(warmUpMs)}, primera frase '
+        '${f(firstPhraseMs)}, frases $phrases, de más de 100 ms: '
+        '$slowPhrases, peor ${f(phrases == 0 ? null : worstPhraseMs)}';
+  }
   bool _isEnabled = true; // Usuario puede desactivar
 
   // Configuración de voz
@@ -77,6 +133,12 @@ class AudioNotificationService {
       return;
     }
 
+    // Si el precalentamiento va en su parte sin volumen, se espera: así
+    // la frase no sale muda.
+    final muted = _muted;
+    if (muted != null) await muted;
+
+    final watch = Stopwatch()..start();
     try {
       // Si es prioritario, detener cualquier reproducción actual
       if (priority) {
@@ -85,6 +147,12 @@ class AudioNotificationService {
 
       await _tts.speak(text);
     } catch (e) {
+    } finally {
+      final ms = watch.elapsedMicroseconds / 1000;
+      phrases++;
+      firstPhraseMs ??= ms;
+      if (ms > worstPhraseMs) worstPhraseMs = ms;
+      if (ms >= 100) slowPhrases++;
     }
   }
 

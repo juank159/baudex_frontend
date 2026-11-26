@@ -986,6 +986,21 @@ class InvoiceFormController extends GetxController {
     );
   }
 
+  /// La línea "sin registrar" [temporaryProductId] entró sin esperar a la
+  /// base; resultó que SÍ existía un producto con ese código: se cambia
+  /// por [registered] (misma cantidad), sin aviso de "producto quitado".
+  /// No hace nada si el cajero ya quitó esa línea.
+  void replaceUnregisteredLine(String temporaryProductId, Product registered) {
+    final index = _invoiceItems.indexWhere(
+      (i) => i.productId == temporaryProductId,
+    );
+    if (index == -1) return;
+    final quantity = _invoiceItems[index].quantity;
+    _invoiceItems.removeAt(index);
+    _recalculateTotals();
+    unawaited(handleProductSelection(registered, quantity: quantity));
+  }
+
   /// Quita [units] de la línea sin presentación de [productId]. `false` si
   /// esa línea ya no está (el cajero la quitó).
   bool _takeBackUnits(String productId, double units) {
