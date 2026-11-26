@@ -49,6 +49,13 @@
 //                       registrar) y abrir Diagnóstico. Líneas
 //                       "MEDICION TECLEO | etiqueta | paso | …".
 //   BAUDEX_PROBE_TECLEO_REPS (6) repeticiones en la factura.
+//   BAUDEX_PROBE_LENTO=1  modo "equipo lento": la app queda con
+//                       BAUDEX_PROBE_NUCLEOS (2) núcleos y prioridad baja,
+//                       con BAUDEX_PROBE_CARGA_CPU (2) bucles de procesador
+//                       y uno de disco al lado, y la ventana maximizada.
+//                       Líneas "MEDICION ARRANQUE LENTO | etiqueta | paso |
+//                       t=… ms | tarea | duró …" (la línea de tiempo del
+//                       arranque sale siempre, con o sin modo lento).
 //   BAUDEX_PROBE_SANDBOX=1  almacén seguro y preferencias de mentira dentro
 //                       de BAUDEX_PROBE_DIR (siempre así fuera de Windows:
 //                       no toca el llavero ni las preferencias del equipo).
@@ -65,6 +72,8 @@ import 'dart:io';
 import 'package:baudex_desktop/app/config/constants/api_constants.dart';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
+import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
 import 'package:baudex_desktop/app/core/storage/secure_store_stats.dart';
 import 'package:baudex_desktop/app/core/storage/session_startup_trace.dart';
@@ -94,6 +103,7 @@ import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'almacen_seguro_windows.dart';
 import 'arranque_servidor.dart';
+import 'equipo_lento.dart';
 import 'tecleo_medicion.dart';
 
 // ==================== Preferencias medidas ====================
@@ -357,6 +367,15 @@ Future<void> main() async {
   int number(String key, int fallback) => int.tryParse(env[key] ?? '') ?? fallback;
   final maxSeconds = number('BAUDEX_PROBE_MAX_S', 180);
   final launchedAt = number('BAUDEX_PROBE_T0_MS', bootAt);
+  final lento = env['BAUDEX_PROBE_LENTO'] == '1';
+  final notasLento = <String>[];
+  if (lento) {
+    notasLento.add(limitarProceso(number('BAUDEX_PROBE_NUCLEOS', 2)));
+    notasLento.add(await cargaDeFondo(
+      cpu: number('BAUDEX_PROBE_CARGA_CPU', 2),
+      dir: '$dirPath${Platform.pathSeparator}carga',
+    ));
+  }
 
   final sink = File(outPath);
   sink.parent.createSync(recursive: true);
@@ -559,7 +578,28 @@ Future<void> main() async {
     return peor != null && peor < 50 ? 'cumple (<50 ms)' : 'NO CUMPLE (peor ${_f(peor ?? -1)} ms)';
   }
 
-  if (tecleo) medidor.start();
+  void logLento(String text) {
+    final line = 'MEDICION ARRANQUE LENTO | $label | $step | $text';
+    // ignore: avoid_print
+    print(line);
+    sink.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
+  }
+
+  logLento('modo: ${lento ? 'EQUIPO LENTO' : 'normal'}'
+      '${notasLento.isEmpty ? '' : '; ${notasLento.join('; ')}'}');
+  if (StartupTrace.instance.phases.isEmpty) {
+    // Versión anterior sin instrumentar: al menos las trabas y los cuadros.
+    StartupTrace.instance.startPhase('al abrir');
+  }
+  // La ventana, ¿atiende el teclado durante el arranque? Una tecla que la
+  // app no usa cada 100 ms, desde ya y por 15 s (splash + iniciar sesión).
+  Future<Latido>? latidoArranque;
+  if (tecleo) {
+    medidor.start();
+    if (lento) maximizarVentana();
+    await ventanaAlFrente();
+    latidoArranque = medidor.latido(seconds: 15);
+  }
 
   // ¿Cuánto tarda la app en saber si hay sesión? El splash decide a los
   // 2.500 ms con lo que haya: si aún no se sabe, manda a iniciar sesión.
@@ -707,6 +747,32 @@ Future<void> main() async {
             '${tanda.detalle}; ${tanda.cuadrosTexto}; '
             'peticiones mientras tanto: ${requests - before}; descarga en curso: ${syncing ? 'sí' : 'no'}');
       }
+    }
+    if (tecleo) {
+      final arranque = await latidoArranque;
+      if (arranque != null) {
+        logLento('ventana durante el arranque y el login (15 s): ${arranque.texto}');
+      }
+      logLento('login recordado: negocio "${auth.loginBusinessController.text}", '
+          'correo "${auth.loginEmailController.text.isEmpty ? '(vacío)' : 'sí'}"');
+      // La voz: ¿cuánto traba la primera frase?
+      final vozLatido = medidor.latido(seconds: 6);
+      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      final vozStalls = StartupTrace.instance.phases.isEmpty
+          ? 0
+          : StartupTrace.instance.phases.last.stallsOver50;
+      final vozWatch = Stopwatch()..start();
+      try {
+        await AudioNotificationService.instance.announceProductNotRegistered();
+      } catch (e) {
+        logLento('la voz lanzó: ${'$e'.split('\n').first}');
+      }
+      final vozMs = vozWatch.elapsedMilliseconds;
+      final voz = await vozLatido;
+      logLento('voz, primera frase ("Producto no registrado"): la llamada tardó $vozMs ms; '
+          'trabas de la app de más de 50 ms mientras tanto: '
+          '${(StartupTrace.instance.phases.isEmpty ? 0 : StartupTrace.instance.phases.last.stallsOver50) - vozStalls}; '
+          'ventana: ${voz.texto}');
     }
     auth.loginBusinessController.text = probeBusiness;
     auth.loginEmailController.text = probeEmail;
@@ -861,7 +927,8 @@ Future<void> main() async {
         );
         back = done.$1 != null;
         logTecleo('factura $rep nombre "9": tecleo ${veredicto(nombre)}; ${nombre.detalle}; '
-            'Enter → otra caja con foco: ${done.$1 == null ? 'NO en 6 s' : '${_f(done.$1!)} ms'}');
+            'segundo Enter (línea agregada → buscador con foco): '
+            '${done.$1 == null ? 'NO en 6 s' : '${_f(done.$1!)} ms (visible ${done.$2 == null ? 'n/d' : _f(done.$2!)} ms) → ${done.$1! < 150 ? 'cumple (<150 ms)' : 'NO CUMPLE'}'}');
       }
       if (!back) {
         await medidor.pulsar(teclaEscape, () => false, seconds: 1);
@@ -930,6 +997,12 @@ Future<void> main() async {
   log('preferencias: ${prefs.writes} escrituras, ${_f(prefs.writeMs)} ms en total, '
       'peor ${_f(prefs.worstWriteMs)} ms; lecturas fallidas: ${prefs.failedReads}; '
       'archivo al cerrar: ${prefsHealth()}; apartados: ${setAside()}');
+  for (final line in StartupTrace.instance.timelineLines()) {
+    logLento(line);
+  }
+  for (final line in StartupTrace.instance.phaseLines()) {
+    logLento(line.trim());
+  }
   final minutes = stalls.nowMs / 60000;
   logTecleo('almacén de sesión: ${secure.reads} lecturas en ${_f(stalls.nowMs / 1000)} s '
       '(${_f(secure.reads / (minutes <= 0 ? 1 : minutes))} por minuto), '

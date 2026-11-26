@@ -211,6 +211,11 @@ jobs:
               $copia = if ($LASTEXITCODE -eq 0) { 'si' } else { 'no' }
               git checkout $ref -- lib
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              # La sonda usa la línea de tiempo del arranque: si esa versión
+              # no la traía, se le pone la de ahora (sin instrumentar, pero
+              # con las trabas y los cuadros lentos).
+              git checkout $env:GITHUB_SHA -- lib/app/core/diagnostics/startup_trace.dart lib/app/core/diagnostics/startup_trace_binding.dart
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
               $etiqueta = "anterior $ref"
             }
           }
@@ -245,6 +250,16 @@ jobs:
           flutter build windows --release -t tool/probes/arranque_windows_probe.dart
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # Pantalla como la de una oficina (más píxeles que pintar). Si el
+      # equipo de pruebas no deja cambiarla, se mide con la que tenga.
+      - name: Resolución de pantalla 1920x1080
+        if: ${{ steps.lib.outputs.medir == 'si' }}
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Get-DisplayResolution
+
       - name: Medir arranque e inicio de sesión
         if: ${{ steps.lib.outputs.medir == 'si' }}
         shell: pwsh
@@ -276,7 +291,15 @@ jobs:
             @{ nombre = '04a TECLEO sin descarga';                           prefs = 'sanas';   cerrar = '0'; tecleo = '1' },
             @{ nombre = '04b TECLEO versión recién instalada (descargando)'; prefs = 'sanas';   cerrar = '0'; tecleo = '1'; huella = 'nueva'; latencia = '300' },
             @{ nombre = '04c TECLEO sin marcas (descargando)';               prefs = 'vacias';  cerrar = '1'; tecleo = '1'; latencia = '300' },
-            @{ nombre = '04d TECLEO iniciar sesión, versión nueva';          prefs = 'sanas';   cerrar = '0'; tecleo = '1'; huella = 'nueva'; latencia = '300' },
+            @{ nombre = '04d TECLEO iniciar sesión, versión nueva';          prefs = 'sanas';   cerrar = '1'; tecleo = '1'; huella = 'nueva'; latencia = '300' },
+            # Arranque sin sesión con el negocio y el correo recordados, que es
+            # donde el CEO ve la lentitud: normal y en modo "equipo lento"
+            # (app con 2 núcleos y prioridad baja, carga de procesador y de
+            # disco al lado, ventana maximizada). Líneas
+            # "MEDICION ARRANQUE LENTO | versión | paso | t=… ms | tarea | duró …".
+            @{ nombre = '04e LOGIN RECORDADO, equipo normal';                prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150' },
+            @{ nombre = '04f LOGIN RECORDADO, EQUIPO LENTO (2 núcleos)';     prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '2' },
+            @{ nombre = '04g LOGIN RECORDADO, EQUIPO MUY LENTO (1 núcleo)';  prefs = 'sanas';   cerrar = '0'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '1' },
             @{ nombre = '05 DAÑADAS: reabrir';                               prefs = 'danadas'; cerrar = '0' },
             @{ nombre = '06 tras dañadas: reabrir';                          prefs = 'sanas';   cerrar = '0' },
             @{ nombre = '07 tras dañadas: reabrir otra vez';                 prefs = 'sanas';   cerrar = '1' },
@@ -328,6 +351,8 @@ jobs:
             $env:BAUDEX_PROBE_CERRAR_SESION_AL_SALIR = $paso.cerrar
             $env:BAUDEX_PROBE_TECLEO = if ($paso.tecleo) { $paso.tecleo } else { '0' }
             $env:BAUDEX_PROBE_HUELLA = if ($paso.huella) { $paso.huella } else { '' }
+            $env:BAUDEX_PROBE_LENTO = if ($paso.lento) { $paso.lento } else { '0' }
+            $env:BAUDEX_PROBE_NUCLEOS = if ($paso.nucleos) { $paso.nucleos } else { '2' }
             $env:BAUDEX_PROBE_LATENCIA_MS = if ($paso.latencia) { $paso.latencia } else { '0' }
             $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             Write-Host "===== $($paso.nombre) ====="
@@ -356,6 +381,8 @@ jobs:
           }
           Write-Host '===== RESULTADO ====='
           if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'MEDICION ARRANQUE | sin archivo de salida' }
+          Write-Host '===== ARRANQUE LENTO ====='
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String 'MEDICION ARRANQUE LENTO' | ForEach-Object { $_.Line } }
           Write-Host '===== SOLO TECLEO ====='
           if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String 'MEDICION TECLEO' | ForEach-Object { $_.Line } }
           Write-Host '===== PASOS VERIFICADOS ====='

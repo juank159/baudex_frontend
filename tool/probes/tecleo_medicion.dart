@@ -60,6 +60,48 @@ List<int> _sendKeys(List<int> keys, int gapMs) {
   return sent;
 }
 
+/// Corre en otro isolate: una tecla que la app no usa (F15), cada [gapMs],
+/// durante [seconds]. Devuelve la hora de envío de cada una.
+List<int> _heartbeat(int seconds, int gapMs) {
+  final sent = <int>[];
+  final input = calloc<INPUT>(2);
+  try {
+    final until = developer.Timeline.now + seconds * 1000000;
+    while (developer.Timeline.now < until) {
+      input[0]
+        ..type = INPUT_KEYBOARD
+        ..ki.wVk = VK_F15
+        ..ki.dwFlags = 0;
+      input[1]
+        ..type = INPUT_KEYBOARD
+        ..ki.wVk = VK_F15
+        ..ki.dwFlags = KEYEVENTF_KEYUP;
+      sent.add(developer.Timeline.now);
+      SendInput(2, input, sizeOf<INPUT>());
+      Sleep(gapMs);
+    }
+  } finally {
+    calloc.free(input);
+  }
+  return sent;
+}
+
+/// Atraso de la ventana en atender el teclado durante un rato.
+class Latido {
+  Latido(this.enviadas, this.llegaron, this.mas50, this.mas200, this.mas1000, this.peorMs);
+  final int enviadas;
+  final int llegaron;
+  final int mas50;
+  final int mas200;
+  final int mas1000;
+  final double peorMs;
+
+  String get texto => enviadas == 0
+      ? 'sin datos (solo en Windows)'
+      : 'teclas de prueba: $enviadas, llegaron: $llegaron; envío → llega de más de 50 ms: $mas50, '
+          'de más de 200 ms: $mas200, de más de 1 s: $mas1000, peor: ${peorMs.toStringAsFixed(0)} ms';
+}
+
 /// Trae la ventana de la app al frente (las teclas del sistema van a la
 /// ventana activa). Devuelve una nota para el log.
 Future<String> ventanaAlFrente() async {
@@ -182,6 +224,7 @@ class Tanda {
 
 class MedidorDeTecleo {
   final List<int> _llegadas = []; // µs de cada tecla que llegó a la app
+  final List<int> _latidos = []; // µs de cada tecla de prueba (F15) que llegó
   final List<_Cuadro> _cuadros = [];
   final Map<int, _Cuadro> _porNumero = {};
   final List<(bool Function(), Completer<_Cuadro>)> _esperas = [];
@@ -191,7 +234,13 @@ class MedidorDeTecleo {
     if (_started) return;
     _started = true;
     HardwareKeyboard.instance.addHandler((event) {
-      if (event is KeyDownEvent) _llegadas.add(tecleoNow());
+      if (event is KeyDownEvent) {
+        if (event.logicalKey == LogicalKeyboardKey.f15) {
+          _latidos.add(tecleoNow());
+        } else {
+          _llegadas.add(tecleoNow());
+        }
+      }
       return false;
     });
     SchedulerBinding.instance.addPersistentFrameCallback((_) {
@@ -280,9 +329,16 @@ class MedidorDeTecleo {
   Future<Tanda> escribir(EditableTextState box, String digits, {int gapMs = 120}) async {
     start();
     final controller = box.widget.controller;
-    final base = controller.text.length;
-    final cambios = <(int, int)>[]; // (µs, longitud)
-    void onText() => cambios.add((tecleoNow(), controller.text.length));
+    // Cada tecla debe CAMBIAR el texto (no hacerlo crecer: si la caja sale
+    // con su contenido seleccionado, la primera tecla lo reemplaza).
+    final cambios = <int>[]; // µs de cada cambio de texto
+    var anterior = controller.text;
+    void onText() {
+      if (controller.text == anterior) return; // solo se movió el cursor
+      anterior = controller.text;
+      cambios.add(tecleoNow());
+    }
+
     controller.addListener(onText);
     final desdeCuadro = _cuadros.length;
     final desdeLlegada = _llegadas.length;
@@ -291,7 +347,7 @@ class MedidorDeTecleo {
     // que por fin muestre cada carácter queda anotado.
     final visibles = [
       for (var i = 0; i < keys.length; i++)
-        _cuando(() => controller.text.length >= base + i + 1, seconds: 15),
+        _cuando(() => cambios.length >= i + 1, seconds: 15),
     ];
     final sent = await _mandar(keys, gapMs, box);
     final porTecla = <(String, double?, double?, double?)>[];
@@ -299,13 +355,7 @@ class MedidorDeTecleo {
       final pintado = await _pintado(await visibles[i]);
       final llegada =
           desdeLlegada + i < _llegadas.length ? _llegadas[desdeLlegada + i] : null;
-      int? cambio;
-      for (final c in cambios) {
-        if (c.$2 >= base + i + 1) {
-          cambio = c.$1;
-          break;
-        }
-      }
+      final cambio = i < cambios.length ? cambios[i] : null;
       double? ms(int? at) => at == null ? null : _ms(sent[i], at);
       porTecla.add((keys[i], ms(llegada), ms(cambio), ms(pintado)));
     }
@@ -343,6 +393,32 @@ class MedidorDeTecleo {
       if (ms > peor) peor = ms;
     }
     return Tanda(porTecla, _cuadros.length - desde, mas50, mas200, peor);
+  }
+
+  /// Manda una tecla que la app no usa cada [gapMs] durante [seconds] y
+  /// mide cuánto tarda la ventana en entregarla: si el hilo de la ventana
+  /// está ocupado (un complemento leyendo un archivo, la voz cargando), las
+  /// teclas llegan tarde aunque la app no esté trabada.
+  Future<Latido> latido({required int seconds, int gapMs = 100}) async {
+    start();
+    if (!Platform.isWindows) {
+      await Future<void>.delayed(Duration(seconds: seconds));
+      return Latido(0, 0, 0, 0, 0, 0);
+    }
+    final desde = _latidos.length;
+    final sent = await Isolate.run(() => _heartbeat(seconds, gapMs));
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    final got = _latidos.sublist(desde.clamp(0, _latidos.length));
+    var mas50 = 0, mas200 = 0, mas1000 = 0;
+    var peor = 0.0;
+    for (var i = 0; i < sent.length && i < got.length; i++) {
+      final ms = (got[i] - sent[i]) / 1000;
+      if (ms > 50) mas50++;
+      if (ms > 200) mas200++;
+      if (ms > 1000) mas1000++;
+      if (ms > peor) peor = ms;
+    }
+    return Latido(sent.length, got.length, mas50, mas200, mas1000, peor);
   }
 
   int get marca => _cuadros.length;
