@@ -311,16 +311,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
               const SizedBox(height: 4),
-              ClipRRect(
+              // Siempre con valor (nunca la barra "sin fin", que se anima
+              // 60 veces por segundo mientras arranca la descarga) y en su
+              // propia capa: solo se repinta cuando el avance cambia.
+              RepaintBoundary(
+                child: ClipRRect(
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
-                  value: overall > 0 ? overall : null,
+                  value: overall > 0 ? overall : 0.02,
                   minHeight: 3,
                   backgroundColor: Colors.grey.shade300,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     ElegantLightTheme.primaryBlue.withValues(alpha: 0.7),
                   ),
                 ),
+              ),
               ),
             ],
           ),

@@ -80,12 +80,17 @@ class SyncStatusIndicator extends StatelessWidget {
 
     // Animación de sincronización en progreso
     if (healthInfo.status == SyncHealthStatus.healthy && pendingCount > 0) {
-      return SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(color),
+      // En su propia capa: gira sin parar mientras hay operaciones por
+      // subir y, sin esto, cada cuadro de su giro obligaba a repintar la
+      // barra (y lo que comparta capa con ella) en todas las pantallas.
+      return RepaintBoundary(
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
         ),
       );
     }
