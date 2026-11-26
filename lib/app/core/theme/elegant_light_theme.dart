@@ -1,4 +1,5 @@
 // lib/app/core/theme/elegant_light_theme.dart
+import 'performance_mode.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
@@ -89,7 +90,20 @@ class ElegantLightTheme {
   );
 
   // Sombras elegantes para tema claro
-  static List<BoxShadow> get neuomorphicShadow => [
+  // En tema liviano (ver `performance_mode.dart`) las sombras difusas
+  // —lo más caro de pintar después de los desenfoques— se cambian por una
+  // sombra dura y corta del mismo tono: el relieve se conserva y pintarla
+  // no cuesta nada.
+  static List<BoxShadow> get _lightShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.10),
+      offset: const Offset(0, 1),
+      blurRadius: 0,
+      spreadRadius: 0,
+    ),
+  ];
+
+  static List<BoxShadow> get neuomorphicShadow => PerformanceMode.isLight ? _lightShadow : [
     BoxShadow(
       color: Colors.black.withOpacity(0.06),
       offset: const Offset(5, 5),
@@ -104,7 +118,7 @@ class ElegantLightTheme {
     ),
   ];
 
-  static List<BoxShadow> get elevatedShadow => [
+  static List<BoxShadow> get elevatedShadow => PerformanceMode.isLight ? _lightShadow : [
     BoxShadow(
       color: Colors.black.withOpacity(0.08),
       offset: const Offset(0, 4),
@@ -119,7 +133,7 @@ class ElegantLightTheme {
     ),
   ];
 
-  static List<BoxShadow> get glowShadow => [
+  static List<BoxShadow> get glowShadow => PerformanceMode.isLight ? const [] : [
     BoxShadow(
       color: const Color(0xFF3B82F6).withOpacity(0.15),
       offset: const Offset(0, 0),
@@ -129,7 +143,7 @@ class ElegantLightTheme {
   ];
 
   // 🪟 Glassmorfismo - Sombras suaves con color
-  static List<BoxShadow> get glassShadow => [
+  static List<BoxShadow> get glassShadow => PerformanceMode.isLight ? _lightShadow : [
     BoxShadow(
       color: Colors.black.withOpacity(0.05),
       offset: const Offset(0, 8),
@@ -620,7 +634,7 @@ class GlassCard extends StatelessWidget {
       margin: margin,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: backdropBlur
+        child: backdropBlur && !PerformanceMode.isLight
             ? BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: blurIntensity,

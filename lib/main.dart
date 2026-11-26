@@ -1,3 +1,5 @@
+import 'package:flutter/scheduler.dart';
+import 'app/core/theme/performance_mode.dart';
 import 'dart:ui';
 
 import 'package:baudex_desktop/app/app_binding.dart';
@@ -99,6 +101,9 @@ void main() async {
     // PASO 2: Inicializar configuración de entorno
     await trace.task('configuración (.env)', EnvConfig.initialize);
 
+    // Tema completo o liviano, según lo guardado en este equipo.
+    await trace.task('modo rendimiento', PerformanceMode.load);
+
     // PASO 2.1: Central de errores (Ops API → Telegram). Sin OPS_URL queda apagado.
     await trace.task('central de errores', _initOpsReporter);
 
@@ -135,6 +140,20 @@ void main() async {
   trace.mark('app montada');
   runApp(const MyApp());
   WidgetsBinding.instance.addPostFrameCallback((_) => trace.mark('primer cuadro'));
+
+  // En "Automático": si este equipo tarda en pintar, la app pasa sola al
+  // tema liviano. El motor entrega los tiempos en tandas, una vez por
+  // segundo: no cuesta nada medible.
+  SchedulerBinding.instance.addTimingsCallback((timings) {
+    for (final t in timings) {
+      PerformanceMode.recordRaster(t.rasterDuration.inMicroseconds / 1000);
+    }
+  });
+  PerformanceMode.light.addListener(() {
+    trace.mark(PerformanceMode.isLight ? 'tema LIVIANO activado' : 'tema completo activado');
+    // Las sombras y desenfoques se deciden al construir: se redibuja todo.
+    Get.forceAppUpdate();
+  });
 }
 
 /// Configura el envío de errores a la Ops API con el cliente (organización)
@@ -256,8 +275,11 @@ class _MyAppState extends State<MyApp> {
         Locale('es', 'CO'),
         Locale('en', 'US'),
       ],
-      defaultTransition: Transition.fade,
-      transitionDuration: const Duration(milliseconds: 300),
+      // En tema liviano las pantallas cambian al instante.
+      defaultTransition: PerformanceMode.isLight ? Transition.noTransition : Transition.fade,
+      transitionDuration: PerformanceMode.isLight
+          ? Duration.zero
+          : const Duration(milliseconds: 300),
 
       // RouteObserver deshabilitado: causa crash nativo de FocusScopeNode en macOS desktop
       // El auto-refresh se maneja via cache del controller (checkAndRefreshIfNeeded)

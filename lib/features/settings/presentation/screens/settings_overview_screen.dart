@@ -1,4 +1,5 @@
 // lib/features/settings/presentation/screens/settings_overview_screen.dart
+import 'package:baudex_desktop/app/shared/widgets/performance_mode_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/routes/app_routes.dart';
@@ -159,7 +160,9 @@ class SettingsOverviewScreen extends StatelessWidget {
     return Card(
       elevation: 2,
       child: InkWell(
-        onTap: () => Get.toNamed(item.route),
+        onTap: () => item.route == _performanceAction
+            ? showPerformanceModeDialog()
+            : Get.toNamed(item.route),
         borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
         child: Container(
           padding: const EdgeInsets.all(AppDimensions.paddingMedium),
@@ -282,6 +285,13 @@ class SettingsOverviewScreen extends StatelessWidget {
         route: AppRoutes.settingsNotifications,
       ),
       ConfigurationItem(
+        title: 'Rendimiento',
+        description: 'Automático, Liviano o Completo: efectos visuales según el equipo',
+        icon: Icons.speed,
+        color: ElegantLightTheme.primaryBlue,
+        route: _performanceAction,
+      ),
+      ConfigurationItem(
         title: 'Diagnóstico del sistema',
         description: 'Estado de sincronización, errores, recuperación',
         icon: Icons.health_and_safety_outlined,
@@ -291,6 +301,9 @@ class SettingsOverviewScreen extends StatelessWidget {
     ];
   }
 }
+
+/// No es una ruta: abre el diálogo de Rendimiento.
+const String _performanceAction = 'accion:rendimiento';
 
 class ConfigurationItem {
   final String title;

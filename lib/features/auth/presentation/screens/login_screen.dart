@@ -1,4 +1,5 @@
 // lib/features/auth/presentation/screens/login_screen.dart
+import 'package:baudex_desktop/app/core/theme/performance_mode.dart';
 import '../../../../app/core/utils/app_version.dart';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -345,7 +346,7 @@ class _LeftBrandingPanelState extends State<_LeftBrandingPanel>
   void _syncAnimation() {
     if (!mounted) return;
     final typing = _focusIsOnTextField();
-    final shouldRun = _appInFront && !typing;
+    final shouldRun = _appInFront && !typing && !PerformanceMode.isLight;
     if (shouldRun && !_bgController.isAnimating) {
       _bgController.repeat();
     } else if (!shouldRun && _bgController.isAnimating) {

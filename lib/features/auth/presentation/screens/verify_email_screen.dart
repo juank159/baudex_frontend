@@ -1,4 +1,5 @@
 // lib/features/auth/presentation/screens/verify_email_screen.dart
+import 'package:baudex_desktop/app/core/theme/performance_mode.dart';
 import 'dart:async';
 import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'dart:math' as math;
@@ -186,6 +187,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 _buildHeader(context),
                 SizedBox(height: context.verticalSpacing * 2),
                 GlassCard(
+                  backdropBlur: false,
                   child: _buildVerificationForm(context),
                 ),
                 SizedBox(height: context.verticalSpacing),
@@ -222,6 +224,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         _buildHeader(context),
                         SizedBox(height: context.verticalSpacing * 2),
                         GlassCard(
+                  backdropBlur: false,
                           child: _buildVerificationForm(context),
                         ),
                         SizedBox(height: context.verticalSpacing),
@@ -532,7 +535,8 @@ class _VerifyEmailBrandingPanelState extends State<_VerifyEmailBrandingPanel>
     _bgAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _bgController, curve: Curves.linear),
     );
-    _bgController.repeat();
+    // Decorativa: en tema liviano el fondo queda quieto.
+    if (!PerformanceMode.isLight) _bgController.repeat();
   }
 
   @override
@@ -597,14 +601,12 @@ class _VerifyEmailBrandingPanelState extends State<_VerifyEmailBrandingPanel>
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(30),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: const Icon(
+                    // Sin desenfoque detrás (se recalculaba en cada cuadro del fondo animado).
+                    child: const Icon(
                         Icons.email_outlined,
                         size: 56,
                         color: Colors.white,
                       ),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 32),

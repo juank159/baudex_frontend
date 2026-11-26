@@ -1,4 +1,5 @@
 // lib/features/auth/presentation/screens/register_screen.dart
+import 'package:baudex_desktop/app/core/theme/performance_mode.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -60,6 +61,7 @@ class RegisterScreen extends GetView<AuthController> {
                 ),
                 SizedBox(height: context.verticalSpacing * 2),
                 GlassCard(
+                  backdropBlur: false,
                   child: _buildRegisterForm(context),
                 ),
                 SizedBox(height: context.verticalSpacing),
@@ -99,6 +101,7 @@ class RegisterScreen extends GetView<AuthController> {
                         ),
                         SizedBox(height: context.verticalSpacing * 2),
                         GlassCard(
+                  backdropBlur: false,
                           child: _buildRegisterForm(context),
                         ),
                         SizedBox(height: context.verticalSpacing),
@@ -556,7 +559,8 @@ class _RegisterBrandingPanelState extends State<_RegisterBrandingPanel>
     _bgAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _bgController, curve: Curves.linear),
     );
-    _bgController.repeat();
+    // Decorativa: en tema liviano el fondo queda quieto.
+    if (!PerformanceMode.isLight) _bgController.repeat();
   }
 
   @override
@@ -621,16 +625,14 @@ class _RegisterBrandingPanelState extends State<_RegisterBrandingPanel>
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Padding(
+                    // Sin desenfoque detrás (se recalculaba en cada cuadro del fondo animado).
+                    child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Image.asset(
                           'assets/images/baudex_logo.png',
                           fit: BoxFit.contain,
                         ),
                       ),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
