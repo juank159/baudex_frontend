@@ -294,6 +294,57 @@ Future<void> writeDurablePrefs(
   await tmp.rename(file.path);
 }
 
+/// Claves que guardan la sesión (copia protegida y respaldo antiguo): no
+/// deben quedar en archivos viejos.
+bool isSessionSecretKey(String key) =>
+    key.startsWith('flutter.vault_') || key.startsWith('flutter.secure_');
+
+/// Archivos dañados apartados (`.danado-*`): se conserva como mucho el más
+/// reciente, y sin claves de sesión; los demás se borran. Nunca lanza.
+void cleanDamagedCopies(File file) {
+  try {
+    final name = file.uri.pathSegments.last;
+    final found =
+        file.parent
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.uri.pathSegments.last.startsWith('$name.danado-'))
+            .toList()
+          ..sort((a, b) => b.path.compareTo(a.path));
+    for (var i = 0; i < found.length; i++) {
+      final damaged = found[i];
+      try {
+        if (i > 0) {
+          damaged.deleteSync();
+          continue;
+        }
+        String text;
+        try {
+          text = damaged.readAsStringSync();
+        } catch (_) {
+          text = latin1.decode(damaged.readAsBytesSync());
+        }
+        Map<String, Object> values;
+        try {
+          values = _toPrefsMap(json.decode(text));
+        } catch (_) {
+          values = salvagePrefsJson(text);
+        }
+        values.removeWhere((key, _) => isSessionSecretKey(key));
+        if (values.isEmpty) {
+          damaged.deleteSync();
+        } else {
+          damaged.writeAsStringSync(json.encode(values), flush: true);
+        }
+      } catch (_) {
+        try {
+          damaged.deleteSync();
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+}
+
 class DurablePrefsStore extends SharedPreferencesStorePlatform {
   DurablePrefsStore(this.file, {this.onProblem});
 
@@ -331,6 +382,7 @@ class DurablePrefsStore extends SharedPreferencesStorePlatform {
 
   bool _dirty = false;
   bool _wroteOnce = false;
+  bool _scrub = false;
   Future<bool>? _writer;
 
   /// Cambios seguidos salen en una sola escritura; quien espera, espera a
@@ -345,8 +397,12 @@ class DurablePrefsStore extends SharedPreferencesStorePlatform {
     try {
       // Deja que se junten los cambios hechos en el mismo instante.
       await Future<void>.delayed(Duration.zero);
-      while (_dirty) {
+      while (_dirty || _scrub) {
+        // Con `_scrub` se escribe una vez más sin cambios: el archivo
+        // recién escrito pasa a ser la copia, que así queda idéntica.
+        final scrubbing = !_dirty && _scrub;
         _dirty = false;
+        if (scrubbing) _scrub = false;
         try {
           await writeDurablePrefs(
             file,
@@ -355,6 +411,7 @@ class DurablePrefsStore extends SharedPreferencesStorePlatform {
           );
           _wroteOnce = true;
           ok = true;
+          if (scrubbing) cleanDamagedCopies(file);
         } catch (e, st) {
           ok = false;
           try {
@@ -366,6 +423,15 @@ class DurablePrefsStore extends SharedPreferencesStorePlatform {
       _writer = null;
     }
     return ok;
+  }
+
+  /// Tras cerrar sesión: la copia `.bak` queda igual al archivo actual (ya
+  /// no guarda la sesión cerrada) y los dañados apartados se limpian. Va
+  /// por la misma fila que las demás escrituras (nunca dos a la vez).
+  Future<void> scrubHistory() async {
+    _load();
+    _scrub = true;
+    await _persist();
   }
 
   /// Espera a que no quede nada por escribir (para pruebas y al cerrar).
@@ -458,6 +524,8 @@ Future<PrefsLoadReport?> installDurablePrefs({
         );
     final store = DurablePrefsStore(file, onProblem: onProblem);
     final report = store.open();
+    // Restos de arranques anteriores: como mucho un dañado, sin sesión.
+    cleanDamagedCopies(file);
     SharedPreferencesStorePlatform.instance = store;
     installedDurablePrefs = store;
     durablePrefsStartupReport = report;

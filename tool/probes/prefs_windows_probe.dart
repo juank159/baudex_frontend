@@ -32,6 +32,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:baudex_desktop/app/core/storage/durable_prefs_store.dart';
+import 'package:baudex_desktop/app/core/storage/value_protector.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -233,6 +234,29 @@ Future<int> probeFinish(String dir, void Function(String) log) async {
   log('PRUEBA PREFERENCIAS | archivo dañado al arrancar | ${ok ? 'OK' : 'FALLA'} | '
       'origen: ${report?.source.name}, claves: ${report?.keys}'
       '${missing.isEmpty ? '' : ' | faltan: $missing'}');
+
+  // ---- Cifrado de la copia de sesión (DPAPI), solo en Windows ----
+  if (DpapiProtector.isSupported) {
+    const protector = DpapiProtector();
+    const secret = 'token.de.prueba-ñ-2026';
+    final stored = protector.protect(secret);
+    final back = stored == null ? null : protector.unprotect(stored);
+    final tampered = stored == null
+        ? null
+        : protector.unprotect('${stored.substring(0, stored.length - 6)}AAAAAA');
+    final okDpapi = stored != null &&
+        stored.startsWith('dpapi:v2:') &&
+        !stored.contains(secret) &&
+        back == secret &&
+        tampered == null &&
+        protector.unprotect('dpapi:v1:AAAA') == null;
+    if (!okDpapi) failures++;
+    log('PRUEBA PREFERENCIAS | cifrado de la copia de sesión (DPAPI) | '
+        '${okDpapi ? 'OK' : 'FALLA'} | cifra: ${stored != null}, '
+        'descifra igual: ${back == secret}, alterado se rechaza: ${tampered == null}');
+  } else {
+    log('PRUEBA PREFERENCIAS | cifrado de la copia de sesión (DPAPI) | OMITIDA | solo en Windows');
+  }
 
   log('PRUEBA PREFERENCIAS | RESULTADO: ${failures == 0 ? 'CUMPLE' : 'FALLA'}');
   return failures;

@@ -456,6 +456,24 @@ Future<void> main() async {
   // Lo mismo que queda en Diagnóstico para el dueño del negocio.
   log('diagnóstico | ${SessionStartupTrace.sessionLine()}');
   log('diagnóstico | ${SessionStartupTrace.prefsLine()}');
+  try {
+    final storage = Get.find<SecureStorageService>();
+    final user = await storage.getUserData();
+    final org = await storage.getCurrentOrganization();
+    final token = await storage.getToken();
+    final esperado = probeOrganizationId;
+    final delUsuario = user?['organizationId'];
+    final delNegocio = org?['id'];
+    final mezclada = token != null &&
+        ((delUsuario != null && delUsuario != esperado) ||
+            (delNegocio != null && delNegocio != esperado));
+    log('sesión guardada | token: ${token == null ? 'no' : 'sí'}; '
+        'negocio del usuario: ${delUsuario ?? '-'}; negocio guardado: ${delNegocio ?? '-'}; '
+        'negocio de esta corrida: $esperado'
+        '${mezclada ? ' | MEZCLADA CON OTRO NEGOCIO' : ''}');
+  } catch (e) {
+    log('sesión guardada | no se pudo leer: $e');
+  }
 
   /// Espera a que la pantalla deje de trabarse: 600 ms seguidos sin una
   /// traba de más de 100 ms. Devuelve los ms desde [from].

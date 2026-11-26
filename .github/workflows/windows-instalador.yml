@@ -279,12 +279,22 @@ jobs:
             @{ nombre = '16 LLAVE DEL ALMACÉN PERDIDA (como al encender): reabrir'; prefs = 'sanas'; cerrar = '0'; llave = 'borrar' },
             @{ nombre = '17 tras llave perdida: reabrir';                    prefs = 'sanas';   cerrar = '0' },
             @{ nombre = '18 LLAVE PERDIDA y preferencias DAÑADAS: reabrir';  prefs = 'danadas'; cerrar = '0'; llave = 'borrar' },
-            @{ nombre = '19 tras llave perdida y dañadas: reabrir';          prefs = 'sanas';   cerrar = '0' }
+            @{ nombre = '19 tras llave perdida y dañadas: reabrir';          prefs = 'sanas';   cerrar = '1' },
+            # Una sesión CERRADA no puede revivir de la copia protegida: la
+            # primera pantalla debe ser INICIAR SESIÓN.
+            @{ nombre = '20 SESIÓN CERRADA y LLAVE PERDIDA: debe PEDIR login'; prefs = 'sanas'; cerrar = '1'; llave = 'borrar' },
+            @{ nombre = '21 SESIÓN CERRADA, LLAVE PERDIDA y preferencias DAÑADAS: debe PEDIR login'; prefs = 'danadas'; cerrar = '1'; llave = 'borrar' },
+            # Dos negocios en el mismo equipo: tras entrar con B, perder la
+            # llave no puede traer nada de A ("sesión guardada | … MEZCLADA").
+            @{ nombre = '22 negocio B: iniciar sesión';                      prefs = 'sanas';   cerrar = '0'; negocio = 'b' },
+            @{ nombre = '23 negocio B: reabrir';                             prefs = 'sanas';   cerrar = '0'; negocio = 'b' },
+            @{ nombre = '24 negocio B y LLAVE PERDIDA: debe entrar directo como B'; prefs = 'sanas'; cerrar = '0'; negocio = 'b'; llave = 'borrar' }
           )
           $colgadas = 0
           foreach ($paso in $pasos) {
             $env:BAUDEX_PROBE_PASO = $paso.nombre
             $env:BAUDEX_PROBE_PREFS = $paso.prefs
+            $env:BAUDEX_PROBE_NEGOCIO = if ($paso.negocio) { $paso.negocio } else { 'a' }
             $env:BAUDEX_PROBE_CERRAR_SESION_AL_SALIR = $paso.cerrar
             $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             Write-Host "===== $($paso.nombre) ====="

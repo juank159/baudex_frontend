@@ -149,8 +149,10 @@ void main() {
 
     SecureStorageService.debugProtector = protector; // se instala la versión nueva
     service = restart();
+    // Lo que la app lee al arrancar con sesión.
     expect(await service.getToken(), 'jwt.de.hoy');
     expect(await service.getRefreshToken(), 'refresh-1');
+    expect(await service.getUserData(), isNotNull);
 
     store.loseKey();
     service = restart();
