@@ -41,6 +41,14 @@ on:
         description: 'Probar en Windows real agregar, reiniciar, facturar y eliminar impresoras (impresora de mentira)'
         type: boolean
         default: false
+      probar_arranque:
+        description: 'Medir en Windows real el arranque, el inicio de sesión y la descarga con preferencias sanas, vacías y dañadas'
+        type: boolean
+        default: false
+      arranque_comparar:
+        description: 'Arranque: commit anterior para comparar (su carpeta lib). Vacío = solo la versión actual'
+        required: false
+        default: '5b6ec2a'
       lector_etiqueta:
         description: 'Lector: etiqueta para el log (p. ej. "antes c05b2dd" o "después")'
         required: false
@@ -144,6 +152,151 @@ jobs:
         with:
           name: medicion-lector
           path: C:\lector\*.txt
+          if-no-files-found: warn
+
+  # Mide en un Windows real, con reloj real, el arranque y el inicio de
+  # sesión de la app completa (tool/probes/arranque_windows_probe.dart)
+  # contra un servidor de mentira en 127.0.0.1 con 6.000 facturas y 3.000
+  # productos, usando los complementos REALES de Windows (preferencias en
+  # shared_preferences.json y almacén seguro DPAPI). Cada paso es un
+  # arranque del .exe; entre pasos cambia el estado de las preferencias:
+  # sanas, dañadas (archivo cortado, como tras un apagón) y vacías.
+  # Corre dos veces en paralelo: con el lib actual y con el del commit de
+  # "arranque_comparar" (1.0.9), para comparar. En el log, las líneas
+  # "MEDICION ARRANQUE | versión | paso | …" dicen: tiempo a la primera
+  # pantalla, si entra directo o pide iniciar sesión, cuánto tarda iniciar
+  # sesión, peticiones y registros descargados, trabas de la pantalla,
+  # escrituras de preferencias y si el archivo quedó sano o dañado.
+  probar-arranque:
+    if: ${{ inputs.probar_arranque }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [actual, anterior]
+    env:
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+      ARRANQUE_VERSION: ${{ matrix.version }}
+      ARRANQUE_COMPARAR: ${{ inputs.arranque_comparar }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.8
+          cache: true
+
+      - name: Elegir el lib a medir
+        id: lib
+        shell: pwsh
+        run: |
+          $etiqueta = "actual " + "$env:GITHUB_SHA".Substring(0, 7)
+          $medir = 'si'
+          if ($env:ARRANQUE_VERSION -eq 'anterior') {
+            $ref = "$env:ARRANQUE_COMPARAR".Trim()
+            if ($ref -notmatch '^[0-9a-fA-F]{7,40}$') {
+              Write-Host 'Sin commit para comparar: no se mide la versión anterior.'
+              $medir = 'no'
+            } else {
+              git checkout $ref -- lib
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              $etiqueta = "anterior $ref"
+            }
+          }
+          "etiqueta=$etiqueta" >> $env:GITHUB_OUTPUT
+          "medir=$medir" >> $env:GITHUB_OUTPUT
+
+      - name: Crear .env de relleno (la medición apunta a 127.0.0.1)
+        if: ${{ steps.lib.outputs.medir == 'si' }}
+        shell: pwsh
+        run: |
+          $c = @(
+            'SERVER_IP=127.0.0.1',
+            'SERVER_PORT=3990',
+            'APP_ENV=development',
+            'API_TIMEOUT=30000',
+            'DEBUG_MODE=false',
+            'SHOW_LOGS=false'
+          ) -join "`n"
+          foreach ($f in '.env', '.env.production', '.env.development', '.env.staging') {
+            Set-Content -Path $f -Value $c -NoNewline -Encoding utf8NoBOM
+          }
+
+      - if: ${{ steps.lib.outputs.medir == 'si' }}
+        run: flutter pub get
+
+      - name: Compilar la app de medición (release)
+        if: ${{ steps.lib.outputs.medir == 'si' }}
+        shell: pwsh
+        run: |
+          flutter build windows --release -t tool/probes/arranque_windows_probe.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Medir arranque e inicio de sesión
+        if: ${{ steps.lib.outputs.medir == 'si' }}
+        shell: pwsh
+        env:
+          ARRANQUE_ETIQUETA: ${{ steps.lib.outputs.etiqueta }}
+        run: |
+          $exe = 'build\windows\x64\runner\Release\Baudex.exe'
+          New-Item -ItemType Directory -Force C:\arranque | Out-Null
+          $salida = 'C:\arranque\arranque.txt'
+          $env:BAUDEX_PROBE_OUT = $salida
+          $env:BAUDEX_PROBE_DIR = 'C:\arranque\base'
+          $env:BAUDEX_PROBE_LABEL = $env:ARRANQUE_ETIQUETA
+          $env:BAUDEX_PROBE_MAX_S = '240'
+          # prefs: estado del archivo de preferencias ANTES de abrir.
+          # cerrar: 1 = al salir borra el token (el siguiente paso mide el
+          # inicio de sesión con los datos ya en el equipo).
+          $pasos = @(
+            @{ nombre = '01 equipo nuevo: iniciar sesión y descargar todo'; prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '02 sanas: reabrir';                                 prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '03 sanas: reabrir otra vez';                        prefs = 'sanas';   cerrar = '1' },
+            @{ nombre = '04 sanas: iniciar sesión';                          prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '05 DAÑADAS: reabrir';                               prefs = 'danadas'; cerrar = '0' },
+            @{ nombre = '06 tras dañadas: reabrir';                          prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '07 tras dañadas: reabrir otra vez';                 prefs = 'sanas';   cerrar = '1' },
+            @{ nombre = '08 DAÑADAS: iniciar sesión';                        prefs = 'danadas'; cerrar = '0' },
+            @{ nombre = '09 tras dañadas e iniciar sesión: reabrir';         prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '10 VACÍAS: reabrir';                                prefs = 'vacias';  cerrar = '0' },
+            @{ nombre = '11 tras vacías: reabrir';                           prefs = 'sanas';   cerrar = '0' },
+            # Cerrar a la fuerza en plena descarga (como apagar el equipo o
+            # matar la app): ¿el archivo de preferencias queda dañado?
+            @{ nombre = '12 VACÍAS: cierre a la fuerza a los 7 s';           prefs = 'vacias';  cerrar = '0'; matar = 7 },
+            @{ nombre = '13 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '14 VACÍAS: cierre a la fuerza a los 9 s';           prefs = 'vacias';  cerrar = '0'; matar = 9 },
+            @{ nombre = '15 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' }
+          )
+          $colgadas = 0
+          foreach ($paso in $pasos) {
+            $env:BAUDEX_PROBE_PASO = $paso.nombre
+            $env:BAUDEX_PROBE_PREFS = $paso.prefs
+            $env:BAUDEX_PROBE_CERRAR_SESION_AL_SALIR = $paso.cerrar
+            $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+            Write-Host "===== $($paso.nombre) ====="
+            $p = Start-Process -FilePath $exe -PassThru
+            if ($paso.matar) {
+              if (-not $p.WaitForExit($paso.matar * 1000)) { $p.Kill(); $p.WaitForExit() }
+              Add-Content -Path $salida -Encoding utf8 -Value "MEDICION ARRANQUE | $env:ARRANQUE_ETIQUETA | $($paso.nombre) | cerrada a la fuerza a los $($paso.matar) s"
+            } elseif (-not $p.WaitForExit(8 * 60 * 1000)) {
+              Write-Host "::error::La app de medición no terminó ($($paso.nombre))"
+              $p.Kill()
+              $colgadas++
+            }
+            Write-Host "Código de salida: $($p.ExitCode)"
+          }
+          Write-Host '===== RESULTADO ====='
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'MEDICION ARRANQUE | sin archivo de salida' }
+          if ($colgadas -gt 0) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.lib.outputs.medir == 'si' }}
+        with:
+          name: medicion-arranque-${{ matrix.version }}
+          path: C:\arranque\*.txt
           if-no-files-found: warn
 
   # Comprueba en un Windows real que el tiquete sale directo por la cola de
