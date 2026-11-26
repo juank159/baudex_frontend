@@ -1,4 +1,6 @@
 // lib/app/core/services/audio_notification_service.dart
+import 'dart:async';
+
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart';
 
@@ -32,6 +34,43 @@ class AudioNotificationService {
   /// segundos; antes ese costo caía en el primer Enter de "Producto sin
   /// registrar" (el diálogo del nombre tardaba en salir). Se hace una vez.
   Future<void> warmUp() => _warmUp ??= _doWarmUp();
+
+  Timer? _idleTimer;
+  Duration _idleQuiet = const Duration(seconds: 3);
+
+  /// Precalienta la voz cuando el cajero lleve [quiet] sin teclear (ver
+  /// [noteActivity]). Se llama al abrir la factura; nunca antes de iniciar
+  /// sesión, y solo se hace una vez por sesión de la app.
+  void warmUpWhenIdle({Duration quiet = const Duration(seconds: 3)}) {
+    if (_warmUp != null) return;
+    _idleQuiet = quiet;
+    _idleTimer?.cancel();
+    _idleTimer = Timer(quiet, () {
+      _idleTimer = null;
+      unawaited(warmUp());
+    });
+  }
+
+  /// El cajero está tecleando o leyendo códigos: el precalentamiento
+  /// pendiente espera otro rato quieto. No cuesta nada si ya se hizo.
+  void noteActivity() {
+    if (_idleTimer == null || _warmUp != null) return;
+    _idleTimer!.cancel();
+    _idleTimer = Timer(_idleQuiet, () {
+      _idleTimer = null;
+      unawaited(warmUp());
+    });
+  }
+
+  /// Se salió de la factura antes del rato libre: se deja para la próxima
+  /// vez que se abra.
+  void cancelWarmUpWhenIdle() {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+  }
+
+  /// ¿Hay un precalentamiento esperando un rato libre?
+  bool get warmUpPending => _idleTimer != null;
 
   Future<void> _doWarmUp() async {
     await initialize();
@@ -129,9 +168,11 @@ class AudioNotificationService {
 
   /// Método interno para hablar
   Future<void> _speak(String text, {bool priority = true}) async {
-    if (!_isEnabled || !_isInitialized || text.trim().isEmpty) {
-      return;
-    }
+    if (!_isEnabled || text.trim().isEmpty) return;
+    // La voz ya no se prepara al arrancar la app: si hace falta hablar
+    // antes del precalentamiento, se prepara aquí.
+    if (!_isInitialized) await initialize();
+    if (!_isInitialized) return;
 
     // Si el precalentamiento va en su parte sin volumen, se espera: así
     // la frase no sale muda.

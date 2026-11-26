@@ -206,14 +206,11 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       );
 
   /// ✅ NUEVO: Inicializar servicio de notificaciones de audio
+  /// La voz se prepara en un rato libre (unos segundos sin teclear), no
+  /// al abrir la pantalla ni en el primer Enter: su primera carga puede
+  /// frenar la app. Una sola vez por sesión.
   Future<void> _initializeAudioService() async {
-    try {
-      // Incluye el precalentamiento de la voz (una sola vez por sesión):
-      // que su primer costo no caiga en el primer Enter.
-      await AudioNotificationService.instance.warmUp();
-    } catch (e) {
-AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
-    }
+    AudioNotificationService.instance.warmUpWhenIdle();
   }
 
   @override
@@ -224,6 +221,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
       _scanKeysTimer?.cancel();
       _valueCheckTimer?.cancel();
       _scanQueue.dispose();
+      AudioNotificationService.instance.cancelWarmUpWhenIdle();
 
       _searchController.removeListener(_onSearchChanged);
       _focusNode.removeListener(_onFocusChanged);
@@ -952,6 +950,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
       // Cancelar timer anterior si existe
       _debounceTimer?.cancel();
       _burstFlushTimer?.cancel();
+      AudioNotificationService.instance.noteActivity();
 
       final query = _searchController.text.trim();
 
@@ -1263,6 +1262,7 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
       if (_scanKeys.isNotEmpty) _releaseScanKeys();
       return null;
     }
+    AudioNotificationService.instance.noteActivity();
     final digit = plainDigitOf(
       event.character,
       modifierPressed: shortcutModifierPressed(),

@@ -46,8 +46,9 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('al abrir la factura la voz se precalienta sin volumen; en el '
-      'primer Enter el campo del nombre sale antes de cualquier frase',
+  testWidgets('la voz se precalienta sin volumen en un rato libre tras abrir '
+      'la factura (una vez); en el primer Enter el campo del nombre sale '
+      'antes de cualquier frase',
       (tester) async {
     final controller = MockInvoiceFormController();
     final index = ShortCodeIndex.build(const [], complete: true);
@@ -66,8 +67,19 @@ void main() {
         ),
       ),
     ));
+    // Al abrir no se toca la voz: espera un rato libre (3 s sin teclear).
+    await tester.pump(const Duration(seconds: 2));
+    expect(calls, isEmpty);
+    expect(AudioNotificationService.instance.warmUpPending, isTrue);
+    // Teclear aplaza el precalentamiento.
+    await tester.enterText(find.byType(TextField).first, 'a');
+    await tester.pump(const Duration(seconds: 2));
+    expect(calls, isEmpty, reason: 'hubo tecleo hace 2 s: todavía no');
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.pump(const Duration(milliseconds: 3100));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 100));
+    expect(AudioNotificationService.instance.warmUpPending, isFalse);
 
     // Precalentado al abrir: una sílaba, sin volumen, y el volumen vuelve.
     // (En modo de pruebas el servicio además saluda al iniciar.)
@@ -94,5 +106,11 @@ void main() {
     expect(AudioNotificationService.instance.report(),
         contains('de más de 100 ms: 0'));
     await tester.pump(const Duration(seconds: 1));
+
+    // Nunca dos veces: volver a abrir la factura no repite la sílaba.
+    calls.clear();
+    AudioNotificationService.instance.warmUpWhenIdle();
+    await tester.pump(const Duration(seconds: 5));
+    expect(calls, isEmpty);
   });
 }
