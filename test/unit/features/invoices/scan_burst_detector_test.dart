@@ -84,6 +84,73 @@ void main() {
     });
   });
 
+  group('ScanKeyHold: lector o persona por la hora de cada tecla', () {
+    Duration t(int v) => Duration(milliseconds: v);
+
+    test('persona a 120 ms: el 2.º dígito suelta los dos (aunque el código '
+        'corra tarde y en lote: solo cuentan las horas de las teclas)', () {
+      // Equipo lento: las tres teclas se procesan juntas, mucho después.
+      final hold = ScanKeyHold();
+      expect(hold.addDigit('7', t(1000)), ScanKeyAction.hold);
+      expect(hold.addDigit('0', t(1120)), ScanKeyAction.releaseAll);
+      expect(hold.take(), '7', reason: 'el 2.º no se guarda: lo pone quien llama');
+      expect(hold.isEmpty, isTrue);
+    });
+
+    test('persona rapidísima (61 ms o más): sigue siendo persona', () {
+      for (final gap in [61, 80, 120, 400]) {
+        final hold = ScanKeyHold();
+        hold.addDigit('5', t(0));
+        expect(hold.addDigit('0', t(gap)), ScanKeyAction.releaseAll,
+            reason: '$gap ms');
+      }
+    });
+
+    test('lector a 1, 10 y 30 ms por tecla: las 13 se retienen, también si '
+        'se entregan tarde', () {
+      for (final gap in [1, 10, 30]) {
+        final hold = ScanKeyHold();
+        for (var i = 0; i < 13; i++) {
+          expect(hold.addDigit('${i % 10}', t(50000 + i * gap)),
+              ScanKeyAction.hold, reason: '$gap ms, tecla $i');
+        }
+        expect(hold.length, 13);
+        expect(hold.inBurst, isTrue);
+        expect(hold.averageGapMs, closeTo(gap.toDouble(), 0.001));
+        expect(hold.take(), '0123456789012');
+      }
+    });
+
+    test('ya en ráfaga, un hueco de hasta 80 ms no la corta; uno mayor sí: '
+        'lo retenido sale primero', () {
+      final hold = ScanKeyHold();
+      hold.addDigit('7', t(0));
+      hold.addDigit('7', t(5));
+      expect(hold.addDigit('0', t(85)), ScanKeyAction.hold);
+      expect(hold.addDigit('1', t(170)), ScanKeyAction.releaseHeldFirst);
+      expect(hold.take(), '770');
+    });
+
+    test('espera de un dígito solo: 32 ms; de una ráfaga sin Enter: 80 ms', () {
+      final hold = ScanKeyHold();
+      expect(hold.expired(t(999)), isFalse, reason: 'vacía');
+      hold.addDigit('5', t(100));
+      expect(hold.expired(t(131)), isFalse);
+      expect(hold.remaining(t(120)), t(12));
+      expect(hold.expired(t(132)), isTrue);
+      expect(hold.remaining(t(500)), Duration.zero);
+      hold.addDigit('0', t(110));
+      expect(hold.expired(t(189)), isFalse);
+      expect(hold.expired(t(190)), isTrue);
+    });
+
+    test('reloj que retrocede: se trata como persona (nunca retener de más)', () {
+      final hold = ScanKeyHold();
+      hold.addDigit('5', t(100));
+      expect(hold.addDigit('0', t(90)), ScanKeyAction.releaseAll);
+    });
+  });
+
   group('dígito suelto (los manejadores de atajos salen de una vez)', () {
     test('dígitos de la fila y del teclado numérico, sin modificador', () {
       for (final key in [

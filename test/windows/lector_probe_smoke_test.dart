@@ -6,6 +6,7 @@
 //   flutter test test/windows/lector_probe_smoke_test.dart
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:baudex_desktop/features/invoices/presentation/widgets/product_search_widget.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -29,17 +30,43 @@ class _SimulatedKeys implements KeyInjector {
     ));
   }
 
+  // Reloj de las teclas. Las teclas simuladas tardan decenas de ms cada una
+  // (un cuadro), así que no pueden ir al ritmo del lector de verdad: mientras
+  // se "lee" un código el reloj avanza como mucho [gapMs] por tecla, y fuera
+  // de eso corre con el tiempo real.
+  final Stopwatch _real = Stopwatch()..start();
+  Duration _virtualAtMark = Duration.zero;
+  Duration _realAtMark = Duration.zero;
+  Duration? _capPerKey;
+
+  Duration _clock() {
+    var since = _real.elapsed - _realAtMark;
+    final cap = _capPerKey;
+    if (cap != null && since > cap) since = cap;
+    return _virtualAtMark + since;
+  }
+
+  void _mark() {
+    _virtualAtMark = _clock();
+    _realAtMark = _real.elapsed;
+  }
+
   // Como en Windows: la tecla llega primero a la app; solo si no la
   // consume, el sistema la escribe en la caja.
   @override
   Future<void> type(String digits, {required int gapMs, bool enter = true}) async {
+    ProductSearchWidgetState.debugKeyClock = _clock;
     final field = tester.widget<EditableText>(find.byType(EditableText).first);
+    final scanning = digits.length > 1;
+    _mark();
+    if (scanning) _capPerKey = Duration(milliseconds: gapMs < 1 ? 1 : gapMs);
     for (final ch in digits.split('')) {
       final key = LogicalKeyboardKey(0x30 + int.parse(ch));
       final consumed = await simulateKeyDownEvent(key, character: ch);
       if (!consumed) _setText(field.controller.text + ch);
       await simulateKeyUpEvent(key);
       if (gapMs > 0) await Future<void>.delayed(Duration(milliseconds: gapMs));
+      if (scanning) _mark();
     }
     if (enter) {
       final consumed = await simulateKeyDownEvent(LogicalKeyboardKey.enter);
@@ -48,6 +75,8 @@ class _SimulatedKeys implements KeyInjector {
       }
       await simulateKeyUpEvent(LogicalKeyboardKey.enter);
     }
+    _mark();
+    _capPerKey = null;
   }
 
   @override

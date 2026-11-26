@@ -247,48 +247,128 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('equipo lento: si la espera del primer dígito vence TARDE (la '
-      'pantalla estaba ocupada), se atienden las teclas en fila antes de '
-      'soltarlo a la caja', (tester) async {
+  // ───────────── equipo lento: los temporizadores vencen tarde ─────────────
+  //
+  // En un equipo cargado las teclas SÍ llegan al instante, pero los
+  // temporizadores vencen cientos de milisegundos tarde. Aquí el reloj de
+  // las teclas se mueve a mano y NO se deja pasar tiempo de la prueba: es
+  // como si ningún temporizador venciera.
+
+  /// Abre con un reloj de teclas manual (en ms).
+  Future<void Function(int)> openWithManualClock(WidgetTester tester) async {
     await open(tester);
-    // El reloj de las teclas va 20 ms adelante de los temporizadores: como
-    // si un cuadro lento hubiera retrasado el aviso de la espera.
-    final start = tester.binding.clock.now();
-    var lag = Duration.zero;
-    ProductSearchWidgetState.debugKeyClock =
-        () => tester.binding.clock.now().difference(start) + lag;
-    final code = arroz.barcode!;
-    expect(await digit(tester, code[0]), isTrue);
-    lag = const Duration(milliseconds: 20);
-    await frame(tester, 33); // la espera venció… tarde
-    expect(field(tester).text, isEmpty,
-        reason: 'no se suelta todavía: puede haber teclas esperando');
-    for (final d in code.substring(1).split('')) {
-      expect(await digit(tester, d), isTrue);
-      await frame(tester, 2);
-    }
-    expect(await press(tester, LogicalKeyboardKey.enter), isTrue);
-    await frame(tester, 16);
-    expect(added, ['arrozx1.0']);
-    expect(cardFrames, 0);
-    expect(seenTexts.toSet(), {''});
+    var ms = 0;
+    ProductSearchWidgetState.debugKeyClock = () => Duration(milliseconds: ms);
+    return (int value) => ms = value;
+  }
+
+  testWidgets('equipo lento, a mano "700" a 120 ms por tecla y ningún '
+      'temporizador a tiempo: al llegar el 2.º dígito los dos entran YA a la '
+      'caja; el 3.º sigue normal; nunca se toma como lectura', (tester) async {
+    final at = await openWithManualClock(tester);
+    at(0);
+    expect(await digit(tester, '7'), isTrue, reason: 'el 1.º se retiene');
+    expect(field(tester).text, isEmpty);
+    at(120);
+    expect(await digit(tester, '0'), isTrue,
+        reason: 'lo pone la app junto con el 7');
+    expect(field(tester).text, '70',
+        reason: 'sin esperar temporizador ni cuadro');
+    at(240);
+    expect(await digit(tester, '0'), isFalse, reason: 'camino de siempre');
+    expect(field(tester).text, '700');
+    await tester.pump();
+    expect(find.text('Valor: \$ 700'), findsOneWidget);
+    expect(InvoiceEntryMetrics.instance.scans, 0);
+    // Enter: es un valor, no un código leído.
+    await press(tester, LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(find.text('Nombre en la factura'), findsOneWidget);
+    expect(added, isEmpty);
+    expect(InvoiceEntryMetrics.instance.scans, 0);
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('equipo lento y era una persona: tras el respiro corto el '
-      'dígito entra con su tarjeta', (tester) async {
-    await open(tester);
-    final start = tester.binding.clock.now();
-    var lag = Duration.zero;
-    ProductSearchWidgetState.debugKeyClock =
-        () => tester.binding.clock.now().difference(start) + lag;
+  testWidgets('equipo lento, un solo dígito: entra en el siguiente cuadro '
+      'aunque el temporizador no haya vencido', (tester) async {
+    final at = await openWithManualClock(tester);
+    at(0);
     await digit(tester, '5');
-    lag = const Duration(milliseconds: 20);
-    await tester.pump(const Duration(milliseconds: 33));
+    at(20);
+    await tester.pump(); // un cuadro antes de tiempo: sigue retenido
     expect(field(tester).text, isEmpty);
-    await tester.pump(const Duration(milliseconds: 40)); // respiros agotados
+    at(40);
+    await tester.pump(); // otro cuadro; el temporizador (32 ms) NO venció
     expect(field(tester).text, '5');
     expect(find.text('Valor: \$ 5'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('equipo lento, un solo dígito: también entra al soltar la '
+      'tecla si ya pasó la espera', (tester) async {
+    final at = await openWithManualClock(tester);
+    at(0);
+    expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.digit5, character: '5'),
+        isTrue);
+    expect(field(tester).text, isEmpty);
+    at(70); // una persona suelta la tecla a los 70 ms
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.digit5);
+    expect(field(tester).text, '5', reason: 'sin temporizador ni cuadro');
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('equipo lento, lector: las 13 teclas llegan en 25 ms y ningún '
+      'temporizador vence a tiempo → lectura directa, nada en la caja',
+      (tester) async {
+    final at = await openWithManualClock(tester);
+    final code = arroz.barcode!;
+    for (var i = 0; i < code.length; i++) {
+      at(i * 2);
+      expect(await digit(tester, code[i]), isTrue);
+      expect(field(tester).text, isEmpty);
+    }
+    at(27);
+    expect(await press(tester, LogicalKeyboardKey.enter), isTrue);
+    await tester.pump();
+    expect(added, ['arrozx1.0']);
+    expect(field(tester).text, isEmpty);
+    expect(InvoiceEntryMetrics.instance.scansDirect, 1);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('lector a 30 ms por tecla (lento) sigue siendo lectura; a mano '
+      'a 70 ms (rapidísimo) sigue siendo a mano', (tester) async {
+    final at = await openWithManualClock(tester);
+    final code = leche.barcode!;
+    for (var i = 0; i < code.length; i++) {
+      at(i * 30);
+      expect(await digit(tester, code[i]), isTrue);
+    }
+    at(13 * 30);
+    await press(tester, LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(added, ['lechex1.0']);
+    expect(field(tester).text, isEmpty);
+
+    at(5000);
+    await digit(tester, '2');
+    at(5070);
+    await digit(tester, '5');
+    expect(field(tester).text, '25');
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('Enter con un solo dígito retenido (persona muy rápida): es un '
+      'valor, no un código', (tester) async {
+    final at = await openWithManualClock(tester);
+    at(0);
+    await digit(tester, '9');
+    at(10);
+    expect(await press(tester, LogicalKeyboardKey.enter), isTrue);
+    await tester.pump();
+    expect(find.text('Nombre en la factura'), findsOneWidget);
+    expect(added, isEmpty);
+    expect(InvoiceEntryMetrics.instance.scans, 0);
     await tester.pump(const Duration(seconds: 1));
   });
 

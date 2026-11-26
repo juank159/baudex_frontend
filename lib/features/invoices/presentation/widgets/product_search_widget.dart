@@ -3,6 +3,7 @@ import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 import 'dart:async';
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -111,11 +112,18 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   //    entra a la caja y sale la tarjeta de valor, como siempre (los
   //    dígitos siguientes de una persona ya no se retienen);
   //  - llegan más dígitos seguidos sin Enter → al parar entran todos juntos.
-  final List<String> _scanKeys = [];
+  //
+  // Quién es (lector o persona) lo decide la HORA de cada tecla
+  // ([ScanKeyHold]), no que un temporizador venza a tiempo: en un equipo
+  // lento los temporizadores vencen tarde (cientos de ms) aunque las
+  // teclas sí lleguen al instante.
+  final ScanKeyHold _scanKeys = ScanKeyHold(
+    loneKeyHold: _firstDigitHold,
+    burstGap: _burstKeysHold,
+  );
   final Set<LogicalKeyboardKey> _consumedKeys = {};
   Timer? _scanKeysTimer;
-  Duration _scanKeysFirst = Duration.zero;
-  Duration _scanKeysLast = Duration.zero;
+  bool _scanKeysFrameCheck = false;
   int _scanKeysFirstEngineUs = 0;
   int _scanKeysStartFrame = 0;
 
@@ -1252,6 +1260,8 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
   KeyEventResult? _handleScanKey(KeyEvent event) {
     if (!debugDirectScanKeys) return null;
     if (event is KeyUpEvent) {
+      // Al soltar la tecla también se revisa si ya venció la espera.
+      _checkScanKeys();
       return _consumedKeys.remove(event.logicalKey)
           ? KeyEventResult.handled
           : null;
@@ -1275,22 +1285,28 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
           (!_fieldIsBlank() || _searchController.value.composing.isValid)) {
         return null;
       }
-      final now = _keyTime();
-      if (_scanKeys.isEmpty) {
-        _scanKeysFirst = now;
-        _scanKeysFirstEngineUs = engineClockMicros();
-        _scanKeysStartFrame = drawnFrameCount;
+      final wasEmpty = _scanKeys.isEmpty;
+      switch (_scanKeys.addDigit(digit, _keyTime())) {
+        case ScanKeyAction.hold:
+          if (wasEmpty) {
+            _scanKeysFirstEngineUs = engineClockMicros();
+            _scanKeysStartFrame = drawnFrameCount;
+          }
+          _consumedKeys.add(event.logicalKey);
+          _watchScanKeys();
+          return KeyEventResult.handled;
+        case ScanKeyAction.releaseAll:
+          // Segunda tecla a ritmo de persona: las dos entran YA a la caja,
+          // juntas y en orden (no se espera a ningún temporizador).
+          _consumedKeys.add(event.logicalKey);
+          _releaseScanKeys(andAlso: digit);
+          return KeyEventResult.handled;
+        case ScanKeyAction.releaseHeldFirst:
+          // La ráfaga ya había terminado (lector sin Enter): entra el
+          // código completo y esta tecla sigue su camino normal.
+          _releaseScanKeys();
+          return null;
       }
-      _scanKeysLast = now;
-      _scanKeys.add(digit);
-      _consumedKeys.add(event.logicalKey);
-      _scanKeysTimer?.cancel();
-      _scanKeysGrace = 0;
-      _scanKeysTimer = Timer(
-        _scanKeys.length == 1 ? _firstDigitHold : _burstKeysHold,
-        _scanKeysWaitOver,
-      );
-      return KeyEventResult.handled;
     }
     if (_scanKeys.isEmpty) return null;
     // Hay dígitos retenidos y llegó otra tecla.
@@ -1314,40 +1330,45 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
     return null;
   }
 
-  /// Se acabó la espera por otra tecla. Si este aviso llegó TARDE (la
-  /// pantalla estaba ocupada dibujando un cuadro lento), las teclas del
-  /// lector pueden estar en fila detrás de él: se da un respiro corto para
-  /// atenderlas antes de decidir que era una persona. Sin esto, en un equipo
-  /// lento una lectura de cada tantas soltaba el primer dígito a la caja.
-  void _scanKeysWaitOver() {
-    if (_scanKeys.isEmpty || !mounted) return;
-    final hold = _scanKeys.length == 1 ? _firstDigitHold : _burstKeysHold;
-    final late = _keyTime() - _scanKeysLast - hold;
-    if (late > _lateTimerSlack && _scanKeysGrace < _maxGraces) {
-      _scanKeysGrace++;
-      _scanKeysTimer = Timer(_graceAfterLateTimer, _scanKeysWaitOver);
-      return;
+  /// Vigila los dígitos retenidos para soltarlos apenas venza su espera.
+  /// No se confía en un solo aviso: en un equipo ocupado el temporizador
+  /// puede vencer cientos de milisegundos tarde, así que también se revisa
+  /// al empezar cada cuadro y cuando se suelta la tecla.
+  void _watchScanKeys() {
+    _scanKeysTimer?.cancel();
+    final left = _scanKeys.remaining(_keyTime());
+    _scanKeysTimer = Timer(left, _checkScanKeys);
+    if (!_scanKeysFrameCheck) {
+      _scanKeysFrameCheck = true;
+      SchedulerBinding.instance.scheduleFrameCallback((_) {
+        _scanKeysFrameCheck = false;
+        if (!mounted || _scanKeys.isEmpty) return;
+        _checkScanKeys();
+      });
     }
-    _releaseScanKeys();
   }
 
-  int _scanKeysGrace = 0;
-  static const Duration _lateTimerSlack = Duration(milliseconds: 8);
-  static const Duration _graceAfterLateTimer = Duration(milliseconds: 12);
-  static const int _maxGraces = 3;
+  /// ¿Ya venció la espera? Entonces lo retenido entra a la caja; si no, se
+  /// sigue vigilando.
+  void _checkScanKeys() {
+    if (_scanKeys.isEmpty || !mounted) return;
+    if (_scanKeys.expired(_keyTime())) {
+      _releaseScanKeys();
+    } else {
+      _watchScanKeys();
+    }
+  }
 
   /// Saca los dígitos retenidos (y sus datos para la medición).
   _DirectScan _takeScanKeys() {
     _scanKeysTimer?.cancel();
-    final digits = _scanKeys.join();
     final keys = _scanKeys.length;
-    _scanKeys.clear();
+    final averageGapMs = _scanKeys.averageGapMs;
+    final digits = _scanKeys.take();
     return _DirectScan(
       digits: digits,
       keys: keys,
-      averageGapMs: keys < 2
-          ? null
-          : (_scanKeysLast - _scanKeysFirst).inMicroseconds / 1000 / (keys - 1),
+      averageGapMs: averageGapMs,
       frames: drawnFrameCount - _scanKeysStartFrame,
       firstKeyEngineUs: _scanKeysFirstEngineUs,
     );
@@ -1368,10 +1389,10 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
   /// No llegó Enter: los dígitos retenidos entran a la caja TODOS JUNTOS y
   /// sigue lo de siempre (un valor pinta su tarjeta en ese mismo cuadro).
   /// Si son un código completo (lector sin Enter), se busca de una vez.
-  void _releaseScanKeys() {
+  void _releaseScanKeys({String andAlso = ''}) {
     if (_scanKeys.isEmpty || !mounted) return;
     final scan = _takeScanKeys();
-    final text = _textWith(scan.digits);
+    final text = _textWith(scan.digits + andAlso);
     _putText(text);
     if (scan.keys >= _barcodeKeys && _isBarcodeQuery(text.trim())) {
       _debounceTimer?.cancel();
@@ -1978,7 +1999,7 @@ AppLogger.e('❌ Error al abrir escáner: $e');
     _debounceTimer?.cancel();
     _burstFlushTimer?.cancel();
     _scanKeysTimer?.cancel();
-    _scanKeys.clear();
+    _scanKeys.take();
     _burst.reset();
     _forgetValueCheck();
 
