@@ -38,6 +38,8 @@ import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_fo
 import 'package:baudex_desktop/features/invoices/presentation/widgets/product_search_widget.dart';
 import 'package:baudex_desktop/features/products/data/models/isar/isar_product.dart';
 import 'package:baudex_desktop/features/products/data/models/isar/isar_product_price.dart';
+import 'package:baudex_desktop/features/products/data/datasources/product_presentation_local_datasource.dart';
+import 'package:baudex_desktop/features/products/data/models/product_presentation_model.dart';
 import 'package:baudex_desktop/features/products/data/repositories/product_offline_repository.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_presentation.dart';
 import 'package:baudex_desktop/features/products/domain/usecases/get_product_presentations_usecase.dart';
@@ -78,7 +80,21 @@ class LectorProbeConfig {
     this.maxTextMs = 150,
     this.maxLineMs = 0,
     this.label = '',
+    this.presentationsServerMs = 0,
+    this.frameCostMs = 0,
+    this.directKeys = true,
   });
+
+  /// Mayor que 0: las presentaciones NO están en el equipo (módulo sin
+  /// terminar de bajar) y el servidor tarda esto en responder, como en un
+  /// equipo real recién instalado o a medio sincronizar.
+  final int presentationsServerMs;
+
+  /// Mayor que 0: cada cuadro cuesta esto de más (equipo lento).
+  final int frameCostMs;
+
+  /// `false`: apaga la lectura directa por teclas (camino anterior).
+  final bool directKeys;
 
   /// Productos del catálogo de prueba.
   final int products;
@@ -182,8 +198,12 @@ class _Net implements NetworkInfo {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Catálogo completo en el equipo (descarga terminada).
+/// Catálogo completo en el equipo (descarga terminada); las presentaciones,
+/// según la corrida.
 class _Sync implements FullSyncService {
+  _Sync({required this.presentationsDownloaded});
+  final bool presentationsDownloaded;
+
   @override
   InternalFinalCallback<void> get onStart =>
       InternalFinalCallback(callback: () {});
@@ -191,7 +211,8 @@ class _Sync implements FullSyncService {
   InternalFinalCallback<void> get onDelete =>
       InternalFinalCallback(callback: () {});
   @override
-  Future<bool> isModuleDownloaded(String entity) async => true;
+  Future<bool> isModuleDownloaded(String entity) async =>
+      entity == 'product_presentations' ? presentationsDownloaded : true;
   @override
   bool get hasPendingFullDownload => false;
 
@@ -200,11 +221,32 @@ class _Sync implements FullSyncService {
 }
 
 class _Presentations implements GetProductPresentationsUseCase {
+  _Presentations(this.serverMs);
+  final int serverMs;
+  int calls = 0;
+
   @override
   Future<Either<Failure, List<ProductPresentation>>> call(
     GetProductPresentationsParams params,
+  ) async {
+    calls++;
+    if (serverMs > 0) {
+      await Future<void>.delayed(Duration(milliseconds: serverMs));
+    }
+    return const Right(<ProductPresentation>[]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Base local de presentaciones vacía (aún no han bajado).
+class _NoLocalPresentations implements ProductPresentationLocalDataSource {
+  @override
+  Future<List<ProductPresentationModel>> getPresentationsByProductId(
+    String productId,
   ) async =>
-      const Right(<ProductPresentation>[]);
+      const [];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -374,9 +416,23 @@ Future<LectorProbeResult> runLectorProbe({
     Get.put<UpdateInvoiceUseCase>(_Update());
     Get.put<GetInvoiceByIdUseCase>(_GetById());
     Get.put<ProductOfflineRepository>(repo);
-    Get.put<FullSyncService>(_Sync());
+    final slowPresentations = config.presentationsServerMs > 0;
+    Get.put<FullSyncService>(_Sync(presentationsDownloaded: !slowPresentations));
     Get.put<NetworkInfo>(_Net());
-    Get.put<GetProductPresentationsUseCase>(_Presentations());
+    final presentations = _Presentations(config.presentationsServerMs);
+    Get.put<GetProductPresentationsUseCase>(presentations);
+    if (slowPresentations) {
+      Get.put<ProductPresentationLocalDataSource>(_NoLocalPresentations());
+    }
+    ProductSearchWidgetState.debugDirectScanKeys = config.directKeys;
+    if (config.frameCostMs > 0) {
+      // Equipo lento: cada cuadro cuesta más (se quema tiempo en el hilo
+      // de la app al final de cada cuadro).
+      SchedulerBinding.instance.addPersistentFrameCallback((_) {
+        final burn = Stopwatch()..start();
+        while (burn.elapsedMilliseconds < config.frameCostMs) {}
+      });
+    }
 
     // ── Pantalla ──
     recorder.start();
@@ -432,6 +488,10 @@ Future<LectorProbeResult> runLectorProbe({
         '${Platform.numberOfProcessors} núcleos | '
         '${kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug')}');
     if (note != null) out('MEDICION LECTOR | $note');
+    out('MEDICION LECTOR | lectura directa por teclas: '
+        '${config.directKeys ? 'encendida' : 'APAGADA (camino anterior)'}'
+        '${slowPresentations ? ' | presentaciones SIN descargar, servidor a ${config.presentationsServerMs} ms' : ''}'
+        '${config.frameCostMs > 0 ? ' | cada cuadro cuesta ${config.frameCostMs} ms de más' : ''}');
     out('MEDICION LECTOR | foco en la caja: ${field.widget.focusNode.hasFocus}');
 
     // ── Una lectura ──
@@ -465,6 +525,9 @@ Future<LectorProbeResult> runLectorProbe({
           break;
         }
       }
+      // Lectura directa: el código no pasa por la caja; queda completo
+      // cuando llega el Enter.
+      s.textMs ??= s.enterMs;
       final added = recorder.unitChanges
           .sublist(unitFrom)
           .where((u) => u.$2 > unitsBefore)
@@ -632,6 +695,9 @@ Future<LectorProbeResult> runLectorProbe({
     // Cuadros de toda la corrida.
     final build = [for (final f in recorder.frames) f.buildMs];
     final raster = [for (final f in recorder.frames) f.rasterMs];
+    if (slowPresentations) {
+      out('MEDICION LECTOR | presentaciones pedidas al servidor: ${presentations.calls}');
+    }
     out('MEDICION LECTOR | cuadros en total: ${recorder.frames.length}; '
         'armar: normal ${_f(_median(build)).trim()} ms, peor ${_f(_max(build)).trim()} ms; '
         'pintar: normal ${_f(_median(raster)).trim()} ms, peor ${_f(_max(raster)).trim()} ms');

@@ -98,12 +98,17 @@ jobs:
           $etiqueta = '${{ inputs.lector_etiqueta }}'
           if ([string]::IsNullOrWhiteSpace($etiqueta)) { $etiqueta = "$env:GITHUB_SHA".Substring(0, 7) }
           $fallas = 0
-          # Dos corridas con teclas del sistema (factura vacía y con 60
-          # líneas) y una de respaldo con mensajes directos a la ventana.
+          # Corridas con teclas del sistema y una de respaldo con mensajes
+          # directos a la ventana.
+          # 'presentaciones': las presentaciones no están en el equipo y el
+          # servidor tarda 250 ms (equipo a medio sincronizar). 'lento': cada
+          # cuadro cuesta 40 ms de más (equipo sin buena tarjeta gráfica).
           $corridas = @(
-            @{ nombre = 'vacia';    lineas = '0';  teclas = 'sendinput' },
-            @{ nombre = '60lineas'; lineas = '60'; teclas = 'sendinput' },
-            @{ nombre = 'mensajes'; lineas = '0';  teclas = 'postmessage' }
+            @{ nombre = 'vacia';          lineas = '0';  teclas = 'sendinput';   pres = '0';   cuadro = '0' },
+            @{ nombre = '60lineas';       lineas = '60'; teclas = 'sendinput';   pres = '0';   cuadro = '0' },
+            @{ nombre = 'presentaciones'; lineas = '0';  teclas = 'sendinput';   pres = '250'; cuadro = '0' },
+            @{ nombre = 'lento';          lineas = '60'; teclas = 'sendinput';   pres = '250'; cuadro = '40' },
+            @{ nombre = 'mensajes';       lineas = '0';  teclas = 'postmessage'; pres = '0';   cuadro = '0' }
           )
           foreach ($c in $corridas) {
             $salida = "C:\lector\lector-$($c.nombre).txt"
@@ -111,6 +116,8 @@ jobs:
             $env:BAUDEX_PROBE_LABEL = "$etiqueta / $($c.nombre)"
             $env:BAUDEX_PROBE_LINES = $c.lineas
             $env:BAUDEX_PROBE_KEYS = $c.teclas
+            $env:BAUDEX_PROBE_PRESENTATIONS_MS = $c.pres
+            $env:BAUDEX_PROBE_FRAME_MS = $c.cuadro
             Write-Host "===== Corrida $($c.nombre) (teclas: $($c.teclas)) ====="
             $p = Start-Process -FilePath $exe -PassThru
             if (-not $p.WaitForExit(8 * 60 * 1000)) {

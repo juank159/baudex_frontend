@@ -63,3 +63,36 @@ bool shortcutModifierPressed() {
       keyboard.isAltPressed ||
       keyboard.isMetaPressed;
 }
+
+/// El dígito ('0'…'9') que escribe una tecla, o `null` si no es un dígito
+/// suelto. [character] es lo que la tecla escribe (con Mayús en un teclado
+/// español la fila de números da símbolos: eso no es un dígito).
+String? plainDigitOf(String? character, {required bool modifierPressed}) {
+  if (modifierPressed || character == null || character.length != 1) {
+    return null;
+  }
+  final code = character.codeUnitAt(0);
+  return code >= 0x30 && code <= 0x39 ? character : null;
+}
+
+final Set<LogicalKeyboardKey> _modifierKeys = {
+  LogicalKeyboardKey.shiftLeft,
+  LogicalKeyboardKey.shiftRight,
+  LogicalKeyboardKey.shift,
+  LogicalKeyboardKey.controlLeft,
+  LogicalKeyboardKey.controlRight,
+  LogicalKeyboardKey.control,
+  LogicalKeyboardKey.altLeft,
+  LogicalKeyboardKey.altRight,
+  LogicalKeyboardKey.alt,
+  LogicalKeyboardKey.metaLeft,
+  LogicalKeyboardKey.metaRight,
+  LogicalKeyboardKey.meta,
+  LogicalKeyboardKey.capsLock,
+  LogicalKeyboardKey.numLock,
+  LogicalKeyboardKey.scrollLock,
+  LogicalKeyboardKey.fn,
+};
+
+/// Tecla que por sí sola no escribe ni hace nada (Mayús, Bloq Mayús…).
+bool isModifierOnlyKey(LogicalKeyboardKey key) => _modifierKeys.contains(key);

@@ -136,7 +136,8 @@ void main() {
       expect(m.scanGapMs, (12.0, 30.0));
       expect(m.scanFrames, (5.0, 13.0));
       final report = m.report();
-      expect(report, contains('Lecturas con el lector: 4 (reconocidas como ráfaga: 3; '
+      expect(report, contains('Lecturas con el lector: 4 (directas por teclas, sin pasar '
+          'por la caja: 0; reconocidas como ráfaga: 3; '
           'teclas que no redibujaron el buscador: 18)'));
       expect(report, contains('Entre teclas: normal 12 ms, peor 30 ms'));
       expect(report, contains('Cuadros de pantalla por lectura: normal 5, peor 13'));

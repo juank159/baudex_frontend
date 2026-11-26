@@ -63,6 +63,9 @@ import '../../../products/domain/entities/product_presentation.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../../../products/domain/repositories/product_repository.dart';
 import '../../../products/domain/usecases/get_product_presentations_usecase.dart';
+import '../../../products/data/datasources/product_presentation_local_datasource.dart';
+import '../../data/presentation_lookup.dart';
+import '../../../products/data/models/isar/isar_product_presentation.dart';
 import '../../../products/presentation/bindings/product_presentation_binding.dart';
 import '../widgets/presentation_picker_dialog.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
@@ -813,7 +816,43 @@ class InvoiceFormController extends GetxController {
       return;
     }
 
+    final watch = Stopwatch()..start();
     List<ProductPresentation> active = [];
+
+    // Primero lo que el equipo ya sabe (memoria y base local), sin esperar
+    // al servidor.
+    final lookup = _presentationLookup();
+    if (lookup != null) {
+      List<ProductPresentation>? known;
+      var answered = false;
+      try {
+        known = await lookup.known(product.id);
+        answered = true;
+      } catch (_) {
+        // Problema con la base local: la pregunta de siempre, abajo.
+      }
+      if (answered && known == null) {
+        // El equipo no lo sabe (presentaciones sin terminar de bajar): la
+        // línea entra YA y se pregunta en segundo plano. Si resulta que
+        // tiene varias presentaciones, se pregunta cuál en ese momento.
+        final before = _unitsOf(product.id);
+        addOrUpdateProductToInvoice(product, quantity: quantity);
+        if (_unitsOf(product.id) > before) {
+          InvoiceEntryMetrics.instance.presentationsFromServer++;
+          unawaited(_askPresentationsLater(lookup, product, quantity));
+        }
+        return;
+      }
+      if (answered) {
+        active = known!.where((p) => p.isActive).toList();
+        InvoiceEntryMetrics.instance.record(
+          EntryMetric.presentations,
+          watch.elapsedMicroseconds / 1000,
+        );
+        return _addWithPresentations(product, quantity, active);
+      }
+    }
+
     try {
       // Defensa: si por algún motivo el usecase no fue registrado en el
       // InitialBinding (build viejo, hot-reload sucio), lo registramos
@@ -828,16 +867,27 @@ class InvoiceFormController extends GetxController {
       result.fold(
         (failure) {
           // Si falla (offline sin cache, etc.), seguimos con flujo legacy.
-
         },
         (list) {
           active = list.where((p) => p.isActive).toList();
         },
       );
     } catch (e) {
-
+      // Flujo legacy.
     }
+    InvoiceEntryMetrics.instance.record(
+      EntryMetric.presentations,
+      watch.elapsedMicroseconds / 1000,
+    );
+    return _addWithPresentations(product, quantity, active);
+  }
 
+  /// Agrega el producto; si tiene varias presentaciones activas, pregunta.
+  Future<void> _addWithPresentations(
+    Product product,
+    double quantity,
+    List<ProductPresentation> active,
+  ) async {
     if (active.length <= 1) {
       // 0 o 1 presentación → comportamiento legacy (no enviamos presentationId).
       addOrUpdateProductToInvoice(product, quantity: quantity);
@@ -856,6 +906,101 @@ class InvoiceFormController extends GetxController {
       quantity: quantity,
       presentation: selected,
     );
+  }
+
+  // ── Presentaciones sin frenar la venta (ver [PresentationLookup]) ──
+
+  PresentationLookup? _presentations;
+  final Map<String, double> _pendingPresentationUnits = {};
+
+  PresentationLookup? _presentationLookup() {
+    if (_presentations != null) return _presentations;
+    try {
+      if (!Get.isRegistered<GetProductPresentationsUseCase>()) {
+        ProductPresentationBinding.registerCore();
+      }
+      if (!Get.isRegistered<ProductPresentationLocalDataSource>()) return null;
+      final local = Get.find<ProductPresentationLocalDataSource>();
+      return _presentations = PresentationLookup(
+        readLocal: (id) async => [
+          for (final m in await local.getPresentationsByProductId(id))
+            m.toEntity(),
+        ],
+        isModuleComplete: () => localCollectionReady(
+            IsarDatabase.instance.database.isarProductPresentations),
+        fetch: (id) async {
+          final result = await Get.find<GetProductPresentationsUseCase>()(
+            GetProductPresentationsParams(productId: id),
+          );
+          return result.fold((_) => null, (list) => list);
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Unidades de [productId] en la factura sin presentación elegida.
+  double _unitsOf(String productId) {
+    var units = 0.0;
+    for (final item in _invoiceItems) {
+      if (item.productId == productId && item.presentationId == null) {
+        units += item.quantity;
+      }
+    }
+    return units;
+  }
+
+  /// La línea ya entró; ahora sí se pregunta por las presentaciones. Si el
+  /// producto tiene varias, se abre el selector de siempre y lo que entró
+  /// como unidad se cambia por la presentación elegida (o se quita si el
+  /// cajero cancela, igual que antes).
+  Future<void> _askPresentationsLater(
+    PresentationLookup lookup,
+    Product product,
+    double quantity,
+  ) async {
+    final id = product.id;
+    final alreadyAsking = _pendingPresentationUnits.containsKey(id);
+    _pendingPresentationUnits[id] =
+        (_pendingPresentationUnits[id] ?? 0) + quantity;
+    if (alreadyAsking) return;
+    List<ProductPresentation>? list;
+    try {
+      list = await lookup.resolve(id);
+    } catch (_) {}
+    final units = _pendingPresentationUnits.remove(id) ?? 0;
+    if (isClosed || list == null || units <= 0) return;
+    final active = list.where((p) => p.isActive).toList();
+    if (active.length <= 1) return;
+    final selected = await Get.dialog<ProductPresentation>(
+      PresentationPickerDialog(product: product, presentations: active),
+      barrierDismissible: true,
+    );
+    if (isClosed || !_takeBackUnits(id, units)) return;
+    if (selected == null) return; // canceló: no queda agregado
+    addOrUpdateProductToInvoice(
+      product,
+      quantity: units,
+      presentation: selected,
+    );
+  }
+
+  /// Quita [units] de la línea sin presentación de [productId]. `false` si
+  /// esa línea ya no está (el cajero la quitó).
+  bool _takeBackUnits(String productId, double units) {
+    final index = _invoiceItems.indexWhere(
+      (i) => i.productId == productId && i.presentationId == null,
+    );
+    if (index == -1) return false;
+    final item = _invoiceItems[index];
+    if (item.quantity > units) {
+      _invoiceItems[index] = item.copyWith(quantity: item.quantity - units);
+    } else {
+      _invoiceItems.removeAt(index);
+    }
+    _recalculateTotals();
+    return true;
   }
 
   void addOrUpdateProductToInvoice(
@@ -1175,6 +1320,11 @@ class InvoiceFormController extends GetxController {
         collectionChanges: products.watchLazy(),
         onLoaded: (ms) => InvoiceEntryMetrics.instance
             .record(EntryMetric.indexLoad, ms, entryContext()),
+        onLoadFailed: (e) {
+          InvoiceEntryMetrics.instance
+            ..indexLoadFailures += 1
+            ..lastIndexLoadError = '$e'.split('\n').first;
+        },
       );
     } catch (e) {
       AppLogger.w('No se pudo preparar los códigos cortos: $e');

@@ -329,19 +329,24 @@ void main() {
           ? LogicalKeyboardKey(0x30 + digit)
           : LogicalKeyboardKey(ch.toLowerCase().codeUnitAt(0));
       final w = Stopwatch()..start();
-      await t.sendKeyDownEvent(key);
-      t.testTextInput.updateEditingValue(TextEditingValue(
-        text: prefix + code.substring(0, i),
-        selection: TextSelection.collapsed(offset: prefix.length + i),
-      ));
+      // Como en Windows: solo si la app no consume la tecla, el sistema
+      // escribe el carácter en la caja.
+      final consumed = await t.sendKeyDownEvent(key, character: ch);
+      if (!consumed) {
+        final text = fieldText(t) + ch;
+        t.testTextInput.updateEditingValue(TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        ));
+      }
       await t.sendKeyUpEvent(key);
       timing.handlerMs.add(w.elapsedMicroseconds / 1000);
       timing.frameMs.add(await step(t, gap));
     }
     if (enter) {
       final w = Stopwatch()..start();
-      await t.sendKeyDownEvent(LogicalKeyboardKey.enter);
-      await t.testTextInput.receiveAction(TextInputAction.done);
+      final consumed = await t.sendKeyDownEvent(LogicalKeyboardKey.enter);
+      if (!consumed) await t.testTextInput.receiveAction(TextInputAction.done);
       await t.sendKeyUpEvent(LogicalKeyboardKey.enter);
       timing.enterHandlerMs = w.elapsedMicroseconds / 1000;
     }

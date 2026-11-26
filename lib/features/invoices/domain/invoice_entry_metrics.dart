@@ -58,7 +58,20 @@ enum EntryMetric {
   textSearch('Búsqueda por texto'),
 
   /// Lector: Enter del código → línea pintada en la factura.
-  scanEnterToLine('Lector: Enter → línea en la factura');
+  scanEnterToLine('Lector: Enter → línea en la factura'),
+
+  /// Lector: primera tecla → Enter (el código completo ya llegó a la app).
+  scanFirstKeyToCode('Lector: primera tecla → código completo'),
+
+  /// Lector: primera tecla → la línea ya se VE (cuadro en pantalla). Es lo
+  /// que el cajero percibe de punta a punta.
+  scanFirstKeyToSeen('Lector: primera tecla → línea a la vista'),
+
+  /// Lector: buscar el código en el equipo.
+  scanLookup('Lector: buscar el código'),
+
+  /// Al agregar un producto: averiguar sus presentaciones.
+  presentations('Agregar producto: presentaciones');
 
   const EntryMetric(this.title);
   final String title;
@@ -132,6 +145,27 @@ class InvoiceEntryMetrics {
   /// pantalla desde la primera tecla hasta el Enter.
   int scans = 0;
   int scansAsBurst = 0;
+
+  /// Lecturas que entraron directo por las teclas, sin pasar por la caja de
+  /// texto (ni un dígito a medias en pantalla, ni la tarjeta de valor).
+  int scansDirect = 0;
+
+  /// Cuadros que mostraron un código a medias o la tarjeta "sin registrar"
+  /// durante una lectura (lo que el cajero ve como "números entrando").
+  int scanPartialFrames = 0;
+
+  /// Productos agregados cuyas presentaciones hubo que pedir al servidor
+  /// (no estaban en el equipo). La línea ya no espera esa respuesta.
+  int presentationsFromServer = 0;
+
+  /// Cargas del índice de códigos que fallaron, y el último error.
+  int indexLoadFailures = 0;
+  String? lastIndexLoadError;
+
+  /// Tiempos de los cuadros: armar (hilo de la app) y pintar (gráfica).
+  double _buildSumMs = 0, _rasterSumMs = 0;
+  double worstBuildMs = 0, worstRasterMs = 0;
+  int buildOver16 = 0, rasterOver16 = 0, rasterOver50 = 0;
   int scanKeysNotRedrawn = 0;
   final List<double> _scanGapsMs = [];
   final List<double> _scanFrames = [];
@@ -144,9 +178,11 @@ class InvoiceEntryMetrics {
     required double? avgGapMs,
     required int frames,
     required bool burst,
+    bool direct = false,
   }) {
     scans++;
     if (burst) scansAsBurst++;
+    if (direct) scansDirect++;
     if (avgGapMs == null || keys < 2) return;
     _scanGapsMs.add(avgGapMs);
     _scanFrames.add(frames.toDouble());
@@ -233,7 +269,16 @@ class InvoiceEntryMetrics {
     }
   }
 
-  void recordFrame(double totalMs) {
+  void recordFrame(double totalMs, {double? buildMs, double? rasterMs}) {
+    if (buildMs != null && rasterMs != null) {
+      _buildSumMs += buildMs;
+      _rasterSumMs += rasterMs;
+      if (buildMs > worstBuildMs) worstBuildMs = buildMs;
+      if (rasterMs > worstRasterMs) worstRasterMs = rasterMs;
+      if (buildMs > 16) buildOver16++;
+      if (rasterMs > 16) rasterOver16++;
+      if (rasterMs > 50) rasterOver50++;
+    }
     frames++;
     if (totalMs > 50) framesOver50++;
     if (totalMs > 200) framesOver200++;
@@ -266,6 +311,11 @@ class InvoiceEntryMetrics {
     _printSlow.clear();
     valueKeysCertain = valueKeysUnconfirmed = 0;
     scans = scansAsBurst = scanKeysNotRedrawn = 0;
+    scansDirect = scanPartialFrames = presentationsFromServer = 0;
+    indexLoadFailures = 0;
+    lastIndexLoadError = null;
+    _buildSumMs = _rasterSumMs = worstBuildMs = worstRasterMs = 0;
+    buildOver16 = rasterOver16 = rasterOver50 = 0;
     _scanGapsMs.clear();
     _scanFrames.clear();
     frames = framesOver50 = framesOver200 = 0;
@@ -284,8 +334,11 @@ class InvoiceEntryMetrics {
     if (scans > 0) {
       final gap = scanGapMs, perScan = scanFrames;
       b.writeln('  Lecturas con el lector: $scans '
-          '(reconocidas como ráfaga: $scansAsBurst; '
+          '(directas por teclas, sin pasar por la caja: $scansDirect; '
+          'reconocidas como ráfaga: $scansAsBurst; '
           'teclas que no redibujaron el buscador: $scanKeysNotRedrawn)');
+      b.writeln('    Cuadros que mostraron un código a medias o la tarjeta '
+          '"sin registrar" durante una lectura: $scanPartialFrames');
       if (gap != null && perScan != null) {
         b.writeln('    Entre teclas: normal ${_f(gap.$1)} ms, peor ${_f(gap.$2)} ms. '
             'Cuadros de pantalla por lectura: normal ${perScan.$1.toStringAsFixed(0)}, '
@@ -304,6 +357,21 @@ class InvoiceEntryMetrics {
     if (!any) b.writeln('  (todavía no se ha facturado en esta sesión)');
     b.writeln('  Cuadros de pantalla: $frames, de más de 50 ms: $framesOver50, '
         'de más de 200 ms: $framesOver200, peor: ${_f(worstFrameMs)} ms');
+    if (frames > 0 && (_buildSumMs > 0 || _rasterSumMs > 0)) {
+      b.writeln('    Armar (hilo de la app): promedio ${_f(_buildSumMs / frames)} ms, '
+          'peor ${_f(worstBuildMs)} ms, de más de 16 ms: $buildOver16. '
+          'Pintar (gráfica): promedio ${_f(_rasterSumMs / frames)} ms, '
+          'peor ${_f(worstRasterMs)} ms, de más de 16 ms: $rasterOver16, '
+          'de más de 50 ms: $rasterOver50');
+    }
+    if (presentationsFromServer > 0) {
+      b.writeln('  Productos cuyas presentaciones se pidieron al servidor '
+          '(sin frenar la línea): $presentationsFromServer');
+    }
+    if (indexLoadFailures > 0) {
+      b.writeln('  Cargas del índice de códigos que FALLARON: '
+          '$indexLoadFailures (último error: $lastIndexLoadError)');
+    }
     if (_slow.isNotEmpty) {
       b.writeln('  Lentas (≥ ${slowMs.toStringAsFixed(0)} ms), últimas ${_slow.length}:');
       for (final (m, s) in _slow.reversed.take(15)) {

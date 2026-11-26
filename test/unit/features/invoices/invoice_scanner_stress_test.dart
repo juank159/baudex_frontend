@@ -78,21 +78,27 @@ void main() {
     }
   }
 
-  /// Lector: cada dígito llega como tecla (KeyDown/KeyUp) y como texto; al
-  /// final, Enter.
+  /// Lector, como en Windows: cada dígito llega primero como tecla; SOLO si
+  /// la app no la consume, el sistema la escribe en la caja. Igual el Enter.
   Future<void> scan(WidgetTester t, String code) async {
+    final field = find.descendant(
+        of: find.byType(ProductSearchWidget), matching: find.byType(EditableText));
     for (var i = 1; i <= code.length; i++) {
-      final key = LogicalKeyboardKey(0x30 + int.parse(code[i - 1]));
-      await t.sendKeyDownEvent(key);
-      t.testTextInput.updateEditingValue(TextEditingValue(
-        text: code.substring(0, i),
-        selection: TextSelection.collapsed(offset: i),
-      ));
+      final digit = code[i - 1];
+      final key = LogicalKeyboardKey(0x30 + int.parse(digit));
+      final consumed = await t.sendKeyDownEvent(key, character: digit);
+      if (!consumed) {
+        final text = t.widget<EditableText>(field).controller.text + digit;
+        t.testTextInput.updateEditingValue(TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        ));
+      }
       await t.sendKeyUpEvent(key);
       await t.pump(const Duration(milliseconds: 3));
     }
-    await t.sendKeyDownEvent(LogicalKeyboardKey.enter);
-    await t.testTextInput.receiveAction(TextInputAction.done);
+    final consumed = await t.sendKeyDownEvent(LogicalKeyboardKey.enter);
+    if (!consumed) await t.testTextInput.receiveAction(TextInputAction.done);
     await t.sendKeyUpEvent(LogicalKeyboardKey.enter);
     await t.pump(const Duration(milliseconds: 20));
   }

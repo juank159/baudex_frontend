@@ -22,6 +22,7 @@ import '../../domain/invoice_entry_metrics.dart';
 import '../../../../app/core/utils/frame_timings_probe.dart';
 import '../../domain/scan_burst_detector.dart';
 import 'barcode_scan_queue.dart';
+import 'invoice_shortcut_keys.dart';
 import 'scanner_focus.dart';
 
 class ProductSearchWidget extends StatefulWidget {
@@ -98,7 +99,44 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   Duration _keyTime() => debugKeyClock?.call() ?? _keyClock.elapsed;
 
   // Lecturas en la cola, en orden: cronómetro desde su Enter.
-  final List<Stopwatch> _scanWatches = [];
+  final List<_ScanTrace> _scanWatches = [];
+
+  // ── Lectura directa del lector (teclas, sin pasar por la caja) ──
+  //
+  // El lector manda los dígitos en milésimas. Si cada uno entra a la caja de
+  // texto, la pantalla alcanza a dibujar el código a medias ("números
+  // entrando uno a uno") y la tarjeta "Producto sin registrar" de los
+  // primeros dígitos. Por eso, con la caja vacía, los dígitos se RETIENEN
+  // aquí (la tecla se consume y no llega a la caja):
+  //  - llega Enter (o Tab) → es una lectura: se busca el código completo de
+  //    una vez; la caja nunca mostró nada;
+  //  - pasan [_firstDigitHold] sin otra tecla → era una persona: el dígito
+  //    entra a la caja y sale la tarjeta de valor, como siempre (los
+  //    dígitos siguientes de una persona ya no se retienen);
+  //  - llegan más dígitos seguidos sin Enter → al parar entran todos juntos.
+  final List<String> _scanKeys = [];
+  final Set<LogicalKeyboardKey> _consumedKeys = {};
+  Timer? _scanKeysTimer;
+  Duration _scanKeysFirst = Duration.zero;
+  Duration _scanKeysLast = Duration.zero;
+  int _scanKeysFirstEngineUs = 0;
+  int _scanKeysStartFrame = 0;
+
+  /// Espera del primer dígito con la caja vacía (¿viene otro enseguida?).
+  static const Duration _firstDigitHold = Duration(milliseconds: 32);
+
+  /// Ya en ráfaga: pausa que la da por terminada (lector sin Enter).
+  static const Duration _burstKeysHold = Duration(milliseconds: 80);
+
+  /// Dígitos seguidos que ya son un código de barras (lector sin Enter).
+  static const int _barcodeKeys = 8;
+
+  /// Solo para pruebas y mediciones: apagar la lectura directa por teclas
+  /// (queda el camino anterior, por la caja de texto).
+  static bool debugDirectScanKeys = true;
+
+  /// Reloj del motor al llegar la primera tecla de la tanda por la caja.
+  int _runFirstEngineUs = 0;
 
   // Control para pausar la restauración automática de focus.
   // El padre (ej: CustomerSelectorWidget) lo puede activar mientras el
@@ -184,6 +222,7 @@ AppLogger.w('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
     try {
       _debounceTimer?.cancel();
       _burstFlushTimer?.cancel();
+      _scanKeysTimer?.cancel();
       _valueCheckTimer?.cancel();
       _scanQueue.dispose();
 
@@ -355,6 +394,9 @@ AppLogger.w('⚠️ Error auto-seleccionando texto: $e');
       ),
       child: Focus(
         onKeyEvent: (FocusNode node, KeyEvent event) {
+          // Dígitos del lector: se retienen aquí (ver [_scanKeys]).
+          final direct = _handleScanKey(event);
+          if (direct != null) return direct;
           // ✅ CRÍTICO: Interceptar Enter ANTES de que llegue al TextField
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -925,7 +967,10 @@ AppLogger.w('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda
         _previousText = text;
         if (isKey) {
           inBurst = _burst.addKey(_keyTime());
-          if (_burst.keys == 1) _runStartFrame = drawnFrameCount;
+          if (_burst.keys == 1) {
+            _runStartFrame = drawnFrameCount;
+            _runFirstEngineUs = engineClockMicros();
+          }
         } else {
           _burst.reset();
         }
@@ -1138,31 +1183,196 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
 
   /// Escaneo: la caja queda libre para el siguiente código y este se busca
   /// en la cola (en orden, sin perder ninguno).
-  void _enqueueScan(String code) {
+  void _enqueueScan(String code, {_DirectScan? direct}) {
     _debounceTimer?.cancel();
     _burstFlushTimer?.cancel();
-    _metrics.recordScan(
-      keys: _burst.keys,
-      avgGapMs: _burst.averageGapMs,
-      frames: drawnFrameCount - _runStartFrame,
-      burst: _burst.inBurst,
-    );
+    final enterUs = engineClockMicros();
+    final int? firstKeyUs;
+    if (direct != null) {
+      // Entró por las teclas: la caja no mostró nada.
+      firstKeyUs = direct.firstKeyEngineUs;
+      _metrics.recordScan(
+        keys: direct.keys,
+        avgGapMs: direct.averageGapMs,
+        frames: direct.frames,
+        burst: true,
+        direct: true,
+      );
+    } else {
+      final typed = _burst.keys >= 2;
+      firstKeyUs = typed ? _runFirstEngineUs : null;
+      final frames = drawnFrameCount - _runStartFrame;
+      _metrics.recordScan(
+        keys: _burst.keys,
+        avgGapMs: _burst.averageGapMs,
+        frames: frames,
+        burst: _burst.inBurst,
+      );
+      // Por la caja: cada cuadro entre la primera tecla y el Enter mostró
+      // el código a medias (o la tarjeta de valor).
+      if (typed) _metrics.scanPartialFrames += frames;
+    }
+    if (firstKeyUs != null) {
+      _metrics.record(
+        EntryMetric.scanFirstKeyToCode,
+        (enterUs - firstKeyUs) / 1000,
+        widget.controller.entryContext(),
+      );
+    }
     _burst.reset();
     _searchSeq++; // descarta una búsqueda en curso de este mismo texto
     _lastSearchTerm = '';
-    _searchController.clear();
-    _scanWatches.add(Stopwatch()..start());
+    if (_searchController.text.isNotEmpty) _searchController.clear();
+    if (_showResults) {
+      // Quedaba algo pintado de antes (p. ej. "no encontrado"): se limpia.
+      setState(() {
+        _searchResults.clear();
+        _showResults = false;
+        _isSearching = false;
+        _selectedResultIndex = -1;
+      });
+    }
+    _scanWatches.add(_ScanTrace(firstKeyUs));
     _scanQueue.add(code);
   }
 
-  Stopwatch? _takeScanWatch() =>
+  _ScanTrace? _takeScanWatch() =>
       _scanWatches.isEmpty ? null : _scanWatches.removeAt(0);
+
+  // ──────────── Lectura directa por teclas ────────────
+
+  /// ¿La caja está vacía (o con todo seleccionado, que se reemplaza)?
+  bool _fieldIsBlank() {
+    final value = _searchController.value;
+    if (value.text.isEmpty) return true;
+    final s = value.selection;
+    return s.isValid && s.start == 0 && s.end == value.text.length;
+  }
+
+  /// Tecla sobre la caja: `handled` si se retuvo, `ignored` si debe seguir
+  /// su camino ya, o `null` si no es asunto de la lectura directa.
+  KeyEventResult? _handleScanKey(KeyEvent event) {
+    if (!debugDirectScanKeys) return null;
+    if (event is KeyUpEvent) {
+      return _consumedKeys.remove(event.logicalKey)
+          ? KeyEventResult.handled
+          : null;
+    }
+    final digit = plainDigitOf(
+      event.character,
+      modifierPressed: shortcutModifierPressed(),
+    );
+    if (digit != null) {
+      // Solo se retiene si empieza con la caja vacía (un lector siempre
+      // empieza así) o si ya hay dígitos retenidos. Con texto en la caja,
+      // la persona está escribiendo: camino normal.
+      if (_scanKeys.isEmpty &&
+          (!_fieldIsBlank() || _searchController.value.composing.isValid)) {
+        return null;
+      }
+      final now = _keyTime();
+      if (_scanKeys.isEmpty) {
+        _scanKeysFirst = now;
+        _scanKeysFirstEngineUs = engineClockMicros();
+        _scanKeysStartFrame = drawnFrameCount;
+      }
+      _scanKeysLast = now;
+      _scanKeys.add(digit);
+      _consumedKeys.add(event.logicalKey);
+      _scanKeysTimer?.cancel();
+      _scanKeysTimer = Timer(
+        _scanKeys.length == 1 ? _firstDigitHold : _burstKeysHold,
+        _releaseScanKeys,
+      );
+      return KeyEventResult.handled;
+    }
+    if (_scanKeys.isEmpty) return null;
+    // Hay dígitos retenidos y llegó otra tecla.
+    final key = event.logicalKey;
+    final isEnter = key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter;
+    // Lectores configurados con Tab al final en vez de Enter.
+    final isScannerTab =
+        key == LogicalKeyboardKey.tab && _scanKeys.length >= _barcodeKeys;
+    if (event is KeyDownEvent && (isEnter || isScannerTab)) {
+      _consumedKeys.add(key);
+      _confirmScanKeys();
+      return KeyEventResult.handled;
+    }
+    // Mayús, Bloq Mayús, Ctrl… sueltas (algunos lectores las mandan entre
+    // dígitos): no cortan la lectura.
+    if (isModifierOnlyKey(key)) return null;
+    // Cualquier otra tecla (letra, borrar, flechas…): lo retenido entra a
+    // la caja ya, y la tecla sigue su camino normal sobre ese texto.
+    _releaseScanKeys();
+    return null;
+  }
+
+  /// Saca los dígitos retenidos (y sus datos para la medición).
+  _DirectScan _takeScanKeys() {
+    _scanKeysTimer?.cancel();
+    final digits = _scanKeys.join();
+    final keys = _scanKeys.length;
+    _scanKeys.clear();
+    return _DirectScan(
+      digits: digits,
+      keys: keys,
+      averageGapMs: keys < 2
+          ? null
+          : (_scanKeysLast - _scanKeysFirst).inMicroseconds / 1000 / (keys - 1),
+      frames: drawnFrameCount - _scanKeysStartFrame,
+      firstKeyEngineUs: _scanKeysFirstEngineUs,
+    );
+  }
+
+  /// Texto que quedaría en la caja al soltar [digits].
+  String _textWith(String digits) =>
+      _fieldIsBlank() ? digits : _searchController.text + digits;
+
+  /// Pone [text] en la caja de un golpe (un solo cambio, un solo cuadro).
+  void _putText(String text) {
+    _searchController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  /// No llegó Enter: los dígitos retenidos entran a la caja TODOS JUNTOS y
+  /// sigue lo de siempre (un valor pinta su tarjeta en ese mismo cuadro).
+  /// Si son un código completo (lector sin Enter), se busca de una vez.
+  void _releaseScanKeys() {
+    if (_scanKeys.isEmpty || !mounted) return;
+    final scan = _takeScanKeys();
+    final text = _textWith(scan.digits);
+    _putText(text);
+    if (scan.keys >= _barcodeKeys && _isBarcodeQuery(text.trim())) {
+      _debounceTimer?.cancel();
+      unawaited(_performSearch(text.trim()));
+    }
+  }
+
+  /// Llegó Enter (o Tab del lector) con dígitos retenidos.
+  void _confirmScanKeys() {
+    if (_scanKeys.isEmpty || !mounted) return;
+    final scan = _takeScanKeys();
+    final text = _textWith(scan.digits).trim();
+    if (_isBarcodeQuery(text)) {
+      // Lectura: directo a la cola. La caja no llega a mostrar el código.
+      _enqueueScan(text, direct: scan);
+      return;
+    }
+    // Un valor (o un código corto) tecleado rapidísimo + Enter: entra a la
+    // caja y sigue el Enter de siempre (producto con ese código, o el
+    // diálogo de "Producto sin registrar").
+    _putText(text);
+    _handleDirectSearch(text);
+  }
 
   /// El código no está en el equipo. Con el catálogo completo, no existe:
   /// se avisa de una vez. Si el catálogo todavía está bajando y hay
   /// internet, se pregunta al servidor FUERA de la cola (las lecturas
   /// siguientes no esperan); si aparece, se agrega cuando llegue.
-  Future<void> _resolveMissingScan(String code, Stopwatch? since) async {
+  Future<void> _resolveMissingScan(String code, _ScanTrace? since) async {
     Product? product;
     try {
       if (await widget.controller.scanMayExistOnServer()) {
@@ -1194,8 +1404,14 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
 
   /// Producto escaneado encontrado. La caja NO se borra: el siguiente código
   /// puede estar entrando.
-  void _addScannedProduct(Product product, {Stopwatch? since}) {
+  void _addScannedProduct(Product product, {_ScanTrace? since}) {
     final before = since == null ? null : _invoiceUnits();
+    if (since != null) {
+      _metrics.record(
+        EntryMetric.scanLookup,
+        since.sinceEnter.elapsedMicroseconds / 1000,
+      );
+    }
     widget.onProductSelected(product, 1);
     if (since != null && before != null) _recordLineAdded(since, before);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1206,17 +1422,29 @@ AppLogger.e('❌ Error en búsqueda de productos: $e');
   /// Guarda cuánto pasó del Enter a la línea PINTADA en la factura. Se
   /// revisa al final de cada cuadro (agregar la línea dibuja uno); si en
   /// 3 s no entró (sin existencias, diálogo de presentaciones), se deja.
-  void _recordLineAdded(Stopwatch since, double before) {
+  void _recordLineAdded(_ScanTrace since, double before) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || since.elapsedMilliseconds > 3000) return;
+      if (!mounted || since.sinceEnter.elapsedMilliseconds > 3000) return;
       final now = _invoiceUnits();
       if (now == null) return;
       if (now != before) {
+        final context = widget.controller.entryContext();
         _metrics.record(
           EntryMetric.scanEnterToLine,
-          since.elapsedMicroseconds / 1000,
-          widget.controller.entryContext(),
+          since.sinceEnter.elapsedMicroseconds / 1000,
+          context,
         );
+        // Lo que el cajero ve: de la primera tecla a la línea EN PANTALLA.
+        final firstKeyUs = since.firstKeyEngineUs;
+        if (firstKeyUs != null) {
+          whenFrameShown(currentFrameNumber(), (shownAt) {
+            _metrics.record(
+              EntryMetric.scanFirstKeyToSeen,
+              (shownAt - firstKeyUs) / 1000,
+              context,
+            );
+          });
+        }
       } else {
         _recordLineAdded(since, before);
       }
@@ -1636,6 +1864,8 @@ AppLogger.e('❌ Error al abrir escáner: $e');
     // Cancelar cualquier búsqueda pendiente
     _debounceTimer?.cancel();
     _burstFlushTimer?.cancel();
+    _scanKeysTimer?.cancel();
+    _scanKeys.clear();
     _burst.reset();
     _forgetValueCheck();
 
@@ -1676,4 +1906,28 @@ AppLogger.e('❌ Error al abrir escáner: $e');
       duration: const Duration(seconds: 3),
     );
   }
+}
+
+/// Una lectura en la cola: cronómetro desde su Enter y, si se conoce, el
+/// instante (reloj del motor) de su primera tecla.
+class _ScanTrace {
+  _ScanTrace(this.firstKeyEngineUs);
+  final Stopwatch sinceEnter = Stopwatch()..start();
+  final int? firstKeyEngineUs;
+}
+
+/// Dígitos de una lectura que entró directo por las teclas.
+class _DirectScan {
+  const _DirectScan({
+    required this.digits,
+    required this.keys,
+    required this.averageGapMs,
+    required this.frames,
+    required this.firstKeyEngineUs,
+  });
+  final String digits;
+  final int keys;
+  final double? averageGapMs;
+  final int frames;
+  final int firstKeyEngineUs;
 }
