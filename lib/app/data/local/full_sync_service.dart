@@ -727,15 +727,32 @@ class FullSyncService extends GetxService {
     if (inMemory != null && inMemory.isFullDownload && !inMemory.refresh) {
       return false;
     }
+    if (inMemory != null && inMemory.refresh) return true;
     final organization = await _organizationKey();
     if (organization == null) return false;
     final saved = await _watermarks.getProgress(organization, entity);
-    if (saved != null &&
-        saved['isFullDownload'] == true &&
-        saved['refresh'] != true) {
+    if (saved != null && saved['isFullDownload'] == true) {
+      return saved['refresh'] == true;
+    }
+    if (await _watermarks.get(organization, entity) != null) return true;
+    // Sin marca ni descarga a medias, pero con registros en el equipo: las
+    // marcas se perdieron (en Windows viven en un archivo de preferencias
+    // que se puede dañar o apartar). Los datos siguen ahí: las pantallas
+    // los leen del equipo mientras se vuelven a bajar en segundo plano.
+    // Antes todo pasaba a depender del servidor hasta terminar de bajar.
+    return saved == null && await _localHasRows(entity);
+  }
+
+  /// ¿El equipo tiene registros de [entity]? Ante la duda, `false`.
+  Future<bool> _localHasRows(String entity) async {
+    final count = debugLocalCounts?[entity] ??
+        (debugChangeHandlers != null ? null : _localCounts[entity]);
+    if (count == null) return false;
+    try {
+      return await count() > 0;
+    } catch (_) {
       return false;
     }
-    return await _watermarks.get(organization, entity) != null;
   }
 
   /// IDs locales revisados por tanda en la limpieza final de una descarga.
@@ -959,7 +976,14 @@ class FullSyncService extends GetxService {
     _installChecked = true;
     final fingerprint = await _installFingerprint();
     if (fingerprint == null) return;
-    final prefs = await SharedPreferences.getInstance();
+    // Sin preferencias (archivo dañado en Windows) no se sabe si la versión
+    // es nueva: se sigue con la descarga normal en vez de abortarla.
+    final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      return;
+    }
     if (prefs.getString(_installKey) == fingerprint) return;
     var refreshed = 0;
     for (final entity in _incrementalEntities.values.toSet()) {
@@ -1020,8 +1044,9 @@ class FullSyncService extends GetxService {
     // Sin saber el negocio actual no se borra nada "por si acaso": se
     // perdería el trabajo del equipo. La descarga espera a conocerlo.
     if (organization == null) return false;
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_lastBusinessKey);
+    // `localDataOrganization` no lanza: con las preferencias ilegibles no
+    // se sabe de quién son los datos y no se borra nada "por si acaso".
+    final stored = await localDataOrganization();
     // Datos sin negocio anotado (equipo nuevo): no hay nada que proteger
     // de otro negocio; la descarga lo anota.
     if (stored == null || stored.isEmpty) return false;
@@ -1031,8 +1056,12 @@ class FullSyncService extends GetxService {
   Future<void> _rememberBusiness() async {
     final organization = await _organizationKey();
     if (organization == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastBusinessKey, organization);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastBusinessKey, organization);
+    } catch (_) {
+      // Se anota en la próxima descarga; no es motivo para no descargar.
+    }
   }
 
   /// ¿Le queda tiempo a este módulo en el pull actual?
@@ -1079,7 +1108,16 @@ class FullSyncService extends GetxService {
         progress = _ChangesProgress(
           organization: organization,
           since: watermark ?? SyncChangesClient.epoch,
+          // Marca perdida con datos en el equipo: se baja todo de nuevo,
+          // pero como "actualización" (las pantallas siguen con lo local).
+          refresh: watermark == null && await _localHasRows(entity),
         );
+        // Primera descarga de verdad: se anota desde ya que va a medias,
+        // para que un cierre antes de la primera página no la haga pasar
+        // por "marca perdida" en el siguiente arranque.
+        if (progress.isFullDownload && !progress.refresh) {
+          await _watermarks.setProgress(organization, entity, progress.toJson());
+        }
       }
       _changesProgress[entity] = progress;
     }
