@@ -155,12 +155,18 @@ class SettingsRepositoryImpl implements SettingsRepository {
           }
           if (code != null && code >= 400 && code < 500 &&
               code != 401 && code != 404 && code != 408 && code != 429) {
+            if (isCreate) {
+              // El servidor no la aceptó, pero la impresora es de este
+              // equipo: se guarda aquí (como siempre se pudo) y sin cola,
+              // porque el servidor la rechazaría cada vez.
+              return await _saveOnThisDeviceOnly(updatedSettings);
+            }
             final reason = cleanServerMessage(e.message);
             return Left(
               ServerFailure(
                 reason.isEmpty
-                    ? 'El servidor no aceptó los datos de la impresora.'
-                    : 'El servidor no aceptó la impresora: $reason',
+                    ? 'El servidor no aceptó los cambios de la impresora.'
+                    : 'El servidor no aceptó los cambios: $reason',
               ),
             );
           }
