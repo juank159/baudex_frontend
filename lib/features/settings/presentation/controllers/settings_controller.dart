@@ -20,6 +20,7 @@ import '../../domain/usecases/save_invoice_settings_usecase.dart';
 import '../../domain/usecases/get_printer_settings_usecase.dart';
 import '../../domain/usecases/save_printer_settings_usecase.dart';
 import '../../../invoices/presentation/controllers/thermal_printer_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class SettingsController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
@@ -102,7 +103,8 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   void onInit() {
     super.onInit();
     _attachSyncListener();
-    loadAllSettings();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('ajustes: carga al abrir', loadAllSettings);
   }
 
   Timer? _syncListenerRetry;
@@ -557,6 +559,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
   // ==================== HELPER METHODS ====================
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

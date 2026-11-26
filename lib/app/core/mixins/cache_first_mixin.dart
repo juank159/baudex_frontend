@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Entrada de cache con items, stats y timestamp
 class _CacheEntry {
@@ -123,7 +124,8 @@ mixin CacheFirstMixin<T> on GetxController {
     if (_bgRefreshing) return;
     _bgRefreshing = true;
     try {
-      await fetcher();
+      // Trabajo automático: si falla, no avisa en pantalla (Diagnóstico).
+      await AutomaticWork.run('$cacheKey: recarga de fondo', fetcher);
     } catch (_) {
     } finally {
       _bgRefreshing = false;

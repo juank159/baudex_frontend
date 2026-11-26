@@ -7,6 +7,9 @@ import '../../../../app/services/password_validation_service.dart';
 import '../../domain/entities/user_preferences.dart';
 import '../../domain/usecases/get_user_preferences_usecase.dart';
 import '../../domain/usecases/update_user_preferences_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/session/session_gate.dart';
+import 'package:baudex_desktop/features/auth/presentation/controllers/auth_controller.dart';
 
 class UserPreferencesController extends GetxController
     with SyncAutoRefreshMixin {
@@ -53,7 +56,36 @@ class UserPreferencesController extends GetxController
   void onInit() {
     super.onInit();
     setupSyncListener();
-    loadUserPreferences();
+    // Sin sesión no se le pregunta al servidor (sin token responde 401 y
+    // eso podía sacar el aviso de "sesión expirada" en la pantalla de
+    // inicio de sesión): se carga apenas haya sesión.
+    if (sessionKnownClosed()) {
+      _loadWhenSessionOpens();
+    } else {
+      AutomaticWork.run('preferencias: carga al abrir', loadUserPreferences);
+    }
+  }
+
+  Worker? _sessionWorker;
+
+  void _loadWhenSessionOpens() {
+    try {
+      final auth = Get.find<AuthController>();
+      _sessionWorker = ever<bool>(auth.isAuthenticatedRx, (authenticated) {
+        if (!authenticated) return;
+        _preferencesRequest.reset();
+        AutomaticWork.run('preferencias: carga al entrar', loadUserPreferences);
+      });
+    } catch (_) {
+      // Sin controlador de sesión (pruebas): como antes.
+      AutomaticWork.run('preferencias: carga al abrir', loadUserPreferences);
+    }
+  }
+
+  @override
+  void onClose() {
+    _sessionWorker?.dispose();
+    super.onClose();
   }
 
   @override
@@ -61,7 +93,19 @@ class UserPreferencesController extends GetxController
     await loadUserPreferences();
   }
 
-  Future<void> loadUserPreferences() async {
+  /// Las preferencias se piden UNA vez por entrada: quien llega mientras
+  /// va en curso comparte la respuesta, y no se repite si acaba de llegar
+  /// (después de cada sincronización se pedían de nuevo: cinco veces al
+  /// entrar). `force`: cuando el usuario lo pide.
+  final SharedRequest _preferencesRequest =
+      SharedRequest(minInterval: const Duration(seconds: 30));
+
+  int get skippedLoads => _preferencesRequest.skipped;
+
+  Future<void> loadUserPreferences({bool force = false}) =>
+      _preferencesRequest.run(_loadUserPreferences, force: force);
+
+  Future<void> _loadUserPreferences() async {
     try {
       _isLoading.value = true;
       _errorMessage.value = '';

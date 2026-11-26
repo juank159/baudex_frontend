@@ -32,6 +32,7 @@ import '../../domain/entities/tax_enums.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ProductFormController extends GetxController {
   // Dependencies
@@ -1433,6 +1434,7 @@ class ProductFormController extends GetxController {
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

@@ -20,6 +20,7 @@ import '../../domain/usecases/get_product_stats_usecase.dart';
 import '../../domain/usecases/get_low_stock_products_usecase.dart'
     as products_usecases;
 import '../../domain/usecases/get_products_by_category_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ProductsController extends GetxController
     with CacheFirstMixin<Product>, SyncAutoRefreshMixin {
@@ -189,7 +190,8 @@ class ProductsController extends GetxController
   void onReady() {
     super.onReady();
     // ✅ Cargar datos cuando el controller esté completamente listo
-    ensureDataLoaded();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('productos: carga al abrir', ensureDataLoaded);
   }
 
   /// Método para limpiar búsqueda cuando regresas a la pantalla
@@ -843,6 +845,7 @@ class ProductsController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message, {Duration? duration}) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

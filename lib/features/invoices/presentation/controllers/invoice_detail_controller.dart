@@ -27,6 +27,7 @@ import '../../../../app/shared/services/subscription_validation_service.dart';
 import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
 import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
@@ -1260,6 +1261,7 @@ class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   // ==================== MESSAGE HELPERS ====================
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

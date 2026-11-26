@@ -15,6 +15,7 @@ import '../../domain/usecases/mark_all_as_read_usecase.dart';
 import '../../domain/usecases/delete_notification_usecase.dart';
 import '../../domain/usecases/get_unread_count_usecase.dart';
 import '../../domain/usecases/search_notifications_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class NotificationsController extends GetxController
     with SyncAutoRefreshMixin {
@@ -173,7 +174,8 @@ class NotificationsController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    ensureDataLoaded();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('notificaciones: carga al abrir', ensureDataLoaded);
   }
 
   @override
@@ -766,6 +768,7 @@ class NotificationsController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message, {Duration? duration}) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

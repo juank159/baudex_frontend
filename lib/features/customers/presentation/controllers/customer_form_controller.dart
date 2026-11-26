@@ -14,6 +14,7 @@ import '../../domain/usecases/get_customer_by_id_usecase.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
 import 'customers_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CustomerFormController extends GetxController {
   /// Deshabilitar logs de debug para producción
@@ -1061,6 +1062,7 @@ class CustomerFormController extends GetxController {
   }
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

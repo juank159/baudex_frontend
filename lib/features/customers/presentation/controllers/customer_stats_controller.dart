@@ -7,6 +7,7 @@ import '../../domain/entities/customer_stats.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/usecases/get_customer_stats_usecase.dart';
 import '../../domain/repositories/customer_repository.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
@@ -123,7 +124,8 @@ class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   void onInit() {
     super.onInit();
     setupSyncListener();
-    _initializeData();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('estadísticas de clientes: carga al abrir', _initializeData);
   }
 
   /// No se ve en facturación: recarga al salir de ahí.
@@ -640,6 +642,7 @@ Actividad del Período:
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

@@ -406,6 +406,7 @@ import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/delete_category_usecase.dart';
 import '../../domain/usecases/search_categories_usecase.dart';
 import '../../domain/usecases/get_category_stats_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
@@ -958,6 +959,7 @@ class CategoriesController extends GetxController with SyncAutoRefreshMixin {
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

@@ -7,6 +7,7 @@ import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/get_category_by_id_usecase.dart';
 import '../../domain/usecases/delete_category_usecase.dart';
 import '../../domain/usecases/update_category_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CategoryDetailController extends GetxController
     with GetSingleTickerProviderStateMixin, SyncAutoRefreshMixin {
@@ -330,6 +331,7 @@ class CategoryDetailController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

@@ -14,6 +14,7 @@ import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/services/password_validation_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class OrganizationController extends GetxController
     with SyncAutoRefreshMixin {
@@ -76,6 +77,7 @@ class OrganizationController extends GetxController
       final auth = Get.find<AuthController>();
       _authWorker = ever<bool>(auth.isAuthenticatedRx, (authenticated) {
         if (authenticated && _currentOrganization.value == null) {
+          _lastServerRefreshAt = null; // sesión nueva: se pide ya
           loadCurrentOrganization();
         }
       });
@@ -540,7 +542,7 @@ class OrganizationController extends GetxController
         },
         (success) {
           // Refrescar datos actualizados del servidor
-          _refreshFromServerInBackground();
+          _refreshFromServerInBackground(force: true);
 
           Get.snackbar(
             'Margen Actualizado',
@@ -578,8 +580,26 @@ class OrganizationController extends GetxController
   }
 
   /// Refrescar desde servidor sin bloquear UI (sin isLoading)
-  void _refreshFromServerInBackground() {
+  /// Mínimo entre dos recargas automáticas del negocio: al entrar la
+  /// pedían a la vez el inicio de sesión, el temporizador y varias
+  /// pantallas (seis veces en la medición).
+  static const Duration _minServerRefreshGap = Duration(seconds: 15);
+  DateTime? _lastServerRefreshAt;
+
+  void _refreshFromServerInBackground({bool force = false}) {
     if (_isRefreshingInBackground) return;
+    final last = _lastServerRefreshAt;
+    if (!force &&
+        last != null &&
+        DateTime.now().difference(last) < _minServerRefreshGap) {
+      return;
+    }
+    _lastServerRefreshAt = DateTime.now();
+    // Trabajo automático: si el servidor falla, no avisa en pantalla.
+    AutomaticWork.run('negocio: recarga automática', _doRefreshFromServer);
+  }
+
+  void _doRefreshFromServer() {
     _isRefreshingInBackground = true;
 
     final impl = _repoImpl;
@@ -634,6 +654,10 @@ class OrganizationController extends GetxController
 
   void _handleError(String message) {
     _error.value = message;
+
+    // La recarga automática del negocio (al entrar y cada tanto) no avisa
+    // en pantalla: queda anotada para Diagnóstico.
+    if (AutomaticWork.swallow('Error', message)) return;
 
     Get.snackbar(
       'Error',

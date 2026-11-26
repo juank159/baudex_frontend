@@ -22,6 +22,7 @@ import 'package:dartz/dartz.dart';
 import '../../../bank_accounts/domain/entities/bank_account.dart';
 import '../../../bank_accounts/domain/repositories/bank_account_repository.dart';
 import '../../../cash_register/presentation/controllers/cash_register_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ExpenseFormController extends GetxController {
   // Dependencies
@@ -997,6 +998,7 @@ class ExpenseFormController extends GetxController {
   }
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

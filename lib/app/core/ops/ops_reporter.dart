@@ -16,6 +16,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../errors/automatic_work.dart';
 
 typedef OpsValueGetter = String? Function();
 typedef OpsIgnore = bool Function(Object error);
@@ -53,6 +54,18 @@ class OpsReporter {
     OpsIgnore? ignore,
   }) {
     if (url.isEmpty || key.isEmpty) return;
+    // Errores 5xx de peticiones automáticas: no avisan en pantalla, pero
+    // sí se reportan (una vez por ruta y código, por el límite de capture).
+    BackgroundFailureLog.instance.onServerError = (failure) => capture(
+          'Petición automática rechazada: ${failure.method} ${failure.route} '
+          '→ ${failure.statusCode} — ${failure.message}',
+          null,
+          level: 'warning',
+          errorType: 'BackgroundRequestFailure',
+          fingerprint:
+              'bg|${failure.method}|${failure.route}|${failure.statusCode}',
+          context: {'source': failure.source},
+        );
     _dio = Dio(BaseOptions(
       baseUrl: url.endsWith('/') ? url.substring(0, url.length - 1) : url,
       connectTimeout: const Duration(seconds: 5),

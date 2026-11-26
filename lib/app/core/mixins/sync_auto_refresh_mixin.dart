@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
 import '../../data/local/sync_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Mixin que auto-refresca datos del controller cuando SyncService
 /// completa un ciclo de sincronización (push o pull).
@@ -78,7 +79,7 @@ mixin SyncAutoRefreshMixin on GetxController {
       _coalescedRefresh?.cancel();
       _coalescedRefresh = Timer(_coalesceWindow, () {
         _coalescedRefresh = null;
-        if (!isClosed) onSyncCompleted();
+        if (!isClosed) _refreshAfterSync();
       });
       return;
     }
@@ -91,8 +92,16 @@ mixin SyncAutoRefreshMixin on GetxController {
       if (!isSellingScreenVisible) {
         timer.cancel();
         _deferredRefresh = null;
-        onSyncCompleted();
+        _refreshAfterSync();
       }
+    });
+  }
+
+  /// Recarga tras una sincronización: trabajo automático (si falla, no
+  /// avisa en pantalla; queda en Diagnóstico).
+  void _refreshAfterSync() {
+    AutomaticWork.run('$runtimeType: recarga tras sincronizar', () {
+      unawaited(onSyncCompleted().catchError((_) {}));
     });
   }
 

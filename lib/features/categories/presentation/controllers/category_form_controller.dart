@@ -536,6 +536,7 @@ import '../../domain/usecases/update_category_usecase.dart';
 import '../../domain/usecases/get_category_tree_usecase.dart';
 import '../../domain/usecases/get_category_by_id_usecase.dart';
 import '../controllers/categories_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CategoryFormController extends GetxController {
   // Dependencies
@@ -1063,6 +1064,7 @@ class CategoryFormController extends GetxController {
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

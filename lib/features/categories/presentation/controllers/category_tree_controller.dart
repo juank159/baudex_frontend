@@ -6,6 +6,7 @@ import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/category_tree.dart';
 import '../../domain/usecases/get_category_tree_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CategoryTreeController extends GetxController
     with SyncAutoRefreshMixin {
@@ -353,6 +354,7 @@ class CategoryTreeController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

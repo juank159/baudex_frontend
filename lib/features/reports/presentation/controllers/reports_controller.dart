@@ -13,6 +13,7 @@ import '../../domain/usecases/get_profitability_trends_usecase.dart';
 import '../../domain/usecases/get_top_profitable_products_usecase.dart';
 import '../../domain/usecases/get_valuation_variances_usecase.dart';
 import '../../domain/repositories/reports_repository.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ReportsController extends GetxController {
   final GetProfitabilityByProductsUseCase getProfitabilityByProductsUseCase;
@@ -84,7 +85,8 @@ class ReportsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _initializeData();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('reportes: carga al abrir', _initializeData);
   }
 
   void _initializeData() {

@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'invoice_form_controller.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/navigation/navigation_guard.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InvoiceTab {
   final String id;
@@ -387,6 +388,7 @@ class InvoiceTabsController extends GetxController
   }
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     // Programar para el siguiente frame para evitar errores durante build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       replacePreviousSnackbar();

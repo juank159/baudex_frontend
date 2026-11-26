@@ -37,6 +37,7 @@ import '../../../settings/data/datasources/settings_local_datasource.dart';
 import '../../../../app/core/printing/system_printer_discovery.dart';
 import '../../../settings/data/printer_diagnostics.dart';
 import '../../../settings/domain/rules/printer_rules.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 // ==================== CONFIGURACIÓN ESPECÍFICA SAT Q22UE ====================
 
@@ -2945,6 +2946,7 @@ class ThermalPrinterController extends GetxController {
   // ==================== MENSAJES ====================
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

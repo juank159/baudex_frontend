@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:get/get.dart';
 import 'elegant_light_theme.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class FuturisticNotifications {
   static void showSuccess(
@@ -42,6 +43,8 @@ class FuturisticNotifications {
     Duration? duration,
     VoidCallback? onTap,
   }) {
+    // Un error de trabajo automático no avisa: queda en Diagnóstico.
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       '',

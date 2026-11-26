@@ -3,6 +3,7 @@ import 'package:baudex_desktop/app/core/theme/performance_mode.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../../../../app/core/services/audio_notification_service.dart';
+import '../../../../app/core/errors/automatic_work.dart';
 import '../../domain/report_sections.dart';
 import 'dart:io' show Platform;
 
@@ -481,6 +482,13 @@ class SyncDiagnosticController extends GetxController {
         (b) {
           b.write(StartupTrace.instance.report());
           b.writeln('  ${PerformanceMode.describe()}');
+          b.writeln();
+        },
+      ),
+      (
+        'Peticiones que fallaron',
+        (b) {
+          b.write(BackgroundFailureLog.instance.report());
           b.writeln();
         },
       ),

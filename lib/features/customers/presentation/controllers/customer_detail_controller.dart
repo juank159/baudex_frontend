@@ -10,6 +10,7 @@ import '../../domain/repositories/customer_repository.dart';
 import '../../domain/usecases/get_customer_by_id_usecase.dart';
 import '../../domain/usecases/update_customer_usecase.dart';
 import '../../domain/usecases/delete_customer_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CustomerDetailController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
@@ -1523,6 +1524,7 @@ class CustomerDetailController extends GetxController with SyncAutoRefreshMixin 
   }
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

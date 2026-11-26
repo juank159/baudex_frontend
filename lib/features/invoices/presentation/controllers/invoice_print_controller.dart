@@ -16,6 +16,7 @@ import '../../../settings/domain/entities/organization.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../settings/presentation/widgets/edit_organization_dialog.dart';
 import 'invoice_detail_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 // ==================== ENUMS Y CLASES ====================
 
@@ -1323,6 +1324,7 @@ class InvoicePrintController extends GetxController {
   // ==================== MESSAGE HELPERS ====================
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

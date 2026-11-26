@@ -8,6 +8,7 @@ import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_stats.dart';
 import '../../domain/usecases/get_invoice_stats_usecase.dart';
 import '../../domain/usecases/get_overdue_invoices_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InvoiceStatsController extends GetxController {
   // Dependencies
@@ -88,7 +89,8 @@ class InvoiceStatsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadAllData();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('estadísticas de facturas: carga al abrir', loadAllData);
   }
 
   // ==================== CORE METHODS ====================
@@ -358,6 +360,7 @@ class InvoiceStatsController extends GetxController {
   // ==================== MESSAGE HELPERS ====================
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

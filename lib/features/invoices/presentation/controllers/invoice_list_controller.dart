@@ -16,6 +16,7 @@ import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 import '../../domain/services/invoice_list_rules.dart';
 import '../controllers/thermal_printer_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InvoiceListController extends GetxController
     with SyncAutoRefreshMixin {
@@ -1186,6 +1187,7 @@ class InvoiceListController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

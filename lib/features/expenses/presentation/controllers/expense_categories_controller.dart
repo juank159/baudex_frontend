@@ -8,6 +8,7 @@ import '../../domain/usecases/create_expense_category_usecase.dart';
 import '../../domain/usecases/update_expense_category_usecase.dart';
 import '../../domain/usecases/delete_expense_category_usecase.dart';
 import '../../../../app/core/utils/formatters.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class ExpenseCategoriesController extends GetxController
     with SyncAutoRefreshMixin {
@@ -242,6 +243,7 @@ class ExpenseCategoriesController extends GetxController
 
   // Helper methods
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

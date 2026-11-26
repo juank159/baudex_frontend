@@ -12,6 +12,7 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../data/datasources/product_remote_datasource.dart';
 import '../../data/models/isar/isar_product.dart';
 import '../../data/models/register_product_waste_request_model.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controller del flujo de **Registrar Merma** — offline-first.
 ///
@@ -208,6 +209,7 @@ class ProductWasteController extends GetxController {
   }
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

@@ -9,6 +9,7 @@ import '../../domain/entities/customer.dart';
 import '../../domain/usecases/get_customers_usecase.dart';
 import '../../domain/usecases/delete_customer_usecase.dart';
 import '../../domain/usecases/search_customers_usecase.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class CustomersController extends GetxController
     with CacheFirstMixin<Customer>, SyncAutoRefreshMixin {
@@ -119,7 +120,8 @@ class CustomersController extends GetxController
   @override
   void onReady() {
     super.onReady();
-    _initializeData();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('clientes: carga al abrir', _initializeData);
   }
 
   @override
@@ -615,6 +617,7 @@ class CustomersController extends GetxController
 
   /// Mostrar mensaje de error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     Get.snackbar(
       title,
       message,

@@ -80,6 +80,7 @@ import 'package:baudex_desktop/features/invoices/data/models/invoice_form_models
 
 // ✅ NUEVO IMPORT: Controlador de impresión térmica
 import '../../../settings/presentation/controllers/user_preferences_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class InvoiceFormController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -2926,6 +2927,7 @@ class InvoiceFormController extends GetxController {
   }
 
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     FuturisticNotifications.showError(
       title,
       message,

@@ -17,6 +17,7 @@ import '../../domain/usecases/delete_product_usecase.dart';
 // Import del tema elegante
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import 'products_controller.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controller para manejar la pantalla de detalles del producto
 ///
@@ -1093,6 +1094,7 @@ class ProductDetailController extends GetxController
   /// - [title]: Título del mensaje de error
   /// - [message]: Descripción detallada del error
   void _showError(String title, String message) {
+    if (AutomaticWork.swallow(title, message)) return;
     replacePreviousSnackbar();
     Get.snackbar(
       title,

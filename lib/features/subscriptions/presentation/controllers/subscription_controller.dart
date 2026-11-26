@@ -21,6 +21,7 @@ import '../../domain/entities/action_validation.dart';
 import '../../domain/entities/plan_limits.dart';
 import '../../domain/repositories/subscription_repository.dart';
 import '../../domain/rules/subscription_rules.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Tipo de diálogo de suscripción pendiente
 enum _SubscriptionDialogType {
@@ -123,7 +124,7 @@ class SubscriptionController extends GetxController {
       // cubre el caso donde el primer intento cae dentro del cooldown de 30s.
       for (final delay in [5, 15, 35, 65]) {
         Future.delayed(Duration(seconds: delay), () {
-          if (isExpired) loadSubscription();
+          if (isExpired) loadSubscription(force: true);
         });
       }
     }
@@ -161,7 +162,20 @@ class SubscriptionController extends GetxController {
 
   // ==================== CARGA DE DATOS ====================
 
-  Future<void> loadSubscription() async {
+  /// La suscripción se pide UNA vez aunque la pidan varios a la vez (el
+  /// inicio de sesión, este controlador, la pantalla del negocio): los que
+  /// llegan mientras va en curso comparten la respuesta, y no se repite si
+  /// acaba de llegar (salvo `force`: reintentos, botón, tras un cambio).
+  final SharedRequest _subscriptionRequest =
+      SharedRequest(minInterval: const Duration(seconds: 10));
+
+  /// Peticiones de suscripción que se ahorraron (diagnóstico y pruebas).
+  int get skippedLoads => _subscriptionRequest.skipped;
+
+  Future<void> loadSubscription({bool force = false}) =>
+      _subscriptionRequest.run(_loadSubscription, force: force);
+
+  Future<void> _loadSubscription() async {
     _isLoading.value = true;
     _error.value = null;
 
@@ -231,7 +245,7 @@ class SubscriptionController extends GetxController {
   }
 
   Future<void> refreshSubscription() async {
-    await loadSubscription();
+    await loadSubscription(force: true);
 
     // Verificar si expiro mientras estaba offline
     final wasExpired = await repository.isCachedSubscriptionExpired();
@@ -253,7 +267,7 @@ class SubscriptionController extends GetxController {
         months: 12,
         organizationId: orgId,
       );
-      if (ok) await loadSubscription();
+      if (ok) await loadSubscription(force: true);
       return ok;
     } catch (_) {
       return false;

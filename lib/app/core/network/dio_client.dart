@@ -214,6 +214,7 @@ import 'api_interceptor.dart';
 import '../../../core/network/tenant_interceptor.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../errors/exceptions.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class DioClient {
   late Dio _dio;
@@ -409,6 +410,26 @@ class DioClient {
 
   // Manejo de errores de Dio
   Exception _handleDioError(DioException error) {
+    final exception = _toException(error);
+    // Toda petición fallida queda anotada (ruta, código y mensaje) para
+    // Diagnóstico; no muestra nada en pantalla.
+    try {
+      BackgroundFailureLog.instance.noteRequest(
+        method: error.requestOptions.method,
+        route: error.requestOptions.uri.path +
+            (error.requestOptions.uri.hasQuery
+                ? '?${error.requestOptions.uri.query}'
+                : ''),
+        statusCode: error.response?.statusCode,
+        message: exception is ServerException
+            ? exception.message
+            : exception.toString(),
+      );
+    } catch (_) {}
+    return exception;
+  }
+
+  Exception _toException(DioException error) {
     // NO imprimir ningún detalle de error
 
     switch (error.type) {

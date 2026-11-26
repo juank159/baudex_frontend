@@ -9,6 +9,7 @@ import '../../domain/usecases/delete_warehouse_usecase.dart';
 import '../services/warehouses_export_service.dart';
 import '../services/warehouse_network_service.dart';
 import '../services/warehouse_performance_service.dart';
+import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class WarehousesController extends GetxController {
   // Casos de uso
@@ -73,7 +74,8 @@ class WarehousesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadWarehouses();
+    // Carga automática: si falla no avisa en pantalla (Diagnóstico).
+    AutomaticWork.run('bodegas: carga al abrir', loadWarehouses);
 
     // Listeners de filtros básicos y avanzados (todos llaman _applyFiltersAsync).
     _filterWorkers.addAll([
