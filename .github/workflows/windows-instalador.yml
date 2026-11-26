@@ -205,11 +205,17 @@ jobs:
               Write-Host 'Sin commit para comparar: no se mide la versión anterior.'
               $medir = 'no'
             } else {
+              # ¿Esa versión ya tenía la copia protegida de la sesión? De eso
+              # depende qué se espera en los pasos de "llave perdida".
+              git cat-file -e "${ref}:lib/app/core/storage/value_protector.dart" 2>$null
+              $copia = if ($LASTEXITCODE -eq 0) { 'si' } else { 'no' }
               git checkout $ref -- lib
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
               $etiqueta = "anterior $ref"
             }
           }
+          if (-not $copia) { $copia = 'si' }
+          "copia=$copia" >> $env:GITHUB_OUTPUT
           "etiqueta=$etiqueta" >> $env:GITHUB_OUTPUT
           "medir=$medir" >> $env:GITHUB_OUTPUT
 
@@ -244,7 +250,10 @@ jobs:
         shell: pwsh
         env:
           ARRANQUE_ETIQUETA: ${{ steps.lib.outputs.etiqueta }}
+          ARRANQUE_CON_COPIA: ${{ steps.lib.outputs.copia }}
         run: |
+          chcp 65001 | Out-Null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $exe = 'build\windows\x64\runner\Release\Baudex.exe'
           New-Item -ItemType Directory -Force C:\arranque | Out-Null
           $salida = 'C:\arranque\arranque.txt'
@@ -273,23 +282,30 @@ jobs:
             @{ nombre = '13 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' },
             @{ nombre = '14 VACÍAS: cierre a la fuerza a los 9 s';           prefs = 'vacias';  cerrar = '0'; matar = 9 },
             @{ nombre = '15 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' },
-            # Encender el equipo sin la llave del almacén seguro (vive en el
-            # Administrador de credenciales): se borra antes de abrir. La
-            # app debe entrar directo, con la copia protegida.
-            @{ nombre = '16 LLAVE DEL ALMACÉN PERDIDA (como al encender): reabrir'; prefs = 'sanas'; cerrar = '0'; llave = 'borrar' },
-            @{ nombre = '17 tras llave perdida: reabrir';                    prefs = 'sanas';   cerrar = '0' },
-            @{ nombre = '18 LLAVE PERDIDA y preferencias DAÑADAS: reabrir';  prefs = 'danadas'; cerrar = '0'; llave = 'borrar' },
-            @{ nombre = '19 tras llave perdida y dañadas: reabrir';          prefs = 'sanas';   cerrar = '1' },
-            # Una sesión CERRADA no puede revivir de la copia protegida: la
-            # primera pantalla debe ser INICIAR SESIÓN.
-            @{ nombre = '20 SESIÓN CERRADA y LLAVE PERDIDA: debe PEDIR login'; prefs = 'sanas'; cerrar = '1'; llave = 'borrar' },
-            @{ nombre = '21 SESIÓN CERRADA, LLAVE PERDIDA y preferencias DAÑADAS: debe PEDIR login'; prefs = 'danadas'; cerrar = '1'; llave = 'borrar' },
+            # --- Pasos que se VERIFICAN (el job falla si no se cumplen) ---
+            # almacen: llave = la app borra, antes de arrancar, la credencial
+            # que guarda la llave del almacén seguro; archivos = borra los
+            # .secure. En ambos casos comprueba que el almacén devuelve null.
+            # espera: lo que debe pasar con la copia protegida de la sesión.
+            # esperaSin: lo que debe pasar en una versión SIN esa copia (si
+            # ahí no pide iniciar sesión, el paso no simula el problema).
+            @{ nombre = '16 LLAVE DEL ALMACÉN PERDIDA (como al encender): reabrir'; prefs = 'sanas'; cerrar = '0'; almacen = 'llave'; espera = 'directo-copia'; esperaSin = 'login' },
+            @{ nombre = '17 tras llave perdida: reabrir';                    prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
+            @{ nombre = '17a ARCHIVOS .secure BORRADOS: reabrir';            prefs = 'sanas';   cerrar = '0'; almacen = 'archivos'; espera = 'directo-copia'; esperaSin = 'login' },
+            @{ nombre = '17b tras archivos borrados: reabrir';               prefs = 'sanas';   cerrar = '0'; espera = 'directo'; esperaSin = 'directo' },
+            @{ nombre = '18 LLAVE PERDIDA y preferencias DAÑADAS: reabrir';  prefs = 'danadas'; cerrar = '0'; almacen = 'llave'; espera = 'directo-copia'; esperaSin = 'login' },
+            @{ nombre = '19 tras llave perdida y dañadas: reabrir';          prefs = 'sanas';   cerrar = '1'; espera = 'directo'; esperaSin = 'directo' },
+            # Una sesión CERRADA no puede revivir de la copia protegida.
+            @{ nombre = '20 SESIÓN CERRADA y LLAVE PERDIDA: debe PEDIR login'; prefs = 'sanas'; cerrar = '1'; almacen = 'llave'; espera = 'login'; esperaSin = 'login' },
+            @{ nombre = '21 SESIÓN CERRADA, LLAVE PERDIDA y preferencias DAÑADAS: debe PEDIR login'; prefs = 'danadas'; cerrar = '1'; almacen = 'llave'; espera = 'login'; esperaSin = 'login' },
             # Dos negocios en el mismo equipo: tras entrar con B, perder la
-            # llave no puede traer nada de A ("sesión guardada | … MEZCLADA").
-            @{ nombre = '22 negocio B: iniciar sesión';                      prefs = 'sanas';   cerrar = '0'; negocio = 'b' },
-            @{ nombre = '23 negocio B: reabrir';                             prefs = 'sanas';   cerrar = '0'; negocio = 'b' },
-            @{ nombre = '24 negocio B y LLAVE PERDIDA: debe entrar directo como B'; prefs = 'sanas'; cerrar = '0'; negocio = 'b'; llave = 'borrar' }
+            # llave no puede traer nada de A.
+            @{ nombre = '22 negocio B: iniciar sesión';                      prefs = 'sanas';   cerrar = '0'; negocio = 'b'; espera = 'login'; esperaSin = 'login' },
+            @{ nombre = '23 negocio B: reabrir';                             prefs = 'sanas';   cerrar = '0'; negocio = 'b'; espera = 'directo'; esperaSin = 'directo' },
+            @{ nombre = '24 negocio B y LLAVE PERDIDA: debe entrar directo como B'; prefs = 'sanas'; cerrar = '0'; negocio = 'b'; almacen = 'llave'; espera = 'directo-copia'; esperaSin = 'login' }
           )
+          $conCopia = ($env:ARRANQUE_VERSION -ne 'anterior') -or ($env:ARRANQUE_CON_COPIA -eq 'si')
+          $fallas = 0
           $colgadas = 0
           foreach ($paso in $pasos) {
             $env:BAUDEX_PROBE_PASO = $paso.nombre
@@ -298,11 +314,9 @@ jobs:
             $env:BAUDEX_PROBE_CERRAR_SESION_AL_SALIR = $paso.cerrar
             $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             Write-Host "===== $($paso.nombre) ====="
-            if ($paso.llave -eq 'borrar') {
-              $llaves = @(cmdkey /list | Select-String -Pattern '(key_\S+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-              foreach ($ll in $llaves) { cmdkey /delete:$ll | Out-Null }
-              Add-Content -Path $salida -Encoding utf8 -Value "MEDICION ARRANQUE | $env:ARRANQUE_ETIQUETA | $($paso.nombre) | llaves del almacén seguro borradas: $($llaves.Count)"
-            }
+            $env:BAUDEX_PROBE_ALMACEN = if ($paso.almacen) { $paso.almacen } else { '' }
+            $espera = if ($conCopia) { $paso.espera } else { $paso.esperaSin }
+            $env:BAUDEX_PROBE_ESPERA = if ($espera) { $espera } else { '' }
             $p = Start-Process -FilePath $exe -PassThru
             if ($paso.matar) {
               if (-not $p.WaitForExit($paso.matar * 1000)) { $p.Kill(); $p.WaitForExit() }
@@ -313,10 +327,19 @@ jobs:
               $colgadas++
             }
             Write-Host "Código de salida: $($p.ExitCode)"
+            if ($espera -and $p.ExitCode -ne 0) {
+              Write-Host "::error::Paso verificado que no cumple: $($paso.nombre) (espera: $espera, código $($p.ExitCode))"
+              $fallas++
+            }
           }
           Write-Host '===== RESULTADO ====='
           if (Test-Path $salida) { Get-Content $salida -Encoding utf8 } else { Write-Host 'MEDICION ARRANQUE | sin archivo de salida' }
-          if ($colgadas -gt 0) { exit 1 }
+          Write-Host '===== PASOS VERIFICADOS ====='
+          if (Test-Path $salida) { Get-Content $salida -Encoding utf8 | Select-String -Pattern 'PASO VERIFICADO|almacén seguro devolvió|llave del almacén|archivos .secure' | ForEach-Object { $_.Line } }
+          if ($colgadas -gt 0 -or $fallas -gt 0) {
+            Write-Host "::error::Arranque: $colgadas paso(s) colgado(s), $fallas paso(s) verificado(s) que no cumplen"
+            exit 1
+          }
 
       - uses: actions/upload-artifact@v4
         if: ${{ always() && steps.lib.outputs.medir == 'si' }}
