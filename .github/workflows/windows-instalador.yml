@@ -272,7 +272,14 @@ jobs:
             @{ nombre = '12 VACÍAS: cierre a la fuerza a los 7 s';           prefs = 'vacias';  cerrar = '0'; matar = 7 },
             @{ nombre = '13 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' },
             @{ nombre = '14 VACÍAS: cierre a la fuerza a los 9 s';           prefs = 'vacias';  cerrar = '0'; matar = 9 },
-            @{ nombre = '15 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' }
+            @{ nombre = '15 tras cierre a la fuerza: reabrir';               prefs = 'sanas';   cerrar = '0' },
+            # Encender el equipo sin la llave del almacén seguro (vive en el
+            # Administrador de credenciales): se borra antes de abrir. La
+            # app debe entrar directo, con la copia protegida.
+            @{ nombre = '16 LLAVE DEL ALMACÉN PERDIDA (como al encender): reabrir'; prefs = 'sanas'; cerrar = '0'; llave = 'borrar' },
+            @{ nombre = '17 tras llave perdida: reabrir';                    prefs = 'sanas';   cerrar = '0' },
+            @{ nombre = '18 LLAVE PERDIDA y preferencias DAÑADAS: reabrir';  prefs = 'danadas'; cerrar = '0'; llave = 'borrar' },
+            @{ nombre = '19 tras llave perdida y dañadas: reabrir';          prefs = 'sanas';   cerrar = '0' }
           )
           $colgadas = 0
           foreach ($paso in $pasos) {
@@ -281,6 +288,11 @@ jobs:
             $env:BAUDEX_PROBE_CERRAR_SESION_AL_SALIR = $paso.cerrar
             $env:BAUDEX_PROBE_T0_MS = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             Write-Host "===== $($paso.nombre) ====="
+            if ($paso.llave -eq 'borrar') {
+              $llaves = @(cmdkey /list | Select-String -Pattern '(key_\S+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+              foreach ($ll in $llaves) { cmdkey /delete:$ll | Out-Null }
+              Add-Content -Path $salida -Encoding utf8 -Value "MEDICION ARRANQUE | $env:ARRANQUE_ETIQUETA | $($paso.nombre) | llaves del almacén seguro borradas: $($llaves.Count)"
+            }
             $p = Start-Process -FilePath $exe -PassThru
             if ($paso.matar) {
               if (-not $p.WaitForExit($paso.matar * 1000)) { $p.Kill(); $p.WaitForExit() }

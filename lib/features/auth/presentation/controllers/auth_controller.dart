@@ -29,6 +29,7 @@ import '../../domain/usecases/reset_password_usecase.dart'
     show ResetPasswordParams;
 import '../../../../core/storage/tenant_storage.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/core/storage/session_startup_trace.dart';
 import '../../../../app/data/local/isar_database.dart';
 // ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
 import '../../../products/presentation/controllers/product_form_controller.dart';
@@ -894,6 +895,9 @@ class AuthController extends GetxController {
     }
 
     _sessionExpiredHandled = true;
+    SessionStartupTrace.serverRejected(
+      'el servidor respondió que la sesión ya no es válida (401)',
+    );
 
     // 1. Capturar userId antes de limpiar el estado (lazy-logout ISAR)
     final userId = _currentUser.value?.id;
@@ -1159,8 +1163,12 @@ class AuthController extends GetxController {
     try {
       final result = await _isAuthenticatedUseCase(const NoParams());
 
-      result.fold((failure) => _isAuthenticated.value = false, (isAuth) {
+      result.fold((failure) {
+        _isAuthenticated.value = false;
+        SessionStartupTrace.authChecked(false);
+      }, (isAuth) {
         _isAuthenticated.value = isAuth;
+        SessionStartupTrace.authChecked(isAuth);
         if (isAuth) {
           getProfile(); // Cargar perfil si está autenticado
           // Recargar suscripción con JWT válido

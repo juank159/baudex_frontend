@@ -45,6 +45,7 @@ import 'dart:io';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import 'package:baudex_desktop/app/core/storage/session_startup_trace.dart';
 import 'package:baudex_desktop/app/data/local/full_sync_service.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/app/data/local/local_first.dart';
@@ -452,6 +453,9 @@ Future<void> main() async {
   log('¿hay sesión guardada?: ${sessionAtStart == null ? 'aún no se sabe' : sessionAtStart! ? 'sí' : 'no'}; '
       'la app lo supo a los ${sessionKnownMs ?? '>${appWatch.elapsedMilliseconds}'} ms '
       '(el splash decide a los 2500 ms)');
+  // Lo mismo que queda en Diagnóstico para el dueño del negocio.
+  log('diagnóstico | ${SessionStartupTrace.sessionLine()}');
+  log('diagnóstico | ${SessionStartupTrace.prefsLine()}');
 
   /// Espera a que la pantalla deje de trabarse: 600 ms seguidos sin una
   /// traba de más de 100 ms. Devuelve los ms desde [from].

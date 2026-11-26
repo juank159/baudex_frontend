@@ -6,10 +6,13 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../config/constants/api_constants.dart';
 import '../ops/ops_reporter.dart';
 import '../security/offline_password_hasher.dart';
 import 'secure_store_migration.dart';
+import 'session_startup_trace.dart';
+import 'value_protector.dart';
 
 /// Cifrador simétrico ligero para el fallback de SharedPreferences en macOS
 /// y Windows cuando el keychain falla. Usa HMAC-SHA256 como keystream
@@ -149,11 +152,95 @@ class SecureStorageService {
   /// Solo para pruebas: simula un arranque nuevo de la app.
   @visibleForTesting
   static void debugSimulateRestart() {
+    _vaultSeeded.clear();
     _windowsDecision = null;
     _useSharedPreferences = false;
     _keychainTested = false;
     _mirrorToPrefs = false;
     _decryptedCache.clear();
+  }
+
+  // ===================== COPIA PROTEGIDA (WINDOWS) =====================
+  //
+  // `flutter_secure_storage` en Windows guarda cada valor en un archivo
+  // cifrado con una llave que vive en el Administrador de credenciales. Si
+  // esa llave no está al encender el equipo (hay equipos que no la
+  // conservan entre reinicios, o el servicio aún no responde), el
+  // complemento devuelve null sin avisar: la sesión "desaparece" aunque el
+  // archivo siga ahí. Por eso lo esencial de la sesión se guarda además en
+  // las preferencias del equipo, cifrado con la protección de datos de
+  // Windows (DPAPI: solo este usuario en este equipo lo puede leer), y se
+  // usa cuando el almacén seguro no devuelve nada.
+
+  static const String _vaultPrefix = 'vault_';
+
+  /// Lo que hace falta para seguir con la sesión abierta.
+  static bool _isVaulted(String key) =>
+      key == ApiConstants.tokenKey ||
+      key == ApiConstants.refreshTokenKey ||
+      key == ApiConstants.userKey ||
+      key == _offlineCredentialsKey ||
+      key == _deviceIdKey ||
+      key == _lastUserIdKey ||
+      key == 'tenant_slug' ||
+      key == 'current_organization';
+
+  /// Solo para pruebas: cifrador de la copia protegida (en la app, DPAPI).
+  @visibleForTesting
+  static ValueProtector? debugProtector;
+
+  static ValueProtector? get _protector {
+    if (debugProtector != null) return debugProtector;
+    if (defaultTargetPlatform != TargetPlatform.windows) return null;
+    return DpapiProtector.isSupported ? const DpapiProtector() : null;
+  }
+
+  static Future<void> _vaultWrite(String key, String value) async {
+    final protector = _protector;
+    if (protector == null || !_isVaulted(key)) return;
+    try {
+      final stored = protector.protect(value);
+      if (stored == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_vaultPrefix$key', stored);
+    } catch (_) {}
+  }
+
+  static Future<String?> _vaultRead(String key) async {
+    final protector = _protector;
+    if (protector == null || !_isVaulted(key)) return null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString('$_vaultPrefix$key');
+      return stored == null ? null : protector.unprotect(stored);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> _vaultDelete(String key) async {
+    if (_protector == null || !_isVaulted(key)) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_vaultPrefix$key');
+    } catch (_) {}
+  }
+
+  /// El almacén principal no devolvió [key]: usar la copia protegida y,
+  /// si la hay, reponerla en el almacén.
+  static Future<String?> _recoverFromVault(String key, {required bool heal}) async {
+    final value = await _vaultRead(key);
+    if (value == null) return null;
+    SessionStartupTrace.recoveredKeys.add(key);
+    if (key == ApiConstants.tokenKey) {
+      SessionStartupTrace.tokenSource ??= 'copia protegida';
+    }
+    if (heal) {
+      try {
+        await _storage.write(key, value);
+      } catch (_) {}
+    }
+    return value;
   }
 
   static Future<void> _mirrorWrite(String key, String value) async {
@@ -184,6 +271,8 @@ class SecureStorageService {
           errorType: 'SecureStoreMigration', fingerprint: 'secure_store_migration|prefs_unreadable');
       _useSharedPreferences = false;
       _mirrorToPrefs = false;
+      SessionStartupTrace.storageMode =
+          'almacén seguro de Windows (las preferencias no se pudieron leer)';
       return false;
     }
     try {
@@ -201,6 +290,9 @@ class SecureStorageService {
       ).run();
       _useSharedPreferences = outcome.usePrefs;
       _mirrorToPrefs = outcome.mirrorToPrefs;
+      SessionStartupTrace.storageMode = outcome.usePrefs
+          ? 'preferencias del equipo (el almacén seguro de Windows no respondió: ${outcome.name})'
+          : 'almacén seguro de Windows + copia protegida';
       return outcome.usePrefs;
     } catch (e, st) {
       OpsReporter.capture(e, st,
@@ -268,6 +360,9 @@ class SecureStorageService {
   /// Si SharedPreferences falla (datos corruptos/demasiado grandes),
   /// intenta recuperarse limpiando el storage y reintentando con keychain.
   static Future<void> _writeSecure(String key, String value) async {
+    // Primero la copia protegida: si el almacén principal falla o pierde
+    // el dato, la sesión no depende de él.
+    await _vaultWrite(key, value);
     if (await _shouldUseSharedPreferences()) {
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -303,7 +398,7 @@ class SecureStorageService {
       try {
         final prefs = await SharedPreferences.getInstance();
         final raw = prefs.getString('secure_$key');
-        if (raw == null) return null;
+        if (raw == null) return _recoverFromVault(key, heal: false);
         if (_isSensitive(key)) {
           // Descifrar cuesta (varias rondas de HMAC en Dart) y el token se
           // lee en CADA petición al servidor. Se recuerda el resultado
@@ -313,6 +408,8 @@ class SecureStorageService {
           if (cached != null && cached.key == raw) return cached.value;
           final plain = _TokenCipher.decrypt(raw);
           _decryptedCache[key] = MapEntry(raw, plain);
+          // No se pudo descifrar (cambió el equipo o el sistema): copia.
+          if (plain == null) return _recoverFromVault(key, heal: false);
           return plain;
         }
         return raw;
@@ -325,18 +422,64 @@ class SecureStorageService {
         try {
           final val = await _storage.read(key);
           _keychainTested = true;
-          return val;
+          return val ?? await _recoverFromVault(key, heal: false);
         } catch (_) {
-          return null;
+          return _recoverFromVault(key, heal: false);
         }
       }
     } else {
-      return await _storage.read(key);
+      String? value;
+      try {
+        value = await _storage.read(key);
+      } catch (_) {
+        // El almacén falló al leer: que decida la copia protegida.
+        if (_protector == null) rethrow;
+      }
+      if (value != null) {
+        if (key == ApiConstants.tokenKey) {
+          SessionStartupTrace.tokenSource ??= 'almacén seguro';
+        }
+        await _seedVault(key, value);
+        return value;
+      }
+      final recovered = await _recoverFromVault(key, heal: true);
+      if (recovered == null && key == ApiConstants.tokenKey) {
+        SessionStartupTrace.secureFileExists ??= await _secureFileExists(key);
+      }
+      return recovered;
+    }
+  }
+
+  static final Set<String> _vaultSeeded = <String>{};
+
+  /// Sesiones abiertas antes de existir la copia protegida: se copia lo
+  /// que el almacén seguro sí devolvió, una vez por arranque.
+  static Future<void> _seedVault(String key, String value) async {
+    if (_protector == null || !_isVaulted(key) || !_vaultSeeded.add(key)) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!prefs.containsKey('$_vaultPrefix$key')) await _vaultWrite(key, value);
+    } catch (_) {}
+  }
+
+  /// ¿Sigue en disco el archivo de [key] del almacén seguro de Windows?
+  /// (Si está pero no se pudo leer, se perdió la llave que lo descifra.)
+  static Future<bool?> _secureFileExists(String key) async {
+    if (!Platform.isWindows) return null;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      return dir
+          .listSync()
+          .whereType<File>()
+          .any((f) => f.path.endsWith('$key.secure'));
+    } catch (_) {
+      return null;
     }
   }
 
   /// Wrapper para eliminar datos con fallback
   static Future<void> _deleteSecure(String key) async {
+    await _vaultDelete(key);
     if (await _shouldUseSharedPreferences()) {
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -570,6 +713,19 @@ class SecureStorageService {
       // SharedPreferences corrupto — continuar con keychain
       _useSharedPreferences = false;
       if (kDebugMode) print('⚠️ clearAll: SharedPreferences falló ($e), limpiando keychain');
+    }
+
+    // La copia protegida de la sesión también se va (cerrar sesión de
+    // verdad), menos lo que identifica al equipo y al último usuario.
+    for (final key in [
+      ApiConstants.tokenKey,
+      ApiConstants.refreshTokenKey,
+      ApiConstants.userKey,
+      'tenant_slug',
+      'current_organization',
+      _offlineCredentialsKey,
+    ]) {
+      await _vaultDelete(key);
     }
 
     // Siempre limpiar keychain también (en caso de que se use o haya datos ahí)
