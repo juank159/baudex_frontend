@@ -98,8 +98,12 @@ void main() {
     expect(await servicio.getToken(), 'jwt.sesion.vieja');
   });
 
-  test('dañadas y apartadas a mitad de sesión (1.0.10): la sesión se pierde '
-      'en ese momento', () async {
+  // En 1.0.10 (ece3d69) estas tres pruebas daban lo contrario: el almacén
+  // elegía "preferencias" al arrancar con el archivo dañado; al apartarlo
+  // a mitad de sesión el token leía null (sesión perdida), la sesión nueva
+  // quedaba solo en preferencias y cada lectura del token releía el
+  // archivo dañado. Quedan como guardia de que no vuelva a pasar.
+  test('dañadas y apartadas a mitad de sesión: la sesión NO se pierde', () async {
     archivo.danado = true;
     final servicio = SecureStorageService();
     expect(await servicio.isAuthenticated(), isTrue, reason: 'arranca con sesión');
@@ -107,9 +111,8 @@ void main() {
     // La app lee las impresoras, falla y aparta el archivo.
     archivo.apartar();
 
-    expect(await servicio.getToken(), isNull,
-        reason: 'el almacén eligió "preferencias" al arrancar y ahora están vacías');
-    expect(await servicio.isAuthenticated(), isFalse);
+    expect(await servicio.getToken(), 'jwt.sesion.vieja');
+    expect(await servicio.isAuthenticated(), isTrue);
   });
 
   test('dañadas y apartadas AL ARRANCAR, antes de leer nada (arreglo): la '
@@ -129,38 +132,29 @@ void main() {
     expect(await servicio.isAuthenticated(), isTrue);
   });
 
-  test('dañadas, apartadas y vuelta a entrar: la sesión nueva queda SOLO en '
-      'preferencias; si el archivo se vuelve a dañar, al abrir vuelve la '
-      'sesión vieja (vencida)', () async {
+  test('dañadas, apartadas y vuelta a entrar: la sesión nueva queda en el '
+      'almacén seguro y sobrevive a que el archivo se dañe otra vez', () async {
     archivo.danado = true;
     final servicio = SecureStorageService();
     expect(await servicio.isAuthenticated(), isTrue);
     archivo.apartar();
 
-    // El cajero vuelve a entrar.
     await servicio.saveAuthData(
       token: 'jwt.sesion.nueva',
       refreshToken: 'refresh-nuevo',
       userData: usuario,
     );
-    expect(almacen.data['auth_token'], 'jwt.sesion.vieja',
-        reason: 'la sesión nueva no llegó al almacén seguro');
-    expect(archivo.datos.keys.where((k) => k.contains('secure_auth_token')), isNotEmpty);
+    expect(almacen.data['auth_token'], 'jwt.sesion.nueva');
 
-    // Arranque siguiente con preferencias sanas: se traslada y se conserva.
     reiniciarApp();
     expect(await servicio.getToken(), 'jwt.sesion.nueva');
 
-    // Pero si el archivo se dañó otra vez antes de ese arranque…
-    almacen.data['auth_token'] = 'jwt.sesion.vieja';
     archivo.danado = true;
     reiniciarApp();
-    expect(await servicio.getToken(), 'jwt.sesion.vieja',
-        reason: 'vuelve la sesión anterior, que el servidor ya no acepta');
+    expect(await servicio.getToken(), 'jwt.sesion.nueva');
   });
 
-  test('con preferencias dañadas, cada lectura del token vuelve a leer el '
-      'archivo dañado', () async {
+  test('con preferencias dañadas, leer el token no relee el archivo dañado', () async {
     archivo.danado = true;
     final servicio = SecureStorageService();
     await servicio.getToken();
@@ -168,6 +162,6 @@ void main() {
     for (var i = 0; i < 20; i++) {
       await servicio.getToken();
     }
-    expect(archivo.lecturas - antes, 20);
+    expect(archivo.lecturas - antes, 0);
   });
 }
