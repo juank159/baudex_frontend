@@ -42,6 +42,10 @@ class StartupPhase {
   double worstBuildMs = 0;
   double worstRasterMs = 0;
 
+  /// Cuándo se informó el peor cuadro de pintar (ms; el motor avisa hasta
+  /// un segundo después de pintarlo).
+  int worstRasterAt = 0;
+
   bool contains(int atMs) => atMs >= startMs && atMs < startMs + lengthMs;
 }
 
@@ -148,7 +152,7 @@ class StartupTrace {
     if (late > 1000) phase.stallsOver1000++;
     phase.worstStalls.add((startedAt, late));
     phase.worstStalls.sort((a, b) => b.$2.compareTo(a.$2));
-    if (phase.worstStalls.length > 6) phase.worstStalls.removeLast();
+    if (phase.worstStalls.length > 10) phase.worstStalls.removeLast();
   }
 
   /// Un cuadro de pantalla: lo que tardó la app en armarlo y la tarjeta
@@ -162,7 +166,10 @@ class StartupTrace {
     if (rasterMs > 50) phase.rasterOver50++;
     if (rasterMs > 200) phase.rasterOver200++;
     if (buildMs > phase.worstBuildMs) phase.worstBuildMs = buildMs;
-    if (rasterMs > phase.worstRasterMs) phase.worstRasterMs = rasterMs;
+    if (rasterMs > phase.worstRasterMs) {
+      phase.worstRasterMs = rasterMs;
+      phase.worstRasterAt = nowMs;
+    }
   }
 
   /// ¿Queda algún tramo midiendo? (para no dejar el reloj de cuadros puesto).
@@ -202,6 +209,10 @@ class StartupTrace {
               'de más de 200 ms: ${p.buildOver200}, peor ${p.worstBuildMs.toStringAsFixed(0)} ms; '
               'pintar (tarjeta gráfica) de más de 50 ms: ${p.rasterOver50}, '
               'de más de 200 ms: ${p.rasterOver200}, peor ${p.worstRasterMs.toStringAsFixed(0)} ms',
+          if (p.worstRasterMs > 200)
+            '  Peor cuadro de pintar: ${p.worstRasterMs.toStringAsFixed(0)} ms, informado en '
+                't=${p.worstRasterAt} ms; corría: '
+                '${_orNone(runningAt(p.worstRasterAt - p.worstRasterMs.round() - 1000, p.worstRasterMs.round() + 1000))}',
           for (final s in p.worstStalls)
             '  Traba de ${s.$2} ms en t=${s.$1} ms; corría: '
                 '${_orNone(runningAt(s.$1, s.$2))}',

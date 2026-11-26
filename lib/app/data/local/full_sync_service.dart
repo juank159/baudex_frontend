@@ -1,4 +1,5 @@
 // lib/app/data/local/full_sync_service.dart
+import 'package:baudex_desktop/app/core/session/user_activity.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -1201,6 +1202,14 @@ class FullSyncService extends GetxService {
     // puede no alcanzar a llegar antes del tiempo de espera y la descarga
     // se quedaba repitiendo la misma página sin avanzar nunca.
     Future<SyncChangesPage> fetchPage(String since, String? afterId) async {
+      // Mientras el usuario teclea o hace clic no se pide ni se guarda otra
+      // página: se espera a 1,5 s de calma (tope 8 s, para que una caja
+      // que no para de facturar igual termine de descargar).
+      await UserActivity.waitForQuiet(
+        const Duration(milliseconds: 1500),
+        maxWait: const Duration(seconds: 8),
+        poll: const Duration(milliseconds: 100),
+      );
       while (true) {
         final size = _effectivePageSize(entity);
         try {

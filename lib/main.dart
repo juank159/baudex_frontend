@@ -1,3 +1,4 @@
+import 'app/core/session/user_activity.dart';
 import 'package:flutter/scheduler.dart';
 import 'app/core/theme/performance_mode.dart';
 import 'dart:ui';
@@ -140,6 +141,9 @@ void main() async {
   trace.mark('app montada');
   runApp(const MyApp());
   WidgetsBinding.instance.addPostFrameCallback((_) => trace.mark('primer cuadro'));
+  // Semáforo de interacción: el trabajo de fondo se aparta mientras el
+  // usuario teclea o hace clic.
+  UserActivity.install();
 
   // En "Automático": si este equipo tarda en pintar, la app pasa sola al
   // tema liviano. El motor entrega los tiempos en tandas, una vez por

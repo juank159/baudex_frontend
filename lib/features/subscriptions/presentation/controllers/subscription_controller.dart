@@ -104,11 +104,20 @@ class SubscriptionController extends GetxController {
     // Sin sesión el servidor no responde (no hay token): se espera a que
     // haya sesión mirando solo la memoria, y entonces se carga igual que
     // antes. Así el login no compite con peticiones ni reintentos.
+    var waited = false;
     while (sessionKnownClosed()) {
       if (isClosed) return;
+      waited = true;
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
-    await StartupTrace.instance.task('suscripción: cargar', loadSubscription);
+    if (waited) {
+      // Quien inició la sesión ya pidió la suscripción: no se pide dos
+      // veces al entrar. Se le da tiempo a esa respuesta antes de decidir
+      // si hacen falta los reintentos.
+      await Future<void>.delayed(const Duration(seconds: 4));
+    } else {
+      await StartupTrace.instance.task('suscripción: cargar', loadSubscription);
+    }
     if (isExpired) {
       // NetworkInfo cachea "sin servidor" por 30s. Reintentar en 5s, 15s, 35s y 65s
       // cubre el caso donde el primer intento cae dentro del cooldown de 30s.

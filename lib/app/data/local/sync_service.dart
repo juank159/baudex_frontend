@@ -1,3 +1,4 @@
+import 'package:baudex_desktop/app/core/session/user_activity.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:baudex_desktop/app/core/session/session_gate.dart';
 import 'dart:async';
@@ -832,6 +833,10 @@ class SyncService extends GetxService {
   Future<void> _ensureStartupMaintenance({bool spaced = true}) =>
       _startupMaintenance ??= _runStartupMaintenance(spaced: spaced);
 
+  /// Silencio (sin teclas ni clics) que se espera antes de cada paso del
+  /// mantenimiento cuando corre con la app en uso.
+  static const Duration maintenanceQuiet = Duration(seconds: 20);
+
   Future<void> _runStartupMaintenance({required bool spaced}) async {
     final steps = <(String, Future<void> Function())>[
       ('cleanInvalidOfflineReferences', _cleanInvalidOfflineReferences),
@@ -843,13 +848,37 @@ class SyncService extends GetxService {
       ('cleanupOrphanedFifoOperations', _cleanupOrphanedFifoOperations),
       ('purgeBlockedFifoOperations', _purgeBlockedFifoOperations),
     ];
+    _maintenanceDone = false;
     for (final (name, step) in steps) {
+      // Con la app en uso: solo en ratos libres. Cada paso espera a que el
+      // usuario lleve un rato sin tocar nada (si entra una tecla entre dos
+      // pasos, el siguiente vuelve a esperar). Tope de 2 minutos por paso
+      // para que la subida de ventas nunca quede esperando indefinidamente.
+      if (spaced) await _waitForMaintenanceSlot();
       try {
         await StartupTrace.instance.task('mantenimiento de la cola: $name', step);
       } catch (e) {
         AppLogger.e('Mantenimiento de la cola ($name) falló: $e', tag: 'SYNC');
       }
-      if (spaced) await Future<void>.delayed(const Duration(milliseconds: 40));
+      if (spaced && !_maintenanceUrgent) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+    }
+    _maintenanceDone = true;
+  }
+
+  bool _maintenanceDone = false;
+
+  /// Hay una subida esperando: el mantenimiento deja de esperar ratos
+  /// libres y termina ya (una venta por subir no espera a nadie).
+  bool _maintenanceUrgent = false;
+
+  Future<void> _waitForMaintenanceSlot() async {
+    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    while (!_maintenanceUrgent &&
+        UserActivity.idleFor < maintenanceQuiet &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
 
@@ -977,7 +1006,13 @@ class SyncService extends GetxService {
         // Sin sesión (pantalla de iniciar sesión) no hay nada que subir ni
         // que bajar: ni se lee el almacén ni se toca la cola.
         if (sessionKnownClosed()) return;
-        await _ensureStartupMaintenance();
+        // El mantenimiento de la cola espera a un rato libre: mientras no
+        // termine, este ciclo no sube ni baja nada (no se le espera aquí,
+        // para no apilar ciclos).
+        var maintained = false;
+        unawaited(_ensureStartupMaintenance().then((_) => maintained = true));
+        await Future<void>.delayed(Duration.zero);
+        if (!maintained && !_maintenanceDone) return;
 
         // Si figuramos sin red, re-verificar: no siempre llega el evento de
         // "volvió la conexión" (red que cambia sin desconectarse, arranque
@@ -1018,8 +1053,11 @@ class SyncService extends GetxService {
           await syncAll();
         }
 
-        // Pull periódico cada ~60s para sincronización multi-usuario
-        if (_isOnline.value && _shouldPeriodicPull()) {
+        // Pull periódico cada ~60s para sincronización multi-usuario.
+        // No se arranca una tanda mientras el usuario está tecleando o
+        // haciendo clic (última entrada hace menos de 3 s): el siguiente
+        // ciclo lo reintenta.
+        if (_isOnline.value && !UserActivity.busy() && _shouldPeriodicPull()) {
           await _periodicPull();
         }
       },
@@ -1078,7 +1116,9 @@ class SyncService extends GetxService {
       // esperar el reloj de 10 s.
       if (fullSyncService.hasPendingFullDownload) {
         Future.delayed(const Duration(seconds: 2), () {
-          if (_isOnline.value && _shouldPeriodicPull()) _periodicPull();
+          if (_isOnline.value && !UserActivity.busy() && _shouldPeriodicPull()) {
+            _periodicPull();
+          }
         });
       }
 
@@ -1264,7 +1304,10 @@ class SyncService extends GetxService {
   Future<void> syncAll({bool ignoreBackoff = false}) async {
     // Sin sesión el servidor rechazaría cada operación: no se intenta.
     if (sessionKnownClosed()) return;
-    await _ensureStartupMaintenance();
+    if (!_maintenanceDone) {
+      _maintenanceUrgent = true;
+      await _ensureStartupMaintenance();
+    }
     if (!_isOnline.value) {
       AppLogger.w('Sin conexión, no se puede sincronizar', tag: 'SYNC');
       return;
