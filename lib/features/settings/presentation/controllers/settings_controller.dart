@@ -128,7 +128,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       timer.cancel();
       setupSyncListener();
       // Por si una sincronización terminó antes de engancharse.
-      loadPrinterSettings();
+      refreshPrintersQuietly();
     });
   }
 
@@ -140,7 +140,14 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
   @override
   Future<void> onSyncCompleted() async {
-    await loadAllSettings();
+    // Recarga en silencio: una sincronización termina cada pocos segundos
+    // y, con el indicador de carga, la pantalla de Impresoras quitaba el
+    // formulario mientras se escribía (no dejaba agregar).
+    await Future.wait([
+      loadAppSettings(),
+      loadInvoiceSettings(),
+      refreshPrintersQuietly(),
+    ]);
   }
 
   // ==================== CORE METHODS ====================
@@ -245,8 +252,17 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
   // ==================== PRINTER SETTINGS ====================
 
+  /// Ya se leyó la lista al menos una vez. El indicador de carga solo se
+  /// muestra la primera vez: después la pantalla tiene un formulario que no
+  /// se puede quitar de en medio mientras se llena.
+  bool _printersLoadedOnce = false;
+
   Future<void> loadPrinterSettings() async {
     try {
+      if (_printersLoadedOnce) {
+        await refreshPrintersQuietly();
+        return;
+      }
       _isLoadingPrinterSettings.value = true;
 
       final allPrintersResult = await _getAllPrinterSettingsUseCase(NoParams());
@@ -270,6 +286,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
           }
         },
       );
+      _printersLoadedOnce = true;
     } catch (e) {
     } finally {
       _isLoadingPrinterSettings.value = false;
@@ -300,7 +317,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       );
       if (saved) {
         // Lista y predeterminada tal como quedaron en este equipo.
-        await _reloadPrintersQuietly();
+        await refreshPrintersQuietly();
         _showSuccess('Configuración de impresora guardada exitosamente');
       }
     } catch (e) {
@@ -338,7 +355,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
       if (_defaultPrinter.value?.id == settingsId) {
         _defaultPrinter.value = null;
       }
-      await _reloadPrintersQuietly();
+      await refreshPrintersQuietly();
 
       FuturisticNotifications.showSuccess(
         'Impresora eliminada',
@@ -355,7 +372,7 @@ class SettingsController extends GetxController with SyncAutoRefreshMixin {
 
   /// Vuelve a leer lista y predeterminada de la base local, sin el
   /// indicador de carga (no hace parpadear la pantalla).
-  Future<void> _reloadPrintersQuietly() async {
+  Future<void> refreshPrintersQuietly() async {
     final all = await _getAllPrinterSettingsUseCase(NoParams());
     final chosen = await _getDefaultPrinterSettingsUseCase(NoParams());
     all.fold((_) {}, (printers) => _printerSettings.value = printers);
