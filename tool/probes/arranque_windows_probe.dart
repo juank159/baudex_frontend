@@ -397,14 +397,25 @@ Future<void> main() async {
   int number(String key, int fallback) => int.tryParse(env[key] ?? '') ?? fallback;
   final maxSeconds = number('BAUDEX_PROBE_MAX_S', 180);
   final launchedAt = number('BAUDEX_PROBE_T0_MS', bootAt);
-  final lento = env['BAUDEX_PROBE_LENTO'] == '1';
+  // 1 = extremo (pocos núcleos, prioridad baja y carga al lado);
+  // modesto = PC de oficina: pocos núcleos, prioridad normal, sin carga.
+  final modesto = env['BAUDEX_PROBE_LENTO'] == 'modesto';
+  final lento = env['BAUDEX_PROBE_LENTO'] == '1' || modesto;
   final notasLento = <String>[];
   if (lento) {
-    notasLento.add(limitarProceso(number('BAUDEX_PROBE_NUCLEOS', 2)));
-    notasLento.add(await cargaDeFondo(
-      cpu: number('BAUDEX_PROBE_CARGA_CPU', 2),
-      dir: '$dirPath${Platform.pathSeparator}carga',
+    notasLento.add(limitarProceso(
+      number('BAUDEX_PROBE_NUCLEOS', 2),
+      lowPriority: !modesto,
     ));
+    final cpu = number('BAUDEX_PROBE_CARGA_CPU', modesto ? 0 : 2);
+    if (cpu > 0) {
+      notasLento.add(await cargaDeFondo(
+        cpu: cpu,
+        dir: '$dirPath${Platform.pathSeparator}carga',
+      ));
+    } else {
+      notasLento.add('sin carga de fondo');
+    }
   }
 
   final sink = File(outPath);
@@ -627,7 +638,7 @@ Future<void> main() async {
   await PerformanceMode.choose(
     PerformanceSetting.fromId(env['BAUDEX_PROBE_RENDIMIENTO'] ?? 'full'),
   );
-  logLento('modo: ${lento ? 'EQUIPO LENTO' : 'normal'}'
+  logLento('modo: ${modesto ? 'EQUIPO MODESTO' : lento ? 'EQUIPO LENTO (extremo)' : 'normal'}'
       '${notasLento.isEmpty ? '' : '; ${notasLento.join('; ')}'}');
   if (StartupTrace.instance.phases.isEmpty) {
     // Versión anterior sin instrumentar: al menos las trabas y los cuadros.
@@ -768,7 +779,11 @@ Future<void> main() async {
           '(cuadros: $frames)');
       exit(4);
     }
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    // Captura con la pantalla asentada: sin restos del splash.
+    await until(() => !hayTexto('Inicializando'), seconds: 10);
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    logLento('login asentado: restos del splash a la vista: '
+        '${hayTexto('Inicializando') ? 'SÍ (las dos pantallas mezcladas)' : 'no'}');
     await captura('login');
     if (tecleo) {
       logTecleo(await ventanaAlFrente());

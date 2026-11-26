@@ -1,4 +1,5 @@
 // lib/app/data/local/full_sync_service.dart
+import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:baudex_desktop/app/core/session/user_activity.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -1184,7 +1185,10 @@ class FullSyncService extends GetxService {
         freshRows?.add(pageRows![i]);
       }
       if (fresh.isEmpty) return 0;
-      final skipped = await handler.apply(fresh, freshRows);
+      final skipped = await StartupTrace.instance.task(
+        'descarga: guardar $entity',
+        () => handler.apply(fresh, freshRows),
+      );
       for (var i = 0; i < fresh.length; i++) {
         final id = fresh[i]['id']?.toString();
         final stamp = freshStamps[i];

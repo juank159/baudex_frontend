@@ -31,6 +31,16 @@ class StartupPhase {
   int stallsOver1000 = 0;
   int stalledMs = 0;
 
+  /// De [stalledMs], lo que pasó mientras corría alguna tarea medida (lo
+  /// nuestro, como mucho) y lo que pasó sin ninguna (la app no tuvo turno
+  /// de procesador o estaba pintando).
+  int stalledInTasksMs = 0;
+  int stalledNoTaskMs = 0;
+
+  /// Tiempo trabado por tarea (una traba se le anota a cada tarea que
+  /// corría en ese momento).
+  final Map<String, int> stalledByTask = {};
+
   /// Las peores trabas: (momento ms, duración ms).
   final List<(int, int)> worstStalls = [];
 
@@ -57,7 +67,7 @@ class StartupTrace {
   final int Function()? _clock;
   final Stopwatch _watch = Stopwatch()..start();
 
-  static const int maxTasks = 300;
+  static const int maxTasks = 800;
   static const int _tick = 10;
   static const Duration phaseLength = Duration(seconds: 60);
 
@@ -148,6 +158,15 @@ class StartupTrace {
     if (late <= 50) return;
     phase.stallsOver50++;
     phase.stalledMs += late;
+    final running = runningAt(startedAt, late);
+    if (running.isEmpty) {
+      phase.stalledNoTaskMs += late;
+    } else {
+      phase.stalledInTasksMs += late;
+      for (final name in running.toSet()) {
+        phase.stalledByTask[name] = (phase.stalledByTask[name] ?? 0) + late;
+      }
+    }
     if (late > 200) phase.stallsOver200++;
     if (late > 1000) phase.stallsOver1000++;
     phase.worstStalls.add((startedAt, late));
@@ -209,6 +228,10 @@ class StartupTrace {
               'de más de 200 ms: ${p.buildOver200}, peor ${p.worstBuildMs.toStringAsFixed(0)} ms; '
               'pintar (tarjeta gráfica) de más de 50 ms: ${p.rasterOver50}, '
               'de más de 200 ms: ${p.rasterOver200}, peor ${p.worstRasterMs.toStringAsFixed(0)} ms',
+          '  Tiempo trabado con alguna tarea medida corriendo: ${p.stalledInTasksMs} ms; '
+              'sin ninguna (sin turno de procesador o pintando): ${p.stalledNoTaskMs} ms',
+          if (p.stalledByTask.isNotEmpty)
+            '  Trabado por tarea: ${_topTasks(p.stalledByTask)}',
           if (p.worstRasterMs > 200)
             '  Peor cuadro de pintar: ${p.worstRasterMs.toStringAsFixed(0)} ms, informado en '
                 't=${p.worstRasterAt} ms; corría: '
@@ -218,6 +241,11 @@ class StartupTrace {
                 '${_orNone(runningAt(s.$1, s.$2))}',
         ],
       ];
+
+  static String _topTasks(Map<String, int> byTask) {
+    final rows = byTask.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return rows.take(8).map((e) => '${e.key} ${e.value} ms').join('; ');
+  }
 
   static String _orNone(List<String> names) =>
       names.isEmpty ? '(ninguna tarea medida)' : names.join(', ');

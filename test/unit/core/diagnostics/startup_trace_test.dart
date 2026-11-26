@@ -63,6 +63,11 @@ void main() {
     expect(phase.stallsOver200, 2);
     expect(phase.stallsOver1000, 1);
     expect(phase.stalledMs, 380 + 1280);
+    // Lo trabado se reparte: con una tarea medida corriendo (lo nuestro,
+    // como mucho) y sin ninguna (sin turno de procesador o pintando).
+    expect(phase.stalledInTasksMs, 380);
+    expect(phase.stalledNoTaskMs, 1280);
+    expect(phase.stalledByTask, {'sincronización al abrir: limpieza': 380});
     final text = trace.phaseLines().join('\n');
     expect(text, contains('Traba de 1280 ms en t=410 ms; corría: (ninguna tarea medida)'));
     expect(text, contains('Traba de 380 ms en t=10 ms; corría: sincronización al abrir: limpieza'));

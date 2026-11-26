@@ -304,6 +304,12 @@ jobs:
             # automático (la app debe pasar sola a liviano).
             @{ nombre = '04h EQUIPO LENTO, tema LIVIANO forzado';            prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '2'; rendimiento = 'light' },
             @{ nombre = '04i EQUIPO LENTO, tema AUTOMÁTICO';                 prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '2'; rendimiento = 'auto' },
+            # Equipo MODESTO (PC de oficina): 2 núcleos, prioridad normal,
+            # sin carga al lado, ventana maximizada. Es el banco para seguir
+            # midiendo; 04f queda como caso extremo.
+            @{ nombre = '04j EQUIPO MODESTO, tema completo';                 prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = 'modesto'; nucleos = '2' },
+            @{ nombre = '04k EQUIPO MODESTO, tema AUTOMÁTICO';               prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = 'modesto'; nucleos = '2'; rendimiento = 'auto' },
+            @{ nombre = '04l EQUIPO MODESTO, versión nueva (descargando)';   prefs = 'sanas';   cerrar = '1'; tecleo = '1'; latencia = '150'; lento = 'modesto'; nucleos = '2'; huella = 'nueva' },
             @{ nombre = '04g LOGIN RECORDADO, EQUIPO MUY LENTO (1 núcleo)';  prefs = 'sanas';   cerrar = '0'; tecleo = '1'; latencia = '150'; lento = '1'; nucleos = '1' },
             @{ nombre = '05 DAÑADAS: reabrir';                               prefs = 'danadas'; cerrar = '0' },
             @{ nombre = '06 tras dañadas: reabrir';                          prefs = 'sanas';   cerrar = '0' },

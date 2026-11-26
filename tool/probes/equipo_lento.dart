@@ -14,7 +14,7 @@ import 'package:win32/win32.dart';
 
 /// Limita ESTE proceso a [cores] núcleos y prioridad por debajo de lo
 /// normal. Solo en Windows. Devuelve una nota para el log.
-String limitarProceso(int cores) {
+String limitarProceso(int cores, {bool lowPriority = true}) {
   if (!Platform.isWindows) return 'sin límite de núcleos (no es Windows)';
   final process = GetCurrentProcess();
   final mask = (1 << cores.clamp(1, 16)) - 1;
@@ -24,10 +24,10 @@ String limitarProceso(int cores) {
     final setPriorityClass = DynamicLibrary.open('kernel32.dll').lookupFunction<
         Int32 Function(IntPtr, Uint32),
         int Function(int, int)>('SetPriorityClass');
-    priority = setPriorityClass(process, BELOW_NORMAL_PRIORITY_CLASS);
+    if (lowPriority) priority = setPriorityClass(process, BELOW_NORMAL_PRIORITY_CLASS);
   } catch (_) {}
   return 'app limitada a $cores núcleo(s): ${affinity != 0 ? 'sí' : 'NO'}; '
-      'prioridad baja: ${priority != 0 ? 'sí' : 'NO'}';
+      'prioridad ${lowPriority ? 'baja: ${priority != 0 ? 'sí' : 'NO'}' : 'normal'}';
 }
 
 /// Ventana a pantalla completa (más píxeles que pintar, como en un monitor

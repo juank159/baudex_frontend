@@ -155,6 +155,15 @@ void main() async {
   });
   PerformanceMode.light.addListener(() {
     trace.mark(PerformanceMode.isLight ? 'tema LIVIANO activado' : 'tema completo activado');
+    // Pantallas al instante en liviano (también si el cambio llega con la
+    // app ya abierta: GetX guarda la transición por defecto al arrancar).
+    Get.config(
+      defaultTransition:
+          PerformanceMode.isLight ? Transition.noTransition : Transition.fade,
+      defaultDurationTransition: PerformanceMode.isLight
+          ? Duration.zero
+          : const Duration(milliseconds: 300),
+    );
     // Las sombras y desenfoques se deciden al construir: se redibuja todo.
     Get.forceAppUpdate();
   });
