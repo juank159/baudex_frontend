@@ -1,6 +1,7 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../../../../app/core/services/audio_notification_service.dart';
 import '../../domain/report_sections.dart';
 import 'dart:io' show Platform;
 
@@ -464,6 +465,7 @@ class SyncDiagnosticController extends GetxController {
           b.write(debugBillingReport?.call() ??
               InvoiceEntryMetrics.instance.report());
           b.writeln();
+          b.writeln('  ${AudioNotificationService.instance.report()}');
         },
       ),
       (

@@ -286,10 +286,9 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     expect(find.text('Nombre en la factura'), findsNothing);
-    // La espera por la base (250 ms como mucho) quedó después del diálogo.
-    await tester.pump(const Duration(milliseconds: 260));
+    // La línea entra en el mismo cuadro: ya no espera a la base.
     expect(added.single, startsWith('temp_'));
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('por confirmar: si existía un producto con ese código, reemplaza la opción',

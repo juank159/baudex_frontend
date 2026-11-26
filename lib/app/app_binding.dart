@@ -1,5 +1,4 @@
 // lib/app/simple_app_binding.dart
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,7 +10,6 @@ import 'controllers/simple_auth_controller.dart';
 import 'core/storage/secure_storage_service.dart';
 import 'core/network/dio_client.dart';
 import 'core/network/network_info.dart';
-import 'core/services/audio_notification_service.dart';
 import 'core/services/file_service.dart';
 import 'core/services/tenant_datetime_service.dart';
 import 'core/services/permissions_service.dart';
@@ -562,13 +560,11 @@ class InitialBinding implements Bindings {
 
   void _registerAudioService() {
 
-    // AudioNotificationService inicialización asíncrona
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      AudioNotificationService.instance.initialize().then((_) {
-      }).catchError((e) {
-      });
-    });
-
+    // La voz NO se prepara al arrancar: su primera carga puede frenar la
+    // app (en Windows corre en el hilo de la pantalla) y aquí todavía se
+    // está en el inicio de sesión. Se prepara sola, en un rato libre,
+    // cuando se abre la factura (AudioNotificationService.warmUpWhenIdle);
+    // es la única pantalla que habla.
   }
 
   void _registerSubscriptionServices() {
