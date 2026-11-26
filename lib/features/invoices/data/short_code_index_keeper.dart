@@ -24,6 +24,7 @@ class ShortCodeIndexKeeper {
     this.settleDelay = const Duration(seconds: 2),
     this.maxSettle = const Duration(seconds: 15),
     this.onLoaded,
+    this.onLoadFailed,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _subs = [
@@ -43,6 +44,10 @@ class ShortCodeIndexKeeper {
 
   /// Aviso de cada carga terminada (ms que tardó), para el diagnóstico.
   final void Function(double ms)? onLoaded;
+
+  /// Aviso de una carga que falló (para el diagnóstico). El índice queda
+  /// como estaba y se reintenta con el siguiente valor tecleado.
+  final void Function(Object error)? onLoadFailed;
 
   /// Códigos que se arman por vuelta antes de ceder el hilo.
   static const int _chunk = 4000;
@@ -85,9 +90,17 @@ class ShortCodeIndexKeeper {
   }
 
   /// Rehace el índice (una carga a la vez).
-  Future<void> refresh() => _loading ??= _load().whenComplete(() {
+  Future<void> refresh() => _loading ??= _guardedLoad().whenComplete(() {
         _loading = null;
       });
+
+  Future<void> _guardedLoad() async {
+    try {
+      await _load();
+    } catch (e) {
+      onLoadFailed?.call(e);
+    }
+  }
 
   Future<void> _load() async {
     _appliedDuringLoad.clear();
@@ -109,12 +122,14 @@ class ShortCodeIndexKeeper {
       }
     }
     _loads++;
-    onLoaded?.call(watch.elapsedMicroseconds / 1000);
     for (final c in _appliedDuringLoad) {
       fresh.upsert(c.localId, [c.sku, c.barcode], active: c.active);
     }
     _appliedDuringLoad.clear();
     _index = fresh;
+    // Después de dejarlo listo: el aviso anota el estado del índice, y
+    // antes salía como "sin cargar" justo al terminar de cargarlo.
+    onLoaded?.call(watch.elapsedMicroseconds / 1000);
     if (_changes == changesAtStart) {
       _stale = false;
       _staleSince = null;

@@ -18,6 +18,10 @@
 //   BAUDEX_PROBE_MAX_TEXT_MS  tope para "1ª tecla → código completo" (150)
 //   BAUDEX_PROBE_MAX_LINE_MS  tope para "Enter → línea VISTA" (0 = no revisar)
 //   BAUDEX_PROBE_KEYS      sendinput (por defecto) | postmessage
+//   BAUDEX_PROBE_PRESENTATIONS_MS  >0: presentaciones sin descargar y el
+//                          servidor tarda esto (equipo a medio sincronizar)
+//   BAUDEX_PROBE_FRAME_MS  >0: cada cuadro cuesta esto de más (equipo lento)
+//   BAUDEX_PROBE_DIRECT    0 = apaga la lectura directa (camino anterior)
 //
 // Sale con 0 si todo bien, 1 si algún criterio falla, 2 si se colgó.
 import 'dart:async';
@@ -170,6 +174,9 @@ Future<void> main() async {
       maxTextMs: number('BAUDEX_PROBE_MAX_TEXT_MS', 150),
       maxLineMs: number('BAUDEX_PROBE_MAX_LINE_MS', 0),
       label: env['BAUDEX_PROBE_LABEL'] ?? '',
+      presentationsServerMs: number('BAUDEX_PROBE_PRESENTATIONS_MS', 0),
+      frameCostMs: number('BAUDEX_PROBE_FRAME_MS', 0),
+      directKeys: (env['BAUDEX_PROBE_DIRECT'] ?? '1') != '0',
     ),
     log: log,
   );
