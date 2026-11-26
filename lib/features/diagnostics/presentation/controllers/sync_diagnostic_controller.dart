@@ -1,4 +1,6 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../../domain/report_sections.dart';
 import 'dart:io' show Platform;
 
 import '../../../../app/core/utils/app_version.dart';
@@ -229,23 +231,44 @@ class SyncDiagnosticController extends GetxController {
     if (isLoading.value) return;
     isLoading.value = true;
     try {
+      // Cada lectura tiene un tope: si una se queda esperando (base
+      // ocupada, servicio sin responder), la pantalla muestra el resto en
+      // vez de quedarse cargando para siempre.
       await Future.wait([
-        refreshDownloadStatus(),
-        _refreshConnectionState(),
-        _refreshEntityCounts(),
-        _refreshPendingQueue(),
-        _refreshRecentEvents(),
+        _bounded('estado de la descarga', refreshDownloadStatus),
+        _bounded('conexión', _refreshConnectionState),
+        _bounded('conteos', _refreshEntityCounts),
+        _bounded('cola', _refreshPendingQueue),
+        _bounded('eventos', _refreshRecentEvents),
       ]);
       // Detección de huérfanos y bloqueados depende del SyncQueue, se ejecuta
       // después de que _refreshPendingQueue ya cargó las ops.
       await Future.wait([
-        _refreshOrphanedRecords(),
-        _refreshStuckProducts(),
+        _bounded('huérfanos', _refreshOrphanedRecords),
+        _bounded('bloqueados', _refreshStuckProducts),
       ]);
       // El análisis de salud usa todos los datos ya cargados.
-      _analyzeHealth();
+      try {
+        _analyzeHealth();
+      } catch (e) {
+        AppLogger.w('Análisis de salud falló: $e', tag: 'DIAGNOSTIC');
+      }
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// Tope de cada lectura de la pantalla.
+  @visibleForTesting
+  static Duration refreshTimeout = const Duration(seconds: 12);
+
+  /// Corre [read] sin dejar que un error o una espera eterna tumbe o
+  /// congele la pantalla.
+  Future<void> _bounded(String what, Future<void> Function() read) async {
+    try {
+      await read().timeout(refreshTimeout);
+    } catch (e) {
+      AppLogger.w('Diagnóstico: "$what" no disponible: $e', tag: 'DIAGNOSTIC');
     }
   }
 
@@ -360,52 +383,92 @@ class SyncDiagnosticController extends GetxController {
     }
   }
 
+  /// Solo para pruebas: reemplaza la sección de rendimiento al facturar.
+  @visibleForTesting
+  String Function()? debugBillingReport;
+
   /// Genera un texto exportable del estado del sistema para soporte.
+  ///
+  /// Va por secciones: si una falla, sale el resto y una línea
+  /// `Sección "X" no disponible: <error>`. Nunca queda en blanco.
   String exportDiagnosticReport() {
-    final buffer = StringBuffer();
-    buffer.writeln('=== Reporte de diagnóstico Baudex ===');
-    buffer.writeln('Generado: ${DateTime.now().toUtc().toIso8601String()}');
-    buffer.writeln('Versión de la app: ${AppVersion.label ?? "desconocida"}');
-    buffer.writeln('Sistema: ${Platform.operatingSystem} '
-        '${Platform.operatingSystemVersion}, '
-        '${Platform.numberOfProcessors} núcleos');
-    buffer.writeln('Conectividad: ${isOnline.value ? "ONLINE" : "OFFLINE"}');
-    buffer.writeln('Operaciones en cola: ${pendingQueueOps.value}');
-    buffer.writeln('  - pending:    ${pendingBreakdown.value.pending}');
-    buffer.writeln('  - failed:     ${pendingBreakdown.value.failed}');
-    buffer.writeln('  - inProgress: ${pendingBreakdown.value.inProgress}');
-    buffer.writeln();
-    buffer.writeln('Por entityType:');
-    pendingBreakdown.value.byEntityType.forEach((type, count) {
-      buffer.writeln('  $type: $count');
-    });
-    buffer.writeln();
-    buffer.writeln('Conteos locales por entidad:');
-    for (final ec in entityCounts) {
-      buffer.write('  ${ec.label}: ${ec.total}');
-      if (ec.unsynced > 0) buffer.write(' (sin sync: ${ec.unsynced})');
-      if (ec.offline > 0) buffer.write(' (con id temp: ${ec.offline})');
-      buffer.writeln();
-    }
-    buffer.writeln();
-    buffer.writeln('Productos bloqueados (isSynced=false sin ops activas): ${stuckProducts.length}');
-    for (final sp in stuckProducts) {
-      buffer.writeln('  ${sp.name} (${sp.sku}) — stock local: ${sp.localStock} — bloqueado: ${sp.stuckDuration}');
-    }
-    buffer.writeln();
-buffer.write(InvoiceEntryMetrics.instance.report());
-    buffer.writeln();
-        buffer.writeln('Eventos recientes (últimos ${recentEvents.length}):');
-    for (final ev in recentEvents) {
-      buffer.writeln(
-        '  [${ev.timestamp.toIso8601String()}] '
-        '${ev.severity.name.toUpperCase()} '
-        '${ev.eventType.name} ${ev.entityType} '
-        '${ev.operation} — ${ev.message}'
-        '${ev.details != null ? "\n    detalle: ${ev.details}" : ""}',
-      );
-    }
-    return buffer.toString();
+    return buildSectionedReport([
+      (
+        'Encabezado',
+        (b) {
+          b.writeln('=== Reporte de diagnóstico Baudex ===');
+          b.writeln('Generado: ${DateTime.now().toUtc().toIso8601String()}');
+          b.writeln('Versión de la app: ${AppVersion.label ?? "desconocida"}');
+          b.writeln('Sistema: ${Platform.operatingSystem} '
+              '${Platform.operatingSystemVersion}, '
+              '${Platform.numberOfProcessors} núcleos');
+          b.writeln('Conectividad: ${isOnline.value ? "ONLINE" : "OFFLINE"}');
+        },
+      ),
+      (
+        'Operaciones en cola',
+        (b) {
+          b.writeln('Operaciones en cola: ${pendingQueueOps.value}');
+          b.writeln('  - pending:    ${pendingBreakdown.value.pending}');
+          b.writeln('  - failed:     ${pendingBreakdown.value.failed}');
+          b.writeln('  - inProgress: ${pendingBreakdown.value.inProgress}');
+          b.writeln();
+          b.writeln('Por entityType:');
+          pendingBreakdown.value.byEntityType.forEach((type, count) {
+            b.writeln('  $type: $count');
+          });
+          b.writeln();
+        },
+      ),
+      (
+        'Conteos locales',
+        (b) {
+          b.writeln('Conteos locales por entidad:');
+          for (final ec in entityCounts) {
+            b.write('  ${ec.label}: ${ec.total}');
+            if (ec.unsynced > 0) b.write(' (sin sync: ${ec.unsynced})');
+            if (ec.offline > 0) b.write(' (con id temp: ${ec.offline})');
+            b.writeln();
+          }
+          b.writeln();
+        },
+      ),
+      (
+        'Productos bloqueados',
+        (b) {
+          b.writeln('Productos bloqueados (isSynced=false sin ops activas): '
+              '${stuckProducts.length}');
+          for (final sp in stuckProducts) {
+            b.writeln('  ${sp.name} (${sp.sku}) — stock local: '
+                '${sp.localStock} — bloqueado: ${sp.stuckDuration}');
+          }
+          b.writeln();
+        },
+      ),
+      (
+        'Rendimiento al facturar',
+        (b) {
+          b.write(debugBillingReport?.call() ??
+              InvoiceEntryMetrics.instance.report());
+          b.writeln();
+        },
+      ),
+      (
+        'Eventos recientes',
+        (b) {
+          b.writeln('Eventos recientes (últimos ${recentEvents.length}):');
+          for (final ev in recentEvents) {
+            b.writeln(
+              '  [${ev.timestamp.toIso8601String()}] '
+              '${ev.severity.name.toUpperCase()} '
+              '${ev.eventType.name} ${ev.entityType} '
+              '${ev.operation} — ${ev.message}'
+              '${ev.details != null ? "\n    detalle: ${ev.details}" : ""}',
+            );
+          }
+        },
+      ),
+    ]);
   }
 
   /// Ejecuta todos los auto-fix seguros en un solo paso.

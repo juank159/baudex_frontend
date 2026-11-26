@@ -247,6 +247,51 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('equipo lento: si la espera del primer dígito vence TARDE (la '
+      'pantalla estaba ocupada), se atienden las teclas en fila antes de '
+      'soltarlo a la caja', (tester) async {
+    await open(tester);
+    // El reloj de las teclas va 20 ms adelante de los temporizadores: como
+    // si un cuadro lento hubiera retrasado el aviso de la espera.
+    final start = tester.binding.clock.now();
+    var lag = Duration.zero;
+    ProductSearchWidgetState.debugKeyClock =
+        () => tester.binding.clock.now().difference(start) + lag;
+    final code = arroz.barcode!;
+    expect(await digit(tester, code[0]), isTrue);
+    lag = const Duration(milliseconds: 20);
+    await frame(tester, 33); // la espera venció… tarde
+    expect(field(tester).text, isEmpty,
+        reason: 'no se suelta todavía: puede haber teclas esperando');
+    for (final d in code.substring(1).split('')) {
+      expect(await digit(tester, d), isTrue);
+      await frame(tester, 2);
+    }
+    expect(await press(tester, LogicalKeyboardKey.enter), isTrue);
+    await frame(tester, 16);
+    expect(added, ['arrozx1.0']);
+    expect(cardFrames, 0);
+    expect(seenTexts.toSet(), {''});
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('equipo lento y era una persona: tras el respiro corto el '
+      'dígito entra con su tarjeta', (tester) async {
+    await open(tester);
+    final start = tester.binding.clock.now();
+    var lag = Duration.zero;
+    ProductSearchWidgetState.debugKeyClock =
+        () => tester.binding.clock.now().difference(start) + lag;
+    await digit(tester, '5');
+    lag = const Duration(milliseconds: 20);
+    await tester.pump(const Duration(milliseconds: 33));
+    expect(field(tester).text, isEmpty);
+    await tester.pump(const Duration(milliseconds: 40)); // respiros agotados
+    expect(field(tester).text, '5');
+    expect(find.text('Valor: \$ 5'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   // ───────────── a mano: todo igual ─────────────
 
   testWidgets('a mano: el primer dígito y su tarjeta salen juntos tras la '
