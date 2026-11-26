@@ -251,6 +251,8 @@ class FullSyncService extends GetxService {
     isSyncing.value = true;
     _abortRequested = false;
     progress.clear();
+    // Descarga de inicio de sesión: el negocio puede ser otro.
+    if (!skipCleanup) forgetOrganization();
 
     final allEntities = _syncOrder;
 
@@ -1011,16 +1013,49 @@ class FullSyncService extends GetxService {
   /// Identifica al negocio para guardar sus marcas por separado.
   Future<String?> _organizationKey() async {
     if (debugOrganizationKey != null) return debugOrganizationKey;
+    // El negocio se recuerda en memoria: esta función se llama por módulo
+    // en cada descarga (decenas de veces por tanda, y hay tandas cada 2 s
+    // durante una descarga completa) y cada lectura del almacén de sesión
+    // es, en Windows, abrir y descifrar un archivo. Se olvida al iniciar o
+    // cerrar sesión ([forgetOrganization]) y, por si acaso, a los 20 s.
+    final cachedAt = _organizationCachedAt;
+    if (_organizationCache != null &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _organizationCacheTtl) {
+      return _organizationCache;
+    }
+    final generation = _organizationGeneration;
+    String? found;
     try {
       final user = await Get.find<SecureStorageService>().getUserData();
       final id = user?['organizationId']?.toString();
-      if (id != null && id.isNotEmpty) return id;
+      if (id != null && id.isNotEmpty) found = id;
     } catch (_) {}
-    try {
-      final id = Get.find<OrganizationController>().currentOrganization?.id;
-      if (id != null && id.isNotEmpty) return id;
-    } catch (_) {}
-    return null;
+    if (found == null) {
+      try {
+        final id = Get.find<OrganizationController>().currentOrganization?.id;
+        if (id != null && id.isNotEmpty) found = id;
+      } catch (_) {}
+    }
+    // Si mientras se leía cambió la sesión, lo leído ya no vale.
+    if (found != null && generation == _organizationGeneration) {
+      _organizationCache = found;
+      _organizationCachedAt = DateTime.now();
+    }
+    return found;
+  }
+
+  String? _organizationCache;
+  DateTime? _organizationCachedAt;
+  int _organizationGeneration = 0;
+  static const Duration _organizationCacheTtl = Duration(seconds: 20);
+
+  /// Cambió la sesión (inicio, cierre, sesión vencida): el negocio se
+  /// vuelve a leer del almacén en la próxima descarga.
+  void forgetOrganization() {
+    _organizationGeneration++;
+    _organizationCache = null;
+    _organizationCachedAt = null;
   }
 
   static const String _lastBusinessKey = 'full_sync_business_v1';

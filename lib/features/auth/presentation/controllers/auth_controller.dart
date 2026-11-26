@@ -309,6 +309,16 @@ class AuthController extends GetxController {
     _triggerFullSyncWithRetry(attempt: 1);
   }
 
+  /// La sincronización recuerda el negocio en memoria: al cambiar la sesión
+  /// debe volver a leerlo.
+  void _forgetSyncBusiness() {
+    try {
+      if (Get.isRegistered<FullSyncService>()) {
+        Get.find<FullSyncService>().forgetOrganization();
+      }
+    } catch (_) {}
+  }
+
   /// FullSync con reintento exponencial. Antes era fire-and-forget: si fallaba
   /// (Bad Gateway, timeout) el dashboard quedaba vacío hasta el próximo
   /// arranque. Ahora reintenta hasta 3 veces con backoff (4s, 16s, 60s).
@@ -582,6 +592,7 @@ class AuthController extends GetxController {
             return;
           }
 
+          _forgetSyncBusiness();
           _isAuthenticated.value = true;
           _currentUser.value = authResult.user;
 
@@ -591,6 +602,7 @@ class AuthController extends GetxController {
           final canUseThisDevice =
               await _handleTenantSwitchIfNeeded(authResult.user);
           if (!canUseThisDevice) {
+            _forgetSyncBusiness();
             _isAuthenticated.value = false;
             _currentUser.value = null;
             await _showPendingOperationsFromOtherBusiness();
@@ -807,6 +819,7 @@ class AuthController extends GetxController {
       // (éxito o fallo del backend) para garantizar que los datos
       // sensibles se borren del dispositivo aunque la red haya caído.
       Future<void> doLocalCleanup({required bool navigate}) async {
+        _forgetSyncBusiness();
         _isAuthenticated.value = false;
         _currentUser.value = null;
 
@@ -899,6 +912,7 @@ class AuthController extends GetxController {
     final userId = _currentUser.value?.id;
 
     // 2. Actualizar estado reactivo inmediatamente → UI reacciona al instante
+    _forgetSyncBusiness();
     _isAuthenticated.value = false;
     _currentUser.value = null;
 
@@ -1170,6 +1184,7 @@ class AuthController extends GetxController {
         }
       });
     } catch (e) {
+      _forgetSyncBusiness();
       _isAuthenticated.value = false;
     }
   }
