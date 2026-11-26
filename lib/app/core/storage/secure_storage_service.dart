@@ -11,7 +11,9 @@ import '../../config/constants/api_constants.dart';
 import '../ops/ops_reporter.dart';
 import '../security/offline_password_hasher.dart';
 import 'secure_store_migration.dart';
+import 'durable_prefs_store.dart';
 import 'session_startup_trace.dart';
+import 'session_vault.dart';
 import 'value_protector.dart';
 
 /// Cifrador simétrico ligero para el fallback de SharedPreferences en macOS
@@ -153,6 +155,7 @@ class SecureStorageService {
   @visibleForTesting
   static void debugSimulateRestart() {
     _vaultSeeded.clear();
+    _vaultInstance = null;
     _windowsDecision = null;
     _useSharedPreferences = false;
     _keychainTested = false;
@@ -172,22 +175,13 @@ class SecureStorageService {
   // Windows (DPAPI: solo este usuario en este equipo lo puede leer), y se
   // usa cuando el almacén seguro no devuelve nada.
 
-  static const String _vaultPrefix = 'vault_';
-
-  /// Lo que hace falta para seguir con la sesión abierta.
-  static bool _isVaulted(String key) =>
-      key == ApiConstants.tokenKey ||
-      key == ApiConstants.refreshTokenKey ||
-      key == ApiConstants.userKey ||
-      key == _offlineCredentialsKey ||
-      key == _deviceIdKey ||
-      key == _lastUserIdKey ||
-      key == 'tenant_slug' ||
-      key == 'current_organization';
-
   /// Solo para pruebas: cifrador de la copia protegida (en la app, DPAPI).
   @visibleForTesting
   static ValueProtector? debugProtector;
+
+  /// Solo para pruebas: archivo que anula la copia.
+  @visibleForTesting
+  static File? debugRevokedFlag;
 
   static ValueProtector? get _protector {
     if (debugProtector != null) return debugProtector;
@@ -195,34 +189,57 @@ class SecureStorageService {
     return DpapiProtector.isSupported ? const DpapiProtector() : null;
   }
 
-  static Future<void> _vaultWrite(String key, String value) async {
+  static SessionVault? _vaultInstance;
+  static ValueProtector? _vaultProtector;
+
+  /// La copia protegida (ver `session_vault.dart`), o null donde no aplica.
+  static Future<SessionVault?> _vault() async {
     final protector = _protector;
-    if (protector == null || !_isVaulted(key)) return;
+    if (protector == null) return null;
+    if (_vaultInstance != null && identical(_vaultProtector, protector)) {
+      return _vaultInstance;
+    }
+    File? flag = debugRevokedFlag;
+    if (flag == null && debugProtector == null && Platform.isWindows) {
+      try {
+        final dir = await getApplicationSupportDirectory();
+        flag = File('${dir.path}${Platform.pathSeparator}sesion_copia_anulada');
+      } catch (_) {}
+    }
+    _vaultProtector = protector;
+    return _vaultInstance = SessionVault(protector: protector, revokedFlag: flag);
+  }
+
+  static Future<void> _vaultWrite(String key, String value) async {
     try {
-      final stored = protector.protect(value);
-      if (stored == null) return;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('$_vaultPrefix$key', stored);
+      await (await _vault())?.write(key, value);
     } catch (_) {}
   }
 
   static Future<String?> _vaultRead(String key) async {
-    final protector = _protector;
-    if (protector == null || !_isVaulted(key)) return null;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getString('$_vaultPrefix$key');
-      return stored == null ? null : protector.unprotect(stored);
+      return await (await _vault())?.read(key);
     } catch (_) {
       return null;
     }
   }
 
   static Future<void> _vaultDelete(String key) async {
-    if (_protector == null || !_isVaulted(key)) return;
+    final vault = await _vault();
+    if (vault == null || !SessionVault.handles(key)) return;
+    await vault.delete(key);
+  }
+
+  static bool _closesSession(String key) =>
+      key == ApiConstants.tokenKey ||
+      key == ApiConstants.refreshTokenKey ||
+      key == ApiConstants.userKey;
+
+  /// Tras cerrar sesión: que ni la copia `.bak` de las preferencias ni los
+  /// archivos dañados apartados conserven la sesión cerrada.
+  static Future<void> _scrubPrefsHistory() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('$_vaultPrefix$key');
+      await installedDurablePrefs?.scrubHistory();
     } catch (_) {}
   }
 
@@ -455,10 +472,9 @@ class SecureStorageService {
   /// Sesiones abiertas antes de existir la copia protegida: se copia lo
   /// que el almacén seguro sí devolvió, una vez por arranque.
   static Future<void> _seedVault(String key, String value) async {
-    if (_protector == null || !_isVaulted(key) || !_vaultSeeded.add(key)) return;
+    if (!SessionVault.handles(key) || !_vaultSeeded.add(key)) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      if (!prefs.containsKey('$_vaultPrefix$key')) await _vaultWrite(key, value);
+      await (await _vault())?.seed(key, value);
     } catch (_) {}
   }
 
@@ -479,6 +495,16 @@ class SecureStorageService {
 
   /// Wrapper para eliminar datos con fallback
   static Future<void> _deleteSecure(String key) async {
+    try {
+      await _deleteSecureNow(key);
+    } finally {
+      // Después de borrar de todos lados: que los archivos viejos de
+      // preferencias no conserven la sesión cerrada.
+      if (_closesSession(key)) await _scrubPrefsHistory();
+    }
+  }
+
+  static Future<void> _deleteSecureNow(String key) async {
     await _vaultDelete(key);
     if (await _shouldUseSharedPreferences()) {
       try {
@@ -749,6 +775,7 @@ class SecureStorageService {
         try { await _storage.delete(key); } catch (_) {}
       }
     }
+      await _scrubPrefsHistory();
   }
 
   /// Obtener todas las claves
@@ -945,6 +972,11 @@ class SecureStorageService {
     Map<String, dynamic>? organization,
   }) async {
     try {
+      // Sesión nueva: la copia protegida empieza de cero, para que no
+      // quede nada del usuario o negocio anterior.
+      try {
+        await (await _vault())?.resetSession();
+      } catch (_) {}
       await saveToken(token);
       if (refreshToken != null) {
         await saveRefreshToken(refreshToken);
@@ -957,6 +989,21 @@ class SecureStorageService {
       }
       if (organization != null) {
         await saveCurrentOrganization(organization);
+      } else {
+        // El inicio de sesión no trajo el negocio: si el guardado es de
+        // OTRO negocio (sesión anterior), no puede quedar junto al token
+        // nuevo.
+        final userOrg = userData['organizationId']?.toString();
+        if (userOrg != null && userOrg.isNotEmpty) {
+          try {
+            final stored = await getCurrentOrganization();
+            if (stored != null && stored['id']?.toString() != userOrg) {
+              await deleteCurrentOrganization();
+            }
+          } catch (_) {
+            await deleteCurrentOrganization();
+          }
+        }
       }
     } catch (e) {
       throw Exception('Error al guardar datos de autenticación: $e');

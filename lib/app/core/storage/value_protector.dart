@@ -24,7 +24,11 @@ abstract class ValueProtector {
 class DpapiProtector implements ValueProtector {
   const DpapiProtector();
 
-  static const _prefix = 'dpapi:v1:';
+  static const _prefix = 'dpapi:v2:';
+
+  /// Entropía propia de Baudex: otro programa del mismo usuario que solo
+  /// llame a DPAPI no descifra estos datos sin conocerla.
+  static const _entropy = 'baudex-desktop|copia-de-sesion|v2|7c1f0d5e9a';
 
   /// Disponible solo en Windows.
   static bool get isSupported => Platform.isWindows;
@@ -51,30 +55,45 @@ class DpapiProtector implements ValueProtector {
 
   Uint8List? _crypt(Uint8List input, {required bool protect}) {
     if (!isSupported) return null;
+    final entropyBytes = utf8.encode(_entropy);
     final inBlob = calloc<CRYPT_INTEGER_BLOB>();
     final outBlob = calloc<CRYPT_INTEGER_BLOB>();
+    final entropyBlob = calloc<CRYPT_INTEGER_BLOB>();
     final buffer = calloc<Uint8>(input.isEmpty ? 1 : input.length);
+    final entropy = calloc<Uint8>(entropyBytes.length);
     try {
       buffer.asTypedList(input.length).setAll(0, input);
+      entropy.asTypedList(entropyBytes.length).setAll(0, entropyBytes);
       inBlob.ref
         ..cbData = input.length
         ..pbData = buffer;
+      entropyBlob.ref
+        ..cbData = entropyBytes.length
+        ..pbData = entropy;
       // 0x1 = CRYPTPROTECT_UI_FORBIDDEN: nunca abrir ventanas.
       final ok = protect
-          ? CryptProtectData(inBlob, nullptr, nullptr, nullptr, nullptr, 0x1, outBlob)
-          : CryptUnprotectData(inBlob, nullptr, nullptr, nullptr, nullptr, 0x1, outBlob);
+          ? CryptProtectData(inBlob, nullptr, entropyBlob, nullptr, nullptr, 0x1, outBlob)
+          : CryptUnprotectData(inBlob, nullptr, entropyBlob, nullptr, nullptr, 0x1, outBlob);
       if (ok == 0 || outBlob.ref.pbData == nullptr) return null;
-      final result = Uint8List.fromList(
-        outBlob.ref.pbData.asTypedList(outBlob.ref.cbData),
-      );
+      final view = outBlob.ref.pbData.asTypedList(outBlob.ref.cbData);
+      final result = Uint8List.fromList(view);
+      // No dejar el valor en claro en memoria nativa.
+      view.fillRange(0, view.length, 0);
       LocalFree(outBlob.ref.pbData);
       return result;
     } catch (_) {
       return null;
     } finally {
+      buffer.asTypedList(input.isEmpty ? 1 : input.length).fillRange(
+        0,
+        input.isEmpty ? 1 : input.length,
+        0,
+      );
       calloc.free(buffer);
+      calloc.free(entropy);
       calloc.free(inBlob);
       calloc.free(outBlob);
+      calloc.free(entropyBlob);
     }
   }
 }

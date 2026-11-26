@@ -9,10 +9,18 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
-const String probeOrganizationId = '0a000000-0000-4000-8000-000000000001';
-const String probeUserId = '0b000000-0000-4000-8000-000000000001';
-const String probeBusiness = 'Tienda de Medición';
-const String probeEmail = 'caja@medicion.test';
+/// BAUDEX_PROBE_NEGOCIO=b cambia de usuario y de negocio (para probar que
+/// no se mezcla la sesión de dos negocios). Se lee del entorno porque el
+/// servidor corre en otro hilo.
+bool get _negocioB => Platform.environment['BAUDEX_PROBE_NEGOCIO'] == 'b';
+String get probeOrganizationId => _negocioB
+    ? '0a000000-0000-4000-8000-000000000002'
+    : '0a000000-0000-4000-8000-000000000001';
+String get probeUserId => _negocioB
+    ? '0b000000-0000-4000-8000-000000000002'
+    : '0b000000-0000-4000-8000-000000000001';
+String get probeBusiness => _negocioB ? 'Tienda B de Medición' : 'Tienda de Medición';
+String get probeEmail => _negocioB ? 'caja@medicion-b.test' : 'caja@medicion.test';
 const String probePassword = 'Medicion#2026';
 
 /// Lo que el servidor le cuenta a la app por cada petición atendida.
@@ -170,7 +178,7 @@ Map<String, dynamic> _user() => {
       'createdAt': _stamp(0),
       'updatedAt': _stamp(0),
       'organizationId': probeOrganizationId,
-      'organizationSlug': 'medicion',
+      'organizationSlug': _negocioB ? 'medicion-b' : 'medicion',
       'organizationName': probeBusiness,
     };
 
