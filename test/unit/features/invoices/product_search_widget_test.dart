@@ -279,11 +279,15 @@ void main() {
     localLookup = (_) => never.future;
     await expectInstantOption(tester);
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump(const Duration(milliseconds: 260));
+    // El diálogo ya no espera a la base: sale a un cuadro (antes, 250 ms).
+    await tester.pump(const Duration(milliseconds: 16));
     await tester.pump();
     expect(find.text('Nombre en la factura'), findsOneWidget);
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(find.text('Nombre en la factura'), findsNothing);
+    // La espera por la base (250 ms como mucho) quedó después del diálogo.
+    await tester.pump(const Duration(milliseconds: 260));
     expect(added.single, startsWith('temp_'));
     await tester.pump(const Duration(seconds: 1));
   });
