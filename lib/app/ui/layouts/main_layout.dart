@@ -16,6 +16,9 @@ class MainLayout extends StatelessWidget {
   final bool showDrawer;
   final IconData drawerIcon;
 
+  /// Qué hacer al tocar la flecha de volver. Si es null, `AppNav.back()`.
+  final VoidCallback? onBack;
+
   const MainLayout({
     super.key,
     required this.title,
@@ -28,6 +31,7 @@ class MainLayout extends StatelessWidget {
     this.showBackButton = false, // Por defecto false para mostrar drawer
     this.showDrawer = true,
     this.drawerIcon = Icons.menu,
+    this.onBack,
   });
 
   @override
@@ -67,7 +71,7 @@ class MainLayout extends StatelessWidget {
                 color: Colors.white,
                 size: 20,
               ),
-              onPressed: () => AppNav.back(),
+              onPressed: onBack ?? () => AppNav.back(),
               tooltip: 'Volver',
             )
           : (showDrawer

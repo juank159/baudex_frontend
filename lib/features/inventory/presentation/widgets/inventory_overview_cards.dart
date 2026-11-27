@@ -1,7 +1,7 @@
 // lib/features/inventory/presentation/widgets/inventory_overview_cards.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../controllers/inventory_controller.dart';
 import '../screens/inventory_dashboard_screen.dart';
@@ -52,7 +52,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
         value: stats?.totalProducts.toString() ?? '0',
         subtitle: 'en inventario',
         icon: Icons.inventory_2,
-        color: Colors.blue,
+        color: ElegantLightTheme.primaryBlue,
       ),
       _buildOverviewCard(
         context: context,
@@ -60,7 +60,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
         value: AppFormatters.formatCurrency(stats?.totalValue ?? 0.0),
         subtitle: 'valoración actual',
         icon: Icons.monetization_on,
-        color: Colors.green,
+        color: ElegantLightTheme.successGreen,
       ),
       _buildOverviewCard(
         context: context,
@@ -68,7 +68,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
         value: stats?.movementsToday.toString() ?? '0',
         subtitle: 'entradas y salidas',
         icon: Icons.swap_horiz,
-        color: Colors.orange,
+        color: ElegantLightTheme.warningOrange,
       ),
       _buildOverviewCard(
         context: context,
@@ -76,7 +76,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
         value: ((stats?.lowStockCount ?? 0) + (stats?.expiredCount ?? 0)).toString(),
         subtitle: 'requieren atención',
         icon: Icons.warning,
-        color: Colors.red,
+        color: ElegantLightTheme.errorRed,
       ),
     ];
   }
@@ -94,10 +94,13 @@ class InventoryOverviewCards extends GetView<InventoryController> {
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
     
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
+    // Tarjeta con el tema de la app (antes `Card` de Material).
+    return Container(
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Padding(
         padding: EdgeInsets.all(isMobile ? 10 : isTablet ? 8 : 10), // AUMENTADO: desktop 6→10 para mejor espacio
@@ -123,7 +126,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
                     child: Text(
                       title,
                       style: Get.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: ElegantLightTheme.textSecondary,
                         fontWeight: FontWeight.w500,
                         fontSize: UnifiedTypography.getCardTitleSize(screenWidth), // Sistema unificado
                       ),
@@ -138,7 +141,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
                 value,
                 style: Get.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: ElegantLightTheme.textPrimary,
                   fontSize: UnifiedTypography.getCardValueSize(screenWidth),
                 ),
                 maxLines: 1,
@@ -148,7 +151,7 @@ class InventoryOverviewCards extends GetView<InventoryController> {
               Text(
                 subtitle,
                 style: Get.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: ElegantLightTheme.textSecondary,
                   fontSize: UnifiedTypography.getCardSubtitleSize(screenWidth),
                 ),
                 maxLines: 2,

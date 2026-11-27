@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/kardex_controller.dart';
+import 'inventory_states.dart';
 
 class KardexSummaryCards extends GetView<KardexController> {
   const KardexSummaryCards({super.key});
@@ -65,7 +66,9 @@ class KardexSummaryCards extends GetView<KardexController> {
               final card = cards[index];
               return _buildCompactSummaryCard(
                 title: card['title'],
-                value: card['value'],
+                value: card['value'] is String
+                    ? formatInventoryQuantityText(card['value'])
+                    : card['value'],
                 subtitle: card['subtitle'],
                 icon: card['icon'],
                 color: card['color'],
@@ -190,11 +193,11 @@ class KardexSummaryCards extends GetView<KardexController> {
   }
 
   LinearGradient _getElegantGradientForColor(Color color) {
-    if (color == Colors.blue) {
+    if (color == ElegantLightTheme.primaryBlue) {
       return ElegantLightTheme.primaryGradient;
-    } else if (color == Colors.green) {
+    } else if (color == ElegantLightTheme.successGreen) {
       return ElegantLightTheme.successGradient;
-    } else if (color == Colors.red) {
+    } else if (color == ElegantLightTheme.errorRed) {
       return ElegantLightTheme.errorGradient;
     } else if (color == Colors.purple) {
       return ElegantLightTheme.infoGradient;

@@ -7,6 +7,7 @@ import '../../../categories/domain/usecases/get_categories_usecase.dart';
 import '../controllers/inventory_balance_controller.dart';
 import '../../domain/entities/warehouse.dart';
 import '../../domain/usecases/get_warehouses_usecase.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryBalanceFilters extends StatefulWidget {
   const InventoryBalanceFilters({super.key});
@@ -74,7 +75,7 @@ class _InventoryBalanceFiltersState extends State<InventoryBalanceFilters> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: ElegantLightTheme.surfaceColor,
         border: Border(
           bottom: BorderSide(
             color: AppColors.borderColor,
@@ -213,9 +214,9 @@ class _InventoryBalanceFiltersState extends State<InventoryBalanceFilters> {
                   size: 16,
                   color: controller.showLowStock.value 
                       ? Colors.white 
-                      : Colors.orange,
+                      : ElegantLightTheme.warningOrange,
                 ),
-                selectedColor: Colors.orange,
+                selectedColor: ElegantLightTheme.warningOrange,
                 checkmarkColor: Colors.white,
               )),
               
@@ -228,9 +229,9 @@ class _InventoryBalanceFiltersState extends State<InventoryBalanceFilters> {
                   size: 16,
                   color: controller.showOutOfStock.value 
                       ? Colors.white 
-                      : Colors.red,
+                      : ElegantLightTheme.errorRed,
                 ),
-                selectedColor: Colors.red,
+                selectedColor: ElegantLightTheme.errorRed,
                 checkmarkColor: Colors.white,
               )),
               
@@ -243,9 +244,9 @@ class _InventoryBalanceFiltersState extends State<InventoryBalanceFilters> {
                   size: 16,
                   color: controller.showWithStock.value 
                       ? Colors.white 
-                      : Colors.green,
+                      : ElegantLightTheme.successGreen,
                 ),
-                selectedColor: Colors.green,
+                selectedColor: ElegantLightTheme.successGreen,
                 checkmarkColor: Colors.white,
               )),
               
@@ -258,9 +259,9 @@ class _InventoryBalanceFiltersState extends State<InventoryBalanceFilters> {
                   size: 16,
                   color: controller.showExpired.value 
                       ? Colors.white 
-                      : Colors.red.shade800,
+                      : ElegantLightTheme.errorRed,
                 ),
-                selectedColor: Colors.red.shade800,
+                selectedColor: ElegantLightTheme.errorRed,
                 checkmarkColor: Colors.white,
               )),
             ],

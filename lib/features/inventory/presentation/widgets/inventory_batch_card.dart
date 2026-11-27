@@ -1,9 +1,9 @@
 // lib/features/inventory/presentation/widgets/inventory_batch_card.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_batch.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryBatchCard extends StatelessWidget {
   final InventoryBatch batch;
@@ -25,16 +25,19 @@ class InventoryBatchCard extends StatelessWidget {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 900;
     
-    return Card(
-      elevation: 1,
-      margin: EdgeInsets.symmetric(
-        vertical: 2,
-        horizontal: 0,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(isMobile ? 10 : 14),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.25),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(isMobile ? 8 : 12),
-      ),
-      child: InkWell(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(isMobile ? 8 : 12),
         child: Padding(
@@ -60,7 +63,7 @@ class InventoryBatchCard extends StatelessWidget {
                         Text(
                           'Entrada: ${_formatDate(batch.entryDate)}',
                           style: Get.textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: ElegantLightTheme.textSecondary,
                             fontSize: isMobile ? 8 : 9,
                           ),
                         ),
@@ -115,7 +118,7 @@ class InventoryBatchCard extends StatelessWidget {
                       'Cantidad Original',
                       '${batch.originalQuantity}',
                       Icons.inventory_2,
-                      AppColors.textPrimary,
+                      ElegantLightTheme.textPrimary,
                     ),
                   ),
                   Expanded(
@@ -131,7 +134,7 @@ class InventoryBatchCard extends StatelessWidget {
                       'Consumido',
                       '${batch.consumedQuantity}',
                       Icons.trending_down,
-                      Colors.orange,
+                      ElegantLightTheme.warningOrange,
                     ),
                   ),
                 ],
@@ -149,7 +152,7 @@ class InventoryBatchCard extends StatelessWidget {
                         'Costo Unit.',
                         AppFormatters.formatCurrency(batch.unitCost),
                         Icons.monetization_on,
-                        AppColors.primary,
+                        ElegantLightTheme.primaryBlue,
                       ),
                     ),
                     Expanded(
@@ -157,7 +160,7 @@ class InventoryBatchCard extends StatelessWidget {
                         'Valor Actual',
                         AppFormatters.formatCurrency(batch.currentValue),
                         Icons.account_balance_wallet,
-                        AppColors.primary,
+                        ElegantLightTheme.primaryBlue,
                       ),
                     ),
                   ],
@@ -170,7 +173,7 @@ class InventoryBatchCard extends StatelessWidget {
                         'Costo Unitario',
                         AppFormatters.formatCurrency(batch.unitCost),
                         Icons.monetization_on,
-                        AppColors.primary,
+                        ElegantLightTheme.primaryBlue,
                       ),
                     ),
                     Expanded(
@@ -178,7 +181,7 @@ class InventoryBatchCard extends StatelessWidget {
                         'Valor Actual',
                         AppFormatters.formatCurrency(batch.currentValue),
                         Icons.account_balance_wallet,
-                        AppColors.primary,
+                        ElegantLightTheme.primaryBlue,
                       ),
                     ),
                     Expanded(
@@ -186,7 +189,7 @@ class InventoryBatchCard extends StatelessWidget {
                         'Valor Consumido',
                         AppFormatters.formatCurrency(batch.consumedValue),
                         Icons.payments,
-                        Colors.grey,
+                        ElegantLightTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -204,7 +207,7 @@ class InventoryBatchCard extends StatelessWidget {
                         Text(
                           isMobile ? 'Consumo' : 'Progreso de Consumo',
                           style: Get.textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: ElegantLightTheme.textSecondary,
                             fontSize: isMobile ? 11 : 12,
                           ),
                         ),
@@ -226,7 +229,7 @@ class InventoryBatchCard extends StatelessWidget {
                       ),
                       child: LinearProgressIndicator(
                         value: batch.consumptionPercentage / 100,
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor: ElegantLightTheme.textTertiary.withOpacity(0.3),
                         valueColor: AlwaysStoppedAnimation<Color>(_getConsumptionColor()),
                         borderRadius: BorderRadius.circular(3),
                       ),
@@ -293,7 +296,7 @@ class InventoryBatchCard extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.all(isTablet ? 6 : 8),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: ElegantLightTheme.surfaceColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -306,7 +309,7 @@ class InventoryBatchCard extends StatelessWidget {
                             children: [
                               Icon(
                                 Icons.receipt_long,
-                                color: AppColors.primary,
+                                color: ElegantLightTheme.primaryBlue,
                                 size: isTablet ? 16 : 18,
                               ),
                               SizedBox(width: isTablet ? 6 : 8),
@@ -314,14 +317,14 @@ class InventoryBatchCard extends StatelessWidget {
                                 child: Text(
                                   'Orden: ${batch.purchaseOrderNumber ?? batch.purchaseOrderId}',
                                   style: Get.textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.primary,
+                                    color: ElegantLightTheme.primaryBlue,
                                     fontSize: isTablet ? 12 : 14,
                                   ),
                                 ),
                               ),
                               Icon(
                                 Icons.open_in_new,
-                                color: AppColors.primary,
+                                color: ElegantLightTheme.primaryBlue,
                                 size: 14,
                               ),
                             ],
@@ -337,7 +340,7 @@ class InventoryBatchCard extends StatelessWidget {
                             children: [
                               Icon(
                                 Icons.business,
-                                color: AppColors.primary,
+                                color: ElegantLightTheme.primaryBlue,
                                 size: isTablet ? 16 : 18,
                               ),
                               SizedBox(width: isTablet ? 6 : 8),
@@ -345,14 +348,14 @@ class InventoryBatchCard extends StatelessWidget {
                                 child: Text(
                                   'Proveedor: ${batch.supplierName ?? batch.supplierId}',
                                   style: Get.textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.primary,
+                                    color: ElegantLightTheme.primaryBlue,
                                     fontSize: isTablet ? 12 : 14,
                                   ),
                                 ),
                               ),
                               Icon(
                                 Icons.open_in_new,
-                                color: AppColors.primary,
+                                color: ElegantLightTheme.primaryBlue,
                                 size: 14,
                               ),
                             ],
@@ -367,6 +370,7 @@ class InventoryBatchCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -391,7 +395,7 @@ class InventoryBatchCard extends StatelessWidget {
                   child: Text(
                     label,
                     style: Get.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: ElegantLightTheme.textSecondary,
                       fontSize: isMobile ? 8 : 9,
                     ),
                     maxLines: 2,
@@ -418,11 +422,11 @@ class InventoryBatchCard extends StatelessWidget {
   }
 
   Color _getStatusColor() {
-    if (batch.isExpiredByDate) return Colors.red;
-    if (batch.isNearExpiry) return Colors.orange;
-    if (batch.isConsumed) return Colors.grey;
-    if (batch.isActive) return Colors.green;
-    return Colors.blue;
+    if (batch.isExpiredByDate) return ElegantLightTheme.errorRed;
+    if (batch.isNearExpiry) return ElegantLightTheme.warningOrange;
+    if (batch.isConsumed) return ElegantLightTheme.textTertiary;
+    if (batch.isActive) return ElegantLightTheme.successGreen;
+    return ElegantLightTheme.primaryBlue;
   }
 
   IconData _getStatusIcon() {
@@ -434,23 +438,23 @@ class InventoryBatchCard extends StatelessWidget {
   }
 
   Color _getQuantityColor() {
-    if (batch.currentQuantity == 0) return Colors.red;
-    if (batch.currentQuantity < batch.originalQuantity * 0.3) return Colors.orange;
-    return Colors.green;
+    if (batch.currentQuantity == 0) return ElegantLightTheme.errorRed;
+    if (batch.currentQuantity < batch.originalQuantity * 0.3) return ElegantLightTheme.warningOrange;
+    return ElegantLightTheme.successGreen;
   }
 
   Color _getConsumptionColor() {
     final percentage = batch.consumptionPercentage;
-    if (percentage >= 90) return Colors.red;
-    if (percentage >= 70) return Colors.orange;
-    if (percentage >= 50) return Colors.blue;
-    return Colors.green;
+    if (percentage >= 90) return ElegantLightTheme.errorRed;
+    if (percentage >= 70) return ElegantLightTheme.warningOrange;
+    if (percentage >= 50) return ElegantLightTheme.primaryBlue;
+    return ElegantLightTheme.successGreen;
   }
 
   Color _getExpiryColor() {
-    if (batch.isExpiredByDate) return Colors.red;
-    if (batch.isNearExpiry) return Colors.orange;
-    return Colors.blue;
+    if (batch.isExpiredByDate) return ElegantLightTheme.errorRed;
+    if (batch.isNearExpiry) return ElegantLightTheme.warningOrange;
+    return ElegantLightTheme.primaryBlue;
   }
 
   IconData _getExpiryIcon() {

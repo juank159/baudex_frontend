@@ -1,194 +1,203 @@
 // lib/features/inventory/presentation/screens/inventory_valuation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
+import '../widgets/inventory_states.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../controllers/inventory_balance_controller.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryValuationScreen extends GetView<InventoryBalanceController> {
   const InventoryValuationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          _buildHeaderSection(),
-          Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value &&
-                  controller.valuationData.isEmpty) {
-                return const Center(
+    return MainLayout(
+      title: 'Valoración de inventario',
+      showBackButton: true,
+      showDrawer: false,
+      actions: _buildAppBarActions(),
+      body: ColoredBox(
+        color: ElegantLightTheme.backgroundColor,
+        child: SizedBox.expand(
+          child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 600;
+            return SingleChildScrollView(
+              padding: EdgeInsets.all(narrow ? 12 : 20),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Cargando valoración de inventario...'),
+                      _buildHeaderSection(narrow),
+                      const SizedBox(height: 16),
+                      Obx(() {
+                        if (controller.isLoading.value &&
+                            controller.valuationData.isEmpty) {
+                          return const SizedBox(
+                            height: 260,
+                            child: InventoryLoadingState(
+                              'Cargando valoración de inventario...',
+                            ),
+                          );
+                        }
+
+                        if (controller.error.value.isNotEmpty &&
+                            controller.valuationData.isEmpty) {
+                          return InventoryErrorState(
+                            title: 'No se pudo cargar la valoración',
+                            message: friendlyInventoryError(
+                              controller.error.value,
+                              what: 'la valoración',
+                            ),
+                            onRetry: controller.loadValuation,
+                          );
+                        }
+
+                        return _buildValuationContent(narrow);
+                      }),
                     ],
                   ),
-                );
-              }
-
-              if (controller.error.value.isNotEmpty &&
-                  controller.valuationData.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error, size: 64, color: AppColors.error),
-                      const SizedBox(height: 16),
-                      Text(
-                        controller.error.value,
-                        textAlign: TextAlign.center,
-                        style: Get.textTheme.bodyLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: controller.loadValuation,
-                        child: const Text('Reintentar'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return _buildValuationContent();
-            }),
-          ),
-        ],
+                ),
+              ),
+            );
+          },
+        ),
+        ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text('Valoración de Inventario'),
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      actions: [
-        IconButton(
-          onPressed: () => _showExportOptions(),
-          icon: const Icon(Icons.download),
-          tooltip: 'Exportar',
-        ),
-        PopupMenuButton<String>(
-          onSelected: (value) {
-            switch (value) {
-              case 'refresh':
-                controller.loadValuation();
-                break;
-              case 'filter':
-                _showFilterOptions();
-                break;
-            }
-          },
-          itemBuilder:
-              (context) => [
-                const PopupMenuItem(
-                  value: 'refresh',
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh),
-                      SizedBox(width: 8),
-                      Text('Actualizar'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'filter',
-                  child: Row(
-                    children: [
-                      Icon(Icons.filter_list),
-                      SizedBox(width: 8),
-                      Text('Filtros'),
-                    ],
-                  ),
-                ),
+  List<Widget> _buildAppBarActions() {
+    return [
+      IconButton(
+        onPressed: () => _showExportOptions(),
+        icon: const Icon(Icons.download),
+        tooltip: 'Exportar',
+      ),
+      PopupMenuButton<String>(
+        tooltip: 'Más opciones',
+        onSelected: (value) {
+          switch (value) {
+            case 'refresh':
+              controller.loadValuation();
+              break;
+            case 'filter':
+              _showFilterOptions();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'refresh',
+            child: Row(
+              children: [
+                Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
+                SizedBox(width: 8),
+                Text('Actualizar'),
               ],
-        ),
-      ],
-    );
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'filter',
+            child: Row(
+              children: [
+                Icon(Icons.filter_list, color: ElegantLightTheme.primaryBlue),
+                SizedBox(width: 8),
+                Text('Filtros'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
-  Widget _buildHeaderSection() {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Summary cards
+  BoxDecoration get _cardDecoration => BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      );
+
+  Widget _buildHeaderSection(bool narrow) {
+    final cards = [
+      _buildSummaryCard(
+        title: 'Valor total',
+        value: Obx(
+          () => _summaryValue(
+            AppFormatters.formatCurrency(
+              controller.valuationData['totalValue'] ?? 0,
+            ),
+            ElegantLightTheme.primaryBlue,
+          ),
+        ),
+        icon: Icons.monetization_on,
+        gradient: ElegantLightTheme.primaryGradient,
+      ),
+      _buildSummaryCard(
+        title: 'Productos',
+        value: Obx(
+          () => _summaryValue(
+            AppFormatters.formatNumber(
+              controller.valuationData['totalProducts']?.toInt() ?? 0,
+            ),
+            ElegantLightTheme.primaryBlue,
+          ),
+        ),
+        icon: Icons.inventory,
+        gradient: ElegantLightTheme.infoGradient,
+      ),
+      _buildSummaryCard(
+        title: 'Unidades',
+        value: Obx(
+          () => _summaryValue(
+            AppFormatters.formatNumber(
+              controller.valuationData['totalUnits']?.toInt() ?? 0,
+            ),
+            ElegantLightTheme.successGreen,
+          ),
+        ),
+        icon: Icons.inventory_2,
+        gradient: ElegantLightTheme.successGradient,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (narrow) ...[
+          cards[0],
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildSummaryCard(
-                  title: 'Valor Total',
-                  value: Obx(
-                    () => Text(
-                      controller.valuationData['totalValue'] != null
-                          ? AppFormatters.formatCurrency(
-                            controller.valuationData['totalValue']!,
-                          )
-                          : AppFormatters.formatCurrency(0),
-                      style: Get.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  icon: Icons.monetization_on,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSummaryCard(
-                  title: 'Productos',
-                  value: Obx(
-                    () => Text(
-                      controller.valuationData['totalProducts']
-                              ?.toInt()
-                              .toString() ??
-                          '0',
-                      style: Get.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ),
-                  icon: Icons.inventory,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSummaryCard(
-                  title: 'Unidades',
-                  value: Obx(
-                    () => Text(
-                      controller.valuationData['totalUnits']
-                              ?.toInt()
-                              .toString() ??
-                          '0',
-                      style: Get.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                  icon: Icons.inventory_2,
-                  color: Colors.green,
-                ),
-              ),
+              Expanded(child: cards[1]),
+              const SizedBox(width: 12),
+              Expanded(child: cards[2]),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // Date and warehouse filters
+        ] else
+          Row(
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: 16),
+              Expanded(child: cards[1]),
+              const SizedBox(width: 16),
+              Expanded(child: cards[2]),
+            ],
+          ),
+        const SizedBox(height: 16),
+        if (narrow) ...[
+          _buildDateSelector(),
+          const SizedBox(height: 12),
+          _buildWarehouseFilter(),
+        ] else
           Row(
             children: [
               Expanded(child: _buildDateSelector()),
@@ -196,7 +205,22 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               Expanded(child: _buildWarehouseFilter()),
             ],
           ),
-        ],
+      ],
+    );
+  }
+
+  Widget _summaryValue(String text, Color color) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        maxLines: 1,
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -205,121 +229,194 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
     required String title,
     required Widget value,
     required IconData icon,
-    required Color color,
+    required LinearGradient gradient,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDecoration,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
+          BrebIconBadge(icon: icon, gradient: gradient, size: 20, glow: false),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   title,
-                  style: Get.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: ElegantLightTheme.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 4),
+                value,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBox({
+    required String label,
+    required IconData icon,
+    required Widget value,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: ElegantLightTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: ElegantLightTheme.surfaceColor,
+            border: Border.all(
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.5),
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: ElegantLightTheme.primaryBlue, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: value),
+              const Icon(
+                Icons.arrow_drop_down,
+                color: ElegantLightTheme.textSecondary,
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Align(alignment: Alignment.centerLeft, child: value),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildDateSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Fecha de Valoración',
-          style: Get.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
+    return _buildFilterBox(
+      label: 'Fecha de valoración',
+      icon: Icons.calendar_today,
+      value: Obx(
+        () => Text(
+          controller.selectedDate.value != null
+              ? AppFormatters.formatDate(controller.selectedDate.value!)
+              : 'Hoy',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            color: ElegantLightTheme.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.borderLight),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.calendar_today, color: AppColors.primary, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Obx(
-                  () => Text(
-                    controller.selectedDate.value != null
-                        ? AppFormatters.formatDate(
-                          controller.selectedDate.value!,
-                        )
-                        : 'Seleccionar fecha',
-                    style: Get.textTheme.bodyMedium,
-                  ),
-                ),
-              ),
-              Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildWarehouseFilter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Almacén',
-          style: Get.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
+    return _buildFilterBox(
+      label: 'Almacén',
+      icon: Icons.warehouse,
+      value: Obx(
+        () => Text(
+          controller.selectedWarehouse.value.isNotEmpty
+              ? controller.selectedWarehouse.value
+              : 'Todos los almacenes',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            color: ElegantLightTheme.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+      ),
+    );
+  }
+
+  Widget _buildValuationContent(bool narrow) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Valuation method selector
+        _buildValuationMethodSelector(narrow),
+
+        const SizedBox(height: 16),
+
+        // Results section
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.borderLight),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
+          decoration: _cardDecoration,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.warehouse, color: AppColors.primary, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Obx(
-                  () => Text(
-                    controller.selectedWarehouse.value.isNotEmpty
-                        ? controller.selectedWarehouse.value
-                        : 'Todos los almacenes',
-                    style: Get.textTheme.bodyMedium,
-                  ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const BrebIconBadge(
+                      icon: Icons.analytics,
+                      gradient: ElegantLightTheme.primaryGradient,
+                      size: 18,
+                      glow: false,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Resultados de valoración',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                          ),
+                          Obx(
+                            () => Text(
+                              controller.lastUpdated.value != null
+                                  ? 'Actualizado: ${AppFormatters.formatDateTime(controller.lastUpdated.value!)}'
+                                  : 'Aún sin actualizar',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: ElegantLightTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+              Divider(
+                height: 1,
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.25),
+              ),
+              Obx(() {
+                if (controller.valuationData.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: BrebEmptyState(
+                      icon: Icons.inventory_2_outlined,
+                      message:
+                          'No hay datos de valoración todavía. Cuando haya productos con existencias, aquí verás su valor.',
+                    ),
+                  );
+                }
+
+                return _buildValuationDetails();
+              }),
             ],
           ),
         ),
@@ -327,140 +424,63 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
     );
   }
 
-  Widget _buildValuationContent() {
+  Widget _buildValuationMethodSelector(bool narrow) {
+    final options = [
+      _buildMethodOption(
+        'FIFO',
+        'Primero en entrar, primero en salir',
+        'fifo',
+        Icons.trending_up,
+        narrow,
+      ),
+      _buildMethodOption(
+        'Costo promedio',
+        'Basado en costo promedio ponderado',
+        'average',
+        Icons.analytics,
+        narrow,
+      ),
+      _buildMethodOption(
+        'Último costo',
+        'Basado en el último precio de compra',
+        'latest',
+        Icons.schedule,
+        narrow,
+      ),
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Valuation method selector
-          _buildValuationMethodSelector(),
-
-          const SizedBox(height: 16),
-
-          // Results section
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: Column(
-                children: [
-                  // Results header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.borderLight),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.analytics, color: AppColors.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Resultados de Valoración',
-                          style: Get.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        Obx(
-                          () => Text(
-                            'Actualizado: ${controller.lastUpdated.value != null ? AppFormatters.formatDateTime(controller.lastUpdated.value!) : 'N/A'}',
-                            style: Get.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Results content
-                  Expanded(
-                    child: Obx(() {
-                      if (controller.valuationData.isEmpty) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inventory,
-                                size: 64,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'No hay datos de valoración disponibles',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return _buildValuationDetails();
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildValuationMethodSelector() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Método de Valoración',
-            style: Get.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+          const Text(
+            'Método de valoración',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMethodOption(
-                  'FIFO',
-                  'Primero en entrar, primero en salir',
-                  'fifo',
-                  Icons.trending_up,
-                ),
+          if (narrow)
+            for (var i = 0; i < options.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              options[i],
+            ]
+          else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: options[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: options[1]),
+                  const SizedBox(width: 12),
+                  Expanded(child: options[2]),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMethodOption(
-                  'Costo Promedio',
-                  'Basado en costo promedio ponderado',
-                  'average',
-                  Icons.analytics,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMethodOption(
-                  'Último Costo',
-                  'Basado en el último precio de compra',
-                  'latest',
-                  Icons.schedule,
-                ),
-              ),
-            ],
-          ),
+            ),
         ],
       ),
     );
@@ -471,53 +491,83 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
     String description,
     String method,
     IconData icon,
+    bool narrow,
   ) {
     return Obx(() {
       final isSelected = controller.selectedValuationMethod.value == method;
-
-      return GestureDetector(
-        onTap: () {
-          controller.selectedValuationMethod.value = method;
-          controller.loadValuation();
-        },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color:
-                isSelected
-                    ? AppColors.primary.withOpacity(0.1)
-                    : Colors.transparent,
-            border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.borderLight,
-              width: isSelected ? 2 : 1,
+      final color =
+          isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary;
+      final texts = Column(
+        crossAxisAlignment:
+            narrow ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            textAlign: narrow ? TextAlign.start : TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: isSelected
+                  ? ElegantLightTheme.primaryBlue
+                  : ElegantLightTheme.textPrimary,
             ),
-            borderRadius: BorderRadius.circular(8),
           ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                size: 24,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: Get.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: Get.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+          const SizedBox(height: 2),
+          Text(
+            description,
+            textAlign: narrow ? TextAlign.start : TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              color: ElegantLightTheme.textSecondary,
+            ),
+          ),
+        ],
+      );
+
+      return Material(
+        color: isSelected
+            ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.08)
+            : ElegantLightTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isSelected
+                ? ElegantLightTheme.primaryBlue
+                : ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            controller.selectedValuationMethod.value = method;
+            controller.loadValuation();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: narrow
+                ? Row(
+                    children: [
+                      Icon(icon, color: color, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(child: texts),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          color: ElegantLightTheme.primaryBlue,
+                          size: 20,
+                        ),
+                    ],
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, color: color, size: 24),
+                      const SizedBox(height: 8),
+                      texts,
+                    ],
+                  ),
           ),
         ),
       );
@@ -549,7 +599,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              leading: const Icon(Icons.picture_as_pdf, color: ElegantLightTheme.errorRed),
               title: const Text('Exportar a PDF'),
               subtitle: const Text('Reporte detallado con gráficos'),
               onTap: () {
@@ -558,7 +608,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.table_chart, color: Colors.green),
+              leading: const Icon(Icons.table_chart, color: ElegantLightTheme.successGreen),
               title: const Text('Exportar a Excel'),
               subtitle: const Text('Datos para análisis adicional'),
               onTap: () {
@@ -587,7 +637,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: ElegantLightTheme.textTertiary.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -639,7 +689,9 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
 
     Get.dialog(
       AlertDialog(
-        title: const Text('Rango de Valores'),
+        backgroundColor: ElegantLightTheme.surfaceColor,
+        shape: brebDialogShape,
+        title: brebDialogTitle(Icons.monetization_on, 'Rango de valores'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -651,11 +703,8 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                   child: TextField(
                     controller: minController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Valor mínimo',
-                      border: OutlineInputBorder(),
-                      prefixText: '\$ ',
-                    ),
+                    decoration: brebInputDecoration(label: 'Valor mínimo')
+                        .copyWith(prefixText: '\$ '),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -663,11 +712,8 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                   child: TextField(
                     controller: maxController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Valor máximo',
-                      border: OutlineInputBorder(),
-                      prefixText: '\$ ',
-                    ),
+                    decoration: brebInputDecoration(label: 'Valor máximo')
+                        .copyWith(prefixText: '\$ '),
                   ),
                 ),
               ],
@@ -677,12 +723,14 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
+            style: brebTextButtonStyle(),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
+            style: brebPrimaryButtonStyle(),
             onPressed: () {
               Get.back();
-              Get.snackbar('Filtro aplicado', 'Rango de valores configurado');
+              FuturisticNotifications.showInfo('Filtro aplicado', 'Rango de valores configurado');
             },
             child: const Text('Aplicar'),
           ),

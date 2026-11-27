@@ -1,10 +1,9 @@
 // lib/features/inventory/presentation/services/warehouses_export_service.dart
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/warehouse.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class WarehousesExportService {
   static final DateFormat _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
@@ -21,23 +20,15 @@ class WarehousesExportService {
 
       await _saveFile(csvContent, fileName, 'text/csv');
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Exportación Exitosa',
         'Archivo CSV guardado: $fileName',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.primary.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.primary,
-        icon: Icon(Icons.check_circle, color: Get.theme.colorScheme.primary),
         duration: const Duration(seconds: 3),
       );
     } catch (e) {
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de Exportación',
         'No se pudo exportar: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.error,
-        icon: Icon(Icons.error, color: Get.theme.colorScheme.error),
       );
     }
   }
@@ -97,23 +88,15 @@ class WarehousesExportService {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Exportación Exitosa',
         'Archivo Excel guardado: $fileName',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.primary.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.primary,
-        icon: Icon(Icons.check_circle, color: Get.theme.colorScheme.primary),
         duration: const Duration(seconds: 3),
       );
     } catch (e) {
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de Exportación',
         'No se pudo exportar: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.error,
-        icon: Icon(Icons.error, color: Get.theme.colorScheme.error),
       );
     }
   }
@@ -197,23 +180,15 @@ class WarehousesExportService {
 
       await _saveFile(pdfContent, fileName, 'application/pdf');
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Exportación Exitosa',
         'Reporte PDF guardado: $fileName',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.primary.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.primary,
-        icon: Icon(Icons.check_circle, color: Get.theme.colorScheme.primary),
         duration: const Duration(seconds: 3),
       );
     } catch (e) {
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de Exportación',
         'No se pudo exportar: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.error,
-        icon: Icon(Icons.error, color: Get.theme.colorScheme.error),
       );
     }
   }
@@ -308,13 +283,9 @@ class WarehousesExportService {
       // Simular envío a impresora
       await Future.delayed(const Duration(milliseconds: 1500));
 
-      Get.snackbar(
+      FuturisticNotifications.showInfo(
         'Impresión Enviada',
         'Documento enviado a la impresora (${warehouses.length} almacenes)',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.primary.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.primary,
-        icon: Icon(Icons.print, color: Get.theme.colorScheme.primary),
         duration: const Duration(seconds: 3),
       );
 
@@ -323,13 +294,9 @@ class WarehousesExportService {
           'impresion_almacenes_${_fileNameFormat.format(DateTime.now())}.txt';
       await _saveFile(printContent, fileName, 'text/plain');
     } catch (e) {
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de Impresión',
         'No se pudo imprimir: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
-        colorText: Get.theme.colorScheme.error,
-        icon: Icon(Icons.error, color: Get.theme.colorScheme.error),
       );
     }
   }

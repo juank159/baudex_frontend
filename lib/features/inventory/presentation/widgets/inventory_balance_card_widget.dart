@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_balance.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryBalanceCardWidget extends StatelessWidget {
   final InventoryBalance balance;
@@ -59,7 +60,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
                     icon: Icons.attach_money,
                     label: 'Valor Total',
                     value: AppFormatters.formatCurrency(balance.totalValue),
-                    color: Get.theme.colorScheme.primary,
+                    color: ElegantLightTheme.primaryBlue,
                   ),
                 ),
               ],
@@ -74,7 +75,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
                     icon: Icons.trending_up,
                     label: 'Costo Promedio',
                     value: AppFormatters.formatCurrency(balance.averageCost),
-                    color: Get.theme.colorScheme.secondary,
+                    color: ElegantLightTheme.primaryBlue,
                   ),
                 ),
                 Expanded(
@@ -82,7 +83,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
                     icon: Icons.category,
                     label: 'Categoría',
                     value: balance.categoryName!,
-                    color: Get.theme.colorScheme.tertiary,
+                    color: ElegantLightTheme.textSecondary,
                   ),
                 ),
               ],
@@ -170,7 +171,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
               Text(
                 label,
                 style: Get.textTheme.bodySmall?.copyWith(
-                  color: Get.theme.colorScheme.onSurfaceVariant,
+                  color: ElegantLightTheme.textSecondary,
                   fontSize: 9,
                 ),
               ),
@@ -242,7 +243,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Get.theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: ElegantLightTheme.cardColor.withOpacity(0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -252,7 +253,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
             'FIFO - Lotes activos: $activeLots',
             style: Get.textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Get.theme.colorScheme.onSurfaceVariant,
+              color: ElegantLightTheme.textSecondary,
             ),
           ),
           if (oldestLot != null) ...[
@@ -260,7 +261,7 @@ class InventoryBalanceCardWidget extends StatelessWidget {
             Text(
               'Lote más antiguo: ${AppFormatters.formatDate(oldestLot.entryDate)} - ${oldestLot.quantity} unidades',
               style: Get.textTheme.bodySmall?.copyWith(
-                color: Get.theme.colorScheme.onSurfaceVariant,
+                color: ElegantLightTheme.textSecondary,
               ),
             ),
           ],

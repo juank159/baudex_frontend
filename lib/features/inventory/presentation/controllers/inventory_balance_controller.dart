@@ -10,6 +10,7 @@ import '../../domain/usecases/get_inventory_valuation_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryBalanceController extends GetxController {
   final GetInventoryBalancesUseCase getInventoryBalancesUseCase;
@@ -234,12 +235,9 @@ class InventoryBalanceController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error al cargar inventario', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error al cargar inventario', failure.message)) FuturisticNotifications.showError(
             'Error al cargar inventario',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (paginatedResult) {
@@ -273,12 +271,9 @@ class InventoryBalanceController extends GetxController {
       );
     } catch (e, stackTrace) {
       error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error al cargar inventario', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar inventario', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error al cargar inventario',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -629,7 +624,7 @@ class InventoryBalanceController extends GetxController {
       final allFilteredData = await _getAllFilteredBalances();
 
       if (allFilteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances para compartir con el filtro aplicado',
         );
@@ -641,9 +636,9 @@ class InventoryBalanceController extends GetxController {
         filterInfo: _getFilterInfo(),
         summary: _getSummaryInfo(allFilteredData),
       );
-      Get.snackbar('Éxito', 'Balances compartidos correctamente');
+      FuturisticNotifications.showSuccess('Éxito', 'Balances compartidos correctamente');
     } catch (e) {
-      Get.snackbar('Error', 'Error compartiendo PDF: $e');
+      FuturisticNotifications.showError('Error', 'Error compartiendo PDF: $e');
     } finally {
       isLoading.value = false;
     }
@@ -657,7 +652,7 @@ class InventoryBalanceController extends GetxController {
       final allFilteredData = await _getAllFilteredBalances();
 
       if (allFilteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances para descargar con el filtro aplicado',
         );
@@ -673,24 +668,18 @@ class InventoryBalanceController extends GetxController {
       // Extract just the filename for cleaner notification
       final fileName = filePath.split('/').last;
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga completada',
         'Archivo "$fileName" guardado exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
         duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (e.toString().contains('cancelada por el usuario')) {
-        Get.snackbar('Cancelado', 'Descarga cancelada');
+        FuturisticNotifications.showSuccess('Cancelado', 'Descarga cancelada');
       } else {
-        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) FuturisticNotifications.showError(
           'Error',
           'Error descargando PDF: $e',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
       }
     } finally {
@@ -706,7 +695,7 @@ class InventoryBalanceController extends GetxController {
       final allFilteredData = await _getAllFilteredBalances();
 
       if (allFilteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances para compartir con el filtro aplicado',
         );
@@ -718,9 +707,9 @@ class InventoryBalanceController extends GetxController {
         filterInfo: _getFilterInfo(),
         summary: _getSummaryInfo(allFilteredData),
       );
-      Get.snackbar('Éxito', 'Balances compartidos correctamente');
+      FuturisticNotifications.showSuccess('Éxito', 'Balances compartidos correctamente');
     } catch (e) {
-      Get.snackbar('Error', 'Error compartiendo Excel: $e');
+      FuturisticNotifications.showError('Error', 'Error compartiendo Excel: $e');
     } finally {
       isLoading.value = false;
     }
@@ -734,7 +723,7 @@ class InventoryBalanceController extends GetxController {
       final allFilteredData = await _getAllFilteredBalances();
 
       if (allFilteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances para descargar con el filtro aplicado',
         );
@@ -750,24 +739,18 @@ class InventoryBalanceController extends GetxController {
       // Extract just the filename for cleaner notification
       final fileName = filePath.split('/').last;
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga completada',
         'Archivo "$fileName" guardado exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
         duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (e.toString().contains('cancelada por el usuario')) {
-        Get.snackbar('Cancelado', 'Descarga cancelada');
+        FuturisticNotifications.showSuccess('Cancelado', 'Descarga cancelada');
       } else {
-        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) FuturisticNotifications.showError(
           'Error',
           'Error descargando Excel: $e',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
       }
     } finally {

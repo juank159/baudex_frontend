@@ -10,9 +10,13 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:baudex_desktop/app/config/themes/app_theme.dart';
 import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/features/inventory/domain/entities/inventory_balance.dart';
+import 'package:baudex_desktop/features/inventory/domain/entities/inventory_batch.dart';
+import 'package:baudex_desktop/features/inventory/domain/entities/inventory_movement.dart';
+import 'package:baudex_desktop/features/inventory/domain/entities/kardex_report.dart';
 import 'package:baudex_desktop/features/inventory/domain/entities/warehouse.dart';
 import 'package:baudex_desktop/features/inventory/domain/usecases/calculate_fifo_consumption_usecase.dart';
 import 'package:baudex_desktop/features/inventory/domain/usecases/cancel_inventory_movement_usecase.dart';
@@ -256,9 +260,9 @@ class _WhC extends WarehousesController {
 }
 
 class _WdC extends WarehouseDetailController {
-  _WdC()
+  _WdC([GetWarehouseByIdUseCase? byId])
       : super(
-          getWarehouseByIdUseCase: _WhById(),
+          getWarehouseByIdUseCase: byId ?? _WhById(),
           deleteWarehouseUseCase: _DeleteWh(),
           checkWarehouseHasMovementsUseCase: _HasMov(),
           getActiveWarehousesCountUseCase: _ActiveCount(),
@@ -310,6 +314,84 @@ InventoryBalance _balance(String id, String name, int qty, {double cost = 2500})
       lastUpdated: _now,
     );
 
+InventoryMovement _movement(
+  String id,
+  String name,
+  InventoryMovementType type,
+  InventoryMovementReason reason,
+  int qty, {
+  InventoryMovementStatus status = InventoryMovementStatus.confirmed,
+  String? notes,
+  Map<String, dynamic>? metadata,
+}) =>
+    InventoryMovement(
+      id: id,
+      productId: 'p-$id',
+      productName: name,
+      productSku: 'SKU-$id',
+      type: type,
+      status: status,
+      reason: reason,
+      quantity: qty,
+      unitCost: 2500,
+      totalCost: 2500.0 * qty.abs(),
+      warehouseId: 'w1',
+      warehouseName: 'Bodega Principal',
+      notes: notes,
+      metadata: metadata,
+      userName: 'Cajero 1',
+      movementDate: _now,
+      createdAt: _now,
+      updatedAt: _now,
+    );
+
+final _movements = [
+  // Ajuste que resta 5 (el ajuste trae el signo en la cantidad).
+  _movement('m1', 'Gaseosa Cola 400 ml', InventoryMovementType.adjustment, InventoryMovementReason.damage, -5),
+  // Ajuste que suma 5.
+  _movement('m2', 'Arroz Diana 500 g', InventoryMovementType.adjustment, InventoryMovementReason.adjustment, 5),
+  _movement('m3', 'Detergente en polvo multiusos aroma lavanda bolsa grande 3 kg', InventoryMovementType.inbound, InventoryMovementReason.purchase, 120000),
+  _movement('m4', 'Aceite girasol 1 L', InventoryMovementType.outbound, InventoryMovementReason.sale, 3, status: InventoryMovementStatus.pending),
+];
+
+InventoryBatch _batch(String id, String number, int original, int current, InventoryBatchStatus status, {DateTime? expiry, String? supplier}) =>
+    InventoryBatch(
+      id: id,
+      productId: 'p1',
+      productName: 'Gaseosa Cola 400 ml',
+      productSku: 'SKU-p1',
+      batchNumber: number,
+      originalQuantity: original,
+      currentQuantity: current,
+      consumedQuantity: original - current,
+      unitCost: 2500,
+      totalCost: 2500.0 * current,
+      entryDate: _now.subtract(const Duration(days: 40)),
+      expiryDate: expiry,
+      status: status,
+      supplierId: supplier == null ? null : 's1',
+      supplierName: supplier,
+      warehouseId: 'w1',
+      warehouseName: 'Bodega Principal',
+      createdAt: _now,
+      updatedAt: _now,
+    );
+
+KardexMovement _kmov(int day, String number, String type, String desc, double inQ, double outQ, double balance) => KardexMovement(
+      date: DateTime(2026, 11, day, 10),
+      movementNumber: number,
+      movementType: type,
+      description: desc,
+      entryQuantity: inQ,
+      exitQuantity: outQ,
+      balance: balance,
+      unitCost: 2500,
+      entryCost: inQ * 2500,
+      exitCost: outQ * 2500,
+      balanceValue: balance * 2500,
+      createdBy: 'Cajero 1',
+    );
+
 void main() {
   if (_out == null) {
     test('imágenes de Inventario (omitida: falta BAUDEX_VISUAL_OUT)', () {}, skip: 'Solo para revisión visual');
@@ -346,7 +428,36 @@ void main() {
         key: boundaryKey,
         child: GetMaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+          // El mismo tema que usa la app (main.dart). El título de la barra
+          // no fija fuente (en el equipo usa la del sistema); aquí se le
+          // pone Roboto para que no salga en cuadros.
+          theme: AppTheme.lightTheme.copyWith(
+            appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+              titleTextStyle: AppTheme.lightTheme.appBarTheme.titleTextStyle
+                  ?.copyWith(fontFamily: 'Roboto'),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: AppTheme.lightTheme.elevatedButtonTheme.style?.copyWith(
+                textStyle: const WidgetStatePropertyAll(
+                  TextStyle(fontFamily: 'Roboto', fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: AppTheme.lightTheme.outlinedButtonTheme.style?.copyWith(
+                textStyle: const WidgetStatePropertyAll(
+                  TextStyle(fontFamily: 'Roboto', fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: AppTheme.lightTheme.textButtonTheme.style?.copyWith(
+                textStyle: const WidgetStatePropertyAll(
+                  TextStyle(fontFamily: 'Roboto', fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
           home: home,
         ),
       );
@@ -521,6 +632,15 @@ void main() {
     c.outOfStockProducts.assignAll([data[2]]);
     await both(tester, 'tablero-2-con-datos', () => const InventoryDashboardScreen());
     await both(tester, 'lista-2-con-datos', () => const InventoryListScreen());
+    c.movements.assignAll(_movements);
+    c.filteredMovements.assignAll(_movements);
+    c.selectedTab.value = 1;
+    c.error.value = '';
+    await both(tester, 'lista-3-movimientos', () => const InventoryListScreen());
+    c.selectedTab.value = 0;
+    c.error.value = 'Solicitud incorrecta: DioException [bad response]: status 400 null';
+    await both(tester, 'lista-4-error', () => const InventoryListScreen());
+    c.error.value = '';
   });
 
   testWidgets('saldos y valorización', (tester) async {
@@ -535,24 +655,78 @@ void main() {
       _balance('p4', 'Aceite girasol 1 L', 125000, cost: 9800),
     ]);
     await both(tester, 'saldos-2-con-datos', () => const InventoryBalanceScreen());
+    c.valuationData.assignAll({'totalValue': 1225057500.0, 'totalProducts': 4.0, 'totalUnits': 125023.0});
+    await both(tester, 'valorizacion-2-con-datos', () => const InventoryValuationScreen());
+    c.valuationData.clear();
+    c.error.value = 'Solicitud incorrecta: Internal server error';
+    await both(tester, 'valorizacion-3-error', () => const InventoryValuationScreen());
+    c.error.value = '';
     c.isLoading.value = true;
     await both(tester, 'saldos-0-cargando', () => const InventoryBalanceScreen());
   });
 
   testWidgets('lotes, movimientos, kardex', (tester) async {
     tolerateOverflow();
-    Get.put<InventoryBatchesController>(_BatC());
+    final b = Get.put<InventoryBatchesController>(_BatC());
     await both(tester, 'lotes-1-vacio', () => const InventoryBatchesScreen());
-    Get.put<InventoryMovementsController>(_MovC());
+    b.productName.value = 'Gaseosa Cola 400 ml';
+    b.inventoryBatches.assignAll([
+      _batch('b1', 'L-2026-001', 48, 20, InventoryBatchStatus.active, expiry: DateTime(2027, 3, 1), supplier: 'Distribuidora Andina de Bebidas y Alimentos S.A.S.'),
+      _batch('b2', 'L-2026-002', 24, 24, InventoryBatchStatus.active, expiry: DateTime(2026, 12, 5)),
+      _batch('b3', 'L-2025-118', 30, 0, InventoryBatchStatus.depleted),
+      _batch('b4', 'L-2025-090', 12, 4, InventoryBatchStatus.expired, expiry: DateTime(2026, 10, 1)),
+    ]);
+    b.totalFixedItems.value = 4;
+    b.activeBatchesCount.value = 2;
+    b.expiredBatchesCount.value = 1;
+    b.consumedBatchesCount.value = 1;
+    await both(tester, 'lotes-2-con-datos', mobH: 1300, () => const InventoryBatchesScreen());
+    b.inventoryBatches.clear();
+    b.error.value = 'SocketException: Failed host lookup';
+    await both(tester, 'lotes-3-error', () => const InventoryBatchesScreen());
+
+    final m = Get.put<InventoryMovementsController>(_MovC());
     await both(tester, 'movimientos-1-vacio', () => const InventoryMovementsScreen());
-    Get.put<KardexController>(_KarC());
+    m.movements.assignAll(_movements);
+    m.filteredMovements.assignAll(_movements);
+    m.totalItems.value = _movements.length;
+    await both(tester, 'movimientos-2-con-datos', mobH: 1300, () => const InventoryMovementsScreen());
+
+    final k = Get.put<KardexController>(_KarC());
     await both(tester, 'kardex-1-vacio', () => const KardexScreen());
+    k.kardexReport.value = KardexReport(
+      product: const KardexProduct(id: 'p1', name: 'Gaseosa Cola 400 ml', sku: 'SKU-p1', categoryName: 'Bebidas'),
+      period: KardexPeriod(startDate: DateTime(2026, 11, 1), endDate: DateTime(2026, 11, 26)),
+      initialBalance: const KardexBalance(quantity: 20, value: 50000, averageCost: 2500),
+      movements: [
+        _kmov(3, 'MOV-0001', 'purchase', 'Compra a proveedor', 120000, 0, 120020),
+        _kmov(10, 'MOV-0002', 'adjustment', 'Ajuste: mercancía dañada', 0, 5, 120015),
+        _kmov(18, 'MOV-0003', 'transfer_in', 'Traslado desde Punto de venta Centro', 3, 0, 120018),
+        _kmov(25, 'MOV-0004', 'sale', 'Venta factura FV-1024', 0, 18, 120000),
+      ],
+      finalBalance: const KardexBalance(quantity: 120000, value: 300000000, averageCost: 2500),
+      summary: const KardexSummary(totalEntries: 120003, totalExits: 23, totalPurchases: 300000000, totalSales: 54000, averageUnitCost: 2500, totalValue: 300000000),
+    );
+    await both(tester, 'kardex-2-con-datos', mobH: 1600, () => const KardexScreen());
+    k.selectedTab.value = 1;
+    await both(tester, 'kardex-2b-movimientos', mobH: 1300, () => const KardexScreen());
+    k.selectedTab.value = 0;
+    k.kardexReport.value = null;
+    k.error.value = 'Solicitud incorrecta: product not found';
+    await both(tester, 'kardex-3-error', () => const KardexScreen());
   });
 
   testWidgets('traslados y crear traslado', (tester) async {
     tolerateOverflow();
-    Get.put<InventoryTransfersController>(_TrC());
+    final t = Get.put<InventoryTransfersController>(_TrC());
     await both(tester, 'traslados-1-vacio', () => const InventoryTransfersScreen());
+    t.transfers.assignAll([
+      _movement('t1', 'Gaseosa Cola 400 ml', InventoryMovementType.transferOut, InventoryMovementReason.transfer, 12,
+          notes: 'Reposición semanal', metadata: {'fromWarehouseName': 'Bodega Principal', 'toWarehouseName': 'Punto de venta Centro'}),
+      _movement('t2', 'Detergente en polvo multiusos aroma lavanda bolsa grande 3 kg', InventoryMovementType.transferOut, InventoryMovementReason.transfer, 4,
+          status: InventoryMovementStatus.pending, metadata: {'fromWarehouseName': 'Bodega Principal', 'toWarehouseName': 'Bodega de devoluciones y mercancía averiada sede norte'}),
+    ]);
+    await both(tester, 'traslados-2-con-datos', mobH: 1300, () => const InventoryTransfersScreen());
     final c = Get.put<CreateTransferController>(_CtC());
     c.warehouses.assignAll([_wh, _wh2]);
     await both(tester, 'crear-traslado-1-vacio', () => const CreateTransferScreen());
@@ -560,8 +734,18 @@ void main() {
 
   testWidgets('antigüedad', (tester) async {
     tolerateOverflow();
-    Get.put<InventoryAgingController>(_AgC());
+    final a = Get.put<InventoryAgingController>(_AgC());
     await both(tester, 'antiguedad-1-vacia', () => const InventoryAgingReportScreen());
+    a.agingData.assignAll([
+      {'productName': 'Gaseosa Cola 400 ml', 'productSku': 'SKU-p1', 'quantity': 20, 'totalValue': 50000.0, 'averageAgeDays': 12, 'oldestBatchAge': 40, 'newestBatchAge': 3},
+      {'productName': 'Detergente en polvo multiusos aroma lavanda bolsa grande 3 kg', 'productSku': 'SKU-p3', 'quantity': 125000, 'totalValue': 1225000000.0, 'averageAgeDays': 95, 'oldestBatchAge': 210, 'newestBatchAge': 30},
+      {'productName': 'Arroz Diana 500 g', 'productSku': 'SKU-p2', 'quantity': 3, 'totalValue': 7500.0, 'averageAgeDays': 200, 'oldestBatchAge': 380, 'newestBatchAge': 120},
+    ]);
+    a.agingSummary.value = AgingSummary(totalProducts: 3, totalValue: 1225057500, averageAgeDays: 102);
+    await both(tester, 'antiguedad-2-con-datos', mobH: 1300, () => const InventoryAgingReportScreen());
+    a.agingData.clear();
+    a.error.value = 'Solicitud incorrecta: Internal server error';
+    await both(tester, 'antiguedad-3-error', () => const InventoryAgingReportScreen());
   });
 
   testWidgets('almacenes: lista, detalle y formulario', (tester) async {
@@ -576,14 +760,47 @@ void main() {
     when(() => get()).thenAnswer((_) async => const Right([
           _wh,
           _wh2,
-          Warehouse(id: 'w3', name: 'Bodega de devoluciones y mercancía averiada sede norte', code: 'DEV-NORTE-0003', isActive: false, isMainWarehouse: false),
+          Warehouse(
+            id: 'w3',
+            name: 'Bodega de devoluciones y mercancía averiada sede norte',
+            code: 'DEV-NORTE-0003',
+            description: 'Mercancía devuelta por clientes y productos con empaque dañado',
+            address: 'Carrera 45 # 123-67, parque industrial La Estrella, Medellín',
+            isActive: false,
+            isMainWarehouse: false,
+          ),
         ]));
     when(() => stats(any())).thenAnswer((_) async => const Left(ServerFailure('sin datos')));
     Get.put<WarehousesController>(_WhC(get, stats));
+    // La primera toma de escritorio sale cargando; la segunda ya con datos.
+    await both(tester, 'almacenes-0-cargando', () => const WarehousesScreen());
     await both(tester, 'almacenes-2-con-datos', () => const WarehousesScreen());
     Get.put<WarehouseDetailController>(_WdC());
     await both(tester, 'almacen-detalle-1-sin-datos', () => const WarehouseDetailScreen());
-    Get.put<WarehouseFormController>(_WfC());
+    Get.delete<WarehouseDetailController>(force: true);
+
+    // Detalle CON datos: nombre y dirección largos.
+    final byId = _WhById();
+    when(() => byId(any())).thenAnswer((_) async => Right(Warehouse(
+          id: 'w3',
+          name: 'Bodega de devoluciones y mercancía averiada sede norte',
+          code: 'DEV-NORTE-0003',
+          description: 'Mercancía devuelta por clientes y productos con empaque dañado pendientes de revisión',
+          address: 'Carrera 45 # 123-67, bodega 12, parque industrial La Estrella, Medellín',
+          isActive: true,
+          createdAt: _now.subtract(const Duration(days: 120)),
+          updatedAt: _now,
+        )));
+    final wd = Get.put<WarehouseDetailController>(_WdC(byId));
+    await tester.runAsync(() => wd.loadWarehouseDetails());
+    await both(tester, 'almacen-detalle-2-con-datos', mobH: 1400, () => const WarehouseDetailScreen());
+
+    final wf = Get.put<WarehouseFormController>(_WfC());
     await both(tester, 'almacen-form-1-nuevo', () => const WarehouseFormScreen());
+    wf.nameController.text = 'Bodega de devoluciones y mercancía averiada sede norte';
+    wf.codeController.text = 'DEV-NORTE-0003';
+    wf.descriptionController.text = 'Mercancía devuelta por clientes pendiente de revisión';
+    wf.addressController.text = 'Carrera 45 # 123-67, parque industrial La Estrella';
+    await both(tester, 'almacen-form-2-lleno', mobH: 1400, () => const WarehouseFormScreen());
   });
 }

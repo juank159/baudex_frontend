@@ -23,6 +23,7 @@ import '../services/inventory_export_service.dart';
 import '../../domain/entities/inventory_balance.dart';
 import '../widgets/fifo_consumption_widget.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryMovementsController extends GetxController {
   final GetInventoryMovementsUseCase getInventoryMovementsUseCase;
@@ -233,12 +234,9 @@ class InventoryMovementsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (paginatedResult) {
@@ -282,12 +280,9 @@ class InventoryMovementsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (movement) {
@@ -343,21 +338,15 @@ class InventoryMovementsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (movement) {
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Éxito',
             'Movimiento de inventario creado correctamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
           );
 
           _clearForm();
@@ -374,35 +363,26 @@ class InventoryMovementsController extends GetxController {
 
   bool _validateForm() {
     if (selectedProductId.value.isEmpty) {
-      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un producto')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un producto')) FuturisticNotifications.showError(
         'Error',
         'Debe seleccionar un producto',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
       );
       return false;
     }
 
     if (quantity.value <= 0) {
-      if (!AutomaticWork.swallow('Error', 'La cantidad debe ser mayor a cero')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'La cantidad debe ser mayor a cero')) FuturisticNotifications.showError(
         'Error',
         'La cantidad debe ser mayor a cero',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
       );
       return false;
     }
 
     // Validate unit cost when required
     if (_isUnitCostRequired() && unitCost.value <= 0) {
-      if (!AutomaticWork.swallow('Error', 'El costo de compra es requerido para este tipo de movimiento')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'El costo de compra es requerido para este tipo de movimiento')) FuturisticNotifications.showError(
         'Error',
         'El costo de compra es requerido para este tipo de movimiento',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
       );
       return false;
     }
@@ -447,33 +427,24 @@ class InventoryMovementsController extends GetxController {
 
       result.fold(
         (failure) {
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (confirmedMovement) {
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Éxito',
             'Movimiento confirmado correctamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
           );
 
           refreshMovements();
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -488,33 +459,24 @@ class InventoryMovementsController extends GetxController {
 
       result.fold(
         (failure) {
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (cancelledMovement) {
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Éxito',
             'Movimiento cancelado correctamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
           );
 
           refreshMovements();
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -642,19 +604,17 @@ class InventoryMovementsController extends GetxController {
     // Si es una compra y tiene referencia, navegar a la orden de compra
     if (movement.referenceType == 'purchase_order' &&
         movement.referenceId != null) {
-      Get.snackbar(
+      FuturisticNotifications.showInfo(
         'Información',
         'Orden de compra: ${movement.referenceId}',
-        snackPosition: SnackPosition.TOP,
       );
       return;
     }
 
     // Para otros tipos de movimiento, mostrar información general
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       'Información',
       'Movimiento: ${movement.type.name} - ${movement.quantity} unidades',
-      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -814,12 +774,9 @@ class InventoryMovementsController extends GetxController {
             showFifoPreview.value = false;
             return;
           }
-          if (!AutomaticWork.swallow('Error FIFO', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error FIFO', failure.message)) FuturisticNotifications.showError(
             'Error FIFO',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (consumptions) {
@@ -843,12 +800,9 @@ class InventoryMovementsController extends GetxController {
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error inesperado calculando FIFO: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado calculando FIFO: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado calculando FIFO: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isCalculatingFifo.value = false;
@@ -886,12 +840,9 @@ class InventoryMovementsController extends GetxController {
   Future<void> exportMovementsToPdf() async {
     try {
       if (movements.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -899,20 +850,14 @@ class InventoryMovementsController extends GetxController {
       isLoading.value = true;
       await InventoryExportService.exportMovementsToPDF(movements);
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Movimientos exportados a PDF correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando a PDF: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a PDF: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando a PDF: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -922,12 +867,9 @@ class InventoryMovementsController extends GetxController {
   Future<void> exportMovementsToExcel() async {
     try {
       if (movements.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -935,20 +877,14 @@ class InventoryMovementsController extends GetxController {
       isLoading.value = true;
       await InventoryExportService.exportMovementsToExcel(movements);
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Movimientos exportados a Excel correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando a Excel: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a Excel: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando a Excel: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;

@@ -6,6 +6,7 @@ import '../../domain/entities/inventory_batch.dart';
 import '../controllers/inventory_batches_controller.dart';
 import '../../domain/entities/warehouse.dart';
 import '../../domain/usecases/get_warehouses_usecase.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryBatchesFilters extends StatefulWidget {
   const InventoryBatchesFilters({super.key});
@@ -52,7 +53,7 @@ class _InventoryBatchesFiltersState extends State<InventoryBatchesFilters> {
     return Container(
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: ElegantLightTheme.surfaceColor,
         border: Border(
           bottom: BorderSide(
             color: AppColors.borderColor,
@@ -112,7 +113,7 @@ class _InventoryBatchesFiltersState extends State<InventoryBatchesFilters> {
                   controller.showActiveOnly,
                   controller.toggleActiveOnly,
                   Icons.check_circle,
-                  Colors.green,
+                  ElegantLightTheme.successGreen,
                   isMobile,
                 ),
                 _buildFilterChip(
@@ -120,7 +121,7 @@ class _InventoryBatchesFiltersState extends State<InventoryBatchesFilters> {
                   controller.showNearExpiryOnly,
                   controller.toggleNearExpiryOnly,
                   Icons.warning,
-                  Colors.orange,
+                  ElegantLightTheme.warningOrange,
                   isMobile,
                 ),
                 _buildFilterChip(
@@ -128,7 +129,7 @@ class _InventoryBatchesFiltersState extends State<InventoryBatchesFilters> {
                   controller.showExpiredOnly,
                   controller.toggleExpiredOnly,
                   Icons.dangerous,
-                  Colors.red,
+                  ElegantLightTheme.errorRed,
                   isMobile,
                 ),
               ],

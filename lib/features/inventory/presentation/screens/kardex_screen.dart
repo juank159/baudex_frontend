@@ -1,9 +1,10 @@
 // lib/features/inventory/presentation/screens/kardex_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import '../controllers/kardex_controller.dart';
+import '../widgets/inventory_states.dart';
 import '../widgets/kardex_summary_cards.dart';
 import '../widgets/kardex_entries_list.dart';
 import '../widgets/kardex_filters_panel.dart';
@@ -13,8 +14,11 @@ class KardexScreen extends GetView<KardexController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildElegantAppBar(),
+    return Obx(() => MainLayout(
+      title: controller.displayTitle,
+      showBackButton: true,
+      showDrawer: false,
+      actions: _buildAppBarActions(),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -105,7 +109,7 @@ class KardexScreen extends GetView<KardexController> {
           },
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildSummaryTab(double screenWidth) {
@@ -235,7 +239,7 @@ class KardexScreen extends GetView<KardexController> {
                       SizedBox(height: isDesktop ? 16 : 12),
                       _buildElegantSummaryRow(
                         'Movimiento neto',
-                        '${summary.netMovement > 0 ? '+' : ''}${summary.netMovement}',
+                        formatInventoryQuantityText('${summary.netMovement > 0 ? '+' : ''}${summary.netMovement}'),
                         summary.netMovement >= 0
                             ? Icons.trending_up
                             : Icons.trending_down,
@@ -338,25 +342,8 @@ class KardexScreen extends GetView<KardexController> {
     );
   }
 
-  PreferredSizeWidget _buildElegantAppBar() {
-    return AppBar(
-      title: Obx(
-        () => Text(
-          controller.displayTitle,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            shadows: [
-              Shadow(
-                color: Colors.black26,
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
+  List<Widget> _buildAppBarActions() {
+    return [
         // Refresh button
         IconButton(
           onPressed: controller.refreshKardex,
@@ -382,7 +369,7 @@ class KardexScreen extends GetView<KardexController> {
                   value: 'download',
                   child: Row(
                     children: [
-                      Icon(Icons.download, color: AppColors.primary),
+                      Icon(Icons.download, color: ElegantLightTheme.primaryBlue),
                       const SizedBox(width: 8),
                       const Text('Descargar'),
                     ],
@@ -392,7 +379,7 @@ class KardexScreen extends GetView<KardexController> {
                   value: 'share',
                   child: Row(
                     children: [
-                      Icon(Icons.share, color: AppColors.primary),
+                      Icon(Icons.share, color: ElegantLightTheme.primaryBlue),
                       const SizedBox(width: 8),
                       const Text('Compartir'),
                     ],
@@ -400,34 +387,9 @@ class KardexScreen extends GetView<KardexController> {
                 ),
               ],
         ),
-      ],
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              ElegantLightTheme.primaryGradient.colors.first,
-              ElegantLightTheme.primaryGradient.colors.last,
-              ElegantLightTheme.primaryBlue,
-            ],
-            stops: const [0.0, 0.7, 1.0],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-              blurRadius: 8,
-              spreadRadius: 1,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-      ),
-      foregroundColor: Colors.white,
-      elevation: 0,
-      shadowColor: ElegantLightTheme.primaryBlue.withOpacity(0.5),
-    );
+      ];
   }
+
 
   // Estados elegantes
   Widget _buildLoadingState(double screenWidth) {
@@ -504,7 +466,7 @@ class KardexScreen extends GetView<KardexController> {
             ),
             SizedBox(height: isDesktop ? 24 : 20),
             Text(
-              'Error al cargar kardex',
+              'No se pudo cargar el kardex',
               style: Get.textTheme.titleMedium?.copyWith(
                 color: ElegantLightTheme.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -513,7 +475,10 @@ class KardexScreen extends GetView<KardexController> {
             ),
             SizedBox(height: isDesktop ? 16 : 12),
             Text(
-              controller.error.value,
+              friendlyInventoryError(
+                controller.error.value,
+                what: 'el kardex',
+              ),
               style: Get.textTheme.bodyMedium?.copyWith(
                 color: ElegantLightTheme.textSecondary,
                 fontSize: isDesktop ? 16 : 14,
@@ -944,7 +909,7 @@ class KardexScreen extends GetView<KardexController> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, color: color ?? AppColors.textSecondary, size: 20),
+          Icon(icon, color: color ?? ElegantLightTheme.textSecondary, size: 20),
           const SizedBox(width: 12),
           Expanded(child: Text(label, style: Get.textTheme.bodyMedium)),
           Text(
@@ -970,7 +935,7 @@ class KardexScreen extends GetView<KardexController> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, color: color ?? AppColors.textSecondary, size: 18),
+          Icon(icon, color: color ?? ElegantLightTheme.textSecondary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -1016,7 +981,7 @@ class KardexScreen extends GetView<KardexController> {
               Text(
                 label,
                 style: Get.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: ElegantLightTheme.textSecondary,
                   fontSize: 10,
                 ),
               ),
@@ -1053,7 +1018,7 @@ class KardexScreen extends GetView<KardexController> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: ElegantLightTheme.textTertiary.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1068,7 +1033,7 @@ class KardexScreen extends GetView<KardexController> {
             Text(
               'Los archivos se guardarán directamente en tu dispositivo',
               style: Get.textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
+                color: ElegantLightTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -1077,12 +1042,12 @@ class KardexScreen extends GetView<KardexController> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: ElegantLightTheme.successGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.table_chart,
-                  color: Colors.green,
+                  color: ElegantLightTheme.successGreen,
                   size: 20,
                 ),
               ),
@@ -1097,12 +1062,12 @@ class KardexScreen extends GetView<KardexController> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: ElegantLightTheme.errorRed.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.picture_as_pdf,
-                  color: Colors.red,
+                  color: ElegantLightTheme.errorRed,
                   size: 20,
                 ),
               ),
@@ -1135,7 +1100,7 @@ class KardexScreen extends GetView<KardexController> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: ElegantLightTheme.textTertiary.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1150,7 +1115,7 @@ class KardexScreen extends GetView<KardexController> {
             Text(
               'Comparte los archivos por WhatsApp, Email, etc.',
               style: Get.textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
+                color: ElegantLightTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -1159,12 +1124,12 @@ class KardexScreen extends GetView<KardexController> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.table_chart,
-                  color: Colors.blue,
+                  color: ElegantLightTheme.primaryBlue,
                   size: 20,
                 ),
               ),
@@ -1181,12 +1146,12 @@ class KardexScreen extends GetView<KardexController> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
+                  color: ElegantLightTheme.warningOrange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.picture_as_pdf,
-                  color: Colors.orange,
+                  color: ElegantLightTheme.warningOrange,
                   size: 20,
                 ),
               ),

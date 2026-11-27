@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../controllers/inventory_movements_controller.dart';
 import '../../domain/entities/inventory_movement.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryMovementsFilterWidget extends GetView<InventoryMovementsController> {
   const InventoryMovementsFilterWidget({super.key});
@@ -24,7 +24,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.paddingMedium),
@@ -62,12 +62,12 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
           ),
           child: Icon(
             Icons.tune,
-            color: AppColors.primary,
+            color: ElegantLightTheme.primaryBlue,
             size: 20,
           ),
         ),
@@ -80,7 +80,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                 'Filtrar Movimientos',
                 style: Get.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade800,
+                  color: ElegantLightTheme.textPrimary,
                 ),
               ),
               Obx(() {
@@ -89,7 +89,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                   return Text(
                     '${activeFilters['count']} filtros aplicados',
                     style: TextStyle(
-                      color: AppColors.primary,
+                      color: ElegantLightTheme.primaryBlue,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -98,7 +98,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                 return Text(
                   'Personaliza tu búsqueda',
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.textSecondary,
                     fontSize: 12,
                   ),
                 );
@@ -114,9 +114,9 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
     return Container(
       padding: const EdgeInsets.all(AppDimensions.paddingMedium),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: ElegantLightTheme.backgroundColor,
         borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,14 +126,14 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
               Icon(
                 Icons.swap_horiz,
                 size: 18,
-                color: Colors.grey.shade600,
+                color: ElegantLightTheme.textSecondary,
               ),
               const SizedBox(width: AppDimensions.paddingSmall),
               Text(
                 'Tipo de Movimiento',
                 style: Get.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: ElegantLightTheme.textSecondary,
                 ),
               ),
             ],
@@ -148,15 +148,15 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                 label: Text(
                   type.displayType,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                    color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
                 selected: isSelected,
-                selectedColor: AppColors.primary,
+                selectedColor: ElegantLightTheme.primaryBlue,
                 backgroundColor: Colors.white,
                 side: BorderSide(
-                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                  color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textTertiary.withOpacity(0.3),
                 ),
                 onSelected: (selected) {
                   controller.typeFilter.value = selected ? type : null;
@@ -173,9 +173,9 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
     return Container(
       padding: const EdgeInsets.all(AppDimensions.paddingMedium),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: ElegantLightTheme.backgroundColor,
         borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,14 +185,14 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
               Icon(
                 Icons.check_circle_outline,
                 size: 18,
-                color: Colors.grey.shade600,
+                color: ElegantLightTheme.textSecondary,
               ),
               const SizedBox(width: AppDimensions.paddingSmall),
               Text(
                 'Estado',
                 style: Get.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: ElegantLightTheme.textSecondary,
                 ),
               ),
             ],
@@ -207,15 +207,15 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                 label: Text(
                   status.displayStatus,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                    color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
                 selected: isSelected,
-                selectedColor: AppColors.primary,
+                selectedColor: ElegantLightTheme.primaryBlue,
                 backgroundColor: Colors.white,
                 side: BorderSide(
-                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                  color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textTertiary.withOpacity(0.3),
                 ),
                 onSelected: (selected) {
                   controller.statusFilter.value = selected ? status : null;
@@ -232,9 +232,9 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
     return Container(
       padding: const EdgeInsets.all(AppDimensions.paddingMedium),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: ElegantLightTheme.backgroundColor,
         borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,14 +244,14 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
               Icon(
                 Icons.date_range,
                 size: 18,
-                color: Colors.grey.shade600,
+                color: ElegantLightTheme.textSecondary,
               ),
               const SizedBox(width: AppDimensions.paddingSmall),
               Text(
                 'Rango de Fechas',
                 style: Get.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: ElegantLightTheme.textSecondary,
                 ),
               ),
             ],
@@ -266,7 +266,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
               padding: const EdgeInsets.all(AppDimensions.paddingMedium),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
               ),
               child: Row(
@@ -274,7 +274,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                   Icon(
                     Icons.calendar_today,
                     size: 16,
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.textSecondary,
                   ),
                   const SizedBox(width: AppDimensions.paddingSmall),
                   Expanded(
@@ -284,8 +284,8 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                           : 'Fecha inicial',
                       style: TextStyle(
                         color: controller.startDateFilter.value != null
-                            ? Colors.black87
-                            : Colors.grey.shade500,
+                            ? ElegantLightTheme.textPrimary
+                            : ElegantLightTheme.textTertiary,
                         fontWeight: controller.startDateFilter.value != null
                             ? FontWeight.w500
                             : FontWeight.normal,
@@ -307,7 +307,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
               padding: const EdgeInsets.all(AppDimensions.paddingMedium),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
               ),
               child: Row(
@@ -315,7 +315,7 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                   Icon(
                     Icons.calendar_today,
                     size: 16,
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.textSecondary,
                   ),
                   const SizedBox(width: AppDimensions.paddingSmall),
                   Expanded(
@@ -325,8 +325,8 @@ class InventoryMovementsFilterWidget extends GetView<InventoryMovementsControlle
                           : 'Fecha final',
                       style: TextStyle(
                         color: controller.endDateFilter.value != null
-                            ? Colors.black87
-                            : Colors.grey.shade500,
+                            ? ElegantLightTheme.textPrimary
+                            : ElegantLightTheme.textTertiary,
                         fontWeight: controller.endDateFilter.value != null
                             ? FontWeight.w500
                             : FontWeight.normal,

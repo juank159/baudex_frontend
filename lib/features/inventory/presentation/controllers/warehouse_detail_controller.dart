@@ -8,6 +8,7 @@ import '../../domain/usecases/delete_warehouse_usecase.dart';
 import '../../domain/usecases/check_warehouse_has_movements_usecase.dart';
 import '../../domain/usecases/get_active_warehouses_count_usecase.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class WarehouseDetailController extends GetxController {
   // Casos de uso
@@ -97,13 +98,9 @@ class WarehouseDetailController extends GetxController {
       result.fold(
         (failure) {
           _error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            icon: const Icon(Icons.error, color: Colors.red),
           );
         },
         (warehouse) {
@@ -162,26 +159,18 @@ class WarehouseDetailController extends GetxController {
   /// Navegar a los movimientos de este almacén
   void goToWarehouseMovements() {
     // TODO: Implementar cuando exista la pantalla de movimientos por almacén
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       'Próximamente',
       'Vista de movimientos por almacén en desarrollo',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      icon: const Icon(Icons.info, color: Colors.blue),
     );
   }
 
   /// Navegar al inventario de este almacén
   void goToWarehouseInventory() {
     // TODO: Implementar cuando exista la pantalla de inventario por almacén
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       'Próximamente',
       'Vista de inventario por almacén en desarrollo',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      icon: const Icon(Icons.info, color: Colors.blue),
     );
   }
 
@@ -202,13 +191,9 @@ class WarehouseDetailController extends GetxController {
         final activeCount = activeCountResult.fold((l) => 0, (r) => r);
 
         if (activeCount <= 1) {
-          Get.snackbar(
+          FuturisticNotifications.showWarning(
             'No se puede eliminar',
             'No puedes eliminar el único almacén activo del sistema',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.orange.shade100,
-            colorText: Colors.orange.shade800,
-            icon: const Icon(Icons.warning, color: Colors.orange),
           );
           return;
         }
@@ -275,23 +260,15 @@ class WarehouseDetailController extends GetxController {
 
       result.fold(
         (failure) {
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            icon: const Icon(Icons.error, color: Colors.red),
           );
         },
         (success) {
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Éxito',
             'Almacén eliminado correctamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            icon: const Icon(Icons.check, color: Colors.green),
           );
 
           // Regresar a la lista de almacenes
@@ -301,13 +278,9 @@ class WarehouseDetailController extends GetxController {
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     } finally {
       _isLoading.value = false;
@@ -330,13 +303,9 @@ class WarehouseDetailController extends GetxController {
         final activeCount = activeCountResult.fold((l) => 0, (r) => r);
 
         if (activeCount <= 1) {
-          Get.snackbar(
+          FuturisticNotifications.showWarning(
             'No se puede desactivar',
             'No puedes desactivar el único almacén activo del sistema',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.orange.shade100,
-            colorText: Colors.orange.shade800,
-            icon: const Icon(Icons.warning, color: Colors.orange),
           );
           return;
         }
@@ -389,22 +358,14 @@ class WarehouseDetailController extends GetxController {
       _warehouse.value = _warehouse.value!.copyWith(isActive: newStatus);
       _warehouse.refresh();
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Estado del almacén actualizado correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-        icon: const Icon(Icons.check, color: Colors.green),
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error al cambiar estado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error al cambiar estado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error al cambiar estado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     } finally {
       _isLoading.value = false;

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -46,60 +47,18 @@ class _WarehouseFormScreenState extends State<WarehouseFormScreen> {
             Get.back();
           }
         },
-        child: Scaffold(
-          backgroundColor: ElegantLightTheme.backgroundColor,
-          appBar: AppBar(
-            title: Obx(() => Text(
-              warehouseFormController.title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 20,
-                shadows: [
-                  Shadow(
-                    color: Colors.black26,
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-            )),
-            actions: _buildAppBarActions(context),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () async {
-                final canLeave = await warehouseFormController.confirmDiscardChanges();
-                if (canLeave) {
-                  AppNav.back();
-                }
-              },
-              tooltip: 'Volver',
-            ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    ElegantLightTheme.primaryGradient.colors.first,
-                    ElegantLightTheme.primaryGradient.colors.last,
-                    ElegantLightTheme.primaryBlue,
-                  ],
-                  stops: [0.0, 0.7, 1.0],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-            ),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shadowColor: ElegantLightTheme.primaryBlue.withOpacity(0.5),
-          ),
+        // Obx solo para el título (Nuevo / Editar almacén).
+        child: Obx(() => MainLayout(
+          title: warehouseFormController.title,
+          showBackButton: true,
+          showDrawer: false,
+          actions: _buildAppBarActions(context),
+          onBack: () async {
+            final canLeave = await warehouseFormController.confirmDiscardChanges();
+            if (canLeave) {
+              AppNav.back();
+            }
+          },
           body: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -122,7 +81,7 @@ class _WarehouseFormScreenState extends State<WarehouseFormScreen> {
                   ),
                   child: Obx(() {
                     if (warehouseFormController.isLoading) {
-                      return const Center(child: LoadingWidget());
+                      return const Center(child: LoadingWidget(color: ElegantLightTheme.primaryBlue, message: 'Cargando almacén...'));
                     }
 
                     return _buildResponsiveForm(screenWidth, isDesktop, isTablet);
@@ -131,7 +90,7 @@ class _WarehouseFormScreenState extends State<WarehouseFormScreen> {
               },
             ),
           ),
-        ),
+        )),
       );
     } catch (e) {
       // Si el controlador no está disponible, mostrar pantalla de error
@@ -962,38 +921,10 @@ class _WarehouseFormScreenState extends State<WarehouseFormScreen> {
   }
 
   Widget _buildControllerErrorWidget(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ElegantLightTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'Error - Formulario de Almacén',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => AppNav.back(),
-          tooltip: 'Volver',
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                ElegantLightTheme.primaryGradient.colors.first,
-                ElegantLightTheme.primaryGradient.colors.last,
-                ElegantLightTheme.primaryBlue,
-              ],
-              stops: [0.0, 0.7, 1.0],
-            ),
-          ),
-        ),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+    return MainLayout(
+      title: 'Formulario de almacén',
+      showBackButton: true,
+      showDrawer: false,
       body: Center(
         child: Container(
           margin: const EdgeInsets.all(40),

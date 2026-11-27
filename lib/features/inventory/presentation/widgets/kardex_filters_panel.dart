@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/widgets/custom_date_picker.dart';
 import '../controllers/kardex_controller.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class KardexFiltersPanel extends GetView<KardexController> {
   const KardexFiltersPanel({super.key});
@@ -14,7 +15,7 @@ class KardexFiltersPanel extends GetView<KardexController> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: ElegantLightTheme.surfaceColor,
         border: Border(
           bottom: BorderSide(
             color: AppColors.borderColor,
@@ -203,14 +204,14 @@ class KardexFiltersPanel extends GetView<KardexController> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
-          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
+          border: Border.all(color: ElegantLightTheme.primaryBlue.withOpacity(0.3)),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           label,
           style: Get.textTheme.bodySmall?.copyWith(
-            color: AppColors.primary,
+            color: ElegantLightTheme.primaryBlue,
             fontWeight: FontWeight.w600,
           ),
         ),

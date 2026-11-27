@@ -1,10 +1,9 @@
 // lib/features/inventory/presentation/screens/warehouses_screen.dart
 import 'package:baudex_desktop/features/inventory/domain/entities/warehouse_with_stats.dart';
-import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
-import '../../../../app/shared/widgets/spectacular_floating_action_button.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/warehouses_controller.dart';
@@ -38,71 +37,16 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
   @override
   Widget build(BuildContext context) {
     try {
-      final warehousesController = Get.find<WarehousesController>();
+      // Lanza si el controlador no está registrado (ver catch).
+      Get.find<WarehousesController>();
       
-      return Scaffold(
-        backgroundColor: ElegantLightTheme.backgroundColor,
-        appBar: AppBar(
-          title: const Text(
-            'Gestión de Almacenes',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-          actions: _buildAppBarActions(context),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => AppNav.back(),
-            tooltip: 'Volver',
-          ),
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  ElegantLightTheme.primaryGradient.colors.first,
-                  ElegantLightTheme.primaryGradient.colors.last,
-                  ElegantLightTheme.primaryBlue,
-                ],
-                stops: [0.0, 0.7, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: ElegantLightTheme.primaryBlue.withOpacity(0.5),
-        ),
-        floatingActionButton: LayoutBuilder(
-          builder: (context, constraints) {
-            // Solo mostrar FAB en móvil y tablet, no en desktop
-            final isDesktop = constraints.maxWidth >= 1200;
-            if (isDesktop) return const SizedBox.shrink();
-            
-            return SpectacularFloatingActionButton(
-              onPressed: warehousesController.goToCreateWarehouse,
-              icon: Icons.warehouse,
-              text: 'Nuevo Almacén',
-              showText: false, // En móvil/tablet solo icono
-            );
-          },
-        ),
+      // En celular el título corto deja lugar a los botones del encabezado.
+      final isMobile = MediaQuery.of(context).size.width < 600;
+      return MainLayout(
+        title: isMobile ? 'Almacenes' : 'Gestión de Almacenes',
+        showBackButton: true,
+        showDrawer: false,
+        actions: _buildAppBarActions(context),
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -222,7 +166,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
     return GetX<WarehousesController>(
       builder: (controller) {
         if (controller.isLoading && controller.warehouses.isEmpty) {
-          return const Center(child: LoadingWidget());
+          return const Center(child: LoadingWidget(color: ElegantLightTheme.primaryBlue, message: 'Cargando almacenes...'));
         }
 
         if (controller.error.isNotEmpty && controller.warehouses.isEmpty) {
@@ -309,7 +253,9 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
           Expanded(
             child: Obx(
               () => Text(
-                '${controller.warehouses.length} almacén${controller.warehouses.length != 1 ? 'es' : ''} encontrado${controller.warehouses.length != 1 ? 's' : ''}',
+                controller.warehouses.length == 1
+                    ? '1 almacén encontrado'
+                    : '${controller.warehouses.length} almacenes encontrados',
                 style: Get.textTheme.bodyMedium?.copyWith(
                   color: ElegantLightTheme.textPrimary,
                   fontWeight: FontWeight.w600,
@@ -629,7 +575,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: Colors.red,
+                    color: ElegantLightTheme.errorRed,
                     shape: BoxShape.circle,
                   ),
                   child: const Text(
@@ -646,26 +592,68 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
         );
       }),
       
-      // Botón de actualizar
-      IconButton(
-        icon: const Icon(Icons.refresh),
-        onPressed: controller.refreshWarehouses,
-        tooltip: 'Actualizar',
-      ),
+      // En celular, Actualizar y Exportar van en el menú "Más opciones"
+      // para que el título no quede cortado. Mismas acciones.
+      if (MediaQuery.of(context).size.width < 600)
+        PopupMenuButton<String>(
+          tooltip: 'Más opciones',
+          onSelected: (value) {
+            if (value == 'refresh') controller.refreshWarehouses();
+            if (value == 'export') _showExportDialog(context);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'refresh',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
+                  const SizedBox(width: 8),
+                  const Text('Actualizar'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'export',
+              enabled: controller.hasWarehouses,
+              child: Row(
+                children: [
+                  Icon(Icons.download, color: ElegantLightTheme.primaryBlue),
+                  const SizedBox(width: 8),
+                  const Text('Exportar'),
+                ],
+              ),
+            ),
+          ],
+        )
+      else ...[
+        // Botón de actualizar
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: controller.refreshWarehouses,
+          tooltip: 'Actualizar',
+        ),
+
+        // Botón de exportar
+        IconButton(
+          icon: const Icon(Icons.download),
+          onPressed: controller.hasWarehouses ? () => _showExportDialog(context) : null,
+          tooltip: 'Exportar',
+        ),
+      ],
       
-      // Botón de exportar
-      IconButton(
-        icon: const Icon(Icons.download),
-        onPressed: controller.hasWarehouses ? () => _showExportDialog(context) : null,
-        tooltip: 'Exportar',
-      ),
-      
-      // Botón elegante para crear (desktop)
+      // Crear almacén: botón con texto en escritorio, ícono en celular/tableta
+      // (antes era un botón flotante que tapaba la última tarjeta).
       LayoutBuilder(
         builder: (context, constraints) {
           final isDesktop = MediaQuery.of(context).size.width >= 1200;
-          if (!isDesktop) return const SizedBox.shrink();
-          
+          if (!isDesktop) {
+            return IconButton(
+              icon: const Icon(Icons.add_business),
+              onPressed: controller.goToCreateWarehouse,
+              tooltip: 'Nuevo almacén',
+            );
+          }
+
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: _buildDesktopCreateButton(),
@@ -678,18 +666,12 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
   }
 
   Widget _buildDesktopCreateButton() {
+    // Botón claro sobre el encabezado azul: antes era azul sobre azul y no se veía.
     return Container(
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.primaryGradient,
+        color: Colors.white.withOpacity(0.18),
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-            blurRadius: 8,
-            spreadRadius: 1,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: Colors.white.withOpacity(0.7)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -838,7 +820,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                               value: true,
                               child: Row(
                                 children: [
-                                  Icon(Icons.check_circle, color: Colors.green, size: isMobile ? 14 : 16),
+                                  Icon(Icons.check_circle, color: ElegantLightTheme.successGreen, size: isMobile ? 14 : 16),
                                   SizedBox(width: isMobile ? 6 : 8),
                                   Text(
                                     'Solo activos',
@@ -851,7 +833,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                               value: false,
                               child: Row(
                                 children: [
-                                  Icon(Icons.cancel, color: Colors.red, size: isMobile ? 14 : 16),
+                                  Icon(Icons.cancel, color: ElegantLightTheme.errorRed, size: isMobile ? 14 : 16),
                                   SizedBox(width: isMobile ? 6 : 8),
                                   Text(
                                     'Solo inactivos',
@@ -1498,7 +1480,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.green.withOpacity(0.3),
+                            color: ElegantLightTheme.successGreen.withOpacity(0.3),
                             blurRadius: 6,
                             spreadRadius: 1,
                             offset: const Offset(0, 2),
@@ -1601,7 +1583,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.red.withOpacity(0.3),
+                            color: ElegantLightTheme.errorRed.withOpacity(0.3),
                             blurRadius: 6,
                             spreadRadius: 1,
                             offset: const Offset(0, 2),
@@ -1647,14 +1629,14 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.grey.shade700,
-                            Colors.grey.shade800,
+                            ElegantLightTheme.textSecondary,
+                            ElegantLightTheme.textPrimary,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.3),
+                            color: ElegantLightTheme.textSecondary.withOpacity(0.3),
                             blurRadius: 6,
                             spreadRadius: 1,
                             offset: const Offset(0, 2),
@@ -1728,38 +1710,10 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
   }
 
   Widget _buildControllerErrorWidget(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ElegantLightTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'Almacenes',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => AppNav.back(),
-          tooltip: 'Volver',
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                ElegantLightTheme.primaryGradient.colors.first,
-                ElegantLightTheme.primaryGradient.colors.last,
-                ElegantLightTheme.primaryBlue,
-              ],
-              stops: [0.0, 0.7, 1.0],
-            ),
-          ),
-        ),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+    return MainLayout(
+      title: 'Almacenes',
+      showBackButton: true,
+      showDrawer: false,
       body: Center(
         child: Container(
           margin: const EdgeInsets.all(40),

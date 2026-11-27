@@ -2,13 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../controllers/inventory_movements_controller.dart';
 import '../widgets/inventory_movement_card_widget.dart';
 import '../widgets/inventory_movements_filter_widget.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
+import '../widgets/inventory_states.dart';
 
 class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
   const InventoryMovementsScreen({super.key});
@@ -39,7 +40,9 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
         ),
         const SizedBox(width: AppDimensions.paddingSmall),
       ],
-      body: Column(
+      body: ColoredBox(
+        color: ElegantLightTheme.backgroundColor,
+        child: Column(
         children: [
           // Filter section
           Obx(() => controller.showFilters.value 
@@ -55,6 +58,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -62,9 +66,9 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
     return Container(
       padding: const EdgeInsets.all(AppDimensions.paddingMedium),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: ElegantLightTheme.backgroundColor,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
         ),
       ),
       child: Row(
@@ -73,7 +77,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
             child: Obx(() => Text(
               controller.resultsText,
               style: Get.textTheme.titleSmall?.copyWith(
-                color: Colors.grey.shade700,
+                color: ElegantLightTheme.textSecondary,
               ),
             )),
           ),
@@ -86,13 +90,13 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
                 ),
                 child: Text(
                   '${activeFilters['count']} filtros activos',
                   style: TextStyle(
-                    color: AppColors.primary,
+                    color: ElegantLightTheme.primaryBlue,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -108,7 +112,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
 
   Widget _buildContent() {
     if (controller.isLoading.value && controller.movements.isEmpty) {
-      return const Center(child: LoadingWidget());
+      return const InventoryLoadingState('Cargando movimientos...');
     }
 
     if (controller.error.value.isNotEmpty && controller.movements.isEmpty) {
@@ -131,7 +135,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
             if (controller.isLoadingMore.value) {
               return const Padding(
                 padding: EdgeInsets.all(AppDimensions.paddingMedium),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: BrebInlineLoading('Cargando más movimientos...')),
               );
             } else {
               return Padding(
@@ -156,80 +160,34 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: AppDimensions.paddingMedium),
-          Text(
-            'No hay movimientos de inventario',
-            style: Get.textTheme.titleMedium?.copyWith(
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          Text(
-            'No hay movimientos registrados para este producto',
-            style: Get.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
+    return const InventoryEmptyState(
+      icon: Icons.swap_horiz,
+      title: 'No hay movimientos de inventario',
+      message: 'Cuando entre o salga mercancía, aquí verás cada movimiento.',
     );
   }
 
   Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade400,
+    return Obx(() => InventoryErrorState(
+          title: 'No se pudieron cargar los movimientos',
+          message: friendlyInventoryError(
+            controller.error.value,
+            what: 'los movimientos',
           ),
-          const SizedBox(height: AppDimensions.paddingMedium),
-          Text(
-            'Error al cargar movimientos',
-            style: Get.textTheme.titleMedium?.copyWith(
-              color: Colors.red.shade600,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.paddingLarge,
-            ),
-            child: Obx(() => Text(
-              controller.error.value,
-              style: Get.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-              textAlign: TextAlign.center,
-            )),
-          ),
-          const SizedBox(height: AppDimensions.paddingLarge),
-          CustomButton(
-            text: 'Reintentar',
-            onPressed: controller.refreshMovements,
-            icon: Icons.refresh,
-          ),
-        ],
-      ),
-    );
+          onRetry: controller.refreshMovements,
+        ));
   }
-
 
   void _confirmMovement(String movementId) {
     Get.dialog(
       AlertDialog(
-        title: const Text('Confirmar Movimiento'),
+        backgroundColor: ElegantLightTheme.surfaceColor,
+        shape: brebDialogShape,
+        title: brebDialogTitle(
+          Icons.check_circle_outline,
+          'Confirmar movimiento',
+          gradient: ElegantLightTheme.successGradient,
+        ),
         content: const Text(
           '¿Está seguro de que desea confirmar este movimiento de inventario?\n\n'
           'Esta acción afectará el stock del producto y no se puede deshacer.',
@@ -237,6 +195,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
+            style: brebTextButtonStyle(),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
@@ -244,9 +203,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
               Get.back();
               controller.confirmMovement(movementId);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-            ),
+            style: brebPrimaryButtonStyle(color: ElegantLightTheme.successGreen),
             child: const Text('Confirmar'),
           ),
         ],
@@ -257,7 +214,13 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
   void _cancelMovement(String movementId) {
     Get.dialog(
       AlertDialog(
-        title: const Text('Cancelar Movimiento'),
+        backgroundColor: ElegantLightTheme.surfaceColor,
+        shape: brebDialogShape,
+        title: brebDialogTitle(
+          Icons.cancel_outlined,
+          'Cancelar movimiento',
+          gradient: ElegantLightTheme.errorGradient,
+        ),
         content: const Text(
           '¿Está seguro de que desea cancelar este movimiento de inventario?\n\n'
           'Esta acción no se puede deshacer.',
@@ -265,6 +228,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
+            style: brebTextButtonStyle(),
             child: const Text('No'),
           ),
           ElevatedButton(
@@ -272,9 +236,7 @@ class InventoryMovementsScreen extends GetView<InventoryMovementsController> {
               Get.back();
               controller.cancelMovement(movementId);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: brebPrimaryButtonStyle(color: ElegantLightTheme.errorRed),
             child: const Text('Cancelar Movimiento'),
           ),
         ],

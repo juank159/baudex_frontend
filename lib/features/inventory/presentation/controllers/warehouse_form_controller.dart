@@ -10,6 +10,7 @@ import '../../domain/usecases/get_warehouse_by_id_usecase.dart';
 import '../../domain/usecases/check_warehouse_code_exists_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 enum FormMode { create, edit }
 
@@ -132,13 +133,9 @@ class WarehouseFormController extends GetxController {
       result.fold(
         (failure) {
           _error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            icon: const Icon(Icons.error, color: Colors.red),
           );
         },
         (warehouse) {
@@ -181,13 +178,9 @@ class WarehouseFormController extends GetxController {
       final codeValidation = await validateCodeUnique(codeController.text);
       if (codeValidation != null) {
         _error.value = codeValidation;
-        if (!AutomaticWork.swallow('Error de Validación', codeValidation)) Get.snackbar(
+        if (!AutomaticWork.swallow('Error de Validación', codeValidation)) FuturisticNotifications.showError(
           'Error de Validación',
           codeValidation,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-          icon: const Icon(Icons.error, color: Colors.red),
         );
         return;
       }
@@ -199,13 +192,9 @@ class WarehouseFormController extends GetxController {
       }
     } catch (e) {
       _error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     } finally {
       _isSaving.value = false;
@@ -233,24 +222,16 @@ class WarehouseFormController extends GetxController {
     result.fold(
       (failure) {
         _error.value = failure.message;
-        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-          icon: const Icon(Icons.error, color: Colors.red),
         );
       },
       (warehouse) {
         _navigateToWarehousesList(warehouse);
-        Get.snackbar(
+        FuturisticNotifications.showSuccess(
           'Éxito',
           'Almacén creado exitosamente',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          icon: const Icon(Icons.check_circle, color: Colors.green),
         );
       },
     );
@@ -277,13 +258,9 @@ class WarehouseFormController extends GetxController {
     result.fold(
       (failure) {
         _error.value = failure.message;
-        if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-          icon: const Icon(Icons.error, color: Colors.red),
         );
       },
       (warehouse) {
@@ -292,13 +269,9 @@ class WarehouseFormController extends GetxController {
         _isDirty.value = false;
 
         _navigateToWarehousesList(warehouse);
-        Get.snackbar(
+        FuturisticNotifications.showSuccess(
           'Éxito',
           'Almacén actualizado exitosamente',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          icon: const Icon(Icons.check_circle, color: Colors.green),
         );
       },
     );
@@ -466,13 +439,9 @@ class WarehouseFormController extends GetxController {
   /*
   Future<void> _refreshWarehousesListAfterNavigation() async {
     // Mostrar snackbar inmediatamente
-    Get.snackbar(
+    FuturisticNotifications.showSuccess(
       '✅ Éxito',
       '${isCreateMode ? "Almacén creado" : "Almacén actualizado"} exitosamente.',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: const Icon(Icons.check_circle, color: Colors.green),
       duration: const Duration(seconds: 3),
     );
     

@@ -10,6 +10,7 @@ import '../services/warehouses_export_service.dart';
 import '../services/warehouse_network_service.dart';
 import '../services/warehouse_performance_service.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class WarehousesController extends GetxController {
   // Casos de uso
@@ -168,21 +169,16 @@ class WarehousesController extends GetxController {
       
       // Solo mostrar snackbar si no es un error de red ya manejado
       if (!WarehouseNetworkService.isRetrying) {
-        if (!AutomaticWork.swallow('Error', errorMessage)) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', errorMessage)) FuturisticNotifications.showError(
           'Error',
-          errorMessage,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-          icon: const Icon(Icons.error, color: Colors.red),
+          '$errorMessage\nToca este aviso para reintentar.',
           duration: const Duration(seconds: 5),
-          mainButton: TextButton(
-            onPressed: () {
-              Get.back();
-              retryLoadWarehouses();
-            },
-            child: const Text('Reintentar', style: TextStyle(color: Colors.red)),
-          ),
+          // Tocar el aviso lo cierra y reintenta la carga (antes: botón
+          // "Reintentar", que también cerraba primero).
+          onTap: () {
+            Get.closeCurrentSnackbar();
+            retryLoadWarehouses();
+          },
         );
       }
     } finally {
@@ -236,13 +232,9 @@ class WarehousesController extends GetxController {
     // Si se creó un almacén, refrescar la lista y mostrar confirmación
     if (result != null && result is Map && result['action'] == 'created') {
       await refreshWarehouses();
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Almacén creado correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-        icon: const Icon(Icons.check, color: Colors.green),
         duration: const Duration(seconds: 3),
       );
     }
@@ -258,13 +250,9 @@ class WarehousesController extends GetxController {
     // Si se actualizó un almacén, refrescar la lista y mostrar confirmación
     if (result != null && result is Map && result['action'] == 'updated') {
       await refreshWarehouses();
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Almacén actualizado correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-        icon: const Icon(Icons.check, color: Colors.green),
         duration: const Duration(seconds: 3),
       );
     }
@@ -403,13 +391,9 @@ class WarehousesController extends GetxController {
   /// Exportar a Excel
   Future<void> exportToExcel() async {
     if (_filteredWarehouses.isEmpty) {
-      Get.snackbar(
+      FuturisticNotifications.showWarning(
         'Sin datos',
         'No hay almacenes para exportar',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        icon: const Icon(Icons.warning, color: Colors.orange),
       );
       return;
     }
@@ -419,13 +403,9 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.exportToExcel(warehousesOnly);
     } catch (e) {
-      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a Excel: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a Excel: $e')) FuturisticNotifications.showError(
         'Error de Exportación',
         'No se pudo exportar a Excel: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     }
   }
@@ -433,13 +413,9 @@ class WarehousesController extends GetxController {
   /// Exportar a CSV
   Future<void> exportToCsv() async {
     if (_filteredWarehouses.isEmpty) {
-      Get.snackbar(
+      FuturisticNotifications.showWarning(
         'Sin datos',
         'No hay almacenes para exportar',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        icon: const Icon(Icons.warning, color: Colors.orange),
       );
       return;
     }
@@ -449,13 +425,9 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.exportToCsv(warehousesOnly);
     } catch (e) {
-      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a CSV: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a CSV: $e')) FuturisticNotifications.showError(
         'Error de Exportación',
         'No se pudo exportar a CSV: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     }
   }
@@ -463,13 +435,9 @@ class WarehousesController extends GetxController {
   /// Exportar a PDF
   Future<void> exportToPdf() async {
     if (_filteredWarehouses.isEmpty) {
-      Get.snackbar(
+      FuturisticNotifications.showWarning(
         'Sin datos',
         'No hay almacenes para exportar',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        icon: const Icon(Icons.warning, color: Colors.orange),
       );
       return;
     }
@@ -479,13 +447,9 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.exportToPdf(warehousesOnly);
     } catch (e) {
-      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a PDF: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Exportación', 'No se pudo exportar a PDF: $e')) FuturisticNotifications.showError(
         'Error de Exportación',
         'No se pudo exportar a PDF: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     }
   }
@@ -493,13 +457,9 @@ class WarehousesController extends GetxController {
   /// Imprimir almacenes
   Future<void> printWarehouses() async {
     if (_filteredWarehouses.isEmpty) {
-      Get.snackbar(
+      FuturisticNotifications.showWarning(
         'Sin datos',
         'No hay almacenes para imprimir',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        icon: const Icon(Icons.warning, color: Colors.orange),
       );
       return;
     }
@@ -509,13 +469,9 @@ class WarehousesController extends GetxController {
       final warehousesOnly = _filteredWarehouses.map((w) => w.warehouse).toList();
       await WarehousesExportService.printWarehouses(warehousesOnly);
     } catch (e) {
-      if (!AutomaticWork.swallow('Error de Impresión', 'No se pudo imprimir: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error de Impresión', 'No se pudo imprimir: $e')) FuturisticNotifications.showError(
         'Error de Impresión',
         'No se pudo imprimir: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     }
   }
@@ -560,13 +516,9 @@ class WarehousesController extends GetxController {
       
       result.fold(
         (failure) {
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            icon: const Icon(Icons.error, color: Colors.red),
           );
         },
         (success) {
@@ -574,24 +526,16 @@ class WarehousesController extends GetxController {
           _warehouses.removeWhere((w) => w.id == warehouseId);
           _applyFilters();
           
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Éxito',
             'Almacén eliminado correctamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            icon: const Icon(Icons.check, color: Colors.green),
           );
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        icon: const Icon(Icons.error, color: Colors.red),
       );
     } finally {
       _isLoading.value = false;

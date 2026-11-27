@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
-import '../../../../app/shared/widgets/spectacular_floating_action_button.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/inventory_controller.dart';
@@ -13,6 +12,7 @@ import '../widgets/inventory_quick_actions.dart';
 import '../widgets/inventory_recent_activity.dart';
 import '../widgets/inventory_alerts_summary.dart';
 import '../services/inventory_export_service.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryDashboardScreen extends StatefulWidget {
   const InventoryDashboardScreen({super.key});
@@ -35,22 +35,11 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // En celular el título corto no se corta junto a los botones.
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return MainLayout(
-      title: 'Centro de Inventario',
+      title: isMobile ? 'Inventario' : 'Centro de Inventario',
       actions: _buildAppBarActions(context),
-      floatingActionButton: LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth >= 1200;
-          if (isDesktop) return const SizedBox.shrink();
-
-          return SpectacularFloatingActionButton(
-            onPressed: () => _showQuickActionsMenu(),
-            icon: Icons.add,
-            text: 'Acciones',
-            showText: false,
-          );
-        },
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -222,7 +211,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 gradient: LinearGradient(
                   colors: [
                     Colors.transparent,
-                    Colors.grey.withValues(alpha: 0.3),
+                    ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
                     Colors.transparent,
                   ],
                 ),
@@ -446,7 +435,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           child: _buildBasicSummaryItem(
             'Movimientos',
             '+${weeklyStats['totalMovements']}',
-            Colors.blue,
+            ElegantLightTheme.primaryBlue,
             Icons.trending_up,
             isDesktop,
           ),
@@ -455,7 +444,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           child: _buildBasicSummaryItem(
             'Productos nuevos',
             '${weeklyStats['newProducts']}',
-            Colors.green,
+            ElegantLightTheme.successGreen,
             Icons.add_box,
             isDesktop,
           ),
@@ -464,7 +453,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           child: _buildBasicSummaryItem(
             'Ajustes realizados',
             '${weeklyStats['adjustments']}',
-            Colors.orange,
+            ElegantLightTheme.warningOrange,
             Icons.tune,
             isDesktop,
           ),
@@ -473,7 +462,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           child: _buildBasicSummaryItem(
             'Transferencias',
             '${weeklyStats['transfers']}',
-            Colors.teal,
+            ElegantLightTheme.primaryBlueLight,
             Icons.swap_horiz,
             isDesktop,
           ),
@@ -483,7 +472,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           child: _buildSummaryItem(
             'Valor total movido',
             '\$${_formatNumber(weeklyStats['totalValueMoved'] ?? 0.0)}',
-            Colors.indigo,
+            ElegantLightTheme.primaryBlueDark,
             Icons.attach_money,
             isDesktop,
           ),
@@ -642,9 +631,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         'title': 'Gestión de Almacenes',
         'subtitle': 'Configurar y administrar almacenes',
         'icon': Icons.warehouse,
-        'gradient': LinearGradient(
-          colors: [Colors.purple.shade600, Colors.purple.shade800],
-        ),
+        'gradient': ElegantLightTheme.primaryGradient,
         'onTap': () => Get.toNamed('/warehouses'),
       },
       {
@@ -672,8 +659,8 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         'title': 'Configuración',
         'subtitle': 'Ajustes del sistema',
         'icon': Icons.settings,
-        'gradient': LinearGradient(
-          colors: [Colors.grey.shade600, Colors.grey.shade800],
+        'gradient': const LinearGradient(
+          colors: [ElegantLightTheme.textSecondary, ElegantLightTheme.textPrimary],
         ),
         'onTap': () => _showConfigurationComingSoon(),
       },
@@ -818,7 +805,16 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   }
 
   List<Widget> _buildAppBarActions(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 1200;
     return [
+      // Acciones rápidas: antes era un botón flotante en celular/tableta
+      // que tapaba las tarjetas de abajo. Mismo menú, ahora en el encabezado.
+      if (!isDesktop)
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          onPressed: () => _showQuickActionsMenu(),
+          tooltip: 'Acciones rápidas',
+        ),
       IconButton(
         icon: const Icon(Icons.refresh),
         onPressed: controller.refreshData,
@@ -1010,7 +1006,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               'Balances Excel',
               'Archivo .xlsx con todos los balances actuales',
               Icons.table_chart,
-              Colors.green,
+              ElegantLightTheme.successGreen,
               () {
                 Get.back();
                 _downloadBalancesToExcel();
@@ -1020,7 +1016,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               'Balances PDF',
               'Reporte .pdf para impresión',
               Icons.picture_as_pdf,
-              Colors.red,
+              ElegantLightTheme.errorRed,
               () {
                 Get.back();
                 _downloadBalancesToPDF();
@@ -1030,7 +1026,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               'Movimientos Excel',
               'Archivo .xlsx con movimientos recientes',
               Icons.swap_horiz,
-              Colors.orange,
+              ElegantLightTheme.warningOrange,
               () {
                 Get.back();
                 _downloadMovementsToExcel();
@@ -1090,7 +1086,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               'Compartir Balances Excel',
               'Enviar archivo .xlsx por WhatsApp, Email, etc.',
               Icons.table_chart,
-              Colors.blue,
+              ElegantLightTheme.primaryBlue,
               () {
                 Get.back();
                 _shareBalancesToExcel();
@@ -1100,7 +1096,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               'Compartir Balances PDF',
               'Enviar reporte .pdf por WhatsApp, Email, etc.',
               Icons.picture_as_pdf,
-              Colors.orange,
+              ElegantLightTheme.warningOrange,
               () {
                 Get.back();
                 _shareBalancesToPDF();
@@ -1110,7 +1106,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               'Compartir Movimientos',
               'Enviar movimientos .xlsx por WhatsApp, Email, etc.',
               Icons.swap_horiz,
-              Colors.purple,
+              ElegantLightTheme.primaryBlueDark,
               () {
                 Get.back();
                 _shareMovementsToExcel();
@@ -1196,7 +1192,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     try {
       // Mostrar loading
       Get.dialog(
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: CircularProgressIndicator(color: ElegantLightTheme.primaryBlue)),
         barrierDismissible: false,
       );
 
@@ -1208,12 +1204,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances de inventario para descargar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -1224,23 +1217,16 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       );
 
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga exitosa',
         'Archivo guardado en: $filePath',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        icon: const Icon(Icons.check_circle, color: Colors.white),
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de descarga',
         'No se pudo descargar: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }
@@ -1249,7 +1235,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     try {
       // Mostrar loading
       Get.dialog(
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: CircularProgressIndicator(color: ElegantLightTheme.primaryBlue)),
         barrierDismissible: false,
       );
 
@@ -1261,12 +1247,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances de inventario para descargar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -1277,23 +1260,16 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       );
 
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga exitosa',
         'Archivo guardado en: $filePath',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        icon: const Icon(Icons.check_circle, color: Colors.white),
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de descarga',
         'No se pudo descargar: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }
@@ -1302,7 +1278,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     try {
       // Mostrar loading
       Get.dialog(
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: CircularProgressIndicator(color: ElegantLightTheme.primaryBlue)),
         barrierDismissible: false,
       );
 
@@ -1311,12 +1287,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
       if (movements.isEmpty) {
         Get.back(); // Cerrar loading
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay movimientos recientes para descargar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -1325,22 +1298,15 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       await InventoryExportService.exportMovementsToExcel(movements);
 
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga exitosa',
         'Movimientos guardados correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        icon: const Icon(Icons.check_circle, color: Colors.white),
       );
     } catch (e) {
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error de descarga',
         'No se pudo descargar: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }
@@ -1351,7 +1317,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     try {
       // Mostrar loading
       Get.dialog(
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: CircularProgressIndicator(color: ElegantLightTheme.primaryBlue)),
         barrierDismissible: false,
       );
 
@@ -1363,12 +1329,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances de inventario para compartir',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -1377,22 +1340,15 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       await InventoryExportService.exportBalancesToExcel(balances);
 
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Listo para compartir',
         'Selecciona la aplicación para compartir',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-        icon: const Icon(Icons.share, color: Colors.white),
       );
     } catch (e) {
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error al compartir',
         'No se pudo compartir: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }
@@ -1401,7 +1357,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     try {
       // Mostrar loading
       Get.dialog(
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: CircularProgressIndicator(color: ElegantLightTheme.primaryBlue)),
         barrierDismissible: false,
       );
 
@@ -1413,12 +1369,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances de inventario para compartir',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -1427,22 +1380,15 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       await InventoryExportService.exportBalancesToPDF(balances);
 
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Listo para compartir',
         'Selecciona la aplicación para compartir',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-        icon: const Icon(Icons.share, color: Colors.white),
       );
     } catch (e) {
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error al compartir',
         'No se pudo compartir: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }
@@ -1451,7 +1397,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     try {
       // Mostrar loading
       Get.dialog(
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: CircularProgressIndicator(color: ElegantLightTheme.primaryBlue)),
         barrierDismissible: false,
       );
 
@@ -1460,12 +1406,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
       if (movements.isEmpty) {
         Get.back(); // Cerrar loading
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay movimientos recientes para compartir',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -1474,40 +1417,31 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       await InventoryExportService.exportMovementsToExcel(movements);
 
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Listo para compartir',
         'Selecciona la aplicación para compartir',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-        icon: const Icon(Icons.share, color: Colors.white),
       );
     } catch (e) {
       Get.back(); // Cerrar loading
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error al compartir',
         'No se pudo compartir: ${e.toString()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }
 
   void _showReportsMenu() {
     // Implementación de reportes
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       'Reportes',
       'Funcionalidad de reportes disponible pronto',
-      snackPosition: SnackPosition.TOP,
     );
   }
 
   void _showConfigurationComingSoon() {
-    Get.snackbar(
+    FuturisticNotifications.showInfo(
       'Configuración',
       'Funcionalidad de configuración disponible pronto',
-      snackPosition: SnackPosition.TOP,
     );
   }
 

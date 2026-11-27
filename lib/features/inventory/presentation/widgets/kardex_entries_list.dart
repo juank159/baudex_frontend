@@ -1,9 +1,10 @@
 // lib/features/inventory/presentation/widgets/kardex_entries_list.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../../domain/entities/kardex_report.dart';
 import '../controllers/kardex_controller.dart';
+import 'inventory_states.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class KardexEntriesList extends GetView<KardexController> {
   const KardexEntriesList({super.key});
@@ -19,7 +20,7 @@ class KardexEntriesList extends GetView<KardexController> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.timeline, size: 64, color: Colors.grey),
+              Icon(Icons.timeline, size: 64, color: ElegantLightTheme.textTertiary),
               SizedBox(height: 16),
               Text('Sin entradas de kardex', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
@@ -91,7 +92,7 @@ class KardexEntriesList extends GetView<KardexController> {
                           Text(
                             '${movement.displayType} - ${movement.referenceNumber ?? movement.movementNumber}',
                             style: Get.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                              color: ElegantLightTheme.textSecondary,
                               fontSize: isLargeScreen ? 11 : 12,
                             ),
                           ),
@@ -140,8 +141,8 @@ class KardexEntriesList extends GetView<KardexController> {
                       _buildDataColumn(
                         label: 'Cant.',
                         value: movement.isEntry 
-                          ? '+${movement.entryQuantity.toInt()}'
-                          : '-${movement.exitQuantity.toInt()}',
+                          ? formatInventoryQuantityText('+${movement.entryQuantity.toInt()}')
+                          : formatInventoryQuantityText('-${movement.exitQuantity.toInt()}'),
                         color: controller.getMovementColor(movement),
                         isCompact: true,
                       ),
@@ -159,13 +160,13 @@ class KardexEntriesList extends GetView<KardexController> {
                             ? movement.entryCost 
                             : movement.exitCost
                         ),
-                        color: movement.isEntry ? Colors.green : Colors.red,
+                        color: movement.isEntry ? ElegantLightTheme.successGreen : ElegantLightTheme.errorRed,
                         isCompact: true,
                       ),
                       const SizedBox(width: 12),
                       _buildDataColumn(
                         label: 'Saldo',
-                        value: '${movement.balance.toInt()}',
+                        value: formatInventoryQuantityText('${movement.balance.toInt()}'),
                         alignment: CrossAxisAlignment.end,
                         isBold: true,
                         isCompact: true,
@@ -175,7 +176,7 @@ class KardexEntriesList extends GetView<KardexController> {
                         label: 'Valor Saldo',
                         value: controller.formatCurrency(movement.balanceValue),
                         alignment: CrossAxisAlignment.end,
-                        color: AppColors.primary,
+                        color: ElegantLightTheme.primaryBlue,
                         isBold: true,
                         isCompact: true,
                       ),
@@ -188,8 +189,8 @@ class KardexEntriesList extends GetView<KardexController> {
                           _buildDataColumn(
                             label: 'Cantidad',
                             value: movement.isEntry 
-                              ? '+${movement.entryQuantity.toInt()}'
-                              : '-${movement.exitQuantity.toInt()}',
+                              ? formatInventoryQuantityText('+${movement.entryQuantity.toInt()}')
+                              : formatInventoryQuantityText('-${movement.exitQuantity.toInt()}'),
                             color: controller.getMovementColor(movement),
                           ),
                           _buildDataColumn(
@@ -198,7 +199,7 @@ class KardexEntriesList extends GetView<KardexController> {
                           ),
                           _buildDataColumn(
                             label: 'Saldo',
-                            value: '${movement.balance.toInt()}',
+                            value: formatInventoryQuantityText('${movement.balance.toInt()}'),
                             alignment: CrossAxisAlignment.end,
                             isBold: true,
                           ),
@@ -213,8 +214,8 @@ class KardexEntriesList extends GetView<KardexController> {
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: movement.isEntry 
-                                  ? Colors.green.withOpacity(0.1) 
-                                  : Colors.red.withOpacity(0.1),
+                                  ? ElegantLightTheme.successGreen.withOpacity(0.1) 
+                                  : ElegantLightTheme.errorRed.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Column(
@@ -223,7 +224,7 @@ class KardexEntriesList extends GetView<KardexController> {
                                   Text(
                                     'Valor Movimiento:',
                                     style: Get.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: ElegantLightTheme.textSecondary,
                                       fontSize: 11,
                                     ),
                                   ),
@@ -236,7 +237,7 @@ class KardexEntriesList extends GetView<KardexController> {
                                     ),
                                     style: Get.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
-                                      color: movement.isEntry ? Colors.green : Colors.red,
+                                      color: movement.isEntry ? ElegantLightTheme.successGreen : ElegantLightTheme.errorRed,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -249,7 +250,7 @@ class KardexEntriesList extends GetView<KardexController> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: AppColors.surface,
+                                color: ElegantLightTheme.surfaceColor,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Column(
@@ -258,7 +259,7 @@ class KardexEntriesList extends GetView<KardexController> {
                                   Text(
                                     'Valor Saldo:',
                                     style: Get.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: ElegantLightTheme.textSecondary,
                                       fontSize: 11,
                                     ),
                                   ),
@@ -267,7 +268,7 @@ class KardexEntriesList extends GetView<KardexController> {
                                     controller.formatCurrency(movement.balanceValue),
                                     style: Get.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
+                                      color: ElegantLightTheme.primaryBlue,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -289,7 +290,7 @@ class KardexEntriesList extends GetView<KardexController> {
                       vertical: isLargeScreen ? 3 : 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.08),
+                      color: ElegantLightTheme.primaryBlue.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -298,14 +299,14 @@ class KardexEntriesList extends GetView<KardexController> {
                         Icon(
                           Icons.note,
                           size: isLargeScreen ? 12 : 14,
-                          color: AppColors.primary,
+                          color: ElegantLightTheme.primaryBlue,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             movement.notes!,
                             style: Get.textTheme.bodySmall?.copyWith(
-                              color: AppColors.primary,
+                              color: ElegantLightTheme.primaryBlue,
                               fontWeight: FontWeight.w500,
                               fontSize: isLargeScreen ? 10 : 11,
                             ),
@@ -341,7 +342,7 @@ class KardexEntriesList extends GetView<KardexController> {
           Text(
             label,
             style: Get.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: ElegantLightTheme.textSecondary,
               fontSize: isCompact ? 10 : 11,
             ),
           ),

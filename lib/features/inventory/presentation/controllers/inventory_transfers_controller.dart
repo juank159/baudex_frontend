@@ -16,6 +16,7 @@ import '../services/inventory_export_service.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryTransfersController extends GetxController {
   final CreateInventoryTransferUseCase createTransferUseCase;
@@ -162,12 +163,9 @@ class InventoryTransfersController extends GetxController {
 
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error al cargar transferencias', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar transferencias', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error al cargar transferencias',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -221,36 +219,27 @@ class InventoryTransfersController extends GetxController {
 
       result.fold(
         (failure) {
-          if (!AutomaticWork.swallow('Error al crear transferencia', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error al crear transferencia', failure.message)) FuturisticNotifications.showError(
             'Error al crear transferencia',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (transfer) {
           final productCount = transferItems.length;
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Transferencia creada',
             productCount == 1
                 ? 'La transferencia fue creada exitosamente'
                 : 'Se crearon $productCount transferencias exitosamente (una por producto)',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
           );
           _clearForm();
           loadTransfers();
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error al crear transferencia', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al crear transferencia', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error al crear transferencia',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isCreating.value = false;
@@ -263,32 +252,23 @@ class InventoryTransfersController extends GetxController {
 
       result.fold(
         (failure) {
-          if (!AutomaticWork.swallow('Error al confirmar transferencia', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error al confirmar transferencia', failure.message)) FuturisticNotifications.showError(
             'Error al confirmar transferencia',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (transfer) {
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Transferencia confirmada',
             'La transferencia fue confirmada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
           );
           loadTransfers();
         },
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error al confirmar transferencia', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al confirmar transferencia', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error al confirmar transferencia',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     }
   }
@@ -315,12 +295,9 @@ class InventoryTransfersController extends GetxController {
         notes: existingItem.notes,
       );
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Producto actualizado',
         'Cantidad actualizada para este producto',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.blue.shade100,
-        colorText: Colors.blue.shade800,
       );
     } else {
       // Add new product
@@ -332,12 +309,9 @@ class InventoryTransfersController extends GetxController {
         ),
       );
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Producto agregado',
         'Producto agregado a la transferencia',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     }
 
@@ -348,12 +322,9 @@ class InventoryTransfersController extends GetxController {
   void removeProductFromTransfer(int index) {
     if (index >= 0 && index < transferItems.length) {
       transferItems.removeAt(index);
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Producto eliminado',
         'Producto eliminado de la transferencia',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
       );
     }
   }
@@ -373,17 +344,17 @@ class InventoryTransfersController extends GetxController {
 
   bool _validateTransfer() {
     if (selectedFromWarehouseId.value.isEmpty) {
-      Get.snackbar('Error', 'Selecciona el almacén de origen');
+      FuturisticNotifications.showError('Error', 'Selecciona el almacén de origen');
       return false;
     }
 
     if (selectedToWarehouseId.value.isEmpty) {
-      Get.snackbar('Error', 'Selecciona el almacén de destino');
+      FuturisticNotifications.showError('Error', 'Selecciona el almacén de destino');
       return false;
     }
 
     if (selectedFromWarehouseId.value == selectedToWarehouseId.value) {
-      if (!AutomaticWork.swallow('Error', 'Los almacenes de origen y destino deben ser diferentes')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Los almacenes de origen y destino deben ser diferentes')) FuturisticNotifications.showError(
         'Error',
         'Los almacenes de origen y destino deben ser diferentes',
       );
@@ -391,7 +362,7 @@ class InventoryTransfersController extends GetxController {
     }
 
     if (transferItems.isEmpty) {
-      Get.snackbar('Error', 'Agrega al menos un producto a la transferencia');
+      FuturisticNotifications.showError('Error', 'Agrega al menos un producto a la transferencia');
       return false;
     }
 
@@ -400,17 +371,17 @@ class InventoryTransfersController extends GetxController {
 
   bool _validateProductForm() {
     if (selectedFromWarehouseId.value.isEmpty) {
-      Get.snackbar('Error', 'Selecciona el almacén de origen');
+      FuturisticNotifications.showError('Error', 'Selecciona el almacén de origen');
       return false;
     }
 
     if (selectedToWarehouseId.value.isEmpty) {
-      Get.snackbar('Error', 'Selecciona el almacén de destino');
+      FuturisticNotifications.showError('Error', 'Selecciona el almacén de destino');
       return false;
     }
 
     if (selectedFromWarehouseId.value == selectedToWarehouseId.value) {
-      if (!AutomaticWork.swallow('Error', 'Los almacenes de origen y destino deben ser diferentes')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Los almacenes de origen y destino deben ser diferentes')) FuturisticNotifications.showError(
         'Error',
         'Los almacenes de origen y destino deben ser diferentes',
       );
@@ -418,18 +389,18 @@ class InventoryTransfersController extends GetxController {
     }
 
     if (selectedProductId.value.isEmpty) {
-      Get.snackbar('Error', 'Selecciona un producto');
+      FuturisticNotifications.showError('Error', 'Selecciona un producto');
       return false;
     }
 
     if (quantityController.text.trim().isEmpty) {
-      Get.snackbar('Error', 'Ingresa la cantidad a transferir');
+      FuturisticNotifications.showError('Error', 'Ingresa la cantidad a transferir');
       return false;
     }
 
     final quantity = int.tryParse(quantityController.text);
     if (quantity == null || quantity <= 0) {
-      Get.snackbar('Error', 'La cantidad debe ser un número mayor a 0');
+      FuturisticNotifications.showError('Error', 'La cantidad debe ser un número mayor a 0');
       return false;
     }
 
@@ -478,21 +449,15 @@ class InventoryTransfersController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (success) {
-          Get.snackbar(
+          FuturisticNotifications.showSuccess(
             'Éxito',
             'Transferencia cancelada correctamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
           );
           // Reload transfers to reflect the cancellation
           loadTransfers();
@@ -500,12 +465,9 @@ class InventoryTransfersController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -861,7 +823,7 @@ class InventoryTransfersController extends GetxController {
       final filteredData = _getFilteredTransfersForExport();
 
       if (filteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay transferencias para compartir con el filtro aplicado',
         );
@@ -870,9 +832,9 @@ class InventoryTransfersController extends GetxController {
 
       isLoading.value = true;
       await InventoryExportService.exportMovementsToExcel(filteredData);
-      Get.snackbar('Éxito', 'Transferencias compartidas correctamente');
+      FuturisticNotifications.showSuccess('Éxito', 'Transferencias compartidas correctamente');
     } catch (e) {
-      Get.snackbar('Error', 'Error compartiendo Excel: $e');
+      FuturisticNotifications.showError('Error', 'Error compartiendo Excel: $e');
     } finally {
       isLoading.value = false;
     }
@@ -883,7 +845,7 @@ class InventoryTransfersController extends GetxController {
       final filteredData = _getFilteredTransfersForExport();
 
       if (filteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay transferencias para descargar con el filtro aplicado',
         );
@@ -897,24 +859,18 @@ class InventoryTransfersController extends GetxController {
       );
 
       final fileName = filePath.split('/').last;
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga completada',
         'Archivo "$fileName" guardado exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
         duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (e.toString().contains('cancelada por el usuario')) {
-        Get.snackbar('Cancelado', 'Descarga cancelada');
+        FuturisticNotifications.showSuccess('Cancelado', 'Descarga cancelada');
       } else {
-        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) FuturisticNotifications.showError(
           'Error',
           'Error descargando Excel: $e',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
       }
     } finally {
@@ -927,7 +883,7 @@ class InventoryTransfersController extends GetxController {
       final filteredData = _getFilteredTransfersForExport();
 
       if (filteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay transferencias para compartir con el filtro aplicado',
         );
@@ -936,9 +892,9 @@ class InventoryTransfersController extends GetxController {
 
       isLoading.value = true;
       await InventoryExportService.exportMovementsToPDF(filteredData);
-      Get.snackbar('Éxito', 'Transferencias compartidas correctamente');
+      FuturisticNotifications.showSuccess('Éxito', 'Transferencias compartidas correctamente');
     } catch (e) {
-      Get.snackbar('Error', 'Error compartiendo PDF: $e');
+      FuturisticNotifications.showError('Error', 'Error compartiendo PDF: $e');
     } finally {
       isLoading.value = false;
     }
@@ -949,7 +905,7 @@ class InventoryTransfersController extends GetxController {
       final filteredData = _getFilteredTransfersForExport();
 
       if (filteredData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay transferencias para descargar con el filtro aplicado',
         );
@@ -963,24 +919,18 @@ class InventoryTransfersController extends GetxController {
       );
 
       final fileName = filePath.split('/').last;
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga completada',
         'Archivo "$fileName" guardado exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
         duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (e.toString().contains('cancelada por el usuario')) {
-        Get.snackbar('Cancelado', 'Descarga cancelada');
+        FuturisticNotifications.showSuccess('Cancelado', 'Descarga cancelada');
       } else {
-        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) FuturisticNotifications.showError(
           'Error',
           'Error descargando PDF: $e',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
       }
     } finally {

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_movement.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryMovementCardWidget extends StatelessWidget {
   final InventoryMovement movement;
@@ -60,7 +62,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                       Text(
                         movement.displayReason,
                         style: Get.textTheme.bodySmall?.copyWith(
-                          color: Get.theme.colorScheme.onSurfaceVariant,
+                          color: ElegantLightTheme.textSecondary,
                           fontSize:
                               isDesktop
                                   ? 13
@@ -89,7 +91,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                   child: Container(
                     padding: EdgeInsets.all(isDesktop ? 8 : 6),
                     decoration: BoxDecoration(
-                      color: Get.theme.colorScheme.surfaceContainerHighest
+                      color: ElegantLightTheme.cardColor
                           .withOpacity(0.3),
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -120,7 +122,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                                   'SKU: ${movement.productSku}',
                                   style: Get.textTheme.bodySmall?.copyWith(
                                     color:
-                                        Get.theme.colorScheme.onSurfaceVariant,
+                                        ElegantLightTheme.textSecondary,
                                     fontSize: isDesktop ? 11 : 10,
                                   ),
                                   maxLines: 1,
@@ -157,7 +159,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                     icon: Icons.calendar_today,
                     label: 'Fecha',
                     value: AppFormatters.formatDate(movement.movementDate),
-                    color: Get.theme.colorScheme.secondary,
+                    color: ElegantLightTheme.primaryBlue,
                     isCompact: !isDesktop,
                   ),
                 ),
@@ -178,7 +180,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                       icon: Icons.attach_money,
                       label: _getPriceLabel(),
                       value: AppFormatters.formatCurrency(_getPriceValue()),
-                      color: Get.theme.colorScheme.primary,
+                      color: ElegantLightTheme.primaryBlue,
                       isCompact: !isDesktop,
                     ),
                   ),
@@ -193,7 +195,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                       icon: Icons.warehouse,
                       label: 'Almacén',
                       value: movement.warehouseName!,
-                      color: Get.theme.colorScheme.tertiary,
+                      color: ElegantLightTheme.textSecondary,
                       isCompact: !isDesktop,
                     ),
                   ),
@@ -214,7 +216,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                     child: Container(
                       padding: EdgeInsets.all(isDesktop ? 6 : 4),
                       decoration: BoxDecoration(
-                        color: Get.theme.colorScheme.surfaceContainerHighest
+                        color: ElegantLightTheme.cardColor
                             .withOpacity(0.3),
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -223,7 +225,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                           Icon(
                             Icons.note,
                             size: isDesktop ? 14 : 12,
-                            color: Get.theme.colorScheme.onSurfaceVariant,
+                            color: ElegantLightTheme.textSecondary,
                           ),
                           SizedBox(width: isDesktop ? 6 : 4),
                           Expanded(
@@ -232,7 +234,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                               style: Get.textTheme.bodySmall?.copyWith(
                                 fontStyle: FontStyle.italic,
                                 fontSize: isDesktop ? 11 : 10,
-                                color: Get.theme.colorScheme.onSurfaceVariant,
+                                color: ElegantLightTheme.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -265,21 +267,21 @@ class InventoryMovementCardWidget extends StatelessWidget {
     switch (movement.type) {
       case InventoryMovementType.inbound:
         icon = Icons.arrow_downward;
-        color = Colors.green;
+        color = ElegantLightTheme.successGreen;
         break;
       case InventoryMovementType.outbound:
         icon = Icons.arrow_upward;
-        color = Colors.red;
+        color = ElegantLightTheme.errorRed;
         break;
       case InventoryMovementType.adjustment:
         icon = Icons.tune;
-        color = Colors.blue;
+        color = ElegantLightTheme.primaryBlue;
         break;
       case InventoryMovementType.transfer:
       case InventoryMovementType.transferIn:
       case InventoryMovementType.transferOut:
         icon = Icons.swap_horiz;
-        color = Colors.orange;
+        color = ElegantLightTheme.warningOrange;
         break;
     }
 
@@ -303,15 +305,15 @@ class InventoryMovementCardWidget extends StatelessWidget {
 
     switch (movement.status) {
       case InventoryMovementStatus.pending:
-        statusColor = Colors.orange;
+        statusColor = ElegantLightTheme.warningOrange;
         statusText = 'Pendiente';
         break;
       case InventoryMovementStatus.confirmed:
-        statusColor = Colors.green;
+        statusColor = ElegantLightTheme.successGreen;
         statusText = 'Confirmado';
         break;
       case InventoryMovementStatus.cancelled:
-        statusColor = Colors.red;
+        statusColor = ElegantLightTheme.errorRed;
         statusText = 'Cancelado';
         break;
     }
@@ -364,7 +366,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
               Text(
                 label,
                 style: Get.textTheme.bodySmall?.copyWith(
-                  color: Get.theme.colorScheme.onSurfaceVariant,
+                  color: ElegantLightTheme.textSecondary,
                   fontSize: labelFontSize,
                 ),
               ),
@@ -385,31 +387,38 @@ class InventoryMovementCardWidget extends StatelessWidget {
     );
   }
 
+  /// Cantidad con su signo, tal como la define el movimiento: los ajustes
+  /// traen el signo en la cantidad (-5 = salieron 5). Se muestra con el signo
+  /// menos tipográfico (−) y con separador de miles.
   String _formatQuantity() {
-    String sign = '';
-    if (movement.type == InventoryMovementType.inbound ||
-        movement.type == InventoryMovementType.transferIn) {
-      sign = '+';
-    } else if (movement.type == InventoryMovementType.outbound ||
-        movement.type == InventoryMovementType.transferOut) {
-      sign = '-';
-    }
-
-    return '$sign${movement.quantity}';
+    final text = movement.displayQuantity;
+    final negative = text.startsWith('-');
+    final positive = text.startsWith('+');
+    final digits = (negative || positive) ? text.substring(1) : text;
+    final n = num.tryParse(digits);
+    final formatted = n == null ? digits : AppFormatters.formatStock(n);
+    return '${negative ? '\u2212' : positive ? '+' : ''}$formatted';
   }
 
   Color _getQuantityColor() {
+    // Los ajustes se colorean por su signo: disminución en rojo, aumento en
+    // verde. El resto conserva el color de su tipo.
+    if (movement.type == InventoryMovementType.adjustment) {
+      return movement.displayQuantity.startsWith('-')
+          ? ElegantLightTheme.errorRed
+          : ElegantLightTheme.successGreen;
+    }
     switch (movement.type) {
       case InventoryMovementType.inbound:
       case InventoryMovementType.transferIn:
-        return Colors.green;
+        return ElegantLightTheme.successGreen;
       case InventoryMovementType.outbound:
       case InventoryMovementType.transferOut:
-        return Colors.red;
+        return ElegantLightTheme.errorRed;
       case InventoryMovementType.adjustment:
-        return Colors.blue;
+        return ElegantLightTheme.primaryBlue;
       case InventoryMovementType.transfer:
-        return Colors.orange;
+        return ElegantLightTheme.warningOrange;
     }
   }
 
@@ -455,10 +464,10 @@ class InventoryMovementCardWidget extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.all(containerPadding),
           decoration: BoxDecoration(
-            color: Get.theme.colorScheme.primaryContainer.withOpacity(0.3),
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1).withOpacity(0.3),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: Get.theme.colorScheme.primary.withOpacity(0.3),
+              color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
             ),
           ),
           child: Row(
@@ -467,14 +476,14 @@ class InventoryMovementCardWidget extends StatelessWidget {
               Icon(
                 _getReferenceIcon(),
                 size: iconSize,
-                color: Get.theme.colorScheme.primary,
+                color: ElegantLightTheme.primaryBlue,
               ),
               SizedBox(width: isDesktop ? 8 : 6),
               Text(
                 _getReferenceText(),
                 style: Get.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Get.theme.colorScheme.primary,
+                  color: ElegantLightTheme.primaryBlue,
                   fontSize: textSize,
                 ),
               ),
@@ -482,7 +491,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios,
                 size: isDesktop ? 12 : 10,
-                color: Get.theme.colorScheme.primary,
+                color: ElegantLightTheme.primaryBlue,
               ),
             ],
           ),
@@ -540,10 +549,9 @@ class InventoryMovementCardWidget extends StatelessWidget {
         );
         break;
       default:
-        Get.snackbar(
+        FuturisticNotifications.showInfo(
           'Información',
           'Referencia: ${movement.referenceType} - ${movement.referenceId}',
-          snackPosition: SnackPosition.TOP,
         );
         break;
     }

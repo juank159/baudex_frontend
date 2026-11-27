@@ -1,6 +1,6 @@
 // lib/features/inventory/presentation/screens/warehouse_detail_screen.dart
 import 'package:flutter/material.dart';
-import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/permission_gate.dart';
@@ -8,6 +8,7 @@ import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/warehouse_detail_controller.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class WarehouseDetailScreen extends StatefulWidget {
   const WarehouseDetailScreen({super.key});
@@ -38,57 +39,14 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
     try {
       final warehouseDetailController = Get.find<WarehouseDetailController>();
       
-      return Scaffold(
-        backgroundColor: ElegantLightTheme.backgroundColor,
-        appBar: AppBar(
-          title: Obx(() => Text(
-            warehouseDetailController.hasWarehouse 
-                ? warehouseDetailController.warehouseName 
-                : 'Detalles del Almacén',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-          )),
-          actions: _buildAppBarActions(context),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => AppNav.back(),
-            tooltip: 'Volver',
-          ),
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  ElegantLightTheme.primaryGradient.colors.first,
-                  ElegantLightTheme.primaryGradient.colors.last,
-                  ElegantLightTheme.primaryBlue,
-                ],
-                stops: [0.0, 0.7, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: ElegantLightTheme.primaryBlue.withOpacity(0.5),
-        ),
+      // Obx solo para el título (nombre del almacén al cargar).
+      return Obx(() => MainLayout(
+        title: warehouseDetailController.hasWarehouse
+            ? warehouseDetailController.warehouseName
+            : 'Detalles del Almacén',
+        showBackButton: true,
+        showDrawer: false,
+        actions: _buildAppBarActions(context),
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -111,7 +69,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                 ),
                 child: Obx(() {
                   if (warehouseDetailController.isLoading && !warehouseDetailController.hasWarehouse) {
-                    return const Center(child: LoadingWidget());
+                    return const Center(child: LoadingWidget(color: ElegantLightTheme.primaryBlue, message: 'Cargando almacén...'));
                   }
 
                   if (warehouseDetailController.error.isNotEmpty && !warehouseDetailController.hasWarehouse) {
@@ -128,7 +86,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
             },
           ),
         ),
-      );
+      ));
     } catch (e) {
       // Si el controlador no está disponible, mostrar pantalla de error
       return _buildControllerErrorWidget(context);
@@ -1026,12 +984,9 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
   void _handleMenuAction(String action) {
     final warehouse = controller.warehouse;
     if (warehouse == null) {
-      Get.snackbar(
+      FuturisticNotifications.showError(
         'Error',
         'No se pudo obtener la información del almacén',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
       return;
     }
@@ -1053,12 +1008,9 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
         break;
       case 'toggle_status':
         // TODO: Implementar cambio de estado
-        Get.snackbar(
+        FuturisticNotifications.showInfo(
           'Próximamente',
           'Funcionalidad de cambio de estado en desarrollo',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: ElegantLightTheme.primaryBlue.withOpacity(0.1),
-          colorText: ElegantLightTheme.primaryBlue,
         );
         break;
       case 'delete':
@@ -1069,38 +1021,10 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
   }
 
   Widget _buildControllerErrorWidget(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ElegantLightTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'Error - Detalle de Almacén',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => AppNav.back(),
-          tooltip: 'Volver',
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                ElegantLightTheme.primaryGradient.colors.first,
-                ElegantLightTheme.primaryGradient.colors.last,
-                ElegantLightTheme.primaryBlue,
-              ],
-              stops: [0.0, 0.7, 1.0],
-            ),
-          ),
-        ),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+    return MainLayout(
+      title: 'Detalle de almacén',
+      showBackButton: true,
+      showDrawer: false,
       body: Center(
         child: Container(
           margin: const EdgeInsets.all(40),

@@ -19,6 +19,7 @@ import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
 import 'inventory_transfers_controller.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryController extends GetxController
     with SyncAutoRefreshMixin {
@@ -182,12 +183,9 @@ class InventoryController extends GetxController
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (paginatedResult) {
@@ -239,12 +237,9 @@ class InventoryController extends GetxController
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error', failure.message)) FuturisticNotifications.showError(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (paginatedResult) {
@@ -803,12 +798,9 @@ class InventoryController extends GetxController
   Future<void> exportBalancesToExcel() async {
     try {
       if (filteredBalances.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -816,20 +808,14 @@ class InventoryController extends GetxController
       isLoading.value = true;
       await InventoryExportService.exportBalancesToExcel(filteredBalances);
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Balances exportados a Excel correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando balances a Excel: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando balances a Excel: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando balances a Excel: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -839,12 +825,9 @@ class InventoryController extends GetxController
   Future<void> exportMovementsToExcel() async {
     try {
       if (filteredMovements.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -852,20 +835,14 @@ class InventoryController extends GetxController
       isLoading.value = true;
       await InventoryExportService.exportMovementsToExcel(filteredMovements);
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Movimientos exportados a Excel correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando movimientos a Excel: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando movimientos a Excel: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando movimientos a Excel: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -875,23 +852,17 @@ class InventoryController extends GetxController
   Future<void> exportFullReportToPdf() async {
     try {
       if (selectedTab.value == 0 && filteredBalances.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay balances para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
 
       if (selectedTab.value == 1 && filteredMovements.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -906,20 +877,14 @@ class InventoryController extends GetxController
         await InventoryExportService.exportMovementsToPDF(filteredMovements);
       }
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Reporte exportado a PDF correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando reporte a PDF: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando reporte a PDF: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando reporte a PDF: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;

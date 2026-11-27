@@ -8,23 +8,24 @@ import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/inventory_transfers_controller.dart';
 import '../widgets/futuristic_transfer_form_widget.dart';
 import '../widgets/futuristic_transfers_list_widget.dart';
+import '../widgets/inventory_states.dart';
 
 class InventoryTransfersScreen extends GetView<InventoryTransfersController> {
   const InventoryTransfersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => controller.isLoading.value
-        ? _buildLoadingState()
-        : controller.hasError
-            ? _buildErrorState()
-            : MainLayout(
-                title: controller.displayTitle,
-                showBackButton: true,
-                showDrawer: false,
-                actions: _buildAppBarActions(context),
-                body: _buildFuturisticContent(context),
-              ));
+    return Obx(() => MainLayout(
+          title: controller.displayTitle,
+          showBackButton: true,
+          showDrawer: false,
+          actions: _buildAppBarActions(context),
+          body: controller.isLoading.value
+              ? _buildLoadingState()
+              : controller.hasError
+                  ? _buildErrorState()
+                  : _buildFuturisticContent(context),
+        ));
   }
 
   List<Widget> _buildAppBarActions(BuildContext context) {
@@ -78,9 +79,9 @@ class InventoryTransfersScreen extends GetView<InventoryTransfersController> {
   }
 
   Widget _buildLoadingState() {
-    return Scaffold(
-      backgroundColor: ElegantLightTheme.backgroundColor,
-      body: Container(
+    return ColoredBox(
+      color: ElegantLightTheme.backgroundColor,
+      child: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
@@ -175,7 +176,8 @@ class InventoryTransfersScreen extends GetView<InventoryTransfersController> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Error al cargar',
+              'No se pudieron cargar los traslados',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: ElegantLightTheme.textPrimary,
                 fontSize: 20,
@@ -184,7 +186,7 @@ class InventoryTransfersScreen extends GetView<InventoryTransfersController> {
             ),
             const SizedBox(height: 8),
             Obx(() => Text(
-              controller.error.value,
+              friendlyInventoryError(controller.error.value, what: 'los traslados'),
               style: TextStyle(
                 color: ElegantLightTheme.textSecondary,
                 fontSize: 14,
@@ -751,7 +753,7 @@ class InventoryTransfersScreen extends GetView<InventoryTransfersController> {
               'Compartir Excel',
               'Enviar archivo .xlsx por WhatsApp, Email, etc.',
               Icons.table_chart,
-              Colors.blue,
+              ElegantLightTheme.primaryBlue,
               () {
                 Get.back();
                 controller.exportTransfersToExcel();
@@ -761,7 +763,7 @@ class InventoryTransfersScreen extends GetView<InventoryTransfersController> {
               'Compartir PDF',
               'Enviar reporte .pdf por WhatsApp, Email, etc.',
               Icons.picture_as_pdf,
-              Colors.orange,
+              ElegantLightTheme.warningOrange,
               () {
                 Get.back();
                 controller.exportTransfersToPdf();

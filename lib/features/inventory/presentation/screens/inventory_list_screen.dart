@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
-import '../../../../app/ui/components/loaders/custom_loading_indicator.dart';
-import '../../../../app/ui/components/empty_states/custom_empty_state.dart';
-import '../../../../app/ui/components/errors/custom_error_widget.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
+import '../widgets/inventory_states.dart';
 import '../controllers/inventory_controller.dart';
 import '../widgets/inventory_filter_widget.dart';
 import '../widgets/inventory_balance_card_widget.dart';
@@ -62,7 +62,9 @@ class InventoryListScreen extends GetView<InventoryController> {
           ],
         ),
       ],
-      body: Column(
+      body: ColoredBox(
+        color: ElegantLightTheme.backgroundColor,
+        child: Column(
         children: [
           // Search bar
           _buildSearchBar(),
@@ -81,28 +83,49 @@ class InventoryListScreen extends GetView<InventoryController> {
           ),
         ],
       ),
+      ),
     );
   }
 
   Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: TextField(
         controller: controller.searchController,
         decoration: InputDecoration(
           hintText: 'Buscar productos...',
-          prefixIcon: const Icon(Icons.search),
+          filled: true,
+          fillColor: ElegantLightTheme.surfaceColor,
+          prefixIcon: const Icon(Icons.search, color: ElegantLightTheme.primaryBlue),
           suffixIcon: Obx(() => controller.searchQuery.value.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear),
+                  icon: const Icon(Icons.clear, color: ElegantLightTheme.textSecondary),
+                  tooltip: 'Limpiar búsqueda',
                   onPressed: () {
                     controller.searchController.clear();
                     controller.searchQuery.value = '';
                   },
                 )
               : const SizedBox.shrink()),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(
+              color: ElegantLightTheme.primaryBlue,
+              width: 1.5,
+            ),
           ),
         ),
       ),
@@ -111,12 +134,22 @@ class InventoryListScreen extends GetView<InventoryController> {
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.25),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
       child: Row(
         children: [
           Expanded(
             child: Obx(() => _buildTabButton(
               text: 'Balances',
+              icon: Icons.inventory_2_outlined,
               index: 0,
               isSelected: controller.selectedTab.value == 0,
             )),
@@ -124,6 +157,7 @@ class InventoryListScreen extends GetView<InventoryController> {
           Expanded(
             child: Obx(() => _buildTabButton(
               text: 'Movimientos',
+              icon: Icons.swap_horiz,
               index: 1,
               isSelected: controller.selectedTab.value == 1,
             )),
@@ -131,6 +165,7 @@ class InventoryListScreen extends GetView<InventoryController> {
           Expanded(
             child: Obx(() => _buildTabButton(
               text: 'Estadísticas',
+              icon: Icons.insights_outlined,
               index: 2,
               isSelected: controller.selectedTab.value == 2,
             )),
@@ -142,31 +177,41 @@ class InventoryListScreen extends GetView<InventoryController> {
 
   Widget _buildTabButton({
     required String text,
+    required IconData icon,
     required int index,
     required bool isSelected,
   }) {
-    return GestureDetector(
-      onTap: () => controller.switchTab(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected 
-                  ? Get.theme.colorScheme.primary 
-                  : Colors.transparent,
-              width: 2,
-            ),
+    final color = isSelected ? Colors.white : ElegantLightTheme.textSecondary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(9),
+        onTap: () => controller.switchTab(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          decoration: BoxDecoration(
+            gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
+            borderRadius: BorderRadius.circular(9),
           ),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: Get.textTheme.bodyMedium?.copyWith(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected 
-                ? Get.theme.colorScheme.primary 
-                : Get.theme.colorScheme.onSurfaceVariant,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -188,24 +233,26 @@ class InventoryListScreen extends GetView<InventoryController> {
 
   Widget _buildBalancesTab() {
     if (controller.isLoading.value && controller.balances.isEmpty) {
-      return const Center(child: CustomLoadingIndicator());
+      return const InventoryLoadingState('Cargando inventario...');
     }
 
     if (controller.error.value.isNotEmpty) {
-      return CustomErrorWidget(
-        message: controller.error.value,
+      return InventoryErrorState(
+        title: 'No se pudo cargar el inventario',
+        message: friendlyInventoryError(controller.error.value, what: 'el inventario'),
         onRetry: () => controller.loadBalances(),
       );
     }
 
     if (!controller.hasResults) {
-      return CustomEmptyState(
-        icon: Icons.inventory,
+      return InventoryEmptyState(
+        icon: Icons.inventory_2_outlined,
         title: 'No hay productos en inventario',
-        subtitle: controller.searchQuery.value.isNotEmpty
+        actionIcon: Icons.add,
+        message: controller.searchQuery.value.isNotEmpty
             ? 'No se encontraron productos que coincidan con tu búsqueda'
             : 'Aún no hay productos registrados en el inventario',
-        actionText: 'Crear movimiento',
+        actionLabel: 'Crear movimiento',
         onAction: controller.goToCreateMovement,
       );
     }
@@ -243,24 +290,26 @@ class InventoryListScreen extends GetView<InventoryController> {
 
   Widget _buildMovementsTab() {
     if (controller.isLoading.value && controller.movements.isEmpty) {
-      return const Center(child: CustomLoadingIndicator());
+      return const InventoryLoadingState('Cargando movimientos...');
     }
 
     if (controller.error.value.isNotEmpty) {
-      return CustomErrorWidget(
-        message: controller.error.value,
+      return InventoryErrorState(
+        title: 'No se pudieron cargar los movimientos',
+        message: friendlyInventoryError(controller.error.value, what: 'los movimientos'),
         onRetry: () => controller.loadMovements(),
       );
     }
 
     if (!controller.hasResults) {
-      return CustomEmptyState(
+      return InventoryEmptyState(
         icon: Icons.swap_horiz,
         title: 'No hay movimientos de inventario',
-        subtitle: controller.searchQuery.value.isNotEmpty
+        actionIcon: Icons.add,
+        message: controller.searchQuery.value.isNotEmpty
             ? 'No se encontraron movimientos que coincidan con tu búsqueda'
             : 'Aún no hay movimientos registrados',
-        actionText: 'Crear movimiento',
+        actionLabel: 'Crear movimiento',
         onAction: controller.goToCreateMovement,
       );
     }
@@ -299,7 +348,7 @@ class InventoryListScreen extends GetView<InventoryController> {
 
   Widget _buildStatsTab() {
     if (controller.stats.value == null) {
-      return const Center(child: CustomLoadingIndicator());
+      return const InventoryLoadingState('Cargando estadísticas...');
     }
 
     return RefreshIndicator(
@@ -321,8 +370,9 @@ class InventoryListScreen extends GetView<InventoryController> {
           Expanded(
             child: Text(
               controller.resultsText,
-              style: Get.textTheme.bodyMedium?.copyWith(
-                color: Get.theme.colorScheme.onSurfaceVariant,
+              style: const TextStyle(
+                fontSize: 13,
+                color: ElegantLightTheme.textSecondary,
               ),
             ),
           ),
@@ -336,13 +386,15 @@ class InventoryListScreen extends GetView<InventoryController> {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Get.theme.colorScheme.primaryContainer,
+                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '$count filtro${count > 1 ? 's' : ''}',
-                style: Get.textTheme.bodySmall?.copyWith(
-                  color: Get.theme.colorScheme.onPrimaryContainer,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: ElegantLightTheme.primaryBlue,
                 ),
               ),
             );
@@ -358,10 +410,11 @@ class InventoryListScreen extends GetView<InventoryController> {
       child: Column(
         children: [
           if (controller.isLoadingMore.value)
-            const CustomLoadingIndicator()
+            const BrebInlineLoading('Cargando más...')
           else
-            ElevatedButton(
+            OutlinedButton(
               onPressed: controller.loadNextPage,
+              style: brebSecondaryButtonStyle(),
               child: const Text('Cargar más'),
             ),
         ],

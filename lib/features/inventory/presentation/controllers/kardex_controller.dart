@@ -8,6 +8,7 @@ import '../../domain/usecases/get_kardex_report_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class KardexController extends GetxController {
   final GetKardexReportUseCase getKardexReportUseCase;
@@ -81,12 +82,9 @@ class KardexController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error al cargar kardex', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error al cargar kardex', failure.message)) FuturisticNotifications.showError(
             'Error al cargar kardex',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (report) {
@@ -95,12 +93,9 @@ class KardexController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error al cargar kardex', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar kardex', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error al cargar kardex',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -192,12 +187,9 @@ class KardexController extends GetxController {
   Future<void> exportKardexToPdf() async {
     try {
       if (kardexReport.value == null || !kardexReport.value!.hasMovements) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de kardex para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -205,20 +197,14 @@ class KardexController extends GetxController {
       isLoading.value = true;
       await InventoryExportService.exportKardexReportToPDF(kardexReport.value!);
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Kardex exportado a PDF correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando kardex a PDF: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando kardex a PDF: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando kardex a PDF: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -228,12 +214,9 @@ class KardexController extends GetxController {
   Future<void> exportKardexToExcel() async {
     try {
       if (kardexReport.value == null || !kardexReport.value!.hasMovements) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de kardex para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -243,20 +226,14 @@ class KardexController extends GetxController {
         kardexReport.value!,
       );
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Kardex exportado a Excel correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando kardex a Excel: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando kardex a Excel: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando kardex a Excel: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -269,12 +246,9 @@ class KardexController extends GetxController {
   Future<void> downloadKardexToExcel() async {
     try {
       if (kardexReport.value == null || !kardexReport.value!.hasMovements) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de kardex para descargar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -287,24 +261,18 @@ class KardexController extends GetxController {
       // Extraer solo el nombre del archivo para notificación más limpia
       final fileName = filePath.split('/').last;
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga completada',
         'Archivo "$fileName" guardado exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
         duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (e.toString().contains('cancelada por el usuario')) {
-        Get.snackbar('Cancelado', 'Descarga cancelada');
+        FuturisticNotifications.showSuccess('Cancelado', 'Descarga cancelada');
       } else {
-        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando Excel: $e')) FuturisticNotifications.showError(
           'Error',
           'Error descargando Excel: $e',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
       }
     } finally {
@@ -316,12 +284,9 @@ class KardexController extends GetxController {
   Future<void> downloadKardexToPdf() async {
     try {
       if (kardexReport.value == null || !kardexReport.value!.hasMovements) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de kardex para descargar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -334,24 +299,18 @@ class KardexController extends GetxController {
       // Extraer solo el nombre del archivo para notificación más limpia
       final fileName = filePath.split('/').last;
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Descarga completada',
         'Archivo "$fileName" guardado exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
         duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (e.toString().contains('cancelada por el usuario')) {
-        Get.snackbar('Cancelado', 'Descarga cancelada');
+        FuturisticNotifications.showSuccess('Cancelado', 'Descarga cancelada');
       } else {
-        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) Get.snackbar(
+        if (!AutomaticWork.swallow('Error', 'Error descargando PDF: $e')) FuturisticNotifications.showError(
           'Error',
           'Error descargando PDF: $e',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
       }
     } finally {
@@ -363,12 +322,9 @@ class KardexController extends GetxController {
   Future<void> shareKardexToPdf() async {
     try {
       if (kardexReport.value == null || !kardexReport.value!.hasMovements) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de kardex para compartir',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -376,12 +332,9 @@ class KardexController extends GetxController {
       isLoading.value = true;
       await InventoryExportService.shareKardexToPdf(kardexReport.value!);
     } catch (e) {
-      if (!AutomaticWork.swallow('Error al compartir', 'No se pudo compartir el archivo PDF: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al compartir', 'No se pudo compartir el archivo PDF: $e')) FuturisticNotifications.showError(
         'Error al compartir',
         'No se pudo compartir el archivo PDF: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;

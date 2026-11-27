@@ -670,11 +670,12 @@ class FuturisticTransfersListWidget
 
   Widget _buildActionButtons(dynamic transfer, bool isMobile, bool isTablet) {
     final buttonHeight =
+        // 44 en celular: el botón con ícono cortaba el texto a 32.
         isMobile
-            ? 32.0
+            ? 44.0
             : isTablet
-            ? 34.0
-            : 36.0;
+            ? 44.0
+            : 44.0;
     final buttonSpacing =
         isMobile
             ? 6.0

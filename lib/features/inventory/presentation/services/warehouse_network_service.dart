@@ -1,9 +1,9 @@
 // lib/features/inventory/presentation/services/warehouse_network_service.dart
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class WarehouseNetworkService {
   static final Connectivity _connectivity = Connectivity();
@@ -177,75 +177,46 @@ class WarehouseNetworkService {
 
   /// Mostrar mensaje de desconexión
   static void _showDisconnectionMessage() {
-    Get.snackbar(
+    FuturisticNotifications.showWarning(
       'Sin conexión',
       'Se perdió la conexión a internet. Verifica tu red.',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.wifi_off, color: Colors.red),
       duration: const Duration(seconds: 5),
-      isDismissible: true,
     );
   }
 
   /// Mostrar mensaje de reconexión
   static void _showReconnectionMessage() {
-    Get.snackbar(
+    FuturisticNotifications.showSuccess(
       'Conectado',
       'Conexión a internet restablecida.',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: const Icon(Icons.wifi, color: Colors.green),
       duration: const Duration(seconds: 3),
     );
   }
 
   /// Mostrar progreso de reintento
   static void _showRetryProgress(String operation, int attempt) {
-    Get.snackbar(
+    FuturisticNotifications.showWarning(
       'Reintentando...',
       '$operation - Intento $attempt de $maxRetryAttempts',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.orange.shade100,
-      colorText: Colors.orange.shade800,
-      icon: const Icon(Icons.refresh, color: Colors.orange),
       duration: const Duration(seconds: 2),
-      showProgressIndicator: true,
     );
   }
 
   /// Mostrar éxito después de reintentos
   static void _showSuccessAfterRetry(String operation) {
-    Get.snackbar(
+    FuturisticNotifications.showSuccess(
       'Operación exitosa',
       '$operation completada después de ${_retryAttempts.value} reintentos.',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: const Icon(Icons.check_circle, color: Colors.green),
       duration: const Duration(seconds: 3),
     );
   }
 
   /// Mostrar que se alcanzó el máximo de reintentos
   static void _showMaxRetriesReached(String operation) {
-    Get.snackbar(
+    FuturisticNotifications.showError(
       'Operación falló',
       '$operation no pudo completarse después de $maxRetryAttempts intentos.',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade100,
-      colorText: Colors.red.shade800,
-      icon: const Icon(Icons.error, color: Colors.red),
       duration: const Duration(seconds: 5),
-      mainButton: TextButton(
-        onPressed: () {
-          Get.back(); // Cerrar snackbar
-          // Aquí podrías agregar lógica para reintentar manualmente
-        },
-        child: const Text('Intentar de nuevo', style: TextStyle(color: Colors.red)),
-      ),
     );
   }
 

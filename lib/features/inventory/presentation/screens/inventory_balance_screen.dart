@@ -2,14 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:baudex_desktop/app/core/navigation/navigation_guard.dart';
 import 'package:get/get.dart';
-// import '../../../../app/ui/layouts/main_layout.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
-import '../../../../app/config/themes/app_colors.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/inventory_balance_controller.dart';
 import '../widgets/inventory_balance_card.dart';
 import '../widgets/inventory_alerts_cards.dart';
+import '../widgets/inventory_states.dart';
 
 class InventoryBalanceScreen extends StatefulWidget {
   const InventoryBalanceScreen({super.key});
@@ -28,62 +27,19 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
     final isFromWarehouse = args != null && args.containsKey('warehouseId');
     final warehouseName = args?['warehouseName'] ?? 'Inventario General';
     
-    return Scaffold(
-      backgroundColor: ElegantLightTheme.backgroundColor,
-      appBar: AppBar(
-        title: Text(
-          isFromWarehouse ? 'Inventario - $warehouseName' : 'Balances de Inventario',
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            shadows: [
-              Shadow(
-                color: Colors.black26,
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-        ),
-        actions: _buildAppBarActions(context),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            // Limpiar historial y volver atrás para refrescar datos
-            AppNav.back();
-            // Forzar limpieza del controlador para próxima navegación
-            if (Get.isRegistered<InventoryBalanceController>()) {
-              Get.delete<InventoryBalanceController>();
-            }
-          },
-          tooltip: 'Volver',
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                ElegantLightTheme.primaryGradient.colors.first,
-                ElegantLightTheme.primaryGradient.colors.last,
-                ElegantLightTheme.primaryBlue,
-              ],
-              stops: [0.0, 0.7, 1.0],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-                blurRadius: 8,
-                spreadRadius: 1,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-        ),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shadowColor: ElegantLightTheme.primaryBlue.withOpacity(0.5),
-      ),
+    return MainLayout(
+      title: isFromWarehouse ? 'Inventario - $warehouseName' : 'Balances de Inventario',
+      showBackButton: true,
+      showDrawer: false,
+      onBack: () {
+        // Limpiar historial y volver atrás para refrescar datos
+        AppNav.back();
+        // Forzar limpieza del controlador para próxima navegación
+        if (Get.isRegistered<InventoryBalanceController>()) {
+          Get.delete<InventoryBalanceController>();
+        }
+      },
+      actions: _buildAppBarActions(context),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -128,7 +84,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
   Widget _buildResponsiveContent(double screenWidth) {
     return Obx(() {
         if (controller.isLoading.value && !controller.hasBalances) {
-          return const Center(child: LoadingWidget());
+          return const InventoryLoadingState('Cargando saldos de inventario...');
         }
 
         if (controller.hasError && !controller.hasBalances) {
@@ -583,7 +539,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
             ),
             SizedBox(height: isDesktop ? 20 : 16),
             Text(
-              'Error al cargar inventario',
+              'No se pudo cargar el inventario',
               style: Get.textTheme.titleMedium?.copyWith(
                 color: ElegantLightTheme.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -592,7 +548,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
             ),
             SizedBox(height: isDesktop ? 12 : 8),
             Obx(() => Text(
-              controller.error.value,
+              friendlyInventoryError(controller.error.value, what: 'el inventario'),
               style: Get.textTheme.bodyMedium?.copyWith(
                 color: ElegantLightTheme.textSecondary,
               ),
@@ -685,7 +641,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
             value: 'download',
             child: Row(
               children: [
-                Icon(Icons.download, color: AppColors.primary),
+                Icon(Icons.download, color: ElegantLightTheme.primaryBlue),
                 const SizedBox(width: 8),
                 const Text('Descargar'),
               ],
@@ -695,7 +651,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
             value: 'share',
             child: Row(
               children: [
-                Icon(Icons.share, color: AppColors.primary),
+                Icon(Icons.share, color: ElegantLightTheme.primaryBlue),
                 const SizedBox(width: 8),
                 const Text('Compartir'),
               ],
@@ -753,7 +709,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
               'Descargar como Excel',
               'Archivo .xlsx para análisis de datos',
               Icons.table_chart,
-              Colors.green,
+              ElegantLightTheme.successGreen,
               () {
                 Get.back();
                 controller.downloadBalancesToExcel();
@@ -763,7 +719,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
               'Descargar como PDF',
               'Reporte .pdf para impresión',
               Icons.picture_as_pdf,
-              Colors.red,
+              ElegantLightTheme.errorRed,
               () {
                 Get.back();
                 controller.downloadBalancesToPdf();
@@ -821,7 +777,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
               'Compartir Excel',
               'Enviar archivo .xlsx por WhatsApp, Email, etc.',
               Icons.table_chart,
-              Colors.blue,
+              ElegantLightTheme.primaryBlue,
               () {
                 Get.back();
                 controller.exportBalancesToExcel();
@@ -831,7 +787,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
               'Compartir PDF',
               'Enviar reporte .pdf por WhatsApp, Email, etc.',
               Icons.picture_as_pdf,
-              Colors.orange,
+              ElegantLightTheme.warningOrange,
               () {
                 Get.back();
                 controller.exportBalancesToPdf();
@@ -899,14 +855,14 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
       children: [
         Icon(
           sortOrder == 'asc' ? Icons.arrow_upward : Icons.arrow_downward,
-          color: isSelected ? AppColors.primary : Colors.grey,
+          color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textTertiary,
           size: 16,
         ),
         const SizedBox(width: 8),
         Text(
           label,
           style: TextStyle(
-            color: isSelected ? AppColors.primary : Colors.black,
+            color: isSelected ? ElegantLightTheme.primaryBlue : Colors.black,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -914,7 +870,7 @@ class _InventoryBalanceScreenState extends State<InventoryBalanceScreen> {
           const Spacer(),
           Icon(
             Icons.check,
-            color: AppColors.primary,
+            color: ElegantLightTheme.primaryBlue,
             size: 16,
           ),
         ],

@@ -46,7 +46,7 @@ class WarehouseCardWidget extends StatelessWidget {
               BoxShadow(
                 color: warehouse.isActive 
                     ? ElegantLightTheme.primaryBlue.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.05),
+                    : ElegantLightTheme.textTertiary.withOpacity(0.05),
                 blurRadius: isDesktop ? 12 : 8,
                 spreadRadius: 1,
                 offset: const Offset(0, 2),
@@ -78,7 +78,7 @@ class WarehouseCardWidget extends StatelessWidget {
                               BoxShadow(
                                 color: warehouse.isActive 
                                     ? ElegantLightTheme.primaryBlue.withOpacity(0.3)
-                                    : Colors.red.withOpacity(0.2),
+                                    : ElegantLightTheme.errorRed.withOpacity(0.2),
                                 blurRadius: 6,
                                 spreadRadius: 1,
                                 offset: const Offset(0, 1),
@@ -150,8 +150,8 @@ class WarehouseCardWidget extends StatelessWidget {
                             boxShadow: [
                               BoxShadow(
                                 color: warehouse.isActive 
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.red.withOpacity(0.3),
+                                    ? ElegantLightTheme.successGreen.withOpacity(0.3)
+                                    : ElegantLightTheme.errorRed.withOpacity(0.3),
                                 blurRadius: 3,
                                 spreadRadius: 1,
                                 offset: const Offset(0, 1),
@@ -477,7 +477,7 @@ class WarehouseCardWidget extends StatelessWidget {
                   Icons.attach_money, 
                   'Valor Total:', 
                   AppFormatters.formatCurrency(stats.totalValue),
-                  Colors.green,
+                  ElegantLightTheme.successGreen,
                   isDesktop,
                 ),
               ],
@@ -501,7 +501,7 @@ class WarehouseCardWidget extends StatelessWidget {
                     Icons.attach_money, 
                     'Valor Total:', 
                     AppFormatters.formatCurrency(stats.totalValue),
-                    Colors.green,
+                    ElegantLightTheme.successGreen,
                     isDesktop,
                   ),
                 ),

@@ -1,7 +1,6 @@
 // lib/features/inventory/presentation/widgets/inventory_balance_card.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_balance.dart';
@@ -28,19 +27,7 @@ class InventoryBalanceCard extends StatelessWidget {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     
-    // Altura ajustada para evitar overflow de 66 pixels
-    double cardHeight;
-    
-    if (isDesktop) {
-      cardHeight = 120; // 50 + 66 + buffer = funcional
-    } else if (isTablet) {
-      cardHeight = 140; // 72 + 66 + buffer = funcional
-    } else {
-      cardHeight = 130; // 60 + 66 + buffer = funcional
-    }
-    
     return Container(
-      height: cardHeight,
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.cardGradient,
@@ -67,6 +54,7 @@ class InventoryBalanceCard extends StatelessWidget {
 
   Widget _buildThreeRowLayout(bool isDesktop, bool isTablet) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // FILA 1: Nombre del producto y estado
@@ -81,6 +69,7 @@ class InventoryBalanceCard extends StatelessWidget {
         
         // FILA 3: Botones de acción
         _buildActionButtonsRow(isDesktop, isTablet),
+        const SizedBox(height: 2),
       ],
     );
   }
@@ -108,7 +97,7 @@ class InventoryBalanceCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: ElegantLightTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -149,7 +138,7 @@ class InventoryBalanceCard extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Icon(Icons.inventory_2, size: isDesktop ? 14 : isTablet ? 13 : 12, color: Colors.grey),
+                Icon(Icons.inventory_2, size: isDesktop ? 14 : isTablet ? 13 : 12, color: ElegantLightTheme.textTertiary),
                 const SizedBox(width: 4),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,11 +148,11 @@ class InventoryBalanceCard extends StatelessWidget {
                       'Stock',
                       style: TextStyle(
                         fontSize: isDesktop ? 10 : isTablet ? 9 : 8,
-                        color: Colors.black54,
+                        color: ElegantLightTheme.textSecondary,
                       ),
                     ),
                     Text(
-                      '${balance.totalQuantity}',
+                      AppFormatters.formatStock(balance.totalQuantity),
                       style: TextStyle(
                         fontSize: isDesktop ? 12 : isTablet ? 11 : 10,
                         fontWeight: FontWeight.bold,
@@ -180,7 +169,7 @@ class InventoryBalanceCard extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, size: isDesktop ? 14 : isTablet ? 13 : 12, color: Colors.grey),
+                Icon(Icons.warning_amber_rounded, size: isDesktop ? 14 : isTablet ? 13 : 12, color: ElegantLightTheme.textTertiary),
                 const SizedBox(width: 4),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,15 +179,15 @@ class InventoryBalanceCard extends StatelessWidget {
                       'Mínimo',
                       style: TextStyle(
                         fontSize: isDesktop ? 10 : isTablet ? 9 : 8,
-                        color: Colors.black54,
+                        color: ElegantLightTheme.textSecondary,
                       ),
                     ),
                     Text(
-                      '${balance.minStock}',
+                      AppFormatters.formatStock(balance.minStock),
                       style: TextStyle(
                         fontSize: isDesktop ? 12 : isTablet ? 11 : 10,
                         fontWeight: FontWeight.bold,
-                        color: Colors.orange,
+                        color: ElegantLightTheme.warningOrange,
                       ),
                     ),
                   ],
@@ -231,7 +220,7 @@ class InventoryBalanceCard extends StatelessWidget {
             child: _buildActionButton(
               'Kardex',
               Icons.timeline_rounded,
-              AppColors.primary,
+              ElegantLightTheme.primaryBlue,
               onKardexTap,
               isDesktop,
               isTablet,
@@ -241,7 +230,7 @@ class InventoryBalanceCard extends StatelessWidget {
             child: _buildActionButton(
               'Lotes',
               Icons.inventory_rounded,
-              Colors.orange.shade600,
+              ElegantLightTheme.warningOrange,
               onBatchesTap,
               isDesktop,
               isTablet,
@@ -249,9 +238,9 @@ class InventoryBalanceCard extends StatelessWidget {
           ),
           Expanded(
             child: _buildActionButton(
-              'Movtos',
+              'Movimientos',
               Icons.swap_horiz_rounded,
-              Colors.grey.shade600,
+              ElegantLightTheme.textSecondary,
               onMovementsTap,
               isDesktop,
               isTablet,
@@ -285,7 +274,7 @@ class InventoryBalanceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -296,13 +285,17 @@ class InventoryBalanceCard extends StatelessWidget {
                   color: color,
                 ),
                 const SizedBox(width: 4),
-                Text(
+                Flexible(
+                  child: Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: color,
                     fontWeight: FontWeight.w600,
                     fontSize: isDesktop ? 11 : isTablet ? 10 : 9,
                   ),
+                ),
                 ),
               ],
             ),
@@ -341,7 +334,7 @@ class InventoryBalanceCard extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              '${balance.totalQuantity}',
+              AppFormatters.formatStock(balance.totalQuantity),
               style: Get.textTheme.titleSmall?.copyWith(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -358,7 +351,7 @@ class InventoryBalanceCard extends StatelessWidget {
           AppFormatters.formatCurrency(balance.totalValue),
           style: Get.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: ElegantLightTheme.primaryBlue,
             fontSize: 10,
           ),
         ),
@@ -368,7 +361,7 @@ class InventoryBalanceCard extends StatelessWidget {
         // Progress bar
         LinearProgressIndicator(
           value: balance.stockLevel.clamp(0.0, 1.0),
-          backgroundColor: Colors.grey.shade300,
+          backgroundColor: ElegantLightTheme.textTertiary.withOpacity(0.3),
           valueColor: AlwaysStoppedAnimation<Color>(_getStockStatusColor()),
         ),
 
@@ -388,10 +381,10 @@ class InventoryBalanceCard extends StatelessWidget {
   }
 
   Color _getStockStatusColor() {
-    if (balance.isOutOfStock) return Colors.red;
-    if (balance.isLowStock) return Colors.orange;
-    if (balance.isOverStock) return Colors.blue;
-    return Colors.green;
+    if (balance.isOutOfStock) return ElegantLightTheme.errorRed;
+    if (balance.isLowStock) return ElegantLightTheme.warningOrange;
+    if (balance.isOverStock) return ElegantLightTheme.primaryBlue;
+    return ElegantLightTheme.successGreen;
   }
 
   IconData _getStockStatusIcon() {

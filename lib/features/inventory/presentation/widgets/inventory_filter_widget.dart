@@ -6,6 +6,7 @@ import '../../../categories/domain/usecases/get_categories_usecase.dart';
 import '../controllers/inventory_controller.dart';
 import '../../domain/entities/warehouse.dart';
 import '../../domain/usecases/get_warehouses_usecase.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class InventoryFilterWidget extends StatefulWidget {
   const InventoryFilterWidget({super.key});
@@ -74,10 +75,10 @@ class _InventoryFilterWidgetState extends State<InventoryFilterWidget> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Get.theme.colorScheme.surface,
+        color: ElegantLightTheme.surfaceColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Get.theme.colorScheme.outline.withOpacity(0.2),
+          color: ElegantLightTheme.textTertiary.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -88,14 +89,14 @@ class _InventoryFilterWidgetState extends State<InventoryFilterWidget> {
             children: [
               Icon(
                 Icons.filter_list,
-                color: Get.theme.colorScheme.primary,
+                color: ElegantLightTheme.primaryBlue,
               ),
               const SizedBox(width: 8),
               Text(
                 'Filtros',
                 style: Get.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Get.theme.colorScheme.primary,
+                  color: ElegantLightTheme.primaryBlue,
                 ),
               ),
               const Spacer(),

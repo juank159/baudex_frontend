@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../domain/usecases/get_inventory_aging_usecase.dart';
 import '../services/inventory_export_service.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryAgingController extends GetxController {
   final GetInventoryAgingUseCase getInventoryAgingUseCase;
@@ -46,12 +47,9 @@ class InventoryAgingController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error al cargar reporte', failure.message)) Get.snackbar(
+          if (!AutomaticWork.swallow('Error al cargar reporte', failure.message)) FuturisticNotifications.showError(
             'Error al cargar reporte',
             failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
           );
         },
         (data) {
@@ -61,12 +59,9 @@ class InventoryAgingController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error al cargar reporte', 'Error inesperado: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error al cargar reporte', 'Error inesperado: $e')) FuturisticNotifications.showError(
         'Error al cargar reporte',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -136,12 +131,9 @@ class InventoryAgingController extends GetxController {
   Future<void> exportToExcel() async {
     try {
       if (agingData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de antigüedad para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -149,20 +141,14 @@ class InventoryAgingController extends GetxController {
       isLoading.value = true;
       await _createAgingExcelReport();
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Reporte de antigüedad exportado a Excel correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando a Excel: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a Excel: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando a Excel: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
@@ -172,12 +158,9 @@ class InventoryAgingController extends GetxController {
   Future<void> exportToPdf() async {
     try {
       if (agingData.isEmpty) {
-        Get.snackbar(
+        FuturisticNotifications.showWarning(
           'Sin datos',
           'No hay datos de antigüedad para exportar',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
         );
         return;
       }
@@ -185,20 +168,14 @@ class InventoryAgingController extends GetxController {
       isLoading.value = true;
       await _createAgingPdfReport();
 
-      Get.snackbar(
+      FuturisticNotifications.showSuccess(
         'Éxito',
         'Reporte de antigüedad exportado a PDF correctamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
       );
     } catch (e) {
-      if (!AutomaticWork.swallow('Error', 'Error exportando a PDF: $e')) Get.snackbar(
+      if (!AutomaticWork.swallow('Error', 'Error exportando a PDF: $e')) FuturisticNotifications.showError(
         'Error',
         'Error exportando a PDF: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
