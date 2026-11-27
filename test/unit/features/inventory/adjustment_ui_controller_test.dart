@@ -1,5 +1,6 @@
 // Controladores de Ajuste de stock y Ajustes masivos tras el rediseño:
 // lo que se envía al servidor debe ser exactamente lo de antes.
+import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:baudex_desktop/features/inventory/domain/entities/inventory_balance.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
+import '../../../helpers/session_role.dart';
 
 class _Create extends Mock implements CreateStockAdjustmentUseCase {}
 
@@ -85,6 +87,8 @@ void main() {
 
   setUp(() {
     Get.testMode = true;
+    // Estas pruebas son del administrador (el único que ajusta).
+    putSessionRole(UserRole.admin);
     create = _Create();
     balance = _Balance();
     warehouses = _Warehouses();

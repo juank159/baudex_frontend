@@ -2,6 +2,7 @@
 // 0 unidades": los lotes guardados por versiones anteriores a la 1.0.14 no
 // tienen almacén y solo se reparan cuando termina la re-descarga en segundo
 // plano. Mientras tanto la pantalla leía del equipo y afirmaba 0.
+import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:baudex_desktop/app/core/errors/exceptions.dart';
 import 'package:baudex_desktop/app/core/network/network_info.dart';
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
@@ -33,6 +34,7 @@ import 'package:isar/isar.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../helpers/test_isar.dart';
+import '../../../helpers/session_role.dart';
 
 class _Net implements NetworkInfo {
   _Net(this.online);
@@ -217,6 +219,8 @@ void main() {
     Get.testMode = true;
     resetLocalCollectionsReady();
     Get.put<FullSyncService>(_SyncDone());
+    // Estas pruebas son del administrador (el único que ajusta).
+    putSessionRole(UserRole.admin);
     offline = InventoryOfflineRepository(database: TestIsarDatabase(isar));
     Get.put<InventoryOfflineRepository>(offline);
     remote = _Remote();

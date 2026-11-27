@@ -13,6 +13,7 @@ import '../../../../app/core/utils/formatters.dart';
 import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../controllers/inventory_adjustments_controller.dart';
 import '../controllers/inventory_bulk_adjustments_controller.dart';
+import '../widgets/adjust_admin_only_notice.dart';
 import '../widgets/confirm_password_dialog.dart';
 import '../widgets/product_search_widget.dart';
 import 'inventory_adjustments_screen.dart'
@@ -33,7 +34,14 @@ class InventoryBulkAdjustmentsScreen
           builder: (context, constraints) {
             final mobile = constraints.maxWidth < 760;
             return Obx(() {
-              if (controller.isLoading.value && controller.warehouses.isEmpty) {
+              // Solo el administrador ajusta (aunque llegue por ruta directa).
+              // (Se lee `isLoading` primero: el Obx siempre observa algo, aunque
+              // no haya usuario cargado.)
+              final loading = controller.isLoading.value;
+              if (!controller.isAllowedToAdjust) {
+                return const AdjustAdminOnlyNotice();
+              }
+              if (loading && controller.warehouses.isEmpty) {
                 return const Center(child: LoadingWidget());
               }
               return Column(
@@ -393,6 +401,7 @@ class InventoryBulkAdjustmentsScreen
   // ──────────────────────── CONFIRMACIÓN CON CONTRASEÑA ────────────────────────
 
   Future<void> _onApplyPressed() async {
+    if (!controller.ensureAllowedToAdjust()) return;
     final itemCount = controller.itemsWithChanges.length;
     final warehouseName = controller.selectedWarehouseName.value;
 

@@ -12,6 +12,7 @@ import '../widgets/inventory_quick_actions.dart';
 import '../widgets/inventory_recent_activity.dart';
 import '../widgets/inventory_alerts_summary.dart';
 import '../services/inventory_export_service.dart';
+import '../inventory_adjust_access.dart';
 import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
 
 class InventoryDashboardScreen extends StatefulWidget {
@@ -634,13 +635,15 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         'gradient': ElegantLightTheme.primaryGradient,
         'onTap': () => Get.toNamed('/warehouses'),
       },
-      {
-        'title': 'Ajustes de Stock',
-        'subtitle': 'Correcciones de inventario',
-        'icon': Icons.tune,
-        'gradient': ElegantLightTheme.warningGradient,
-        'onTap': () => Get.toNamed('/inventory/adjustments'),
-      },
+      // Ajustes: solo el administrador (regla `canAdjustInventory`).
+      if (sessionCanAdjustInventory())
+        {
+          'title': 'Ajustes de Stock',
+          'subtitle': 'Correcciones de inventario',
+          'icon': Icons.tune,
+          'gradient': ElegantLightTheme.warningGradient,
+          'onTap': () => Get.toNamed('/inventory/adjustments'),
+        },
       {
         'title': 'Transferencias',
         'subtitle': 'Movimientos entre almacenes',
@@ -897,15 +900,17 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 Get.toNamed('/inventory/movements/create');
               },
             ),
-            _buildQuickActionItem(
-              icon: Icons.tune,
-              title: 'Ajuste de Stock',
-              subtitle: 'Corregir inventario',
-              onTap: () {
-                Get.back();
-                Get.toNamed('/inventory/adjustments');
-              },
-            ),
+            // Ajustes: solo el administrador (regla `canAdjustInventory`).
+            if (sessionCanAdjustInventory())
+              _buildQuickActionItem(
+                icon: Icons.tune,
+                title: 'Ajuste de Stock',
+                subtitle: 'Corregir inventario',
+                onTap: () {
+                  Get.back();
+                  Get.toNamed('/inventory/adjustments');
+                },
+              ),
             _buildQuickActionItem(
               icon: Icons.swap_horiz,
               title: 'Transferencia',

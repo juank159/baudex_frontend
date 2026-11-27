@@ -13,6 +13,7 @@ import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/product_detail_controller.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
+import '../../../inventory/presentation/inventory_adjust_access.dart';
 
 class ProductDetailScreen extends GetView<ProductDetailController> {
   const ProductDetailScreen({super.key});
@@ -143,10 +144,12 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   ? PermissionsService.to.canDelete(ModuleCode.products)
                   : true;
               // canEdit gobierna inventario/stock (es mutación)
+              // ...y cambiar stock solo el administrador (`canAdjustInventory`).
               final canManageInventory =
-                  Get.isRegistered<PermissionsService>()
+                  sessionCanAdjustInventory() &&
+                  (Get.isRegistered<PermissionsService>()
                       ? PermissionsService.to.canEdit(ModuleCode.inventory)
-                      : true;
+                      : true);
               return [
                 if (canManageInventory)
                   _buildPopupMenuItem(
@@ -763,21 +766,24 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   ),
                 ),
               ),
-              PermissionGate.canEdit(
-                moduleCode: ModuleCode.inventory,
-                child: const SizedBox(width: 8),
-              ),
-              PermissionGate.canEdit(
-                moduleCode: ModuleCode.inventory,
-                child: Expanded(
-                  child: _buildCompactActionButton(
-                    icon: Icons.inventory,
-                    label: 'Stock',
-                    color: const Color(0xFF3B82F6),
-                    onTap: controller.showStockDialog,
+              // Cambiar stock: solo el administrador (`canAdjustInventory`).
+              if (sessionCanAdjustInventory()) ...[
+                PermissionGate.canEdit(
+                  moduleCode: ModuleCode.inventory,
+                  child: const SizedBox(width: 8),
+                ),
+                PermissionGate.canEdit(
+                  moduleCode: ModuleCode.inventory,
+                  child: Expanded(
+                    child: _buildCompactActionButton(
+                      icon: Icons.inventory,
+                      label: 'Stock',
+                      color: const Color(0xFF3B82F6),
+                      onTap: controller.showStockDialog,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1772,19 +1778,21 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           ),
 
           // Gestionar Stock — requiere canEdit('inventory') (es módulo aparte)
-          PermissionGate.canEdit(
-            moduleCode: ModuleCode.inventory,
-            child: Column(children: [
-              _buildElegantActionButton(
-                icon: Icons.inventory,
-                label: 'Gestionar Stock',
-                description: 'Ajustar inventario',
-                gradient: ElegantLightTheme.infoGradient,
-                onTap: controller.showStockDialog,
-              ),
-              const SizedBox(height: 10),
-            ]),
-          ),
+          // y ser administrador (`canAdjustInventory`).
+          if (sessionCanAdjustInventory())
+            PermissionGate.canEdit(
+              moduleCode: ModuleCode.inventory,
+              child: Column(children: [
+                _buildElegantActionButton(
+                  icon: Icons.inventory,
+                  label: 'Gestionar Stock',
+                  description: 'Ajustar inventario',
+                  gradient: ElegantLightTheme.infoGradient,
+                  onTap: controller.showStockDialog,
+                ),
+                const SizedBox(height: 10),
+              ]),
+            ),
 
           // Imprimir Etiqueta — lectura pura, sin gate
           _buildElegantActionButton(

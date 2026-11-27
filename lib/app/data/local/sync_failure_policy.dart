@@ -121,3 +121,42 @@ bool isFailedDeleteAlreadyGone({
 
 bool _isMissingRoute(String message) =>
     message.toLowerCase().contains('cannot delete');
+
+/// Qué hacer cuando el servidor no aceptó un ajuste o traslado de inventario
+/// hecho sin conexión.
+enum InventoryStockFailure {
+  /// Red, servidor caído, sesión vencida, suscripción vencida…: se deja en
+  /// la cola y se reintenta (lo decide [classifySyncFailure]).
+  retry,
+
+  /// El servidor lo rechazó (p. ej. stock insuficiente): se revierte en el
+  /// equipo, se avisa y no se reintenta.
+  rejected,
+
+  /// Ajuste rechazado con 403 porque quien lo hizo no es administrador: se
+  /// revierte, se avisa con `kAdjustRejectedAdminOnlyMessage` y no se
+  /// reintenta.
+  adminOnly,
+}
+
+/// Clasifica el error de un ajuste/traslado encolado. Un 403 por suscripción
+/// vencida NO es rechazo: se conserva (antes se revertía y se perdía).
+InventoryStockFailure classifyInventoryStockFailure(
+  Object error, {
+  required bool isTransfer,
+}) {
+  final text = error.toString();
+  final code = int.tryParse(
+        RegExp(r'Error (\d{3})').firstMatch(text)?.group(1) ?? '',
+      ) ??
+      (error is ServerException ? error.statusCode ?? 0 : 0);
+  final rejected =
+      code >= 400 && code < 500 && code != 401 && code != 408 && code != 429;
+  if (!rejected) return InventoryStockFailure.retry;
+  if (classifySyncFailure(entityType: 'InventoryAdjustment', error: error) ==
+      SyncFailureKind.subscription) {
+    return InventoryStockFailure.retry;
+  }
+  if (code == 403 && !isTransfer) return InventoryStockFailure.adminOnly;
+  return InventoryStockFailure.rejected;
+}

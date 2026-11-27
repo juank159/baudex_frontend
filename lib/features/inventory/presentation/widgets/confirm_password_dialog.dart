@@ -4,9 +4,10 @@ import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/services/password_validation_service.dart';
 
-/// Diálogo reutilizable que pide la contraseña del usuario para
-/// confirmar una acción sensible de inventario (ajuste individual,
-/// ajustes masivos, futuros borrados con impacto).
+/// Diálogo reutilizable que pide la contraseña del ADMINISTRADOR que tiene
+/// la sesión para confirmar una acción sensible de inventario (ajuste
+/// individual, ajustes masivos). Solo el administrador ajusta inventario
+/// (`canAdjustInventory`), así que la contraseña es la suya.
 ///
 /// Patrón: StatefulWidget con `TextEditingController` propio en el
 /// State. El controller se dispose en `State.dispose()` — no en una
@@ -63,7 +64,7 @@ class _ConfirmPasswordDialogState extends State<_ConfirmPasswordDialog> {
     // Se valida tal cual se escribió (sin quitar espacios).
     final password = _passwordController.text;
     if (password.trim().isEmpty) {
-      setState(() => _errorMessage = 'Ingrese su contraseña');
+      setState(() => _errorMessage = 'Escribe tu contraseña de administrador');
       return;
     }
 
@@ -184,7 +185,18 @@ class _ConfirmPasswordDialogState extends State<_ConfirmPasswordDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Escribe tu contraseña: la de la cuenta de administrador '
+                    'con la que entraste.',
+                    key: ValueKey('confirm-password-hint'),
+                    style: TextStyle(
+                      color: ElegantLightTheme.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   // Campo contraseña
                   TextField(
                     controller: _passwordController,
@@ -196,7 +208,7 @@ class _ConfirmPasswordDialogState extends State<_ConfirmPasswordDialog> {
                       color: ElegantLightTheme.textPrimary,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Contraseña del administrador',
+                      labelText: 'Tu contraseña de administrador',
                       labelStyle: const TextStyle(
                         color: ElegantLightTheme.textSecondary,
                         fontSize: 13,

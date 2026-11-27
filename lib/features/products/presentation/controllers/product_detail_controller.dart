@@ -17,6 +17,8 @@ import '../../domain/usecases/delete_product_usecase.dart';
 // Import del tema elegante
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import 'products_controller.dart';
+import '../../../inventory/domain/inventory_adjust_permission.dart';
+import '../../../inventory/presentation/inventory_adjust_access.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 /// Controller para manejar la pantalla de detalles del producto
@@ -246,6 +248,7 @@ class ProductDetailController extends GetxController
   /// - [quantity]: Cantidad a sumar o restar
   /// - [operation]: 'add' para sumar, 'subtract' para restar
   Future<void> updateStock(double quantity, String operation) async {
+    if (!ensureAllowedToChangeStock()) return;
     // Validar que hay producto cargado
     if (!hasProduct) {
       _showError('Error', 'No hay producto cargado para actualizar');
@@ -378,7 +381,16 @@ class ProductDetailController extends GetxController
   /// - Stock actual
   /// - Campo para ingresar cantidad
   /// - Botones para sumar o restar
+  /// Cambiar el stock desde la ficha solo lo hace el administrador
+  /// (`canAdjustInventory`). Se niega y avisa antes de enviar nada.
+  bool ensureAllowedToChangeStock() {
+    if (sessionCanAdjustInventory()) return true;
+    _showError('Sin permiso', kAdjustInventoryAdminOnlyMessage);
+    return false;
+  }
+
   void showStockDialog() {
+    if (!ensureAllowedToChangeStock()) return;
     if (!hasProduct) {
       _showError('Error', 'No hay producto cargado');
       return;

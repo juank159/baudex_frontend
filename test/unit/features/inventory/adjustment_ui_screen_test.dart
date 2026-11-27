@@ -1,6 +1,7 @@
 // ignore_for_file: must_call_super
 // Pantalla de Ajuste de stock: tocar la opción, escribir, leer la frase de
 // resultado y el texto del botón. También que no se desborde en celular.
+import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/tenant_datetime_service.dart';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
@@ -19,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
+import '../../../helpers/session_role.dart';
 
 class _Create extends Mock implements CreateStockAdjustmentUseCase {}
 
@@ -55,6 +57,8 @@ void main() {
     Get.testMode = true;
     Get.put(TenantDateTimeService());
     Get.put<SyncService>(_Sync());
+    // Estas pruebas son del administrador (el único que ajusta).
+    putSessionRole(UserRole.admin);
   });
   tearDown(Get.reset);
 

@@ -24,6 +24,8 @@ import '../../domain/entities/inventory_balance.dart';
 import '../widgets/fifo_consumption_widget.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 import 'package:baudex_desktop/app/core/theme/futuristic_notifications.dart';
+import '../../domain/inventory_adjust_permission.dart';
+import '../inventory_adjust_access.dart';
 
 class InventoryMovementsController extends GetxController {
   final GetInventoryMovementsUseCase getInventoryMovementsUseCase;
@@ -298,7 +300,20 @@ class InventoryMovementsController extends GetxController {
 
   // ==================== MOVEMENT CREATION ====================
 
+  /// Un movimiento tipo "ajuste" solo lo crea el administrador
+  /// (`canAdjustInventory`). Se niega y avisa antes de enviar nada.
+  bool ensureAllowedMovementType() {
+    if (selectedType.value != InventoryMovementType.adjustment) return true;
+    if (sessionCanAdjustInventory()) return true;
+    FuturisticNotifications.showWarning(
+      'Sin permiso',
+      kAdjustInventoryAdminOnlyMessage,
+    );
+    return false;
+  }
+
   Future<void> createMovement() async {
+    if (!ensureAllowedMovementType()) return;
     if (!_validateForm()) return;
 
     if (selectedType.value == InventoryMovementType.inbound) {

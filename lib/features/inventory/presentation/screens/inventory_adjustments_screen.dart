@@ -13,6 +13,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../controllers/inventory_adjustments_controller.dart';
+import '../widgets/adjust_admin_only_notice.dart';
 import '../widgets/confirm_password_dialog.dart';
 import '../widgets/product_search_widget.dart';
 
@@ -276,7 +277,14 @@ class InventoryAdjustmentsScreen
       showDrawer: false,
       body: SafeArea(
         child: Obx(() {
-          if (controller.isLoading.value && controller.warehouses.isEmpty) {
+          // Solo el administrador ajusta (aunque llegue por ruta directa).
+          // (Se lee `isLoading` primero: el Obx siempre observa algo, aunque
+          // no haya usuario cargado.)
+          final loading = controller.isLoading.value;
+          if (!controller.isAllowedToAdjust) {
+            return const AdjustAdminOnlyNotice();
+          }
+          if (loading && controller.warehouses.isEmpty) {
             return const Center(child: LoadingWidget());
           }
 
@@ -907,10 +915,10 @@ class InventoryAdjustmentsScreen
 
   // ──────────────────────── CONFIRMACIÓN CON CONTRASEÑA ────────────────────────
 
-  /// Pide la contraseña del usuario antes de aplicar el ajuste. Igual
-  /// que en ajustes masivos — cualquier modificación de inventario es
-  /// sensible y debe confirmarse explícitamente.
+  /// Pide la contraseña del administrador que tiene la sesión antes de
+  /// aplicar el ajuste. Igual que en ajustes masivos.
   Future<void> _onApplyPressed() async {
+    if (!controller.ensureAllowedToAdjust()) return;
     final product = controller.selectedProductName.value;
     final warehouse = controller.selectedWarehouseName.value;
     final plan = controller.plan;

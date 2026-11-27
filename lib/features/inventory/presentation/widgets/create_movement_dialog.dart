@@ -8,6 +8,8 @@ import '../../../../app/shared/widgets/keyboard_safe_text_field.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../controllers/inventory_movements_controller.dart';
+import '../../domain/inventory_adjust_permission.dart';
+import '../inventory_adjust_access.dart';
 import '../../domain/entities/inventory_movement.dart';
 import 'product_search_widget.dart';
 
@@ -180,9 +182,12 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                 ),
               ),
               const SizedBox(height: AppDimensions.paddingSmall),
-              Obx(
-                () => DropdownButtonFormField<InventoryMovementType>(
-                  value: controller.selectedType.value,
+              Obx(() {
+                // "Ajuste" solo para el administrador (`canAdjustInventory`).
+                final types = movementTypesFor(currentSessionRole());
+                final selected = controller.selectedType.value;
+                return DropdownButtonFormField<InventoryMovementType>(
+                  value: types.contains(selected) ? selected : null,
                   isExpanded: true, // Prevent overflow
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
@@ -196,7 +201,7 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                     ),
                   ),
                   items:
-                      InventoryMovementType.values.map((type) {
+                      types.map((type) {
                         return DropdownMenuItem(
                           value: type,
                           child: Row(
@@ -227,8 +232,8 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                       controller.selectedType.value = type;
                     }
                   },
-                ),
-              ),
+                );
+              }),
             ],
           ),
         ),

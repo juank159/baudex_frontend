@@ -5,6 +5,7 @@ import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../screens/inventory_dashboard_screen.dart';
+import '../inventory_adjust_access.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 import '../../../products/domain/entities/product.dart';
 
@@ -13,6 +14,8 @@ class InventoryQuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ajustes: solo el administrador (regla `canAdjustInventory`).
+    final canAdjust = sessionCanAdjustInventory();
     final quickActions = [
       {
         'title': 'Nuevo Movimiento',
@@ -21,14 +24,14 @@ class InventoryQuickActions extends StatelessWidget {
         'color': Colors.green,
         'onTap': () => Get.toNamed('/inventory/movements/create'),
       },
-      {
+      if (canAdjust) {
         'title': 'Ajuste de Stock',
         'subtitle': 'Corregir inventario',
         'icon': Icons.tune,
         'color': Colors.orange,
         'onTap': () => Get.toNamed('/inventory/adjustments/create'),
       },
-      {
+      if (canAdjust) {
         'title': 'Ajustes Masivos',
         'subtitle': 'Múltiples productos',
         'icon': Icons.playlist_add_check,

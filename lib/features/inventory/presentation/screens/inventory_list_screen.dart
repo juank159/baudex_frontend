@@ -6,6 +6,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../breb/presentation/widgets/breb_ui.dart';
 import '../widgets/inventory_states.dart';
 import '../controllers/inventory_controller.dart';
+import '../inventory_adjust_access.dart';
 import '../widgets/inventory_filter_widget.dart';
 import '../widgets/inventory_balance_card_widget.dart';
 import '../widgets/inventory_movement_card_widget.dart';
@@ -51,14 +52,16 @@ class InventoryListScreen extends GetView<InventoryController> {
                 dense: true,
               ),
             ),
-            const PopupMenuItem(
-              value: 'adjustment',
-              child: ListTile(
-                leading: Icon(Icons.tune),
-                title: Text('Ajuste'),
-                dense: true,
+            // Ajustes: solo el administrador (regla `canAdjustInventory`).
+            if (sessionCanAdjustInventory())
+              const PopupMenuItem(
+                value: 'adjustment',
+                child: ListTile(
+                  leading: Icon(Icons.tune),
+                  title: Text('Ajuste'),
+                  dense: true,
+                ),
               ),
-            ),
           ],
         ),
       ],

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart' show Colors, Icon, Icons;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
@@ -117,6 +118,7 @@ import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_i
 // Inventory
 import '../../../features/inventory/data/datasources/inventory_remote_datasource.dart';
 import '../../../features/inventory/data/inventory_adjustment_payload.dart';
+import '../../../features/inventory/domain/inventory_adjust_permission.dart';
 import '../../../features/inventory/data/models/inventory_movement_model.dart';
 import '../../../features/inventory/data/models/isar/isar_inventory_movement.dart';
 import '../../../features/inventory/data/models/isar/isar_inventory_batch.dart';
@@ -418,27 +420,34 @@ class SyncService extends GetxService {
         await remote.createStockAdjustment(relativeAdjustmentPayload(data));
       }
     } catch (e) {
-      final code = int.tryParse(
-            RegExp(r'Error (\d{3})').firstMatch(e.toString())?.group(1) ?? '',
-          ) ??
-          (e is ServerException ? e.statusCode ?? 0 : 0);
-      final rejected = code >= 400 && code < 500 && code != 401 && code != 408 && code != 429;
-      if (!rejected) rethrow;
+      final failure = classifyInventoryStockFailure(e, isTransfer: isTransfer);
+      if (failure == InventoryStockFailure.retry) rethrow;
+      // El servidor dijo que no: se revierte en el equipo y no se reintenta.
       await _discardLocalInventoryOp(operation.entityId);
       await _refreshProductStockFromServer(productId);
       final reason = e.toString().replaceFirst('Exception: ', '');
+      final adminOnly = failure == InventoryStockFailure.adminOnly;
       AppLogger.w('${isTransfer ? 'Traslado' : 'Ajuste'} rechazado por el servidor: $reason', tag: 'SYNC');
-      try {
-        Get.snackbar(
+      _logEventSafe(
+        severity: SyncEventSeverity.error,
+        eventType: SyncEventType.pushOperation,
+        operation: operation.operationType.name,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        message: adminOnly
+            ? kAdjustRejectedAdminOnlyMessage
+            : 'RECHAZADA POR EL SERVIDOR — se revirtió en el equipo',
+        details: reason,
+        retryCount: operation.retryCount,
+      );
+      if (adminOnly) {
+        _noticeAdminOnlyAdjustRejected();
+      } else {
+        _notifyInventoryRejected(
           isTransfer ? 'El traslado NO se aplicó' : 'El ajuste NO se aplicó',
           'El servidor lo rechazó:\n$reason\n\nEl inventario quedó como está en el servidor.',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade800,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 30),
-          isDismissible: true,
         );
-      } catch (_) {}
+      }
       return;
     }
 
@@ -446,6 +455,61 @@ class SyncService extends GetxService {
     // reales llegan con la descarga).
     await _discardLocalInventoryOp(operation.entityId);
     AppLogger.i('${isTransfer ? 'Traslado' : 'Ajuste'} ${operation.entityId} sincronizado', tag: 'SYNC');
+  }
+
+  /// Último aviso de "solo el administrador puede ajustar": varios ajustes
+  /// rechazados en la misma subida dan un solo aviso.
+  DateTime? _lastAdminOnlyAdjustNoticeAt;
+  static const Duration _adminOnlyAdjustNoticeWindow = Duration(minutes: 2);
+
+  /// Pruebas: recibe los avisos de ajuste/traslado rechazado en lugar del
+  /// snackbar.
+  @visibleForTesting
+  void Function(String title, String message)? debugOnInventoryRejectedNotice;
+
+  /// Pruebas: sube un ajuste/traslado encolado como lo hace la cola.
+  @visibleForTesting
+  Future<void> debugSyncInventoryStockOperation(SyncOperation operation) =>
+      _syncInventoryStockOperation(operation);
+
+  /// Pruebas: sube un movimiento de inventario encolado como lo hace la cola.
+  @visibleForTesting
+  Future<void> debugSyncInventoryMovementOperation(SyncOperation operation) =>
+      _syncInventoryMovementOperation(operation);
+
+  /// "Solo el administrador puede ajustar": un solo aviso aunque haya varios
+  /// ajustes encolados (ajustes de stock y movimientos tipo ajuste).
+  void _noticeAdminOnlyAdjustRejected() {
+    final now = DateTime.now();
+    final last = _lastAdminOnlyAdjustNoticeAt;
+    if (last != null && now.difference(last) <= _adminOnlyAdjustNoticeWindow) {
+      return;
+    }
+    _lastAdminOnlyAdjustNoticeAt = now;
+    _notifyInventoryRejected(
+      'El ajuste NO se aplicó',
+      '$kAdjustRejectedAdminOnlyMessage.\n\n'
+          'El inventario quedó como está en el servidor.',
+    );
+  }
+
+  void _notifyInventoryRejected(String title, String message) {
+    final hook = debugOnInventoryRejectedNotice;
+    if (hook != null) {
+      hook(title, message);
+      return;
+    }
+    try {
+      Get.snackbar(
+        title,
+        message,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.shade800,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 30),
+        isDismissible: true,
+      );
+    } catch (_) {}
   }
 
   /// Movimientos y lotes temporales de un ajuste/traslado hecho sin conexión.
@@ -8171,7 +8235,35 @@ class SyncService extends GetxService {
                       ? DateTime.parse(data['movementDate'])
                       : null,
             );
-            final createdMovement = await remoteDataSource.createMovement(request);
+            final InventoryMovementModel createdMovement;
+            try {
+              createdMovement = await remoteDataSource.createMovement(request);
+            } catch (e) {
+              // Movimiento tipo ajuste rechazado con 403 (no es administrador):
+              // igual que un ajuste de stock: se revierte en el equipo, se
+              // avisa una vez y no se reintenta.
+              if (movementType == 'adjustment' &&
+                  classifyInventoryStockFailure(e, isTransfer: false) ==
+                      InventoryStockFailure.adminOnly) {
+                await _discardLocalInventoryOp(operation.entityId);
+                await _refreshProductStockFromServer(data['productId'] as String);
+                final reason = e.toString().replaceFirst('Exception: ', '');
+                AppLogger.w('Movimiento tipo ajuste rechazado por el servidor: $reason', tag: 'SYNC');
+                _logEventSafe(
+                  severity: SyncEventSeverity.error,
+                  eventType: SyncEventType.pushOperation,
+                  operation: operation.operationType.name,
+                  entityType: operation.entityType,
+                  entityId: operation.entityId,
+                  message: kAdjustRejectedAdminOnlyMessage,
+                  details: reason,
+                  retryCount: operation.retryCount,
+                );
+                _noticeAdminOnlyAdjustRejected();
+                return;
+              }
+              rethrow;
+            }
             AppLogger.i(
               'Movimiento de inventario creado en servidor con ID: ${createdMovement.id}',
               tag: 'SYNC',

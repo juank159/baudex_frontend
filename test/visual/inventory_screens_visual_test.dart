@@ -89,6 +89,9 @@ import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
+
+import '../helpers/session_role.dart';
 
 final _out = Platform.environment['BAUDEX_VISUAL_OUT'];
 const _fonts = '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts';
@@ -421,6 +424,8 @@ void main() {
     Get.testMode = true;
     Get.put(TenantDateTimeService());
     Get.put<SyncService>(_Sync());
+    // Las tomas de siempre son del administrador (el único que ajusta).
+    putSessionRole(UserRole.admin);
   });
   tearDown(Get.reset);
 
@@ -566,6 +571,19 @@ void main() {
     c.warehouses.clear();
     await both(tester, 'ajuste-0-cargando', () => const InventoryAdjustmentsScreen());
     c.isLoading.value = false;
+  });
+
+  testWidgets('ajustes bloqueados para quien no es administrador', (tester) async {
+    tolerateOverflow();
+    putSessionRole(UserRole.manager);
+    final c = Get.put<InventoryAdjustmentsController>(_AdjC());
+    c.warehouses.assignAll([_wh, _wh2]);
+    await both(tester, 'ajuste-solo-admin', () => const InventoryAdjustmentsScreen());
+    final b = Get.put<InventoryBulkAdjustmentsController>(_BulkC());
+    b.warehouses.assignAll([_wh, _wh2]);
+    await both(tester, 'masivo-solo-admin', () => const InventoryBulkAdjustmentsScreen());
+    Get.put<InventoryController>(_InvC());
+    await both(tester, 'tablero-gerente-sin-ajustes', () => const InventoryDashboardScreen());
   });
 
   testWidgets('ajustes masivos: vacío y con productos', (tester) async {

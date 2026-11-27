@@ -16,6 +16,8 @@ import '../../domain/entities/inventory_balance.dart';
 import '../../domain/entities/warehouse.dart';
 import '../../../../app/core/theme/futuristic_notifications.dart';
 import 'inventory_adjustments_controller.dart';
+import '../../domain/inventory_adjust_permission.dart';
+import '../inventory_adjust_access.dart';
 import 'inventory_controller.dart';
 
 class BulkAdjustmentItem {
@@ -386,7 +388,24 @@ class InventoryBulkAdjustmentsController extends GetxController {
 
   // ==================== ADJUSTMENT CREATION ====================
 
+  // ==================== PERMISO ====================
+
+  /// Solo el administrador ajusta inventario (regla `canAdjustInventory`).
+  bool get isAllowedToAdjust => sessionCanAdjustInventory();
+
+  /// Se niega (y avisa) si quien tiene la sesión no es administrador. Se
+  /// llama antes de pedir la contraseña y antes de enviar nada.
+  bool ensureAllowedToAdjust() {
+    if (isAllowedToAdjust) return true;
+    FuturisticNotifications.showWarning(
+      'Sin permiso',
+      kAdjustInventoryAdminOnlyMessage,
+    );
+    return false;
+  }
+
   Future<void> createBulkAdjustments() async {
+    if (!ensureAllowedToAdjust()) return;
     if (!isFormValid) {
       String errorMessage = '';
 
