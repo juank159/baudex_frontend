@@ -43,3 +43,29 @@ List<String> barcodeVariants(String raw) {
   if (RegExp(r'^\d+$').hasMatch(code)) out.add('0$code');
   return out;
 }
+
+/// Largo máximo del código de barras de un producto (el servidor acepta
+/// hasta 20 caracteres, sin mínimo).
+const int maxProductBarcodeLength = 20;
+
+/// Regla del código de barras al guardar un producto. Devuelve `null` si
+/// sirve, o el mensaje para el usuario si no.
+///
+/// Vacío sirve (es opcional). Si tiene algo: sin espacios a los lados, de 1 a
+/// [maxLength] caracteres y sin espacios por dentro. No se exige un largo
+/// mínimo ni que sea un EAN: muchos negocios usan códigos propios cortos
+/// ("0013390", "57") y los ceros adelante se guardan tal cual.
+String? productBarcodeError(
+  String? raw, {
+  int maxLength = maxProductBarcodeLength,
+}) {
+  final code = raw?.trim() ?? '';
+  if (code.isEmpty) return null;
+  if (RegExp(r'\s').hasMatch(code)) {
+    return 'El código de barras no puede tener espacios';
+  }
+  if (code.length > maxLength) {
+    return 'El código de barras no puede tener más de $maxLength caracteres';
+  }
+  return null;
+}

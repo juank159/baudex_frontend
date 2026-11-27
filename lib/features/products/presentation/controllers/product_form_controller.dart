@@ -7,6 +7,7 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 import '../../domain/repositories/product_repository.dart';
+import '../../domain/services/product_code_rules.dart';
 import '../../domain/usecases/create_product_usecase.dart';
 import '../../domain/usecases/update_product_usecase.dart';
 import '../../domain/usecases/get_product_by_id_usecase.dart';
@@ -670,12 +671,13 @@ class ProductFormController extends GetxController {
     return intPrice + (50 - remainder);
   }
 
-  /// Validar código de barras
-  bool validateBarcode(String barcode) {
-    // Validación básica de código de barras
-    if (barcode.isEmpty) return true; // Opcional
-    return barcode.length >= 8 && barcode.length <= 18;
-  }
+  /// Validar código de barras: de 1 a 20 caracteres sin espacios (o vacío).
+  /// Antes exigía de 8 a 18 y no dejaba guardar códigos propios cortos
+  /// como "0013390". Regla en [productBarcodeError].
+  bool validateBarcode(String barcode) => productBarcodeError(barcode) == null;
+
+  /// Mensaje para el campo del código de barras (`null` si sirve).
+  String? barcodeErrorFor(String? barcode) => productBarcodeError(barcode);
 
   // ==================== UI HELPERS ====================
 

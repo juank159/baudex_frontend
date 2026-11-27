@@ -651,14 +651,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
           hint: 'Código de barras del producto',
           prefixIcon: Icons.barcode_reader,
           keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value != null && value.isNotEmpty) {
-              return controller.validateBarcode(value)
-                  ? null
-                  : 'Código de barras inválido';
-            }
-            return null;
-          },
+          validator: controller.barcodeErrorFor,
           suffixIcon: context.isMobile ? Icons.qr_code_scanner : null,
           onSuffixIconPressed:
               context.isMobile
