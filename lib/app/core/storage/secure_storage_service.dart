@@ -401,14 +401,22 @@ class SecureStorageService {
 
   static Future<bool> _decideWindowsStorageInTime() {
     _windowsDecisionTimedOut = false;
-    return _decideWindowsStorage().timeout(
+    // Cada decisión lleva su propia marca: un traslado que quedó corriendo
+    // por detrás sabe que a ÉL ya no lo esperan y no borra ni marca nada.
+    final run = _WindowsDecisionRun();
+    return _decideWindowsStorage(run).timeout(
       windowsDecisionTimeout,
       onTimeout: () {
         // Se sigue con las preferencias del equipo (el modo de respaldo que
-        // ya existe) durante esta ejecución; el próximo arranque reintenta.
+        // ya existe) durante TODA esta ejecución; el próximo arranque vuelve
+        // a trasladar desde preferencias, que quedan como fuente de verdad.
+        run.timedOut = true;
         _windowsDecisionTimedOut = true;
         _useSharedPreferences = true;
         _mirrorToPrefs = false;
+        unawaited(SharedPreferences.getInstance()
+            .then(PrefsToSecureStoreMigration.markPending)
+            .catchError((Object _) {}));
         SessionStartupTrace.storageMode =
             'preferencias del equipo (el almacén seguro de Windows no respondió a tiempo)';
         OpsReporter.capture(
@@ -422,7 +430,7 @@ class SecureStorageService {
     );
   }
 
-  static Future<bool> _decideWindowsStorage() async {
+  static Future<bool> _decideWindowsStorage(_WindowsDecisionRun run) async {
     final SharedPreferences prefs;
     try {
       prefs = await SharedPreferences.getInstance();
@@ -451,12 +459,13 @@ class SecureStorageService {
           fingerprint: 'secure_store_migration|${context['step']}',
           context: context,
         ),
+        abandoned: () => run.timedOut,
       ).run();
       // El traslado pudo escribir o borrar: lo leído antes ya no vale.
       _QueuedSecureStorage.invalidateCache();
       // Llegó tarde: esta ejecución ya sigue con preferencias; no se cambia
       // de almacén a mitad de camino.
-      if (_windowsDecisionTimedOut) return true;
+      if (run.timedOut) return true;
       _useSharedPreferences = outcome.usePrefs;
       _mirrorToPrefs = outcome.mirrorToPrefs;
       SessionStartupTrace.storageMode = outcome.usePrefs
@@ -466,6 +475,7 @@ class SecureStorageService {
     } catch (e, st) {
       OpsReporter.capture(e, st,
           errorType: 'SecureStoreMigration', fingerprint: 'secure_store_migration|unexpected');
+      if (run.timedOut) return true;
       _useSharedPreferences = true;
       return true;
     }
@@ -474,7 +484,8 @@ class SecureStorageService {
   /// Método para detectar si debemos usar SharedPreferences como fallback.
   /// El resultado se cachea: si el keychain funciona, nunca vuelve a testear.
   static Future<bool> _shouldUseSharedPreferences() async {
-    if (_useSharedPreferences) return true;
+    // Tras el tope de Windows la decisión no cambia en toda la ejecución.
+    if (_useSharedPreferences || _windowsDecisionTimedOut) return true;
 
     // Windows: el almacén seguro (archivo cifrado con DPAPI) reemplaza a
     // SharedPreferences. La primera vez se trasladan los valores y solo si
@@ -1042,6 +1053,21 @@ class SecureStorageService {
   /// Cache en memoria para evitar lecturas repetidas al storage
   static String? _cachedDeviceId;
 
+  /// Id de este equipo SIN tocar el almacén seguro: el que ya está en
+  /// memoria, el de las preferencias del equipo o el de la copia protegida.
+  /// null si no hay ninguno (no se inventa uno: un id distinto al guardado
+  /// contaría como otro equipo en el servidor).
+  Future<String?> peekDeviceId() async {
+    if (_cachedDeviceId != null) return _cachedDeviceId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final inPrefs = prefs.getString('secure_$_deviceIdKey');
+      if (inPrefs != null && inPrefs.isNotEmpty) return inPrefs;
+    } catch (_) {}
+    final inVault = await _vaultRead(_deviceIdKey);
+    return (inVault != null && inVault.isNotEmpty) ? inVault : null;
+  }
+
   /// Obtener o generar un ID único para este dispositivo.
   /// Usa un fingerprint basado en hostname + plataforma + UUID persistido,
   /// hasheado con HMAC-SHA256 para no exponer datos del hardware.
@@ -1529,4 +1555,10 @@ class SecureStorageService {
       }
     }
   }
+}
+
+/// Marca de UNA decisión de almacén en Windows (ver
+/// `_decideWindowsStorageInTime`).
+class _WindowsDecisionRun {
+  bool timedOut = false;
 }

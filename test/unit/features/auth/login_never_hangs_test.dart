@@ -52,6 +52,10 @@ class _FakeLoginRequest extends Fake implements LoginRequestModel {}
 
 class _FakeAuthResponse extends Fake implements AuthResponseModel {}
 
+/// Lo que contesta la fila del almacén cuando una operación no termina.
+Future<T> _storeTimeout<T>() => Future<T>.delayed(
+    const Duration(seconds: 10), () => throw TimeoutException('almacén'));
+
 /// Una espera que nunca termina (almacén del equipo o red colgados).
 Future<T> _never<T>() => Completer<T>().future;
 
@@ -148,6 +152,90 @@ void main() {
         expect(response, isNotNull, reason: 'la petición se quedó esperando al almacén');
         expect(adapter.sent.single.headers['Authorization'], isNull);
         expect(adapter.sent.single.connectTimeout, LoginDeadlines.connect);
+        expect(adapter.sent.single.receiveTimeout, const Duration(seconds: 30));
+      });
+    });
+
+    test('si el almacén no responde, la petición sale con el id de equipo que se '
+        'pueda leer sin el almacén (la sesión no queda sin equipo)', () {
+      fakeAsync((async) {
+        final storage = _Storage();
+        when(() => storage.getToken()).thenAnswer((_) => _never());
+        when(() => storage.getOrCreateDeviceId()).thenAnswer((_) => _never());
+        when(() => storage.peekDeviceId()).thenAnswer((_) async => 'equipo-1');
+        final adapter = _OkAdapter();
+        final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+          ..httpClientAdapter = adapter
+          ..interceptors.add(ApiInterceptor(storage));
+
+        dio.post('/auth/login',
+            data: {'email': 'a@b.co', 'password': 'x'},
+            options: AuthRemoteDataSourceImpl.loginOptions);
+        async.elapse(ApiInterceptor.publicStorageWait + const Duration(seconds: 1));
+
+        expect(adapter.sent.single.headers['X-Device-ID'], 'equipo-1');
+        expect(adapter.sent.single.headers['Authorization'], isNull);
+      });
+    });
+
+    test('si tampoco hay id de equipo a la mano, la petición sale igual (sin id)', () {
+      fakeAsync((async) {
+        final storage = _Storage();
+        when(() => storage.getToken()).thenAnswer((_) => _never());
+        when(() => storage.getOrCreateDeviceId()).thenAnswer((_) => _never());
+        when(() => storage.peekDeviceId()).thenAnswer((_) => _never());
+        final adapter = _OkAdapter();
+        final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+          ..httpClientAdapter = adapter
+          ..interceptors.add(ApiInterceptor(storage));
+
+        dio.post('/auth/login',
+            data: {'email': 'a@b.co', 'password': 'x'},
+            options: AuthRemoteDataSourceImpl.loginOptions);
+        async.elapse(ApiInterceptor.publicStorageWait +
+            ApiInterceptor.deviceIdPeekWait +
+            const Duration(seconds: 1));
+
+        expect(adapter.sent, hasLength(1));
+        expect(adapter.sent.single.headers.containsKey('X-Device-ID'), isFalse);
+      });
+    });
+  });
+
+  group('revisión del negocio del equipo', () {
+    test('se espera el resultado real: una revisión lenta que bloquea NO pasa como permitida', () {
+      fakeAsync((async) {
+        BusinessCheckResult? result;
+        awaitBusinessCheck(Future<bool>.delayed(const Duration(seconds: 40), () => false))
+            .then((r) => result = r);
+        async.elapse(const Duration(seconds: 30));
+        expect(result, isNull, reason: 'se decidió antes de que terminara la revisión');
+        async.elapse(const Duration(seconds: 11));
+        expect(result, BusinessCheckResult.blocked);
+      });
+    });
+
+    test('una revisión lenta que permite, entra cuando termina', () {
+      fakeAsync((async) {
+        BusinessCheckResult? result;
+        awaitBusinessCheck(Future<bool>.delayed(const Duration(seconds: 40), () => true))
+            .then((r) => result = r);
+        async.elapse(const Duration(seconds: 41));
+        expect(result, BusinessCheckResult.allowed);
+      });
+    });
+
+    test('una revisión que nunca termina o falla nunca queda como permitida', () {
+      fakeAsync((async) {
+        BusinessCheckResult? hung;
+        BusinessCheckResult? failed;
+        awaitBusinessCheck(_never<bool>()).then((r) => hung = r);
+        awaitBusinessCheck(Future<bool>.error(StateError('x'))).then((r) => failed = r);
+        async.elapse(LoginDeadlines.businessCheck - const Duration(seconds: 1));
+        expect(hung, isNull);
+        expect(failed, BusinessCheckResult.unfinished);
+        async.elapse(const Duration(seconds: 2));
+        expect(hung, BusinessCheckResult.unfinished);
       });
     });
   });
@@ -207,14 +295,18 @@ void main() {
 
   group('botón', () {
     late _Storage storage;
+    var lastUserHangs = false;
 
     AuthController controller(_UseCase<AuthResult, LoginParams> login) {
       storage = _Storage();
       when(() => storage.getSavedEmails()).thenAnswer((_) async => <String>[]);
       when(() => storage.getLastEmail()).thenAnswer((_) async => null);
       when(() => storage.getLastBusiness()).thenAnswer((_) async => null);
-      when(() => storage.getLastUserId()).thenAnswer((_) => _never());
-      when(() => storage.setLastUserId(any())).thenAnswer((_) => _never());
+      // El almacén real nunca deja una lectura sin fin: la fila contesta
+      // con error a los 10 s (o nunca, si [lastUserHangs]).
+      when(() => storage.getLastUserId())
+          .thenAnswer((_) => lastUserHangs ? _never() : _storeTimeout());
+      when(() => storage.setLastUserId(any())).thenAnswer((_) => _storeTimeout());
       when(() => storage.saveLastBusiness(any())).thenAnswer((_) => _never());
       when(() => storage.addSavedEmail(any())).thenAnswer((_) => _never());
       when(() => storage.saveLastEmail(any())).thenAnswer((_) => _never());
@@ -291,6 +383,35 @@ void main() {
       expect(find.byType(LoginProblemDialog), findsOneWidget);
       expect(find.text('El inicio de sesión tardó demasiado'), findsOneWidget);
       expect(login.calls, 1);
+      Get.back();
+      await tester.pump(const Duration(seconds: 1));
+      SessionStartupTrace.debugReset();
+    });
+
+    testWidgets('si la revisión del negocio del equipo nunca termina, NO entra a la '
+        'pantalla principal: avisa y el botón queda libre', (tester) async {
+      lastUserHangs = true;
+      addTearDown(() => lastUserHangs = false);
+      final accepted = AuthFixtures.createAuthResponseModel().toAuthResult();
+      final login = _UseCase<AuthResult, LoginParams>(() async => Right(accepted));
+      final auth = controller(login);
+      await screen(tester, auth);
+      auth.loginBusinessController.text = accepted.user.organizationName ?? '';
+
+      unawaited(auth.login());
+      // A los 24 s (el tope de antes) sigue esperando: no entró.
+      await tester.pump(const Duration(seconds: 30));
+      expect(Get.currentRoute, AppRoutes.login);
+      expect(find.text('CARGANDO'), findsOneWidget);
+
+      await tester.pump(LoginDeadlines.businessCheck);
+      await tester.pump(const Duration(seconds: 1));
+      expect(Get.currentRoute, isNot(AppRoutes.dashboard));
+      expect(auth.isAuthenticated, isFalse);
+      expect(auth.isLoginLoading, isFalse, reason: 'el botón se quedó cargando');
+      expect(find.byType(LoginProblemDialog), findsOneWidget);
+      // Deja terminar el cierre de la sesión a medias.
+      await tester.pump(LoginDeadlines.afterLoginStep + const Duration(seconds: 1));
       Get.back();
       await tester.pump(const Duration(seconds: 1));
       SessionStartupTrace.debugReset();

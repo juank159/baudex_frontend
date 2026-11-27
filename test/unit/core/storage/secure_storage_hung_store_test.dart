@@ -90,7 +90,8 @@ void main() {
     });
   });
 
-  test('una operación colgada no deja esperando a las siguientes de la fila', () {
+  test('una operación colgada: al que la pidió se le contesta a los 10 s y la '
+      'fila se suelta al tope largo (no queda esperando para siempre)', () {
     fakeAsync((async) {
       final queue = SerialQueue();
       Object? firstError;
@@ -101,7 +102,72 @@ void main() {
       queue.run(() async => 'listo').then((v) => second = v);
       async.elapse(SerialQueue.operationTimeout + const Duration(seconds: 1));
       expect(firstError, isA<TimeoutException>());
+      expect(second, isNull, reason: 'arrancó con la primera todavía en curso');
+      async.elapse(SerialQueue.releaseTimeout);
       expect(second, 'listo');
+    });
+  });
+
+  test('una operación lenta (25 s): se contesta a los 10 s, pero la siguiente '
+      'solo arranca cuando la primera terminó de verdad', () {
+    fakeAsync((async) {
+      final queue = SerialQueue();
+      Object? firstError;
+      var firstFinished = false;
+      Duration? secondStartedAt;
+      queue.run<void>(() async {
+        await Future<void>.delayed(const Duration(seconds: 25));
+        firstFinished = true;
+      }).catchError((Object e) {
+        firstError = e;
+      });
+      queue.run(() async {
+        expect(firstFinished, isTrue, reason: 'dos operaciones a la vez en el almacén');
+        secondStartedAt = async.elapsed;
+        return 'listo';
+      });
+      async.elapse(const Duration(seconds: 11));
+      expect(firstError, isA<TimeoutException>());
+      expect(secondStartedAt, isNull);
+      async.elapse(const Duration(seconds: 15));
+      expect(secondStartedAt, const Duration(seconds: 25));
+    });
+  });
+
+  test('una operación que falla suelta la fila enseguida', () {
+    fakeAsync((async) {
+      final queue = SerialQueue();
+      Object? firstError;
+      String? second;
+      queue.run<void>(() async => throw StateError('falló')).catchError((Object e) {
+        firstError = e;
+      });
+      queue.run(() async => 'listo').then((v) => second = v);
+      async.elapse(const Duration(milliseconds: 10));
+      expect(firstError, isA<StateError>());
+      expect(second, 'listo');
+    });
+  });
+
+  test('id de equipo sin tocar el almacén: sale de las preferencias del equipo', () {
+    fakeAsync((async) {
+      SharedPreferences.setMockInitialValues({'secure_device_unique_id': 'equipo-1'});
+      String? id = 'sin respuesta';
+      SecureStorageService().peekDeviceId().then((v) => id = v);
+      async.elapse(const Duration(seconds: 1));
+      expect(id, 'equipo-1');
+      expect((FlutterSecureStoragePlatform.instance as HungStore).calls, 0);
+    });
+  });
+
+  test('id de equipo sin tocar el almacén: si no hay ninguno guardado, no inventa uno', () {
+    fakeAsync((async) {
+      SharedPreferences.setMockInitialValues({});
+      String? id = 'sin respuesta';
+      SecureStorageService().peekDeviceId().then((v) => id = v);
+      async.elapse(const Duration(seconds: 1));
+      expect(id, isNull);
+      expect((FlutterSecureStoragePlatform.instance as HungStore).calls, 0);
     });
   });
 }

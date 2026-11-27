@@ -39,13 +39,15 @@ class LoginDeadlines {
 
   /// Enviar la petición y recibir la respuesta del servidor.
   static const Duration send = Duration(seconds: 15);
-  static const Duration response = Duration(seconds: 25);
+  static const Duration response = Duration(seconds: 30);
 
   /// Leer el almacén de sesión antes de una petición pública (no lo necesita).
   static const Duration requestPreparation = Duration(seconds: 5);
 
-  /// Guardar la sesión que el servidor ya aceptó.
-  static const Duration saveSession = Duration(seconds: 12);
+  /// Guardar la sesión que el servidor ya aceptó. Mayor que el tope para
+  /// decidir dónde se guarda (12 s) más una escritura: con el mismo valor
+  /// salía "tardó demasiado" justo cuando el equipo ya iba a guardar.
+  static const Duration saveSession = Duration(seconds: 20);
 
   /// Guardar la huella para entrar sin internet (opcional).
   static const Duration saveOfflineAccess = Duration(seconds: 8);
@@ -56,8 +58,43 @@ class LoginDeadlines {
   /// Cada paso entre "el servidor aceptó" y "entra a la pantalla principal".
   static const Duration afterLoginStep = Duration(seconds: 12);
 
+  /// Revisar de qué negocio son los datos del equipo. NO es un tope corto:
+  /// se espera el resultado real. Solo si pasa este tiempo se deja de
+  /// esperar, y entonces NO se entra (nunca se da por permitido).
+  static const Duration businessCheck = Duration(seconds: 120);
+
   /// Tope general del botón: pase lo que pase, deja de cargar.
   static const Duration overall = Duration(seconds: 90);
+}
+
+/// Resultado de revisar el negocio de los datos del equipo al iniciar sesión.
+enum BusinessCheckResult {
+  /// La revisión terminó y deja entrar.
+  allowed,
+
+  /// La revisión terminó y NO deja entrar (operaciones sin subir de otro
+  /// negocio).
+  blocked,
+
+  /// La revisión no terminó: no se sabe. No se entra.
+  unfinished,
+}
+
+/// Espera el resultado REAL de la revisión del negocio. Esa revisión protege
+/// la cola pendiente de otro negocio y limpia los datos locales: si se diera
+/// por permitida antes de terminar, se podría saltar el bloqueo o vaciar los
+/// datos a mitad de la descarga. Si no termina en [cap] (o falla), el
+/// resultado es [BusinessCheckResult.unfinished], nunca "permitido".
+Future<BusinessCheckResult> awaitBusinessCheck(
+  Future<bool> check, {
+  Duration cap = LoginDeadlines.businessCheck,
+}) async {
+  try {
+    final allowed = await check.timeout(cap);
+    return allowed ? BusinessCheckResult.allowed : BusinessCheckResult.blocked;
+  } catch (_) {
+    return BusinessCheckResult.unfinished;
+  }
 }
 
 /// Lo que se le muestra al usuario por un fallo de inicio de sesión.

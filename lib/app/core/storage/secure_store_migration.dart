@@ -17,14 +17,34 @@ abstract class SecureKeyValueStore {
 class SerialQueue {
   Future<void> _tail = Future.value();
 
-  /// Tope de cada operación. Si una no termina (el almacén del sistema no
-  /// responde), falla con `TimeoutException` y la fila sigue: antes todas
-  /// las siguientes quedaban esperando para siempre detrás de ella.
+  /// Tope de la respuesta al que pidió la operación. Si no termina (el
+  /// almacén del sistema no responde), el que la pidió recibe
+  /// `TimeoutException` y deja de esperar.
   static Duration operationTimeout = const Duration(seconds: 10);
 
+  /// Tope para soltar la fila. Aunque al que la pidió ya se le contestó, la
+  /// operación puede seguir escribiendo el archivo por detrás: la siguiente
+  /// NO arranca hasta que termine de verdad (dos a la vez se pisan). Solo si
+  /// pasa este tope largo se da por perdida y la fila sigue.
+  static Duration releaseTimeout = const Duration(seconds: 60);
+
   Future<T> run<T>(Future<T> Function() op) {
-    final result = _tail.then((_) => op().timeout(operationTimeout));
-    _tail = result.then((_) {}, onError: (_) {});
+    final released = Completer<void>();
+    final result = _tail.then((_) {
+      final Future<T> real;
+      try {
+        real = op();
+      } catch (_) {
+        released.complete();
+        rethrow;
+      }
+      real
+          .then<void>((_) {}, onError: (_) {})
+          .timeout(releaseTimeout, onTimeout: () {})
+          .whenComplete(released.complete);
+      return real.timeout(operationTimeout);
+    });
+    _tail = released.future;
     return result;
   }
 }
@@ -74,6 +94,7 @@ class PrefsToSecureStoreMigration {
     required this.store,
     required this.decode,
     this.onProblem,
+    this.abandoned,
   });
 
   /// Traslado confirmado (preferencias limpias). No empieza por `secure_`
@@ -94,6 +115,26 @@ class PrefsToSecureStoreMigration {
   final String? Function(String key, String stored) decode;
 
   final void Function(Object error, StackTrace? stack, Map<String, dynamic> context)? onProblem;
+
+  /// true = la app dejó de esperar este traslado y ya sigue con
+  /// preferencias (guardó o va a guardar ahí la sesión, el negocio y el
+  /// correo). Desde ese momento el traslado NO borra nada de preferencias ni
+  /// marca nada como hecho: lo deja pendiente para el próximo arranque.
+  final bool Function()? abandoned;
+
+  bool get _abandoned {
+    try {
+      return abandoned?.call() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Llegó tarde: preferencias quedan intactas y como fuente de verdad.
+  Future<SecureMigrationOutcome> _leavePending() async {
+    await markPending(prefs);
+    return SecureMigrationOutcome.failed;
+  }
 
   /// La app volvió a preferencias porque el almacén falló: lo que se escriba
   /// ahora en preferencias se trasladará de nuevo cuando el almacén funcione.
@@ -140,6 +181,7 @@ class PrefsToSecureStoreMigration {
       }
     }
 
+    if (_abandoned) return _leavePending();
     final keys = prefs.getKeys().where((k) => k.startsWith(keyPrefix)).toList();
 
     if (wasDone) {
@@ -174,6 +216,7 @@ class PrefsToSecureStoreMigration {
       return SecureMigrationOutcome.failed;
     }
 
+    if (_abandoned) return _leavePending();
     await prefs.setBool(copiedFlag, true);
     return SecureMigrationOutcome.copied;
   }
@@ -197,6 +240,7 @@ class PrefsToSecureStoreMigration {
       _report(e, st, {'step': 'confirm', 'keys': keys.length});
       return SecureMigrationOutcome.failed;
     }
+    if (_abandoned) return _leavePending();
     await _removeAll(keys);
     await prefs.setBool(doneFlag, true);
     await prefs.setBool(copiedFlag, false);

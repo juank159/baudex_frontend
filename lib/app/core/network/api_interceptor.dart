@@ -83,6 +83,9 @@ class ApiInterceptor extends Interceptor {
   /// Cuánto espera una petición pública al almacén de sesión del equipo.
   static Duration publicStorageWait = const Duration(seconds: 5);
 
+  /// Cuánto se espera el id de equipo leído sin el almacén seguro.
+  static Duration deviceIdPeekWait = const Duration(seconds: 2);
+
   /// Petición pública de acceso (login, registro, recuperar clave): se hace
   /// sin sesión y por eso no debe llevar el token guardado.
   static bool isPublicRequest(RequestOptions options) =>
@@ -156,6 +159,15 @@ class ApiInterceptor extends Interceptor {
         } catch (_) {}
       }
       options.headers['X-Requested-With'] = 'XMLHttpRequest';
+      // El equipo sigue identificado aunque el almacén no haya contestado:
+      // el id ya cargado, o el que se pueda leer sin tocar el almacén.
+      try {
+        final deviceId = _cachedDeviceId ??
+            await _storageService.peekDeviceId().timeout(deviceIdPeekWait);
+        if (deviceId != null && deviceId.isNotEmpty) {
+          options.headers['X-Device-ID'] = deviceId;
+        }
+      } catch (_) {}
     }
 
     // ZONA HORARIA: ninguna fecha-hora sale del dispositivo sin su desfase.

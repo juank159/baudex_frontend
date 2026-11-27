@@ -637,15 +637,36 @@ class AuthController extends GetxController {
           // ✅ CRÍTICO: detectar cambio de tenant ANTES de cualquier sync.
           // Solo se borra la BD ISAR si el usuario que entra es DIFERENTE
           // al que cerró sesión. Si es el mismo, el cache offline se preserva.
-          // Si el equipo no termina de revisar a tiempo se sigue: la
-          // descarga vuelve a comprobar el negocio antes de mezclar datos.
-          final canUseThisDevice = await trace.task(
+          // Se espera el resultado REAL de la revisión (sin tope corto): si
+          // se diera por permitida antes de terminar, se saltaría el bloqueo
+          // por operaciones sin subir o se vaciarían los datos a mitad de la
+          // descarga. Si no termina, NO se entra y se dice qué pasó.
+          final businessCheck = await trace.task(
             'iniciar sesión: revisar negocio del equipo',
-            () => _handleTenantSwitchIfNeeded(authResult.user).timeout(
-              LoginDeadlines.afterLoginStep * 2,
-              onTimeout: () => true,
+            () => awaitBusinessCheck(
+              _handleTenantSwitchIfNeeded(authResult.user),
             ),
           );
+          if (businessCheck == BusinessCheckResult.unfinished) {
+            _forgetSyncBusiness();
+            _isAuthenticated.value = false;
+            _currentUser.value = null;
+            _isLoginLoading.value = false;
+            Get.dialog(LoginProblemDialog(
+              view: describeLoginFailure(LoginTimeoutFailure(
+                LoginWaitStage.unknown,
+                detail: 'El equipo no terminó de revisar los datos guardados '
+                    'en ${LoginDeadlines.businessCheck.inSeconds} s.',
+              )),
+              onClose: Get.back,
+            ));
+            // Sin sesión a medias: no queda nada que dispare una descarga.
+            try {
+              await logout().timeout(LoginDeadlines.afterLoginStep);
+            } catch (_) {}
+            return;
+          }
+          final canUseThisDevice = businessCheck == BusinessCheckResult.allowed;
           if (!canUseThisDevice) {
             _forgetSyncBusiness();
             _isAuthenticated.value = false;
