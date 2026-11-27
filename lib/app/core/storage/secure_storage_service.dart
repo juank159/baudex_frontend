@@ -754,7 +754,10 @@ class SecureStorageService {
       }
       final recovered = await _recoverFromVault(key, heal: true);
       if (recovered == null && key == ApiConstants.tokenKey) {
-        SessionStartupTrace.secureFileExists ??= await _secureFileExists(key);
+        // Solo es un dato de diagnóstico: leer el token no se queda
+        // esperando al disco.
+        SessionStartupTrace.secureFileExists ??= await _secureFileExists(key)
+            .timeout(const Duration(seconds: 2), onTimeout: () => null);
       }
       return recovered;
     }
@@ -775,6 +778,10 @@ class SecureStorageService {
   /// (Si está pero no se pudo leer, se perdió la llave que lo descifra.)
   static Future<bool?> _secureFileExists(String key) async {
     if (!Platform.isWindows) return null;
+    // En pruebas (copia protegida simulada) no se toca el disco real: bajo
+    // tiempo simulado esa lectura nunca termina y la prueba queda colgada
+    // (pasó en el CI de Windows; en Mac esta rama no corre).
+    if (debugProtector != null) return null;
     try {
       final dir = await getApplicationSupportDirectory();
       return dir
