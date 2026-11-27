@@ -112,7 +112,7 @@ class _QueuedSecureStorage implements SecureKeyValueStore {
   /// false = cada operación va al archivo (para comprobar el almacén de
   /// verdad al decidir dónde se guarda la sesión).
   final bool cached;
-  static final SerialQueue _queue = SerialQueue();
+  static SerialQueue _queue = SerialQueue();
 
   bool get _serialize => defaultTargetPlatform == TargetPlatform.windows;
 
@@ -265,6 +265,11 @@ class SecureStorageService {
   static bool _mirrorToPrefs = false;
 
   /// Solo para pruebas: simula un arranque nuevo de la app.
+  /// Solo para pruebas: fila nueva (una prueba anterior pudo dejarla
+  /// esperando en otra zona de tiempo simulado).
+  @visibleForTesting
+  static void debugResetQueue() => _QueuedSecureStorage._queue = SerialQueue();
+
   @visibleForTesting
   static void debugSimulateRestart() {
     _QueuedSecureStorage.invalidateCache();
@@ -391,6 +396,112 @@ class SecureStorageService {
     } catch (_) {}
   }
 
+  // ============ SESIÓN CERRADA CON EL ALMACÉN SIN RESPONDER ============
+  //
+  // En modo preferencias (el almacén seguro estaba lento o roto) cerrar
+  // sesión borra preferencias y la copia protegida, pero el almacén puede
+  // seguir guardando una sesión anterior. Si el siguiente arranque lo
+  // encuentra sano, esa sesión volvía sola. Por eso se deja en preferencias
+  // esta marca y, en el arranque, ANTES de leer o copiar nada del almacén,
+  // se borran de él las claves de sesión. La marca solo se quita cuando el
+  // borrado se confirmó; mientras siga, no se usa el almacén.
+
+  /// No empieza por `secure_`: `clearAll()` no la borra.
+  @visibleForTesting
+  static const storeWipePendingKey = 'baudex_store_session_wipe_pending_v1';
+
+  /// Lo que se borra del almacén (lo mismo que borra cerrar sesión; la
+  /// huella para entrar sin internet se conserva, como hoy).
+  static const List<String> _sessionStoreKeys = [
+    ApiConstants.tokenKey,
+    ApiConstants.refreshTokenKey,
+    ApiConstants.userKey,
+    'tenant_slug',
+    'current_organization',
+  ];
+
+  static bool get _inPrefsMode => _useSharedPreferences || _windowsDecisionTimedOut;
+
+  static Future<void> _setStoreWipePending() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(storeWipePendingKey, true);
+    } catch (_) {}
+  }
+
+  /// Arranque: si quedó la marca, borra la sesión cerrada del almacén
+  /// [store]. true = se puede usar el almacén; false = no se pudo borrar
+  /// (la marca se queda y la sesión del almacén NO se usa).
+  static Future<bool> _applyPendingStoreWipe(
+    SharedPreferences prefs,
+    SecureKeyValueStore store, {
+    bool Function()? abandoned,
+  }) async {
+    if (prefs.getBool(storeWipePendingKey) != true) return true;
+    try {
+      for (final key in _sessionStoreKeys) {
+        await store.delete(key);
+      }
+    } catch (e, st) {
+      OpsReporter.capture(e, st,
+          errorType: 'SecureStoreMigration', fingerprint: 'secure_store_migration|session_wipe');
+      return false;
+    }
+    // Que la copia protegida tampoco reponga la sesión cerrada.
+    for (final key in _sessionStoreKeys) {
+      try {
+        await _vaultDelete(key);
+      } catch (_) {}
+    }
+    // Llegó tarde (la app ya sigue con preferencias y pudo cerrar otra
+    // sesión después): la marca se queda para el próximo arranque.
+    if (abandoned?.call() ?? false) return true;
+    try {
+      await prefs.remove(storeWipePendingKey);
+    } catch (_) {}
+    return true;
+  }
+
+  /// Cerrar sesión en modo preferencias: además de la marca, se intenta
+  /// borrar del almacén por detrás, sin esperar.
+  static Future<void> _closeSessionInStore(String key) async {
+    await _setStoreWipePending();
+    unawaited(_storage.delete(key).catchError((Object _) {}));
+  }
+
+  /// Sesión nueva y guardada en el almacén: la marca ya no aplica. En modo
+  /// preferencias la marca se queda: el próximo arranque borra la sesión
+  /// vieja del almacén ANTES de copiar la nueva desde preferencias.
+  static Future<void> _clearStoreWipeAfterLogin() async {
+    if (_inPrefsMode) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey(storeWipePendingKey)) await prefs.remove(storeWipePendingKey);
+    } catch (_) {}
+  }
+
+  /// La sesión debe quedar cerrada aunque el cierre normal no termine (por
+  /// ejemplo, se corta a los 12 s): deja la marca para que el próximo
+  /// arranque borre la sesión del almacén antes de usarla, y quita ya lo
+  /// que está en preferencias y en la copia protegida. No espera al almacén.
+  /// (Tras esto se debe cerrar sesión; un login nuevo vuelve a guardar.)
+  Future<void> markSessionClosed() async {
+    await _setStoreWipePending();
+    // Preferencias: la sesión en modo preferencias o su respaldo mientras
+    // se confirma el traslado (si no, el próximo arranque la copiaría).
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in _sessionStoreKeys) {
+        if (prefs.containsKey('secure_$key')) await prefs.remove('secure_$key');
+      }
+    } catch (_) {}
+    for (final key in _sessionStoreKeys) {
+      try {
+        await _vaultDelete(key).timeout(const Duration(seconds: 3));
+      } catch (_) {}
+    }
+  }
+
   /// Tope para decidir dónde se guarda la sesión. Todo lo que lee o guarda
   /// la sesión espera esta decisión: si el almacén seguro del sistema no
   /// responde, sin tope la app no recordaba negocio ni correo y el botón de
@@ -447,6 +558,19 @@ class SecureStorageService {
       return false;
     }
     try {
+      // Una sesión cerrada en modo preferencias puede seguir en el almacén:
+      // se borra ANTES de leer el token o de volver a copiar.
+      final wiped = await _applyPendingStoreWipe(prefs, _rawStorage,
+          abandoned: () => run.timedOut);
+      if (run.timedOut) return true;
+      if (!wiped) {
+        await PrefsToSecureStoreMigration.markPending(prefs);
+        _useSharedPreferences = true;
+        _mirrorToPrefs = false;
+        SessionStartupTrace.storageMode =
+            'preferencias del equipo (no se pudo borrar del almacén la sesión cerrada)';
+        return true;
+      }
       final outcome = await PrefsToSecureStoreMigration(
         prefs: prefs,
         // Sin caché: aquí se comprueba el archivo de verdad.
@@ -505,6 +629,12 @@ class SecureStorageService {
         await _storage.delete('test_key');
         if (testVal != 'test_value') {
           throw Exception('Secure storage read/write mismatch');
+        }
+        // Sesión cerrada en modo preferencias: fuera del llavero antes de
+        // usarlo; si no se puede, se sigue con preferencias.
+        final prefs = await SharedPreferences.getInstance();
+        if (!await _applyPendingStoreWipe(prefs, _storage)) {
+          throw Exception('No se pudo borrar la sesión cerrada del llavero');
         }
         _keychainTested = true;
         return false; // Secure storage funciona
@@ -677,6 +807,9 @@ class SecureStorageService {
         // Si SharedPreferences falla en delete, intentar keychain
         try { await _storage.delete(key); } catch (_) {}
       }
+      // El almacén puede guardar una sesión anterior: marca para borrarla
+      // en el próximo arranque antes de usarlo.
+      if (_closesSession(key)) await _closeSessionInStore(key);
     } else {
       await _storage.delete(key);
       await _mirrorDelete(key);
@@ -1183,6 +1316,7 @@ class SecureStorageService {
           }
         }
       }
+      await _clearStoreWipeAfterLogin();
     } catch (e) {
       throw Exception('Error al guardar datos de autenticación: $e');
     }

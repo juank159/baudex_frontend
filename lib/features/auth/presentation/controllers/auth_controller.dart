@@ -661,6 +661,13 @@ class AuthController extends GetxController {
               onClose: Get.back,
             ));
             // Sin sesión a medias: no queda nada que dispare una descarga.
+            // Primero la marca de sesión cerrada: si el cierre se corta a
+            // los 12 s, el token no entra solo en el próximo arranque.
+            try {
+              await _secureStorageService
+                  .markSessionClosed()
+                  .timeout(const Duration(seconds: 5));
+            } catch (_) {}
             try {
               await logout().timeout(LoginDeadlines.afterLoginStep);
             } catch (_) {}
