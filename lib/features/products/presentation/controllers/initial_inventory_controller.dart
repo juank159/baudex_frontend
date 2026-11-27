@@ -759,8 +759,9 @@ class InitialInventoryController extends GetxController {
 
   Future<void> submitAll() async {
     // Cargar stock inicial es mover stock a mano: solo el administrador
-    // (`canCreateManualMovement`). Se niega antes de crear nada (si no, el
-    // producto se crearía y el servidor rechazaría su stock).
+    // (`canCreateManualMovement`). El servidor también rechaza (403) el stock
+    // inicial de quien no es admin; por eso se niega aquí, antes de crear
+    // nada: si no, el producto quedaría creado sin su stock.
     if (!ensureAllowedToLoadStock()) return;
     // Corte duro: filas incompletas no se envían
     if (incompleteRowIndices.isNotEmpty) {

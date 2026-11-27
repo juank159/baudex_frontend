@@ -40,7 +40,9 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
       body: !sessionCanCreateManualMovement()
           ? const ColoredBox(
               color: ElegantLightTheme.backgroundColor,
-              child: AdjustAdminOnlyNotice.manualMovement(),
+              child: AdjustAdminOnlyNotice.manualMovement(
+                title: 'Inventario inicial',
+              ),
             )
           : _buildEditor(context, isMobile),
     );

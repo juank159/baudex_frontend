@@ -42,7 +42,9 @@ class AdjustAdminOnlyNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final mobile = MediaQuery.of(context).size.width < 600;
     final card = _card(context, mobile);
-    if (inDialog) return card;
+    if (inDialog) {
+      return Column(mainAxisSize: MainAxisSize.min, children: [card]);
+    }
     return Center(
       child: SingleChildScrollView(
         padding: EdgeInsets.all(mobile ? 16 : 24),
