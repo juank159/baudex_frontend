@@ -80,6 +80,9 @@ class ApiInterceptor extends Interceptor {
 
   ApiInterceptor(this._storageService);
 
+  /// Cuánto espera una petición pública al almacén de sesión del equipo.
+  static Duration publicStorageWait = const Duration(seconds: 5);
+
   /// Petición pública de acceso (login, registro, recuperar clave): se hace
   /// sin sesión y por eso no debe llevar el token guardado.
   static bool isPublicRequest(RequestOptions options) =>
@@ -99,26 +102,33 @@ class ApiInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    // Una petición pública (iniciar sesión, registro, recuperar clave) no
+    // necesita el token: si el almacén de sesión del equipo no responde, no
+    // se queda esperándolo (antes el botón de iniciar sesión quedaba
+    // cargando sin fin y la petición nunca salía).
+    final public = isPublicRequest(options);
+    Future<T> bounded<T>(Future<T> read) =>
+        public ? read.timeout(publicStorageWait) : read;
     try {
       // I/O paralelo en primera request, cache en las siguientes
       if (!_cacheInitialized) {
-        final results = await Future.wait([
+        final results = await bounded(Future.wait([
           _storageService.getToken(),
           _storageService.getOrCreateDeviceId(),
-        ]);
+        ]));
         _cachedToken = results[0];
         _cachedDeviceId = results[1];
         _cacheInitialized = true;
       } else {
         // Refrescar solo el token (puede cambiar durante la sesión)
-        _cachedToken = await _storageService.getToken();
+        _cachedToken = await bounded(_storageService.getToken());
       }
 
       // Token de autorización. Las rutas públicas (iniciar sesión,
       // registro, recuperar clave) NUNCA llevan el token guardado: si en
       // este equipo quedó el de otro negocio, el servidor buscaba el correo
       // solo dentro de ese negocio y respondía "credenciales inválidas".
-      if (isPublicRequest(options)) {
+      if (public) {
         options.headers.remove(ApiConstants.authorization);
       } else if (_cachedToken != null && _cachedToken!.isNotEmpty) {
         options.headers[ApiConstants.authorization] =
@@ -134,13 +144,17 @@ class ApiInterceptor extends Interceptor {
       }
     } catch (_) {
       // Fallback: intentar solo el token si algo falla
-      try {
-        final token = await _storageService.getToken();
-        if (!isPublicRequest(options) && token != null && token.isNotEmpty) {
-          options.headers[ApiConstants.authorization] =
-              '${ApiConstants.bearerPrefix}$token';
-        }
-      } catch (_) {}
+      if (public) {
+        options.headers.remove(ApiConstants.authorization);
+      } else {
+        try {
+          final token = await _storageService.getToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers[ApiConstants.authorization] =
+                '${ApiConstants.bearerPrefix}$token';
+          }
+        } catch (_) {}
+      }
       options.headers['X-Requested-With'] = 'XMLHttpRequest';
     }
 

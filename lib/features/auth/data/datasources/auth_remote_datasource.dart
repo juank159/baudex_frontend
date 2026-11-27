@@ -1,8 +1,11 @@
 // lib/features/auth/data/datasources/auth_remote_datasource.dart
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/network/api_interceptor.dart';
+import '../../domain/rules/login_failure_rules.dart';
 import '../models/auth_response_model.dart';
 import '../models/login_request_model.dart';
 import '../models/register_request_model.dart';
@@ -43,13 +46,26 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     extra: {'skip_auth_interceptor': true},
   );
 
+  /// Iniciar sesión: pública y con esperas cortas (conectar, enviar y
+  /// recibir). Con los 30 s generales por cada paso, un equipo con el
+  /// servidor bloqueado dejaba el botón cargando más de un minuto.
+  @visibleForTesting
+  static final loginOptions = Options(
+    extra: {
+      'skip_auth_interceptor': true,
+      ApiInterceptor.connectTimeoutExtra: LoginDeadlines.connect,
+    },
+    sendTimeout: LoginDeadlines.send,
+    receiveTimeout: LoginDeadlines.response,
+  );
+
   @override
   Future<AuthResponseModel> login(LoginRequestModel request) async {
     try {
       final response = await dioClient.post(
         ApiConstants.login,
         data: request.toJson(),
-        options: _publicAuthOptions,
+        options: loginOptions,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {

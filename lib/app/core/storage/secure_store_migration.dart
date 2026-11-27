@@ -1,3 +1,4 @@
+import 'dart:async';
 // lib/app/core/storage/secure_store_migration.dart
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,8 +17,13 @@ abstract class SecureKeyValueStore {
 class SerialQueue {
   Future<void> _tail = Future.value();
 
+  /// Tope de cada operación. Si una no termina (el almacén del sistema no
+  /// responde), falla con `TimeoutException` y la fila sigue: antes todas
+  /// las siguientes quedaban esperando para siempre detrás de ella.
+  static Duration operationTimeout = const Duration(seconds: 10);
+
   Future<T> run<T>(Future<T> Function() op) {
-    final result = _tail.then((_) => op());
+    final result = _tail.then((_) => op().timeout(operationTimeout));
     _tail = result.then((_) {}, onError: (_) {});
     return result;
   }

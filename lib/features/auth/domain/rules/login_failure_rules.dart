@@ -20,8 +20,44 @@ enum LoginFailureKind {
   /// la sesión. NO es un problema de credenciales.
   localStorage,
 
+  /// La espera se cortó porque pasó el tiempo máximo (el botón no se queda
+  /// cargando para siempre).
+  tookTooLong,
+
   /// Cualquier otro rechazo: se muestra el mensaje tal cual llegó.
   other,
+}
+
+/// Tiempos máximos del inicio de sesión. Ninguna espera del botón "Iniciar
+/// sesión" queda sin tope: red, almacén de sesión del equipo y pasos previos
+/// a entrar a la pantalla principal.
+class LoginDeadlines {
+  const LoginDeadlines._();
+
+  /// Conectar con el servidor (DNS, cortafuegos que no responde, TLS).
+  static const Duration connect = Duration(seconds: 15);
+
+  /// Enviar la petición y recibir la respuesta del servidor.
+  static const Duration send = Duration(seconds: 15);
+  static const Duration response = Duration(seconds: 25);
+
+  /// Leer el almacén de sesión antes de una petición pública (no lo necesita).
+  static const Duration requestPreparation = Duration(seconds: 5);
+
+  /// Guardar la sesión que el servidor ya aceptó.
+  static const Duration saveSession = Duration(seconds: 12);
+
+  /// Guardar la huella para entrar sin internet (opcional).
+  static const Duration saveOfflineAccess = Duration(seconds: 8);
+
+  /// Leer la sesión guardada cuando no hay conexión.
+  static const Duration offlineSession = Duration(seconds: 10);
+
+  /// Cada paso entre "el servidor aceptó" y "entra a la pantalla principal".
+  static const Duration afterLoginStep = Duration(seconds: 12);
+
+  /// Tope general del botón: pase lo que pase, deja de cargar.
+  static const Duration overall = Duration(seconds: 90);
 }
 
 /// Lo que se le muestra al usuario por un fallo de inicio de sesión.
@@ -103,6 +139,29 @@ LoginFailureView describeLoginFailure(Failure failure) {
       message: 'Tu correo y contraseña son correctos, pero este equipo no '
           'pudo guardar la sesión. Cierra Baudex, ábrelo de nuevo e intenta '
           'otra vez. Si sigue igual, comparte este mensaje con soporte.',
+      detail: shortDetail(failure.detail),
+    );
+  }
+
+  if (failure is LoginTimeoutFailure) {
+    return LoginFailureView(
+      kind: LoginFailureKind.tookTooLong,
+      title: 'El inicio de sesión tardó demasiado',
+      message: switch (failure.stage) {
+        LoginWaitStage.saveSession =>
+          'Tu correo y contraseña son correctos, pero este equipo no terminó '
+              'de guardar la sesión. Cierra Baudex, ábrelo de nuevo e intenta '
+              'otra vez. Si sigue igual, comparte este mensaje con soporte.',
+        LoginWaitStage.offlineSession =>
+          'Este equipo no logró conectarse con Baudex y tampoco terminó de '
+              'leer la sesión guardada para entrar sin internet. Revisa el '
+              'internet e intenta de nuevo.',
+        LoginWaitStage.unknown =>
+          'Baudex no terminó de iniciar sesión en este equipo. Revisa el '
+              'internet (y que un antivirus o cortafuegos no esté bloqueando '
+              'a Baudex), cierra la app, ábrela de nuevo e intenta otra vez. '
+              'Si sigue igual, comparte este mensaje con soporte.',
+      },
       detail: shortDetail(failure.detail),
     );
   }

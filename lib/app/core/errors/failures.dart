@@ -94,6 +94,33 @@ class LocalSessionSaveFailure extends CacheFailure {
   List<Object?> get props => [message, code, detail];
 }
 
+/// En qué paso se quedó esperando un inicio de sesión que no terminó.
+enum LoginWaitStage {
+  /// No se sabe (tope general del botón).
+  unknown,
+
+  /// El servidor aceptó el ingreso; el equipo no terminó de guardar la sesión.
+  saveSession,
+
+  /// El equipo no terminó de leer la sesión guardada para entrar sin internet.
+  offlineSession,
+}
+
+/// El inicio de sesión no terminó dentro del tiempo máximo. El botón nunca
+/// se queda cargando: se corta la espera y se dice en qué paso se quedó.
+class LoginTimeoutFailure extends Failure {
+  const LoginTimeoutFailure(this.stage, {this.detail})
+      : super('El inicio de sesión tardó demasiado.');
+
+  final LoginWaitStage stage;
+
+  /// Dato técnico para soporte (nunca la contraseña ni el token).
+  final String? detail;
+
+  @override
+  List<Object?> get props => [message, code, stage, detail];
+}
+
 /// Fallo de validación - Datos inválidos
 /// Una regla del negocio impide la operación (por ejemplo, borrar un producto
 /// con existencias). El mensaje ya está escrito para mostrárselo al usuario.

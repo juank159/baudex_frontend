@@ -1,4 +1,6 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
@@ -10,6 +12,7 @@ import '../../../../app/core/ops/ops_reporter.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
+import '../../domain/rules/login_failure_rules.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/auth_result.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -51,7 +54,24 @@ class AuthRepositoryImpl implements AuthRepository {
       // Guardar la sesión en este equipo. Si falla, el servidor YA aceptó el
       // ingreso: se dice eso, nunca "credenciales incorrectas".
       try {
-        await localDataSource.saveAuthData(response);
+        await localDataSource
+            .saveAuthData(response)
+            .timeout(LoginDeadlines.saveSession);
+      } on TimeoutException catch (e, st) {
+        // El almacén de sesión del equipo no respondió: se corta la espera
+        // (antes el botón se quedaba cargando sin fin) y se dice qué pasó.
+        OpsReporter.capture(
+          e,
+          st,
+          errorType: 'LoginLocalSave',
+          fingerprint: 'login_local_save|session_timeout',
+          context: {'step': 'saveAuthData'},
+        );
+        return Left(LoginTimeoutFailure(
+          LoginWaitStage.saveSession,
+          detail: 'El almacén de sesión del equipo no respondió en '
+              '${LoginDeadlines.saveSession.inSeconds} s.',
+        ));
       } catch (e, st) {
         OpsReporter.capture(
           e,
@@ -67,10 +87,11 @@ class AuthRepositoryImpl implements AuthRepository {
       // nueva). Es opcional: si no se puede guardar, el ingreso en línea
       // sigue y solo se pierde entrar sin internet hasta el próximo ingreso.
       try {
-        await localDataSource.saveOfflineCredentials(
-          email,
-          await OfflinePasswordHasher.hash(password),
-        );
+        await (() async => localDataSource.saveOfflineCredentials(
+              email,
+              await OfflinePasswordHasher.hash(password),
+            ))()
+            .timeout(LoginDeadlines.saveOfflineAccess);
       } catch (e, st) {
         OpsReporter.capture(
           e,
@@ -116,6 +137,22 @@ class AuthRepositoryImpl implements AuthRepository {
   /// [cause] es por qué no se pudo llegar al servidor: viaja en el fallo para
   /// que la pantalla diga "sin conexión" (con el detalle) y no "credenciales".
   Future<Either<Failure, AuthResult>> _attemptOfflineLogin(
+    String email,
+    String password, {
+    String? cause,
+  }) async {
+    try {
+      return await _readOfflineSession(email, password, cause: cause)
+          .timeout(LoginDeadlines.offlineSession);
+    } on TimeoutException {
+      return Left(LoginTimeoutFailure(
+        LoginWaitStage.offlineSession,
+        detail: cause,
+      ));
+    }
+  }
+
+  Future<Either<Failure, AuthResult>> _readOfflineSession(
     String email,
     String password, {
     String? cause,

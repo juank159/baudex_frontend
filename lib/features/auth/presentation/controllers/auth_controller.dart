@@ -15,6 +15,8 @@ import '../../../../app/data/local/sync_queue.dart';
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../domain/entities/auth_result.dart';
 import '../../domain/rules/login_failure_rules.dart';
+import '../../../../app/core/errors/failures.dart';
+import '../../../../core/network/tenant_interceptor.dart';
 import '../widgets/login_problem_dialog.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/login_usecase.dart' show LoginParams;
@@ -553,18 +555,32 @@ class AuthController extends GetxController {
     try {
       final trace = StartupTrace.instance;
       trace.mark('iniciar sesión: botón');
-      final result = await trace.task(
+      // Tope general: pase lo que pase (red, almacén de sesión del equipo),
+      // el botón deja de cargar y se dice qué pasó.
+      final result = await trace.task<Either<Failure, AuthResult>>(
         'iniciar sesión: servidor y guardar la sesión',
-        () => _loginUseCase(
-          LoginParams(
-            email: loginEmailController.text.trim(),
-            password: loginPasswordController.text,
-          ),
-        ),
+        () async {
+          try {
+            return await _loginUseCase(
+              LoginParams(
+                email: loginEmailController.text.trim(),
+                password: loginPasswordController.text,
+              ),
+            ).timeout(LoginDeadlines.overall);
+          } on TimeoutException {
+            return Left(LoginTimeoutFailure(
+              LoginWaitStage.unknown,
+              detail: 'Sin respuesta en ${LoginDeadlines.overall.inSeconds} s.',
+            ));
+          }
+        },
       );
 
-      result.fold(
-        (failure) {
+      // Se espera hasta entrar a la pantalla principal: el botón sigue
+      // cargando mientras se prepara la sesión (cada paso con su tope) en
+      // vez de quedar quieto sin que pase nada.
+      await result.fold<Future<void>>(
+        (failure) async {
           // Qué mostrar lo decide una regla pura por tipo y código del
           // fallo (no por palabras del mensaje): un fallo de conexión o de
           // guardado local nunca se muestra como credenciales incorrectas.
@@ -578,6 +594,7 @@ class AuthController extends GetxController {
               _showGenericLoginError(failure.code == 401 ? 'C1' : 'C2');
             case LoginFailureKind.connection:
             case LoginFailureKind.localStorage:
+            case LoginFailureKind.tookTooLong:
               Get.dialog(LoginProblemDialog(view: view, onClose: Get.back));
             case LoginFailureKind.tooManyAttempts:
             case LoginFailureKind.other:
@@ -620,14 +637,20 @@ class AuthController extends GetxController {
           // ✅ CRÍTICO: detectar cambio de tenant ANTES de cualquier sync.
           // Solo se borra la BD ISAR si el usuario que entra es DIFERENTE
           // al que cerró sesión. Si es el mismo, el cache offline se preserva.
+          // Si el equipo no termina de revisar a tiempo se sigue: la
+          // descarga vuelve a comprobar el negocio antes de mezclar datos.
           final canUseThisDevice = await trace.task(
             'iniciar sesión: revisar negocio del equipo',
-            () => _handleTenantSwitchIfNeeded(authResult.user),
+            () => _handleTenantSwitchIfNeeded(authResult.user).timeout(
+              LoginDeadlines.afterLoginStep * 2,
+              onTimeout: () => true,
+            ),
           );
           if (!canUseThisDevice) {
             _forgetSyncBusiness();
             _isAuthenticated.value = false;
             _currentUser.value = null;
+            _isLoginLoading.value = false;
             await _showPendingOperationsFromOtherBusiness();
             try {
               await logout();
@@ -636,7 +659,16 @@ class AuthController extends GetxController {
           }
 
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
-          await _setTenantAfterLogin(authResult.user);
+          await _setTenantAfterLogin(authResult.user).timeout(
+            LoginDeadlines.afterLoginStep,
+            onTimeout: () {
+              // El negocio queda en memoria para las peticiones de esta
+              // sesión aunque el equipo no haya terminado de guardarlo.
+              TenantInterceptor.updateCachedSlug(
+                authResult.user.organizationSlug,
+              );
+            },
+          );
 
           _loadCashRegisterForSession();
 
@@ -652,15 +684,18 @@ class AuthController extends GetxController {
             await trace.task(
               'iniciar sesión: permisos',
               () => Get.find<PermissionsService>()
-                  .loadCurrentUserPermissions(authResult.user.role),
+                  .loadCurrentUserPermissions(authResult.user.role)
+                  .timeout(LoginDeadlines.afterLoginStep, onTimeout: () {}),
             );
           } catch (e) {
           }
 
           // Guardar el correo para recordarlo en futuros logins
-          await _saveEmailAfterSuccessfulLogin(
-            loginEmailController.text.trim(),
-          );
+          try {
+            await _saveEmailAfterSuccessfulLogin(
+              loginEmailController.text.trim(),
+            ).timeout(LoginDeadlines.afterLoginStep);
+          } catch (_) {}
 
           // Phase 3 — Guardar SIEMPRE el organization.name REAL devuelto
           // por el backend (no lo que el usuario tipeó), así para usuarios
@@ -670,7 +705,9 @@ class AuthController extends GetxController {
           final realBusiness = authResult.user.organizationName?.trim() ?? '';
           if (realBusiness.isNotEmpty) {
             try {
-              await _secureStorageService.saveLastBusiness(realBusiness);
+              await _secureStorageService
+                  .saveLastBusiness(realBusiness)
+                  .timeout(LoginDeadlines.afterLoginStep);
               _hasRememberedBusiness.value = true;
               loginBusinessController.text = realBusiness;
             } catch (_) {}

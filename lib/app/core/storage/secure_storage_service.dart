@@ -1,4 +1,5 @@
 // lib/app/core/storage/secure_storage_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -270,6 +271,7 @@ class SecureStorageService {
     _vaultSeeded.clear();
     _vaultInstance = null;
     _windowsDecision = null;
+    _windowsDecisionTimedOut = false;
     _useSharedPreferences = false;
     _keychainTested = false;
     _mirrorToPrefs = false;
@@ -389,6 +391,37 @@ class SecureStorageService {
     } catch (_) {}
   }
 
+  /// Tope para decidir dónde se guarda la sesión. Todo lo que lee o guarda
+  /// la sesión espera esta decisión: si el almacén seguro del sistema no
+  /// responde, sin tope la app no recordaba negocio ni correo y el botón de
+  /// iniciar sesión quedaba cargando para siempre.
+  @visibleForTesting
+  static Duration windowsDecisionTimeout = const Duration(seconds: 12);
+  static bool _windowsDecisionTimedOut = false;
+
+  static Future<bool> _decideWindowsStorageInTime() {
+    _windowsDecisionTimedOut = false;
+    return _decideWindowsStorage().timeout(
+      windowsDecisionTimeout,
+      onTimeout: () {
+        // Se sigue con las preferencias del equipo (el modo de respaldo que
+        // ya existe) durante esta ejecución; el próximo arranque reintenta.
+        _windowsDecisionTimedOut = true;
+        _useSharedPreferences = true;
+        _mirrorToPrefs = false;
+        SessionStartupTrace.storageMode =
+            'preferencias del equipo (el almacén seguro de Windows no respondió a tiempo)';
+        OpsReporter.capture(
+          TimeoutException('El almacén seguro no respondió', windowsDecisionTimeout),
+          StackTrace.current,
+          errorType: 'SecureStoreMigration',
+          fingerprint: 'secure_store_migration|timeout',
+        );
+        return true;
+      },
+    );
+  }
+
   static Future<bool> _decideWindowsStorage() async {
     final SharedPreferences prefs;
     try {
@@ -421,6 +454,9 @@ class SecureStorageService {
       ).run();
       // El traslado pudo escribir o borrar: lo leído antes ya no vale.
       _QueuedSecureStorage.invalidateCache();
+      // Llegó tarde: esta ejecución ya sigue con preferencias; no se cambia
+      // de almacén a mitad de camino.
+      if (_windowsDecisionTimedOut) return true;
       _useSharedPreferences = outcome.usePrefs;
       _mirrorToPrefs = outcome.mirrorToPrefs;
       SessionStartupTrace.storageMode = outcome.usePrefs
@@ -444,7 +480,7 @@ class SecureStorageService {
     // SharedPreferences. La primera vez se trasladan los valores y solo si
     // quedan verificados; si el almacén falla, se sigue con preferencias.
     if (defaultTargetPlatform == TargetPlatform.windows) {
-      _windowsDecision ??= _decideWindowsStorage();
+      _windowsDecision ??= _decideWindowsStorageInTime();
       return await _windowsDecision!;
     }
 
