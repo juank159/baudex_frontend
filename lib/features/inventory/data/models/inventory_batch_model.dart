@@ -64,7 +64,12 @@ class InventoryBatchModel {
       unitCost: double.parse(json['unitCost']?.toString() ?? '0.0'),
       entryDate: DateTime.parse(json['purchaseDate']),
       expiryDate: json['expirationDate'] != null ? DateTime.parse(json['expirationDate']) : null,
-      warehouseId: json['warehouse_id'] ?? json['warehouse']?['id'],
+      // El servidor manda `warehouseId`. Antes solo se leía `warehouse_id`:
+      // el lote quedaba en el equipo sin almacén y el saldo por almacén
+      // (ajuste de stock, traslados) daba 0 teniendo unidades.
+      warehouseId: json['warehouseId'] ??
+          json['warehouse_id'] ??
+          json['warehouse']?['id'],
       warehouseName: json['warehouse_name'] ?? json['warehouse']?['name'],
       supplierId: json['supplier_id'] ?? json['supplier']?['id'] ?? json['purchaseOrder']?['supplier']?['id'],
       supplierName: json['supplier_name'] ?? json['supplier']?['name'] ?? json['purchaseOrder']?['supplier']?['name'] ?? 'Proveedor Principal',
