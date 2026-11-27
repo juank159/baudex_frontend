@@ -14,9 +14,9 @@ import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 import '../../domain/entities/inventory_balance.dart';
 import '../../domain/entities/warehouse.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
+import 'inventory_adjustments_controller.dart';
 import 'inventory_controller.dart';
-import 'inventory_balance_controller.dart';
-import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
 class BulkAdjustmentItem {
   final String id;
@@ -26,21 +26,81 @@ class BulkAdjustmentItem {
   final RxString notes = ''.obs;
   final RxBool isSelected = true.obs;
 
+  /// Sumar / Restar / Poner cantidad exacta (ninguna al agregar).
+  final Rx<StockAdjustMode?> mode = Rx<StockAdjustMode?>(null);
+
+  /// Número escrito en la fila (null = vacío).
+  final Rx<int?> amount = Rx<int?>(null);
+
   BulkAdjustmentItem({
     required this.id,
     required this.product,
     this.currentBalance,
   });
 
+  /// Se pudo leer cuántas unidades hay. Sin ese dato la fila no se ajusta
+  /// (antes un fallo dejaba stock 0 y todo parecía aumento).
+  bool get stockKnown =>
+      currentBalance != null && !currentBalance!.isStockUnconfirmed;
+
+  /// El lote aún no bajó al equipo: el número no es el del almacén.
+  bool get stockUnconfirmed => currentBalance?.isStockUnconfirmed == true;
+
   int get currentQuantity => currentBalance?.totalQuantity ?? 0;
   int get adjustmentDifference => newQuantity.value - currentQuantity;
-  bool get hasChanges => adjustmentDifference != 0;
-  InventoryMovementReason get adjustmentReason => InventoryMovementReason.adjustment;
-  
+
+  StockAdjustmentPlan get plan => StockAdjustmentPlan(
+    current: currentQuantity,
+    mode: mode.value,
+    amount: amount.value,
+  );
+
+  /// Problema de la fila ("No puedes restar 25: solo hay 20.").
+  String? get errorText => stockKnown ? plan.error : null;
+
+  bool get hasChanges =>
+      stockKnown &&
+      adjustmentDifference != 0 &&
+      newQuantity.value >= 0 &&
+      errorText == null;
+
+  InventoryMovementReason get adjustmentReason =>
+      InventoryMovementReason.adjustment;
+
+  void setMode(StockAdjustMode? value) {
+    if (mode.value == value) return;
+    mode.value = value;
+    amount.value = null;
+    _recompute();
+  }
+
+  void setAmount(int? value) {
+    amount.value = value;
+    _recompute();
+  }
+
+  /// Deja la fila en una cantidad exacta (para "Poner en Cero").
+  void setExact(int value) {
+    mode.value = StockAdjustMode.exact;
+    amount.value = value;
+    _recompute();
+  }
+
+  /// Vuelve a "sin cambios".
+  void reset() {
+    mode.value = null;
+    amount.value = null;
+    _recompute();
+  }
+
+  void _recompute() {
+    newQuantity.value = plan.newQuantity ?? currentQuantity;
+  }
+
   Color get adjustmentColor {
-    if (adjustmentDifference > 0) return Colors.green;
-    if (adjustmentDifference < 0) return Colors.red;
-    return Colors.grey;
+    if (adjustmentDifference > 0) return ElegantLightTheme.successGreen;
+    if (adjustmentDifference < 0) return ElegantLightTheme.errorRed;
+    return ElegantLightTheme.textTertiary;
   }
 
   IconData get adjustmentIcon {
@@ -70,8 +130,24 @@ class InventoryBulkAdjustmentsController extends GetxController {
   final RxBool isCreating = false.obs;
   final RxString error = ''.obs;
   final RxString globalNotes = ''.obs;
-  final Rx<InventoryMovementReason> globalReason = InventoryMovementReason.adjustment.obs;
-  
+  final Rx<InventoryMovementReason> globalReason =
+      InventoryMovementReason.adjustment.obs;
+
+  /// Razón general elegida en pantalla. Igual que en el ajuste individual,
+  /// NO se envía como campo (el servidor rechaza campos extra).
+  final RxString generalReason = ''.obs;
+
+  /// Razones de la lista de siempre que sirven para varios productos.
+  static const List<String> generalReasons = [
+    'Corrección de inventario físico',
+    'Mercancía dañada',
+    'Productos vencidos',
+    'Pérdida o robo',
+    'Devolución de cliente',
+    'Error en sistema',
+    'Otro',
+  ];
+
   // Almacén seleccionado para los ajustes
   final RxString selectedWarehouseId = ''.obs;
   final RxString selectedWarehouseName = 'Seleccionar almacén'.obs;
@@ -104,7 +180,7 @@ class InventoryBulkAdjustmentsController extends GetxController {
     try {
       isLoading.value = true;
       final result = await getWarehousesUseCase();
-      
+
       result.fold(
         (failure) {
           error.value = 'Error cargando almacenes: ${failure.message}';
@@ -131,13 +207,10 @@ class InventoryBulkAdjustmentsController extends GetxController {
     try {
       final params = SearchProductsParams(searchTerm: query, limit: 20);
       final result = await searchProductsUseCase(params);
-      
-      return result.fold(
-        (failure) {
-          return <Product>[];
-        },
-        (products) => products,
-      );
+
+      return result.fold((failure) {
+        return <Product>[];
+      }, (products) => products);
     } catch (e) {
       return <Product>[];
     }
@@ -146,39 +219,31 @@ class InventoryBulkAdjustmentsController extends GetxController {
   Future<void> addProductToAdjustment(Product product) async {
     // Check if warehouse is selected
     if (selectedWarehouseId.value.isEmpty) {
-      Get.snackbar(
-        '🏪 Seleccione un almacén',
-        'Primero debe seleccionar el almacén donde se aplicarán los ajustes. Use el selector de arriba.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        duration: const Duration(seconds: 4),
-        icon: const Icon(Icons.warehouse, color: Colors.orange),
+      FuturisticNotifications.showWarning(
+        'Elige el almacén',
+        'Primero elige el almacén donde se harán los ajustes.',
       );
       return;
     }
 
     // Check if product already exists
     if (adjustmentItems.any((item) => item.product.id == product.id)) {
-      Get.snackbar(
-        'Información',
-        'El producto ${product.name} ya está en la lista',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
+      FuturisticNotifications.showInfo(
+        'Ya está en la lista',
+        '${product.name} ya está en la lista.',
       );
       return;
     }
 
     try {
       isLoading.value = true;
-      
+
       // Get current balance for the product in the selected warehouse
       final balanceResult = await getInventoryBalanceByProductUseCase(
         product.id,
         warehouseId: selectedWarehouseId.value,
       );
-      
+
       InventoryBalance? currentBalance;
       balanceResult.fold(
         (failure) {
@@ -195,19 +260,11 @@ class InventoryBulkAdjustmentsController extends GetxController {
         product: product,
         currentBalance: currentBalance,
       );
-      
+
       // Set default new quantity to current quantity
       item.newQuantity.value = item.currentQuantity;
-      
+
       adjustmentItems.add(item);
-      
-      Get.snackbar(
-        'Éxito',
-        'Producto ${product.name} agregado (${item.currentQuantity} en ${selectedWarehouseName.value})',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-      );
     } catch (e) {
       error.value = 'Error agregando producto: $e';
     } finally {
@@ -217,13 +274,6 @@ class InventoryBulkAdjustmentsController extends GetxController {
 
   void removeAdjustmentItem(String itemId) {
     adjustmentItems.removeWhere((item) => item.id == itemId);
-    Get.snackbar(
-      'Información',
-      'Producto removido de la lista',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-    );
   }
 
   void toggleItemSelection(String itemId) {
@@ -249,17 +299,17 @@ class InventoryBulkAdjustmentsController extends GetxController {
 
   void setQuantityForAllSelected(int quantity) {
     for (final item in adjustmentItems) {
-      if (item.isSelected.value) {
-        item.newQuantity.value = quantity;
+      if (item.isSelected.value && item.stockKnown) {
+        item.setExact(quantity);
       }
     }
   }
 
   void adjustQuantityForAllSelected(int adjustment) {
     for (final item in adjustmentItems) {
-      if (item.isSelected.value) {
+      if (item.isSelected.value && item.stockKnown) {
         final newQuantity = item.newQuantity.value + adjustment;
-        item.newQuantity.value = newQuantity < 0 ? 0 : newQuantity;
+        item.setExact(newQuantity < 0 ? 0 : newQuantity);
       }
     }
   }
@@ -267,10 +317,27 @@ class InventoryBulkAdjustmentsController extends GetxController {
   void resetQuantityForAllSelected() {
     for (final item in adjustmentItems) {
       if (item.isSelected.value) {
-        item.newQuantity.value = item.currentQuantity;
+        item.reset();
       }
     }
   }
+
+  /// Productos seleccionados que se pueden ajustar (se sabe cuánto hay).
+  int get selectedAdjustableCount =>
+      adjustmentItems
+          .where((item) => item.isSelected.value && item.stockKnown)
+          .length;
+
+  /// Alguna fila marcada tiene el saldo sin confirmar (lote sin descargar).
+  bool get hasUnconfirmedSelected => adjustmentItems.any(
+    (item) => item.isSelected.value && item.stockUnconfirmed,
+  );
+
+  /// Filas seleccionadas con un número imposible (p. ej. restar de más).
+  List<BulkAdjustmentItem> get itemsWithErrors =>
+      adjustmentItems
+          .where((item) => item.isSelected.value && item.errorText != null)
+          .toList();
 
   void setNotesForAllSelected(String notes) {
     for (final item in adjustmentItems) {
@@ -285,10 +352,18 @@ class InventoryBulkAdjustmentsController extends GetxController {
   bool get isFormValid {
     if (selectedWarehouseId.value.isEmpty) return false;
     if (adjustmentItems.isEmpty) return false;
-    
-    final selectedItems = adjustmentItems.where((item) => item.isSelected.value);
+
+    final selectedItems = adjustmentItems.where(
+      (item) => item.isSelected.value,
+    );
     if (selectedItems.isEmpty) return false;
-    
+
+    // Una fila con error (restar de más) bloquea: corregirla primero.
+    if (itemsWithErrors.isNotEmpty) return false;
+
+    // Saldo sin confirmar en una fila marcada: esperar o quitarla.
+    if (hasUnconfirmedSelected) return false;
+
     // Check if at least one item has changes
     return selectedItems.any((item) => item.hasChanges);
   }
@@ -304,111 +379,90 @@ class InventoryBulkAdjustmentsController extends GetxController {
   Future<void> createBulkAdjustments() async {
     if (!isFormValid) {
       String errorMessage = '';
-      
+
       if (selectedWarehouseId.value.isEmpty) {
         errorMessage = 'Debe seleccionar un almacén donde aplicar los ajustes';
       } else if (adjustmentItems.isEmpty) {
         errorMessage = 'Debe agregar al menos un producto para ajustar';
       } else if (!adjustmentItems.any((item) => item.isSelected.value)) {
         errorMessage = 'Debe seleccionar al menos un producto';
+      } else if (hasUnconfirmedSelected) {
+        errorMessage = kUnconfirmedStockMessage;
+      } else if (itemsWithErrors.isNotEmpty) {
+        errorMessage = itemsWithErrors.first.errorText!;
       } else {
         errorMessage = 'Debe realizar al menos un cambio en las cantidades';
       }
-      
-      Get.snackbar(
-        'Formulario incompleto',
-        errorMessage,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        duration: const Duration(seconds: 3),
-        icon: const Icon(Icons.warning, color: Colors.orange),
-      );
+
+      FuturisticNotifications.showWarning('Falta algo', errorMessage);
       return;
     }
 
     // Las entradas crean lotes con el costo de la ficha del producto.
-    final costWarnings = [
-      for (final item in itemsWithChanges)
-        if (item.adjustmentDifference > 0)
-          CostAbovePrice.check(
-            productName: item.product.name,
-            unitCost: item.product.costPrice ?? 0.0,
-            unitPrice: item.product.sellingPrice,
-          ),
-    ].whereType<CostAbovePrice>().toList();
+    final costWarnings =
+        [
+          for (final item in itemsWithChanges)
+            if (item.adjustmentDifference > 0)
+              CostAbovePrice.check(
+                productName: item.product.name,
+                unitCost: item.product.costPrice ?? 0.0,
+                unitPrice: item.product.sellingPrice,
+              ),
+        ].whereType<CostAbovePrice>().toList();
     if (!await confirmCostsAbovePrice(costWarnings)) return;
 
     try {
       isCreating.value = true;
       error.value = '';
 
-      final adjustmentsToCreate = itemsWithChanges.map((item) {
-        // Para ajustes positivos, obtener el costo del producto
-        final unitCost = item.adjustmentDifference > 0 
-            ? (item.product.costPrice ?? item.product.sellingPrice ?? 0.0)
-            : 0.0;
-            
-        
-        return CreateStockAdjustmentParams(
-          productId: item.product.id,
-          adjustmentQuantity: item.adjustmentDifference,
-          reason: item.adjustmentReason,
-          warehouseId: selectedWarehouseId.value, // INCLUIR EL ALMACÉN SELECCIONADO
-          notes: item.notes.value.isNotEmpty 
-              ? item.notes.value 
-              : globalNotesController.text.trim().isNotEmpty
-                  ? globalNotesController.text.trim()
-                  : null,
-          movementDate: Get.find<TenantDateTimeService>().now(),
-          unitCost: unitCost, // Agregar el costo unitario
-        );
-      }).toList();
+      final adjustmentsToCreate =
+          itemsWithChanges.map((item) {
+            // Para ajustes positivos, obtener el costo del producto
+            final unitCost =
+                item.adjustmentDifference > 0
+                    ? (item.product.costPrice ??
+                        item.product.sellingPrice ??
+                        0.0)
+                    : 0.0;
 
-      final result = await createBulkStockAdjustmentsUseCase(adjustmentsToCreate);
+            return CreateStockAdjustmentParams(
+              productId: item.product.id,
+              adjustmentQuantity: item.adjustmentDifference,
+              reason: item.adjustmentReason,
+              warehouseId:
+                  selectedWarehouseId.value, // INCLUIR EL ALMACÉN SELECCIONADO
+              notes:
+                  item.notes.value.isNotEmpty
+                      ? item.notes.value
+                      : globalNotesController.text.trim().isNotEmpty
+                      ? globalNotesController.text.trim()
+                      : null,
+              movementDate: Get.find<TenantDateTimeService>().now(),
+              unitCost: unitCost, // Agregar el costo unitario
+            );
+          }).toList();
+
+      final result = await createBulkStockAdjustmentsUseCase(
+        adjustmentsToCreate,
+      );
 
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            margin: const EdgeInsets.all(12),
-            borderRadius: 12,
-            backgroundColor:
-                ElegantLightTheme.errorRed.withValues(alpha: 0.95),
-            colorText: Colors.white,
-            icon: const Icon(Icons.error_outline, color: Colors.white),
-            titleText: const Text(
-              'Error',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
+          FuturisticNotifications.showError(
+            'No se guardaron los ajustes',
+            failure.message.replaceFirst(
+              RegExp(r'^Solicitud incorrecta:\s*'),
+              '',
             ),
           );
         },
         (movements) {
-          Get.snackbar(
-            'Ajustes aplicados',
-            '${movements.length} ajuste(s) creado(s) correctamente',
-            snackPosition: SnackPosition.TOP,
-            margin: const EdgeInsets.all(12),
-            borderRadius: 12,
-            backgroundColor:
-                ElegantLightTheme.successGreen.withValues(alpha: 0.95),
-            colorText: Colors.white,
-            icon: const Icon(Icons.check_circle, color: Colors.white),
-            titleText: const Text(
-              'Ajustes aplicados',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+          FuturisticNotifications.showSuccess(
+            'Ajustes guardados',
+            movements.length == 1
+                ? 'Se guardó 1 ajuste.'
+                : 'Se guardaron ${movements.length} ajustes.',
           );
 
           // Forzar actualización de balances tras un breve delay
@@ -431,22 +485,34 @@ class InventoryBulkAdjustmentsController extends GetxController {
 
   void setSelectedWarehouse(String warehouseId, String warehouseName) {
     // Si cambia el almacén, limpiar la lista de productos
-    if (selectedWarehouseId.value != warehouseId && adjustmentItems.isNotEmpty) {
+    if (selectedWarehouseId.value != warehouseId &&
+        adjustmentItems.isNotEmpty) {
       Get.dialog(
         AlertDialog(
-          title: const Text('Cambiar almacén'),
-          content: const Text('Al cambiar el almacén se perderá la lista actual de productos. ¿Desea continuar?'),
+          backgroundColor: ElegantLightTheme.surfaceColor,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('¿Cambiar de almacén?'),
+          content: const Text(
+            'Se quitará la lista de productos que llevas. ¿Continuar?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Get.back(),
               child: const Text('Cancelar'),
             ),
-            TextButton(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElegantLightTheme.primaryBlue,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () {
                 Get.back();
                 _applyWarehouseChange(warehouseId, warehouseName);
               },
-              child: const Text('Continuar'),
+              child: const Text('Cambiar almacén'),
             ),
           ],
         ),
@@ -460,34 +526,17 @@ class InventoryBulkAdjustmentsController extends GetxController {
     selectedWarehouseId.value = warehouseId;
     selectedWarehouseName.value = warehouseName;
     adjustmentItems.clear(); // Limpiar productos al cambiar almacén
-    
-    Get.snackbar(
-      'Almacén seleccionado',
-      'Los ajustes se aplicarán en: $warehouseName',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-    );
   }
 
   // Forzar actualización de datos de inventario después de los ajustes
   void _forceInventoryRefresh() {
     try {
-      
       // Obtener el controlador principal de inventario si existe
       if (Get.isRegistered<InventoryController>()) {
         final inventoryController = Get.find<InventoryController>();
         inventoryController.refreshData();
       }
-      
-      // También refrescar el controlador de balances si existe
-      if (Get.isRegistered<InventoryBalanceController>()) {
-        final balanceController = Get.find<InventoryBalanceController>();
-        // balanceController.refreshData(); // Si tiene este método
-      }
-      
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _clearForm() {
@@ -495,6 +544,7 @@ class InventoryBulkAdjustmentsController extends GetxController {
     globalNotesController.clear();
     globalNotes.value = '';
     globalReason.value = InventoryMovementReason.adjustment;
+    generalReason.value = '';
     selectedWarehouseId.value = '';
     selectedWarehouseName.value = 'Seleccionar almacén';
   }
@@ -507,24 +557,25 @@ class InventoryBulkAdjustmentsController extends GetxController {
 
   String get summaryText {
     final total = adjustmentItems.length;
-    final selected = adjustmentItems.where((item) => item.isSelected.value).length;
+    final selected =
+        adjustmentItems.where((item) => item.isSelected.value).length;
     final withChanges = itemsWithChanges.length;
-    
+
     return '$total productos • $selected seleccionados • $withChanges con cambios';
   }
 
   Color getReasonColor(InventoryMovementReason reason) {
     switch (reason) {
       case InventoryMovementReason.adjustment:
-        return Colors.orange;
+        return ElegantLightTheme.warningOrange;
       case InventoryMovementReason.damage:
-        return Colors.red;
+        return ElegantLightTheme.errorRed;
       case InventoryMovementReason.loss:
-        return Colors.red;
+        return ElegantLightTheme.errorRed;
       case InventoryMovementReason.purchase:
-        return Colors.green;
+        return ElegantLightTheme.successGreen;
       default:
-        return Colors.grey;
+        return ElegantLightTheme.textTertiary;
     }
   }
 
@@ -546,13 +597,16 @@ class InventoryBulkAdjustmentsController extends GetxController {
   // ==================== COMPUTED PROPERTIES ====================
 
   bool get hasItems => adjustmentItems.isNotEmpty;
-  bool get hasSelectedItems => adjustmentItems.any((item) => item.isSelected.value);
-  int get selectedItemsCount => adjustmentItems.where((item) => item.isSelected.value).length;
+  bool get hasSelectedItems =>
+      adjustmentItems.any((item) => item.isSelected.value);
+  int get selectedItemsCount =>
+      adjustmentItems.where((item) => item.isSelected.value).length;
   int get totalAdjustments => itemsWithChanges.length;
 
   double get totalValueImpact {
     return itemsWithChanges.fold(0.0, (sum, item) {
-      final unitCost = item.product.costPrice ?? item.product.sellingPrice ?? 0.0;
+      final unitCost =
+          item.product.costPrice ?? item.product.sellingPrice ?? 0.0;
       return sum + (item.adjustmentDifference * unitCost);
     });
   }

@@ -30,6 +30,7 @@ import '../models/warehouse_model.dart';
 import '../models/isar/isar_inventory_movement.dart';
 import '../models/isar/isar_inventory_batch.dart';
 import '../../../../features/products/data/models/isar/isar_product.dart';
+import '../../../../features/products/data/datasources/product_remote_datasource.dart';
 import '../../../../app/data/local/local_first.dart';
 import 'inventory_offline_repository.dart';
 
@@ -1061,6 +1062,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       // Clear caches to force refresh
       await localDataSource.clearBalancesCache();
+      await _reflectAppliedAdjustments([
+        (
+          productId: '${keyed['productId']}',
+          quantity: (keyed['adjustmentQuantity'] as num?)?.round() ?? 0,
+          warehouseId: keyed['warehouseId']?.toString(),
+        ),
+      ]);
 
       return Right(movement.toEntity());
     } catch (e) {
@@ -1114,6 +1122,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       // Clear caches to force refresh
       await localDataSource.clearBalancesCache();
+      await _reflectAppliedAdjustments([
+        for (final params in adjustmentsList)
+          (
+            productId: params.productId,
+            quantity: params.adjustmentQuantity,
+            warehouseId: params.warehouseId,
+          ),
+      ]);
 
       return Right(movements.map((model) => model.toEntity()).toList());
     } catch (e) {
@@ -1127,6 +1143,55 @@ class InventoryRepositoryImpl implements InventoryRepository {
       return Left(
         ServerFailure('Error al crear ajustes masivos: ${_errorMessage(e)}'),
       );
+    }
+  }
+
+  /// El servidor ya aplicó estos ajustes: se reflejan en el equipo (lotes y
+  /// stock del producto) para que la pantalla no siga con la cifra vieja ni
+  /// deje repetir el ajuste. Se intenta con los lotes y el stock reales del
+  /// servidor; si no se pueden leer, se aplica la misma cuenta en local.
+  /// Nunca hace fallar el ajuste (ya quedó aplicado en el servidor).
+  Future<void> _reflectAppliedAdjustments(
+    List<({String productId, int quantity, String? warehouseId})> applied,
+  ) async {
+    final byProduct =
+        <String, List<({int quantity, String? warehouseId})>>{};
+    for (final a in applied) {
+      if (a.productId.isEmpty || a.quantity == 0) continue;
+      (byProduct[a.productId] ??= [])
+          .add((quantity: a.quantity, warehouseId: a.warehouseId));
+    }
+    const wait = Duration(seconds: 8);
+    for (final entry in byProduct.entries) {
+      List<Map<String, dynamic>>? serverBatches;
+      double? serverStock;
+      try {
+        serverBatches = await remoteDataSource
+            .getBatches(productId: entry.key)
+            .timeout(wait);
+      } catch (_) {
+        serverBatches = null;
+      }
+      try {
+        if (Get.isRegistered<ProductRemoteDataSource>()) {
+          serverStock = (await Get.find<ProductRemoteDataSource>()
+                  .getProductById(entry.key)
+                  .timeout(wait))
+              .stock;
+        }
+      } catch (_) {
+        serverStock = null;
+      }
+      try {
+        await _localInventory.reflectServerAdjustments(
+          entry.key,
+          entry.value,
+          serverBatches: serverBatches,
+          serverStock: serverStock,
+        );
+      } catch (e) {
+        AppLogger.w('No se pudo reflejar el ajuste de ${entry.key} en el equipo: $e');
+      }
     }
   }
 
@@ -1283,10 +1348,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
         InventoryMovementQueryParams(
           productId: params.productId,
           warehouseId: params.warehouseId,
-          startDate: params.startDate,
+          // Sin fecha de inicio: lo anterior al periodo forma el saldo inicial.
           endDate: params.endDate,
           page: 1,
-          limit: 10000,
+          limit: 100000,
         ),
       );
 
@@ -1318,17 +1383,30 @@ class InventoryRepositoryImpl implements InventoryRepository {
       int totalExits = 0;
       double totalPurchases = 0;
       double totalSales = 0;
+      double initialQuantity = 0;
+      double initialValue = 0;
 
       final kardexMovements = <KardexMovement>[];
       for (final m in movements) {
         final entity = m.toEntity();
-        final isEntry = entity.type == InventoryMovementType.inbound;
-        final double entryQty = isEntry ? entity.quantity.toDouble() : 0.0;
-        final double exitQty = isEntry ? 0.0 : entity.quantity.toDouble();
-        runningBalance += (isEntry ? entity.quantity : -entity.quantity);
+        if (entity.isCancelled) continue;
+        // Entra o sale según el tipo; el ajuste según su signo.
+        final signed = entity.signedQuantity;
+        final isEntry = signed >= 0;
+        final double entryQty = isEntry ? signed.toDouble() : 0.0;
+        final double exitQty = isEntry ? 0.0 : -signed.toDouble();
         final entryCost = entryQty * entity.unitCost;
         final exitCost = exitQty * entity.unitCost;
-        runningValue = runningBalance * entity.unitCost;
+        runningBalance += signed;
+        runningValue += entryCost - exitCost;
+        if (runningBalance <= 0 || runningValue < 0) runningValue = 0;
+
+        // Lo anterior al periodo solo forma el saldo inicial.
+        if (entity.movementDate.isBefore(params.startDate)) {
+          initialQuantity = runningBalance;
+          initialValue = runningValue;
+          continue;
+        }
 
         if (isEntry) {
           totalEntries++;
@@ -1360,7 +1438,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
       return Right(KardexReport(
         product: KardexProduct(id: params.productId, name: productName, sku: productSku),
         period: KardexPeriod(startDate: params.startDate, endDate: params.endDate),
-        initialBalance: const KardexBalance(quantity: 0, value: 0, averageCost: 0),
+        initialBalance: KardexBalance(
+          quantity: initialQuantity,
+          value: initialValue,
+          averageCost: initialQuantity > 0 ? initialValue / initialQuantity : 0,
+        ),
         movements: kardexMovements,
         finalBalance: KardexBalance(quantity: runningBalance, value: runningValue, averageCost: avgCost),
         summary: KardexSummary(

@@ -22,6 +22,12 @@ class InventoryBalance extends Equatable {
   final int nearExpiryQuantity;
   final DateTime lastUpdated;
 
+  /// `true` cuando el equipo todavía no tiene NINGÚN lote del producto y la
+  /// cantidad sale del stock del producto (p. ej. producto recién creado
+  /// cuyo lote aún no se descarga). La cifra es el total del producto, no la
+  /// de un almacén: la pantalla debe avisar antes de ajustar sobre ella.
+  final bool isStockUnconfirmed;
+
   const InventoryBalance({
     required this.productId,
     required this.productName,
@@ -40,6 +46,7 @@ class InventoryBalance extends Equatable {
     this.expiredQuantity = 0,
     this.nearExpiryQuantity = 0,
     required this.lastUpdated,
+    this.isStockUnconfirmed = false,
   }) : availableQuantity = availableQuantity ?? totalQuantity;
 
   @override
@@ -61,6 +68,7 @@ class InventoryBalance extends Equatable {
         expiredQuantity,
         nearExpiryQuantity,
         lastUpdated,
+        isStockUnconfirmed,
       ];
 
   // Computed properties
@@ -99,6 +107,7 @@ class InventoryBalance extends Equatable {
     int? expiredQuantity,
     int? nearExpiryQuantity,
     DateTime? lastUpdated,
+    bool? isStockUnconfirmed,
   }) {
     return InventoryBalance(
       productId: productId ?? this.productId,
@@ -118,6 +127,7 @@ class InventoryBalance extends Equatable {
       expiredQuantity: expiredQuantity ?? this.expiredQuantity,
       nearExpiryQuantity: nearExpiryQuantity ?? this.nearExpiryQuantity,
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      isStockUnconfirmed: isStockUnconfirmed ?? this.isStockUnconfirmed,
     );
   }
 }

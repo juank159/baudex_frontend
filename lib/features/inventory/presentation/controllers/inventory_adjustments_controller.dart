@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../../../app/shared/widgets/cost_above_price_dialog.dart';
 import '../../domain/usecases/create_stock_adjustment_usecase.dart';
 import '../../domain/usecases/get_inventory_balance_by_product_usecase.dart';
@@ -12,7 +13,167 @@ import '../../domain/entities/inventory_balance.dart';
 import '../../domain/entities/warehouse.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
-import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+
+// ==================== REGLA (pura, sin Flutter ni GetX) ====================
+
+/// Qué quiere hacer el dueño con el stock.
+enum StockAdjustMode {
+  /// Entran unidades: quedan actual + n.
+  add,
+
+  /// Salen unidades: quedan actual − n.
+  subtract,
+
+  /// Contó y hay otro número: quedan n.
+  exact,
+}
+
+/// Aviso cuando el saldo aún no está confirmado en este equipo.
+const String kUnconfirmedStockMessage =
+    'Saldo sin confirmar: el lote de este producto aún no se ha descargado. '
+    'Espera un momento y vuelve a elegir el producto.';
+
+/// Signo menos tipográfico (se lee mejor que el guion).
+const String kMinus = '−';
+
+/// "+5", "−5" o "0".
+String signedUnits(int value) {
+  if (value > 0) return '+$value';
+  if (value < 0) return '$kMinus${-value}';
+  return '0';
+}
+
+/// Cálculo de un ajuste: con cuántas unidades se queda el producto, la
+/// diferencia que se envía al servidor y los textos que ve el dueño.
+class StockAdjustmentPlan {
+  /// Unidades que hay hoy en el almacén.
+  final int current;
+  final StockAdjustMode? mode;
+
+  /// Número escrito en el campo (null = vacío).
+  final int? amount;
+
+  const StockAdjustmentPlan({
+    required this.current,
+    required this.mode,
+    required this.amount,
+  });
+
+  /// Unidades con las que queda el producto (null si falta la opción o el
+  /// número).
+  int? get newQuantity {
+    final n = amount;
+    if (mode == null || n == null) return null;
+    switch (mode!) {
+      case StockAdjustMode.add:
+        return current + n;
+      case StockAdjustMode.subtract:
+        return current - n;
+      case StockAdjustMode.exact:
+        return n;
+    }
+  }
+
+  /// Lo que se envía como `adjustmentQuantity` (+5, −3…). 0 si no hay plan.
+  int get difference {
+    final q = newQuantity;
+    return q == null ? 0 : q - current;
+  }
+
+  /// Problema que impide guardar, dicho para el dueño. null si todo bien o
+  /// si aún no ha escrito nada.
+  String? get error {
+    final n = amount;
+    if (mode == null || n == null) return null;
+    if (n < 0) return 'Escribe un número de 0 en adelante.';
+    switch (mode!) {
+      case StockAdjustMode.add:
+        if (n == 0) return 'Escribe cuántas unidades entran.';
+        return null;
+      case StockAdjustMode.subtract:
+        if (n == 0) return 'Escribe cuántas unidades salen.';
+        if (n > current) return 'No puedes restar $n: solo hay $current.';
+        return null;
+      case StockAdjustMode.exact:
+        if (n == current) return 'Ya hay $current. No hay nada que cambiar.';
+        return null;
+    }
+  }
+
+  /// Hay opción, número y ningún problema.
+  bool get isReady => newQuantity != null && error == null && difference != 0;
+
+  /// "Hay 20 → quedarán 15 (−5)". null si falta algo o hay error.
+  String? get resultText {
+    if (!isReady) return null;
+    return 'Hay $current → quedarán ${newQuantity!} (${signedUnits(difference)})';
+  }
+
+  /// Texto corto para filas: "20 → 15 (−5)".
+  String? get shortResultText {
+    if (!isReady) return null;
+    return '$current → ${newQuantity!} (${signedUnits(difference)})';
+  }
+
+  /// Verbo del botón: "Restar 5 unidades", "Sumar 1 unidad", "Guardar: quedan 15".
+  String get buttonText {
+    String units(int n) => n == 1 ? '1 unidad' : '$n unidades';
+    final n = amount;
+    switch (mode) {
+      case StockAdjustMode.add:
+        return n == null || n <= 0 ? 'Sumar unidades' : 'Sumar ${units(n)}';
+      case StockAdjustMode.subtract:
+        return n == null || n <= 0 ? 'Restar unidades' : 'Restar ${units(n)}';
+      case StockAdjustMode.exact:
+        return n == null ? 'Guardar' : 'Guardar: quedan $n';
+      case null:
+        return 'Guardar ajuste';
+    }
+  }
+
+  /// Pregunta del campo según la opción.
+  static String questionFor(StockAdjustMode mode) {
+    switch (mode) {
+      case StockAdjustMode.add:
+        return '¿Cuántas unidades entran?';
+      case StockAdjustMode.subtract:
+        return '¿Cuántas unidades salen?';
+      case StockAdjustMode.exact:
+        return '¿Cuántas unidades contaste?';
+    }
+  }
+}
+
+/// Razones que encajan con cada opción (tomadas de la lista de siempre).
+List<String> reasonsForMode(StockAdjustMode? mode) {
+  switch (mode) {
+    case StockAdjustMode.subtract:
+      return const [
+        'Mercancía dañada',
+        'Productos vencidos',
+        'Pérdida o robo',
+        'Error en sistema',
+        'Otro',
+      ];
+    case StockAdjustMode.add:
+      return const ['Devolución de cliente', 'Error en sistema', 'Otro'];
+    case StockAdjustMode.exact:
+      return const [
+        'Corrección de inventario físico',
+        'Ajuste por diferencias de conteo',
+        'Error en sistema',
+        'Otro',
+      ];
+    case null:
+      return const [];
+  }
+}
+
+/// Razón que queda elegida al cambiar de opción.
+String defaultReasonForMode(StockAdjustMode? mode) =>
+    mode == StockAdjustMode.exact ? 'Corrección de inventario físico' : '';
+
+// ==================== CONTROLADOR ====================
 
 class InventoryAdjustmentsController extends GetxController {
   final CreateStockAdjustmentUseCase createStockAdjustmentUseCase;
@@ -33,6 +194,12 @@ class InventoryAdjustmentsController extends GetxController {
   final RxBool isCreating = false.obs;
   final RxString error = ''.obs;
 
+  /// Leyendo cuántas unidades hay del producto elegido.
+  final RxBool isLoadingBalance = false.obs;
+
+  /// No se pudo leer cuántas unidades hay (sin ese dato no se ajusta).
+  final RxString balanceError = ''.obs;
+
   // Selected product
   final RxString selectedProductId = ''.obs;
   final RxString selectedProductName = ''.obs;
@@ -46,13 +213,22 @@ class InventoryAdjustmentsController extends GetxController {
 
   // Adjustment form
   final RxInt currentStock = 0.obs;
+
+  /// Opción elegida (ninguna al entrar).
+  final Rx<StockAdjustMode?> mode = Rx<StockAdjustMode?>(null);
+
+  /// Número del campo (null = vacío).
+  final Rx<int?> amount = Rx<int?>(null);
+
+  /// Unidades con las que queda el producto; se calcula de [mode] y [amount].
   final RxInt newQuantity = 0.obs;
   final RxDouble unitCost = 0.0.obs;
   final RxString reason = ''.obs;
   final RxString notes = ''.obs;
 
   // Controllers
-  final newQuantityController = TextEditingController();
+  /// Campo único: "¿Cuántas unidades entran / salen / contaste?".
+  final amountController = TextEditingController();
   final unitCostController = TextEditingController();
   final reasonController = TextEditingController();
   final notesController = TextEditingController();
@@ -78,7 +254,7 @@ class InventoryAdjustmentsController extends GetxController {
 
   @override
   void onClose() {
-    newQuantityController.dispose();
+    amountController.dispose();
     unitCostController.dispose();
     reasonController.dispose();
     notesController.dispose();
@@ -88,9 +264,10 @@ class InventoryAdjustmentsController extends GetxController {
   // ==================== INITIALIZATION ====================
 
   void _setupControllerListeners() {
-    newQuantityController.addListener(() {
-      final value = int.tryParse(newQuantityController.text) ?? 0;
-      newQuantity.value = value;
+    amountController.addListener(() {
+      final text = amountController.text.trim();
+      final value = text.isEmpty ? null : int.tryParse(text);
+      if (amount.value != value) setAmount(value);
     });
 
     unitCostController.addListener(() {
@@ -107,6 +284,36 @@ class InventoryAdjustmentsController extends GetxController {
     notesController.addListener(() {
       notes.value = notesController.text;
     });
+  }
+
+  // ==================== MODO Y CANTIDAD ====================
+
+  StockAdjustmentPlan get plan => StockAdjustmentPlan(
+    current: currentStock.value,
+    mode: mode.value,
+    amount: amount.value,
+  );
+
+  void _recompute() {
+    newQuantity.value = plan.newQuantity ?? currentStock.value;
+  }
+
+  /// Elige Sumar / Restar / Poner cantidad exacta. Limpia el número y deja
+  /// la razón que encaje.
+  void setMode(StockAdjustMode value) {
+    if (mode.value == value) return;
+    mode.value = value;
+    if (!reasonsForMode(value).contains(reason.value)) {
+      setReasonFromPredefined(defaultReasonForMode(value));
+    }
+    amount.value = null;
+    if (amountController.text.isNotEmpty) amountController.clear();
+    _recompute();
+  }
+
+  void setAmount(int? value) {
+    amount.value = value;
+    _recompute();
   }
 
   // ==================== PRODUCT SEARCH ====================
@@ -128,6 +335,7 @@ class InventoryAdjustmentsController extends GetxController {
     selectedProduct.value = product;
     selectedProductId.value = product.id;
     selectedProductName.value = product.name;
+    _resetAdjustmentInput();
 
     // Load current inventory balance first
     await loadCurrentBalance();
@@ -159,8 +367,11 @@ class InventoryAdjustmentsController extends GetxController {
     if (selectedProductId.value.isEmpty) return;
 
     try {
-      isLoading.value = true;
+      isLoadingBalance.value = true;
+      balanceError.value = '';
       error.value = '';
+      // Mientras se lee, no hay stock conocido: no se puede ajustar.
+      currentBalance.value = null;
 
       // Include warehouse ID when loading balance if a warehouse is selected
       final warehouseIdForBalance =
@@ -176,23 +387,23 @@ class InventoryAdjustmentsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
+          balanceError.value = failure.message;
           currentBalance.value = null;
           currentStock.value = 0;
         },
         (balance) {
           currentBalance.value = balance;
           currentStock.value = balance.totalQuantity;
-          newQuantityController.text = balance.totalQuantity.toString();
-          newQuantity.value = balance.totalQuantity;
-
         },
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
+      balanceError.value = 'Error inesperado: $e';
       currentBalance.value = null;
       currentStock.value = 0;
     } finally {
-      isLoading.value = false;
+      isLoadingBalance.value = false;
+      _recompute();
     }
   }
 
@@ -234,16 +445,9 @@ class InventoryAdjustmentsController extends GetxController {
 
     // If a product is already selected, reload its balance for the new warehouse
     if (selectedProductId.value.isNotEmpty) {
+      _resetAdjustmentInput();
       loadCurrentBalance();
     }
-
-    Get.snackbar(
-      'Almacén seleccionado',
-      'El ajuste se aplicará en: $warehouseName',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-    );
   }
 
   // ==================== ADJUSTMENT CREATION ====================
@@ -291,45 +495,15 @@ class InventoryAdjustmentsController extends GetxController {
       result.fold(
         (failure) {
           error.value = failure.message;
-          if (!AutomaticWork.swallow('Error', failure.message)) Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            margin: const EdgeInsets.all(12),
-            borderRadius: 12,
-            backgroundColor:
-                ElegantLightTheme.errorRed.withValues(alpha: 0.95),
-            colorText: Colors.white,
-            icon: const Icon(Icons.error_outline, color: Colors.white),
-            titleText: const Text(
-              'Error',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+          FuturisticNotifications.showError(
+            'No se guardó el ajuste',
+            _cleanMessage(failure.message),
           );
         },
         (adjustment) {
-          Get.snackbar(
-            'Ajuste aplicado',
-            'El ajuste de inventario se creó correctamente',
-            snackPosition: SnackPosition.TOP,
-            margin: const EdgeInsets.all(12),
-            borderRadius: 12,
-            backgroundColor:
-                ElegantLightTheme.successGreen.withValues(alpha: 0.95),
-            colorText: Colors.white,
-            icon: const Icon(Icons.check_circle, color: Colors.white),
-            titleText: const Text(
-              'Ajuste aplicado',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+          FuturisticNotifications.showSuccess(
+            'Ajuste guardado',
+            'Quedan ${newQuantity.value} unidades de ${selectedProductName.value}.',
           );
 
           _clearForm();
@@ -338,68 +512,35 @@ class InventoryAdjustmentsController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      if (!AutomaticWork.swallow('Error', 'Error inesperado: $e')) Get.snackbar(
-        'Error',
+      FuturisticNotifications.showError(
+        'No se guardó el ajuste',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        margin: const EdgeInsets.all(12),
-        borderRadius: 12,
-        backgroundColor:
-            ElegantLightTheme.errorRed.withValues(alpha: 0.95),
-        colorText: Colors.white,
-        icon: const Icon(Icons.error_outline, color: Colors.white),
       );
     } finally {
       isCreating.value = false;
     }
   }
 
+  /// Quita el prefijo técnico que pone el cliente HTTP a los 400.
+  static String _cleanMessage(String message) =>
+      message.replaceFirst(RegExp(r'^Solicitud incorrecta:\s*'), '');
+
   bool _validateForm() {
-    if (selectedProductId.value.isEmpty) {
-      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un producto')) Get.snackbar(
-        'Error',
-        'Debe seleccionar un producto',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
+    final problem = blockingReason;
+    if (problem != null) {
+      FuturisticNotifications.showWarning('Falta algo', problem);
       return false;
     }
-
-    if (selectedWarehouseId.value.isEmpty) {
-      if (!AutomaticWork.swallow('Error', 'Debe seleccionar un almacén donde aplicar el ajuste')) Get.snackbar(
-        'Error',
-        'Debe seleccionar un almacén donde aplicar el ajuste',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
-      return false;
-    }
-
-    if (newQuantity.value < 0) {
-      if (!AutomaticWork.swallow('Error', 'La cantidad no puede ser negativa')) Get.snackbar(
-        'Error',
-        'La cantidad no puede ser negativa',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
-      return false;
-    }
-
-    if (reason.value.isEmpty && reasonController.text.trim().isEmpty) {
-      if (!AutomaticWork.swallow('Error', 'Debe especificar una razón para el ajuste')) Get.snackbar(
-        'Error',
-        'Debe especificar una razón para el ajuste',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
-      return false;
-    }
-
     return true;
+  }
+
+  void _resetAdjustmentInput() {
+    mode.value = null;
+    amount.value = null;
+    if (amountController.text.isNotEmpty) amountController.clear();
+    reason.value = '';
+    if (reasonController.text.isNotEmpty) reasonController.clear();
+    newQuantity.value = currentStock.value;
   }
 
   void _clearForm() {
@@ -409,13 +550,16 @@ class InventoryAdjustmentsController extends GetxController {
     selectedWarehouseId.value = '';
     selectedWarehouseName.value = 'Seleccionar almacén';
     currentBalance.value = null;
+    balanceError.value = '';
     currentStock.value = 0;
     newQuantity.value = 0;
+    mode.value = null;
+    amount.value = null;
     unitCost.value = 0.0;
     reason.value = '';
     notes.value = '';
 
-    newQuantityController.clear();
+    amountController.clear();
     unitCostController.clear();
     reasonController.clear();
     notesController.clear();
@@ -428,28 +572,6 @@ class InventoryAdjustmentsController extends GetxController {
     reasonController.text = predefinedReason;
   }
 
-  void increaseQuantity() {
-    newQuantity.value++;
-    newQuantityController.text = newQuantity.value.toString();
-  }
-
-  void decreaseQuantity() {
-    if (newQuantity.value > 0) {
-      newQuantity.value--;
-      newQuantityController.text = newQuantity.value.toString();
-    }
-  }
-
-  void setQuantityToZero() {
-    newQuantity.value = 0;
-    newQuantityController.text = '0';
-  }
-
-  void resetToCurrentStock() {
-    newQuantity.value = currentStock.value;
-    newQuantityController.text = currentStock.value.toString();
-  }
-
   // ==================== UI HELPERS ====================
 
   String formatCurrency(double amount) {
@@ -458,23 +580,9 @@ class InventoryAdjustmentsController extends GetxController {
 
   Color getAdjustmentColor() {
     final difference = adjustmentDifference;
-    if (difference > 0) return Colors.green;
-    if (difference < 0) return Colors.red;
-    return Colors.grey;
-  }
-
-  IconData getAdjustmentIcon() {
-    final difference = adjustmentDifference;
-    if (difference > 0) return Icons.trending_up;
-    if (difference < 0) return Icons.trending_down;
-    return Icons.remove;
-  }
-
-  String getAdjustmentText() {
-    final difference = adjustmentDifference;
-    if (difference > 0) return 'Incremento de $difference unidades';
-    if (difference < 0) return 'Disminución de ${-difference} unidades';
-    return 'Sin cambios';
+    if (difference > 0) return ElegantLightTheme.successGreen;
+    if (difference < 0) return ElegantLightTheme.errorRed;
+    return ElegantLightTheme.textTertiary;
   }
 
   // ==================== COMPUTED PROPERTIES ====================
@@ -483,23 +591,53 @@ class InventoryAdjustmentsController extends GetxController {
 
   bool get hasCurrentBalance => currentBalance.value != null;
 
-  bool get isFormValid =>
-      selectedProductId.value.isNotEmpty &&
-      selectedWarehouseId.value.isNotEmpty &&
-      newQuantity.value >= 0 &&
-      (reason.value.isNotEmpty || reasonController.text.trim().isNotEmpty);
+  /// El lote del producto aún no bajó al equipo: `totalQuantity` es el
+  /// total del producto, no el del almacén. No se ajusta con ese número.
+  bool get isStockUnconfirmed =>
+      currentBalance.value?.isStockUnconfirmed == true;
 
+  /// Se sabe cuántas unidades hay: solo entonces se puede ajustar.
+  bool get canAdjust =>
+      hasCurrentBalance && !isLoadingBalance.value && !isStockUnconfirmed;
+
+  /// Qué falta para guardar, dicho para el dueño (null = listo).
+  String? get blockingReason {
+    if (selectedWarehouseId.value.isEmpty) return 'Elige el almacén.';
+    if (selectedProductId.value.isEmpty) return 'Busca y elige el producto.';
+    if (isLoadingBalance.value) {
+      return 'Espera: estamos leyendo cuántas unidades hay.';
+    }
+    if (!hasCurrentBalance) {
+      return 'No pudimos leer cuántas unidades hay. Sin ese dato no se puede ajustar.';
+    }
+    if (isStockUnconfirmed) return kUnconfirmedStockMessage;
+    final p = plan;
+    if (p.mode == null) {
+      return 'Elige si vas a sumar, restar o poner la cantidad exacta.';
+    }
+    if (p.amount == null) return 'Escribe la cantidad.';
+    final e = p.error;
+    if (e != null) return e;
+    if (reason.value.isEmpty && reasonController.text.trim().isEmpty) {
+      return 'Elige una razón para guardar';
+    }
+    return null;
+  }
+
+  bool get isFormValid => blockingReason == null;
+
+  /// Costo de las unidades que entran o salen. 0 si no hay costo.
   double get adjustmentValue {
     if (unitCost.value <= 0) return 0.0;
     return adjustmentDifference * unitCost.value;
   }
 
-  String get adjustmentValueText {
+  /// "Costo de lo que sale: $ 12.500" / "Costo de lo que entra: $ 12.500".
+  String? get costText {
     final value = adjustmentValue;
-    if (value == 0) return 'Sin impacto monetario';
-
-    final sign = value > 0 ? '+' : '';
-    return '$sign${formatCurrency(value.abs())}';
+    if (value == 0 || !plan.isReady) return null;
+    final label = value > 0 ? 'Costo de lo que entra' : 'Costo de lo que sale';
+    return '$label: ${formatCurrency(value.abs())}';
   }
 
   bool get showUnitCostField {
@@ -516,9 +654,5 @@ class InventoryAdjustmentsController extends GetxController {
     return false;
   }
 
-  String get submitButtonText {
-    if (adjustmentDifference == 0) return 'Sin cambios';
-    if (adjustmentDifference > 0) return 'Incrementar Inventario';
-    return 'Disminuir Inventario';
-  }
+  String get submitButtonText => canAdjust ? plan.buttonText : 'Guardar ajuste';
 }

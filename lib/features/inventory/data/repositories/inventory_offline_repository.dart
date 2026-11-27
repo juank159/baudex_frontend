@@ -17,6 +17,8 @@ import '../../domain/entities/warehouse.dart';
 import '../../domain/entities/warehouse_with_stats.dart';
 import '../../domain/entities/kardex_report.dart';
 import '../../domain/repositories/inventory_repository.dart';
+import '../inventory_adjustment_payload.dart';
+import '../models/inventory_batch_model.dart';
 import '../models/isar/isar_inventory_movement.dart';
 import '../models/isar/isar_inventory_batch.dart';
 import '../models/isar/isar_inventory_batch_movement.dart';
@@ -416,8 +418,22 @@ class InventoryOfflineRepository implements InventoryRepository {
         .findFirst();
     if (product == null) return null;
     final batches = await _batchesFor([productId], warehouseId: warehouseId);
-    return _balanceFrom(product, batches, warehouseId: warehouseId);
+    final unconfirmed = batches.isEmpty &&
+        product.stock > 0 &&
+        (warehouseId == null || !await _hasAnyBatch(productId));
+    return _balanceFrom(product, batches,
+        warehouseId: warehouseId, stockUnconfirmed: unconfirmed);
   }
+
+  /// ¿El equipo tiene algún lote (de cualquier almacén) de este producto?
+  Future<bool> _hasAnyBatch(String productId) async =>
+      await _isar.isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .productIdEqualTo(productId)
+          .count() >
+      0;
 
   /// Lotes (no borrados) de los productos indicados, en UNA consulta.
   /// Con `productIds == null` trae los de todos los productos.
@@ -441,6 +457,7 @@ class InventoryOfflineRepository implements InventoryRepository {
     IsarProduct product,
     List<IsarInventoryBatch> batches, {
     String? warehouseId,
+    bool stockUnconfirmed = false,
   }) {
     final productId = product.serverId;
     // Calcular totales
@@ -492,6 +509,14 @@ class InventoryOfflineRepository implements InventoryRepository {
     final averageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0.0;
     totalValue = totalCost;
 
+    // Producto con stock pero sin ningún lote en el equipo (recién creado: el
+    // lote lo crea el servidor y aún no se descarga). No se afirma 0: se
+    // muestra el stock del producto y se marca como sin confirmar.
+    if (stockUnconfirmed) {
+      totalQuantity = product.stock.round();
+      availableQuantity = totalQuantity;
+    }
+
     // Obtener stock mínimo del producto
     final minStock = (product.minStock ?? 0).toInt();
 
@@ -513,6 +538,7 @@ class InventoryOfflineRepository implements InventoryRepository {
       expiredQuantity: expiredQuantity,
       nearExpiryQuantity: nearExpiryQuantity,
       lastUpdated: DateTime.now(),
+      isStockUnconfirmed: stockUnconfirmed,
     );
   }
 
@@ -655,10 +681,22 @@ class InventoryOfflineRepository implements InventoryRepository {
         (byProduct[b.productId] ??= []).add(b);
       }
       final byId = {for (final p in products) p.serverId: p};
+      // Productos con stock y sin lotes en este almacén: ¿tienen lotes en
+      // otro (saldo 0 real) o en ninguno (saldo sin confirmar)?
+      final withoutLots = [
+        for (final p in products)
+          if (byProduct[p.serverId] == null && p.stock > 0) p.serverId,
+      ];
+      final withLotsElsewhere = warehouseId == null
+          ? const <String>{}
+          : (await _batchesFor(withoutLots)).map((b) => b.productId).toSet();
       final balances = <InventoryBalance>[
         for (final id in productIds)
           if (byId[id] != null)
-            _balanceFrom(byId[id]!, byProduct[id] ?? const [], warehouseId: warehouseId),
+            _balanceFrom(byId[id]!, byProduct[id] ?? const [],
+                warehouseId: warehouseId,
+                stockUnconfirmed: withoutLots.contains(id) &&
+                    !withLotsElsewhere.contains(id)),
       ];
 
       return Right(balances);
@@ -1030,6 +1068,17 @@ class InventoryOfflineRepository implements InventoryRepository {
           '${product.stock.toStringAsFixed(0)}, ajuste: $qty',
         ));
       }
+      // Igual que el servidor: lo que se descuenta sale del almacén elegido,
+      // no del total del producto.
+      if (qty < 0 && warehouseId != null) {
+        final available = await _availableInWarehouse(productId, warehouseId);
+        if (available != null && available + qty < 0) {
+          return Left(ServerFailure(
+            'Stock insuficiente en el almacén elegido: hay $available, '
+            'el ajuste descuenta ${-qty}',
+          ));
+        }
+      }
 
       final now = DateTime.now();
       // La clave puede venir del intento con internet: misma clave = el
@@ -1041,7 +1090,11 @@ class InventoryOfflineRepository implements InventoryRepository {
           entityType: 'InventoryAdjustment',
           entityId: key,
           operationType: SyncOperationType.create,
-          data: {...request, 'adjustmentQuantity': qty, 'idempotencyKey': key},
+          // Solo los campos que acepta el servidor: uno de más (p. ej.
+          // `reason`) y responde 400 al sincronizar.
+          data: relativeAdjustmentPayload(
+            {...request, 'adjustmentQuantity': qty, 'idempotencyKey': key},
+          ),
         );
       } catch (e) {
         return Left(CacheFailure(
@@ -1079,7 +1132,6 @@ class InventoryOfflineRepository implements InventoryRepository {
           'idempotencyKey': idempotencyKeys[i],
         'productId': params.productId,
         'adjustmentQuantity': params.adjustmentQuantity,
-        'reason': params.reason.name,
         'warehouseId': params.warehouseId,
         'notes': params.notes,
         'movementDate': params.movementDate?.toIso8601String(),
@@ -1098,6 +1150,107 @@ class InventoryOfflineRepository implements InventoryRepository {
       }
     }
     return Right(movements);
+  }
+
+  /// Unidades que el equipo ve en un almacén para descontar (mismos lotes que
+  /// usa [_applyLocalStockChange]). `null` = el equipo no tiene ningún lote
+  /// del producto y no puede opinar (decide el servidor al sincronizar).
+  Future<int?> _availableInWarehouse(String productId, String warehouseId) async {
+    final batches = await _batchesFor([productId]);
+    if (batches.isEmpty) return null;
+    return batches
+        .where((b) => b.warehouseId == null || b.warehouseId == warehouseId)
+        .fold<int>(0, (sum, b) => sum + b.currentQuantity);
+  }
+
+  /// Ajustes que el servidor YA aplicó (hechos con internet): el equipo debe
+  /// mostrar el stock nuevo sin esperar la próxima descarga; si no, la
+  /// pantalla sigue en la cifra vieja y deja repetir el mismo ajuste.
+  ///
+  /// Nada de lo que se escribe aquí queda "pendiente" ni con id temporal, así
+  /// que la descarga lo pisa por `serverId` y no puede contarse doble:
+  /// - [serverBatches] (lotes del producto recién leídos del servidor): se
+  ///   guardan tal cual si el equipo no tiene cambios de ese producto sin subir;
+  /// - si no se pudieron leer, o hay ventas sin subir sobre esos lotes: el
+  ///   descuento se aplica a los lotes locales en el mismo orden del servidor
+  ///   (y de un aumento solo se agregan los lotes del servidor que falten);
+  /// - `product.stock`: el del servidor ([serverStock]) si el producto no
+  ///   tiene cambios sin subir; si no, se le suma la diferencia.
+  Future<void> reflectServerAdjustments(
+    String productId,
+    List<({int quantity, String? warehouseId})> adjustments, {
+    List<Map<String, dynamic>>? serverBatches,
+    double? serverStock,
+  }) async {
+    final product = await _isar.isarProducts
+        .filter()
+        .serverIdEqualTo(productId)
+        .findFirst();
+    final local = await _batchesFor([productId]);
+    final hasLocalChanges = local.any((b) => !b.isSynced);
+    final fromServer = serverBatches == null
+        ? null
+        : [
+            for (final json in serverBatches)
+              IsarInventoryBatch.fromEntity(
+                  InventoryBatchModel.fromJson(json).toEntity()),
+          ];
+
+    final toPut = <IsarInventoryBatch>[];
+    if (fromServer != null && !hasLocalChanges) {
+      toPut.addAll(fromServer);
+    } else {
+      for (final adjustment in adjustments) {
+        if (adjustment.quantity >= 0) continue;
+        final candidates = local
+            .where((b) =>
+                b.currentQuantity > 0 &&
+                (adjustment.warehouseId == null ||
+                    b.warehouseId == null ||
+                    b.warehouseId == adjustment.warehouseId))
+            .toList()
+          ..sort((a, b) {
+            final byEntry = a.entryDate.compareTo(b.entryDate);
+            return byEntry != 0 ? byEntry : a.createdAt.compareTo(b.createdAt);
+          });
+        var remaining = -adjustment.quantity;
+        for (final batch in candidates) {
+          if (remaining <= 0) break;
+          final take =
+              remaining > batch.currentQuantity ? batch.currentQuantity : remaining;
+          // Sin `consume()`: ese marca el lote como pendiente de subir, y
+          // este cambio ya está en el servidor.
+          batch.currentQuantity -= take;
+          batch.consumedQuantity += take;
+          if (batch.currentQuantity == 0) {
+            batch.status = IsarInventoryBatchStatus.depleted;
+          }
+          if (!toPut.contains(batch)) toPut.add(batch);
+          remaining -= take;
+        }
+      }
+      if (fromServer != null) {
+        final known = local.map((b) => b.serverId).toSet();
+        toPut.addAll(fromServer.where((b) => !known.contains(b.serverId)));
+      }
+    }
+
+    if (product != null) {
+      if (serverStock != null && product.isSynced) {
+        product.stock = serverStock;
+      } else {
+        final delta = adjustments.fold<int>(0, (sum, a) => sum + a.quantity);
+        final next = product.stock + delta;
+        product.stock = next < 0 ? 0 : next;
+      }
+    }
+
+    await _isar.writeTxn(() async {
+      if (toPut.isNotEmpty) {
+        await _isar.isarInventoryBatchs.putAllByServerId(toPut);
+      }
+      if (product != null) await _isar.isarProducts.put(product);
+    });
   }
 
   /// Aplica en el equipo un cambio de stock (ajuste o una pata de traslado):
@@ -1171,7 +1324,11 @@ class InventoryOfflineRepository implements InventoryRepository {
       type: type,
       status: IsarInventoryMovementStatus.confirmed,
       reason: IsarInventoryMovementReason.adjustment,
-      quantity: quantity.abs(),
+      // El ajuste es el único tipo que suma o resta: conserva su signo
+      // (igual que el que manda el servidor). Los traslados van sin signo.
+      quantity: type == IsarInventoryMovementType.adjustment
+          ? quantity
+          : quantity.abs(),
       unitCost: movementUnitCost,
       totalCost: quantity.abs() * movementUnitCost,
       unitPrice: null,

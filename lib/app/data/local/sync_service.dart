@@ -116,6 +116,7 @@ import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_i
 
 // Inventory
 import '../../../features/inventory/data/datasources/inventory_remote_datasource.dart';
+import '../../../features/inventory/data/inventory_adjustment_payload.dart';
 import '../../../features/inventory/data/models/inventory_movement_model.dart';
 import '../../../features/inventory/data/models/isar/isar_inventory_movement.dart';
 import '../../../features/inventory/data/models/isar/isar_inventory_batch.dart';
@@ -412,7 +413,9 @@ class SyncService extends GetxService {
           'idempotencyKeys': [data['idempotencyKey']],
         });
       } else {
-        await remote.createStockAdjustment(data);
+        // Solo los campos del servidor: los ajustes masivos encolados por
+        // versiones anteriores traen `reason`, que el servidor rechaza (400).
+        await remote.createStockAdjustment(relativeAdjustmentPayload(data));
       }
     } catch (e) {
       final code = int.tryParse(

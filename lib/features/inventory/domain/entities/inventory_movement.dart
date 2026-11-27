@@ -215,9 +215,18 @@ class InventoryMovement extends Equatable {
   bool get hasReference => referenceId != null && referenceId!.isNotEmpty;
   bool get hasWarehouse => warehouseId != null && warehouseId!.isNotEmpty;
 
+  /// Efecto del movimiento sobre el stock: entradas suman, salidas restan y
+  /// el ajuste lleva su propio signo en [quantity].
+  int get signedQuantity {
+    if (isOutbound) return -quantity.abs();
+    if (isInbound) return quantity.abs();
+    if (isAdjustment) return quantity;
+    return 0; // traslado genérico: no cambia el total
+  }
+
   String get displayQuantity {
-    if (isOutbound) {
-      return '-$quantity';
+    if (isOutbound || quantity < 0) {
+      return '-${quantity.abs()}';
     }
     return '+$quantity';
   }

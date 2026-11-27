@@ -99,7 +99,7 @@ class InventoryMovementModel {
       type: _parseMovementType(typeString),
       status: _parseMovementStatus(statusString),
       reason: reasonString != null ? _parseMovementReason(reasonString!) : _parseMovementTypeAsReason(typeString),
-      quantity: int.tryParse(quantity.replaceAll('-', '').split('.')[0]) ?? 0,
+      quantity: _parseQuantity(quantity, typeString),
       unitCost: double.tryParse(unitCost) ?? 0.0,
       totalCost: double.tryParse(totalCost) ?? 0.0,
       unitPrice: unitPrice != null ? double.tryParse(unitPrice!) : null,
@@ -153,6 +153,17 @@ class InventoryMovementModel {
     );
   }
 
+  /// Cantidad del movimiento. El sentido lo da el tipo (entrada, salida,
+  /// traslado), así que se guarda sin signo; el AJUSTE es el único tipo que
+  /// puede sumar o restar, y por eso conserva el signo que manda el servidor
+  /// (antes se perdía: una disminución de 5 quedaba como +5).
+  static int _parseQuantity(String raw, String typeString) {
+    final value = (num.tryParse(raw.trim()) ?? 0).truncate();
+    return _parseMovementType(typeString) == InventoryMovementType.adjustment
+        ? value
+        : value.abs();
+  }
+
   // Helper methods for enum conversion
   static InventoryMovementReason _parseMovementTypeAsReason(String typeString) {
     switch (typeString.toLowerCase()) {
@@ -162,6 +173,11 @@ class InventoryMovementModel {
         return InventoryMovementReason.sale;
       case 'adjustment':
         return InventoryMovementReason.adjustment;
+      case 'return_in':
+      case 'return_out':
+        return InventoryMovementReason.return_;
+      case 'waste':
+        return InventoryMovementReason.loss;
       case 'transfer':
       case 'transfer_in':
       case 'transfer_out':
@@ -175,9 +191,15 @@ class InventoryMovementModel {
     switch (typeString.toLowerCase()) {
       case 'inbound':
       case 'purchase':
+      // Tipos del servidor que antes caían en "Ajuste":
+      case 'initial_stock':
+      case 'return_in':
+      case 'production':
         return InventoryMovementType.inbound;
       case 'outbound':
       case 'sale':
+      case 'return_out':
+      case 'waste':
         return InventoryMovementType.outbound;
       case 'adjustment':
         return InventoryMovementType.adjustment;
