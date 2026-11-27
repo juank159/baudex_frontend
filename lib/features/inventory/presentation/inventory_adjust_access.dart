@@ -21,3 +21,8 @@ UserRole? currentSessionRole() {
 
 /// ¿Quien tiene la sesión puede ajustar el inventario?
 bool sessionCanAdjustInventory() => canAdjustInventory(currentSessionRole());
+
+/// ¿Quien tiene la sesión puede mover stock a mano (movimiento manual,
+/// inventario inicial)?
+bool sessionCanCreateManualMovement() =>
+    canCreateManualMovement(currentSessionRole());

@@ -300,20 +300,20 @@ class InventoryMovementsController extends GetxController {
 
   // ==================== MOVEMENT CREATION ====================
 
-  /// Un movimiento tipo "ajuste" solo lo crea el administrador
-  /// (`canAdjustInventory`). Se niega y avisa antes de enviar nada.
-  bool ensureAllowedMovementType() {
-    if (selectedType.value != InventoryMovementType.adjustment) return true;
-    if (sessionCanAdjustInventory()) return true;
+  /// Crear, confirmar o cancelar un movimiento manual (de cualquier tipo):
+  /// solo el administrador (`canCreateManualMovement`). Se niega y avisa
+  /// antes de enviar nada.
+  bool ensureAllowedManualMovement() {
+    if (sessionCanCreateManualMovement()) return true;
     FuturisticNotifications.showWarning(
       'Sin permiso',
-      kAdjustInventoryAdminOnlyMessage,
+      kManualMovementAdminOnlyMessage,
     );
     return false;
   }
 
   Future<void> createMovement() async {
-    if (!ensureAllowedMovementType()) return;
+    if (!ensureAllowedManualMovement()) return;
     if (!_validateForm()) return;
 
     if (selectedType.value == InventoryMovementType.inbound) {
@@ -435,6 +435,7 @@ class InventoryMovementsController extends GetxController {
   // ==================== MOVEMENT ACTIONS ====================
 
   Future<void> confirmMovement(String id) async {
+    if (!ensureAllowedManualMovement()) return;
     try {
       isLoading.value = true;
 
@@ -467,6 +468,7 @@ class InventoryMovementsController extends GetxController {
   }
 
   Future<void> cancelMovement(String id) async {
+    if (!ensureAllowedManualMovement()) return;
     try {
       isLoading.value = true;
 

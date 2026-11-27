@@ -30,40 +30,45 @@ class InventoryListScreen extends GetView<InventoryController> {
           onPressed: controller.refreshData,
           tooltip: 'Actualizar',
         ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.add),
-          tooltip: 'Crear',
-          onSelected: (value) {
-            switch (value) {
-              case 'movement':
-                controller.goToCreateMovement();
-                break;
-              case 'adjustment':
-                controller.goToCreateAdjustment();
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'movement',
-              child: ListTile(
-                leading: Icon(Icons.swap_horiz),
-                title: Text('Movimiento'),
-                dense: true,
-              ),
-            ),
-            // Ajustes: solo el administrador (regla `canAdjustInventory`).
-            if (sessionCanAdjustInventory())
-              const PopupMenuItem(
-                value: 'adjustment',
-                child: ListTile(
-                  leading: Icon(Icons.tune),
-                  title: Text('Ajuste'),
-                  dense: true,
+        // Movimiento manual y ajuste: solo el administrador
+        // (`canCreateManualMovement` / `canAdjustInventory`). Sin ninguno de
+        // los dos, no se muestra el botón "Crear".
+        if (sessionCanCreateManualMovement() || sessionCanAdjustInventory())
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.add),
+            tooltip: 'Crear',
+            onSelected: (value) {
+              switch (value) {
+                case 'movement':
+                  controller.goToCreateMovement();
+                  break;
+                case 'adjustment':
+                  controller.goToCreateAdjustment();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              if (sessionCanCreateManualMovement())
+                const PopupMenuItem(
+                  value: 'movement',
+                  child: ListTile(
+                    leading: Icon(Icons.swap_horiz),
+                    title: Text('Movimiento'),
+                    dense: true,
+                  ),
                 ),
-              ),
-          ],
-        ),
+              // Ajustes: solo el administrador (regla `canAdjustInventory`).
+              if (sessionCanAdjustInventory())
+                const PopupMenuItem(
+                  value: 'adjustment',
+                  child: ListTile(
+                    leading: Icon(Icons.tune),
+                    title: Text('Ajuste'),
+                    dense: true,
+                  ),
+                ),
+            ],
+          ),
       ],
       body: ColoredBox(
         color: ElegantLightTheme.backgroundColor,
@@ -255,8 +260,12 @@ class InventoryListScreen extends GetView<InventoryController> {
         message: controller.searchQuery.value.isNotEmpty
             ? 'No se encontraron productos que coincidan con tu búsqueda'
             : 'Aún no hay productos registrados en el inventario',
-        actionLabel: 'Crear movimiento',
-        onAction: controller.goToCreateMovement,
+        // Movimiento manual: solo el administrador.
+        actionLabel:
+            sessionCanCreateManualMovement() ? 'Crear movimiento' : null,
+        onAction: sessionCanCreateManualMovement()
+            ? controller.goToCreateMovement
+            : null,
       );
     }
 
@@ -312,8 +321,12 @@ class InventoryListScreen extends GetView<InventoryController> {
         message: controller.searchQuery.value.isNotEmpty
             ? 'No se encontraron movimientos que coincidan con tu búsqueda'
             : 'Aún no hay movimientos registrados',
-        actionLabel: 'Crear movimiento',
-        onAction: controller.goToCreateMovement,
+        // Movimiento manual: solo el administrador.
+        actionLabel:
+            sessionCanCreateManualMovement() ? 'Crear movimiento' : null,
+        onAction: sessionCanCreateManualMovement()
+            ? controller.goToCreateMovement
+            : null,
       );
     }
 

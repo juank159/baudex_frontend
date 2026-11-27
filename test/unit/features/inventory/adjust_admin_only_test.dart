@@ -156,14 +156,10 @@ void main() {
       expect(canAdjustInventory(null), isFalse);
     });
 
-    test('nuevo movimiento: el tipo "ajuste" solo se le ofrece al administrador', () {
+    test('nuevo movimiento manual: todos los tipos al administrador, ninguno a los demás', () {
       expect(movementTypesFor(UserRole.admin), InventoryMovementType.values);
       for (final role in [UserRole.manager, UserRole.user, null]) {
-        final types = movementTypesFor(role);
-        expect(types, isNot(contains(InventoryMovementType.adjustment)));
-        expect(types.length, InventoryMovementType.values.length - 1);
-        expect(types, contains(InventoryMovementType.inbound));
-        expect(types, contains(InventoryMovementType.outbound));
+        expect(movementTypesFor(role), isEmpty);
       }
     });
   });
@@ -200,18 +196,20 @@ void main() {
         ..quantity.value = 3
         ..selectedType.value = InventoryMovementType.adjustment;
 
-      expect(c.ensureAllowedMovementType(), isFalse);
+      expect(c.ensureAllowedManualMovement(), isFalse);
       await c.createMovement();
       await tester.pump(const Duration(seconds: 5));
       verifyNever(() => create(any()));
 
-      // Los demás tipos siguen igual para el gerente.
+      // Desde 2026-11-27 tampoco otros tipos (entrada/salida a mano).
       c.selectedType.value = InventoryMovementType.outbound;
-      expect(c.ensureAllowedMovementType(), isTrue);
-      // Y el administrador sí puede elegir "ajuste".
+      expect(c.ensureAllowedManualMovement(), isFalse);
+      // El administrador sí.
       auth.setRole(UserRole.admin);
       c.selectedType.value = InventoryMovementType.adjustment;
-      expect(c.ensureAllowedMovementType(), isTrue);
+      expect(c.ensureAllowedManualMovement(), isTrue);
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
     });
 
     ProductDetailController detail(_UpdateStock update) =>
@@ -457,7 +455,8 @@ void main() {
         await pumpActions(tester, size);
         expect(find.text('Ajuste de Stock'), findsNothing);
         expect(find.text('Ajustes Masivos'), findsNothing);
-        expect(find.text('Nuevo Movimiento'), findsOneWidget);
+        // Entrada/salida a mano: tampoco (2026-11-27).
+        expect(find.text('Nuevo Movimiento'), findsNothing);
       });
 
       testWidgets('acciones rápidas ($label): administrador sí los ve', (
@@ -696,19 +695,20 @@ void main() {
       expect(notices.single, contains(kAdjustRejectedAdminOnlyMessage));
     });
 
-    test('movimiento que no es ajuste con 403: sigue como antes (lanza)', () async {
+    test('movimiento que no es ajuste con 403: también se revierte (2026-11-27)',
+        () async {
       final op = await offlineMovement(InventoryMovementType.inbound);
+      expect(await localMovements(op.entityId), 1);
       remote.error = Exception('Error 403: Forbidden resource');
       final notices = <String>[];
       final sync = SyncService(null)
         ..debugOnInventoryRejectedNotice = (t, m) => notices.add(m);
 
-      await expectLater(
-        sync.debugSyncInventoryMovementOperation(op),
-        throwsA(isA<Exception>()),
-      );
-      expect(await localMovements(op.entityId), 1);
-      expect(notices, isEmpty);
+      await sync.debugSyncInventoryMovementOperation(op);
+
+      expect(await localMovements(op.entityId), 0);
+      expect(await stock(), 15);
+      expect(notices.single, contains(kAdjustRejectedAdminOnlyMessage));
     });
 
     test('movimiento tipo ajuste con 403 por suscripción: se conserva', () async {

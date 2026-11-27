@@ -22,10 +22,20 @@ const String kAdjustRejectedAdminOnlyMessage =
 /// cargado) no se permite.
 bool canAdjustInventory(UserRole? role) => role == UserRole.admin;
 
-/// Tipos de movimiento que se le ofrecen a [role] al crear un movimiento:
-/// el tipo "ajuste" solo al administrador; los demás, a todos.
+/// Lo que ve quien no es administrador al intentar registrar a mano una
+/// entrada o salida de stock (movimiento manual o inventario inicial).
+const String kManualMovementAdminOnlyMessage =
+    'Solo el administrador del negocio puede registrar entradas o salidas '
+    'de inventario a mano.';
+
+/// ¿Puede [role] mover stock A MANO (crear, confirmar o cancelar un
+/// movimiento manual, cargar inventario inicial)? Decisión del dueño
+/// (2026-11-27): solo el administrador, igual que los ajustes. Facturas,
+/// compras y traslados mueven stock por su propio camino y no pasan por aquí.
+bool canCreateManualMovement(UserRole? role) => canAdjustInventory(role);
+
+/// Tipos de movimiento que se le ofrecen a [role] al crear un movimiento
+/// manual: todos al administrador; ninguno a los demás (no pueden crearlo).
 List<InventoryMovementType> movementTypesFor(UserRole? role) => [
-  for (final type in InventoryMovementType.values)
-    if (type != InventoryMovementType.adjustment || canAdjustInventory(role))
-      type,
+  if (canCreateManualMovement(role)) ...InventoryMovementType.values,
 ];

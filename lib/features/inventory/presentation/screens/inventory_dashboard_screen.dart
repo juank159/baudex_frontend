@@ -891,15 +891,18 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildQuickActionItem(
-              icon: Icons.add_box,
-              title: 'Nuevo Movimiento',
-              subtitle: 'Registrar entrada o salida',
-              onTap: () {
-                Get.back();
-                Get.toNamed('/inventory/movements/create');
-              },
-            ),
+            // Entrada/salida a mano: solo el administrador
+            // (`canCreateManualMovement`).
+            if (sessionCanCreateManualMovement())
+              _buildQuickActionItem(
+                icon: Icons.add_box,
+                title: 'Nuevo Movimiento',
+                subtitle: 'Registrar entrada o salida',
+                onTap: () {
+                  Get.back();
+                  Get.toNamed('/inventory/movements/create');
+                },
+              ),
             // Ajustes: solo el administrador (regla `canAdjustInventory`).
             if (sessionCanAdjustInventory())
               _buildQuickActionItem(

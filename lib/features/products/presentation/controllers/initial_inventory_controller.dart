@@ -20,6 +20,9 @@ import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
+import '../../../../app/core/theme/futuristic_notifications.dart';
+import '../../../inventory/domain/inventory_adjust_permission.dart';
+import '../../../inventory/presentation/inventory_adjust_access.dart';
 
 const String _draftStorageKey = 'initial_inventory_draft';
 
@@ -744,7 +747,21 @@ class InitialInventoryController extends GetxController {
   // SUBMISSION
   // ============================================================================
 
+  /// Solo el administrador carga inventario inicial. Avisa y niega a los demás.
+  bool ensureAllowedToLoadStock() {
+    if (sessionCanCreateManualMovement()) return true;
+    FuturisticNotifications.showWarning(
+      'Sin permiso',
+      kManualMovementAdminOnlyMessage,
+    );
+    return false;
+  }
+
   Future<void> submitAll() async {
+    // Cargar stock inicial es mover stock a mano: solo el administrador
+    // (`canCreateManualMovement`). Se niega antes de crear nada (si no, el
+    // producto se crearía y el servidor rechazaría su stock).
+    if (!ensureAllowedToLoadStock()) return;
     // Corte duro: filas incompletas no se envían
     if (incompleteRowIndices.isNotEmpty) {
       _showIncompleteRowsBlocked(action: 'crear los productos');

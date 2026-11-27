@@ -8239,16 +8239,17 @@ class SyncService extends GetxService {
             try {
               createdMovement = await remoteDataSource.createMovement(request);
             } catch (e) {
-              // Movimiento tipo ajuste rechazado con 403 (no es administrador):
-              // igual que un ajuste de stock: se revierte en el equipo, se
-              // avisa una vez y no se reintenta.
-              if (movementType == 'adjustment' &&
-                  classifyInventoryStockFailure(e, isTransfer: false) ==
-                      InventoryStockFailure.adminOnly) {
+              // Movimiento manual (de cualquier tipo) rechazado con 403: quien
+              // lo hizo no es administrador (decisión del dueño 2026-11-27).
+              // Igual que un ajuste de stock: se revierte en el equipo, se
+              // avisa una vez y no se reintenta. Un 403 por suscripción
+              // vencida no entra aquí (sigue en la cola).
+              if (classifyInventoryStockFailure(e, isTransfer: false) ==
+                  InventoryStockFailure.adminOnly) {
                 await _discardLocalInventoryOp(operation.entityId);
                 await _refreshProductStockFromServer(data['productId'] as String);
                 final reason = e.toString().replaceFirst('Exception: ', '');
-                AppLogger.w('Movimiento tipo ajuste rechazado por el servidor: $reason', tag: 'SYNC');
+                AppLogger.w('Movimiento manual rechazado por el servidor (403): $reason', tag: 'SYNC');
                 _logEventSafe(
                   severity: SyncEventSeverity.error,
                   eventType: SyncEventType.pushOperation,

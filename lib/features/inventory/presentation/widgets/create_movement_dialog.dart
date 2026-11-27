@@ -12,12 +12,31 @@ import '../../domain/inventory_adjust_permission.dart';
 import '../inventory_adjust_access.dart';
 import '../../domain/entities/inventory_movement.dart';
 import 'product_search_widget.dart';
+import 'adjust_admin_only_notice.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class CreateMovementDialog extends GetView<InventoryMovementsController> {
   const CreateMovementDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Movimiento manual: solo el administrador (`canCreateManualMovement`).
+    if (!sessionCanCreateManualMovement()) {
+      return Dialog(
+        backgroundColor: ElegantLightTheme.backgroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: const AdjustAdminOnlyNotice.manualMovement(inDialog: true),
+        ),
+      );
+    }
+    return _buildForm();
+  }
+
+  Widget _buildForm() {
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
@@ -183,7 +202,8 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
               ),
               const SizedBox(height: AppDimensions.paddingSmall),
               Obx(() {
-                // "Ajuste" solo para el administrador (`canAdjustInventory`).
+                // Movimiento manual: solo el administrador
+                // (`canCreateManualMovement`); a los demás no llega el form.
                 final types = movementTypesFor(currentSessionRole());
                 final selected = controller.selectedType.value;
                 return DropdownButtonFormField<InventoryMovementType>(

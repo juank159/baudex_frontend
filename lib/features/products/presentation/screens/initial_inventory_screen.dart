@@ -8,6 +8,8 @@ import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
 import '../controllers/initial_inventory_controller.dart';
+import '../../../inventory/presentation/inventory_adjust_access.dart';
+import '../../../inventory/presentation/widgets/adjust_admin_only_notice.dart';
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 
 class InitialInventoryScreen extends GetView<InitialInventoryController> {
@@ -33,25 +35,36 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
     return MainLayout(
       title: 'Inventario Inicial',
       showDrawer: true,
-      body: Column(
-        children: [
-          _buildHeader(context, isMobile),
-          _buildSearchAndDuplicatesBar(context, isMobile),
-          Obx(() => controller.isSubmitting.value
-              ? _buildProgress(context)
-              : const SizedBox.shrink()),
-          Expanded(
-            child: Obx(() {
-              if (controller.rows.isEmpty) return _buildEmpty(context);
-              return ResponsiveBuilder(
-                mobile: _buildExpandableList(context),
-                desktop: _buildDesktopTable(context),
-              );
-            }),
-          ),
-          _buildFooter(context, isMobile),
-        ],
-      ),
+      // Cargar stock inicial es mover stock a mano: solo el administrador
+      // (`canCreateManualMovement`). Si llega por ruta directa, ve el aviso.
+      body: !sessionCanCreateManualMovement()
+          ? const ColoredBox(
+              color: ElegantLightTheme.backgroundColor,
+              child: AdjustAdminOnlyNotice.manualMovement(),
+            )
+          : _buildEditor(context, isMobile),
+    );
+  }
+
+  Widget _buildEditor(BuildContext context, bool isMobile) {
+    return Column(
+      children: [
+        _buildHeader(context, isMobile),
+        _buildSearchAndDuplicatesBar(context, isMobile),
+        Obx(() => controller.isSubmitting.value
+            ? _buildProgress(context)
+            : const SizedBox.shrink()),
+        Expanded(
+          child: Obx(() {
+            if (controller.rows.isEmpty) return _buildEmpty(context);
+            return ResponsiveBuilder(
+              mobile: _buildExpandableList(context),
+              desktop: _buildDesktopTable(context),
+            );
+          }),
+        ),
+        _buildFooter(context, isMobile),
+      ],
     );
   }
 

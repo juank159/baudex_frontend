@@ -16,8 +16,10 @@ class InventoryQuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     // Ajustes: solo el administrador (regla `canAdjustInventory`).
     final canAdjust = sessionCanAdjustInventory();
+    // Entrada/salida a mano: solo el administrador (`canCreateManualMovement`).
+    final canMoveByHand = sessionCanCreateManualMovement();
     final quickActions = [
-      {
+      if (canMoveByHand) {
         'title': 'Nuevo Movimiento',
         'subtitle': 'Registrar entrada/salida',
         'icon': Icons.add_circle,

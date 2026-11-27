@@ -92,6 +92,8 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 
 import '../helpers/session_role.dart';
+import 'package:baudex_desktop/features/products/presentation/screens/initial_inventory_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/widgets/create_movement_dialog.dart';
 
 final _out = Platform.environment['BAUDEX_VISUAL_OUT'];
 const _fonts = '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts';
@@ -584,6 +586,17 @@ void main() {
     await both(tester, 'masivo-solo-admin', () => const InventoryBulkAdjustmentsScreen());
     Get.put<InventoryController>(_InvC());
     await both(tester, 'tablero-gerente-sin-ajustes', () => const InventoryDashboardScreen());
+  });
+
+  testWidgets('entradas y salidas a mano bloqueadas para quien no es administrador', (tester) async {
+    tolerateOverflow();
+    putSessionRole(UserRole.manager);
+    Get.put<InventoryController>(_InvC());
+    await both(tester, 'lista-gerente-sin-crear', () => const InventoryListScreen());
+    await both(tester, 'inventario-inicial-solo-admin', () => const InitialInventoryScreen());
+    Get.put<InventoryMovementsController>(_MovC());
+    await both(tester, 'movimiento-manual-solo-admin',
+        () => const Scaffold(backgroundColor: Colors.black26, body: Center(child: CreateMovementDialog())));
   });
 
   testWidgets('ajustes masivos: vacío y con productos', (tester) async {

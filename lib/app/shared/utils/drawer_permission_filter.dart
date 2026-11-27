@@ -3,6 +3,7 @@ import '../../core/services/permissions_service.dart';
 import '../../../features/employees/domain/entities/module_permission.dart';
 import '../../../features/settings/presentation/controllers/organization_controller.dart';
 import '../models/drawer_menu_item.dart';
+import '../../../features/inventory/presentation/inventory_adjust_access.dart';
 
 /// Filtra los items del drawer según los permisos del usuario actual.
 ///
@@ -57,11 +58,12 @@ class DrawerPermissionFilter {
     'diagnostics': ModuleCode.settings,
   };
 
-  /// Aplica el filtro a una lista de items. Si no hay
-  /// PermissionsService registrado, devuelve la lista intacta.
+  /// Aplica el filtro a una lista de items. Si no hay PermissionsService
+  /// registrado, solo se aplica la regla del rol (inventario inicial).
   static List<DrawerMenuItem> apply(List<DrawerMenuItem> items) {
-    if (!Get.isRegistered<PermissionsService>()) return items;
-    final perms = Get.find<PermissionsService>();
+    final perms = Get.isRegistered<PermissionsService>()
+        ? Get.find<PermissionsService>()
+        : null;
     return items
         .map((item) => _filterItem(item, perms))
         .whereType<DrawerMenuItem>()
@@ -72,6 +74,8 @@ class DrawerPermissionFilter {
   /// configuración del tenant (no por permisos del usuario). Si la
   /// organización tiene ese módulo apagado, el item se oculta para
   /// todos los usuarios del tenant.
+  static const Set<String> _manualStockItems = {'initial_inventory'};
+
   static const Set<String> _cashRegisterItems = {
     'cash_register',
   };
@@ -79,7 +83,7 @@ class DrawerPermissionFilter {
   /// Devuelve null si el item debe ocultarse.
   static DrawerMenuItem? _filterItem(
     DrawerMenuItem item,
-    PermissionsService perms,
+    PermissionsService? perms,
   ) {
     // 0. Módulos opcionales del tenant. Si el admin desactivó la caja
     // registradora desde Settings, los items asociados desaparecen del
@@ -87,6 +91,13 @@ class DrawerPermissionFilter {
     if (_cashRegisterItems.contains(item.id) &&
         Get.isRegistered<OrganizationController>() &&
         !Get.find<OrganizationController>().isCashRegisterEnabled) {
+      return null;
+    }
+
+    // 0b. Inventario Inicial carga stock a mano: solo el administrador
+    // (`canCreateManualMovement`), sin importar los permisos del módulo.
+    if (_manualStockItems.contains(item.id) &&
+        !sessionCanCreateManualMovement()) {
       return null;
     }
 
@@ -108,6 +119,7 @@ class DrawerPermissionFilter {
       return item;
     }
 
+    if (perms == null) return item;
     return perms.canView(moduleCode) ? item : null;
   }
 }

@@ -133,9 +133,9 @@ enum InventoryStockFailure {
   /// equipo, se avisa y no se reintenta.
   rejected,
 
-  /// Ajuste rechazado con 403 porque quien lo hizo no es administrador: se
-  /// revierte, se avisa con `kAdjustRejectedAdminOnlyMessage` y no se
-  /// reintenta.
+  /// Ajuste o movimiento manual rechazado con 403 porque quien lo hizo no es
+  /// administrador: se revierte, se avisa con
+  /// `kAdjustRejectedAdminOnlyMessage` y no se reintenta.
   adminOnly,
 }
 
