@@ -85,6 +85,15 @@ class ApiInterceptor extends Interceptor {
   static bool isPublicRequest(RequestOptions options) =>
       options.extra['skip_auth_interceptor'] == true;
 
+  /// Marca de las peticiones CON sesión en las que un 401 es una respuesta
+  /// de negocio y no una sesión vencida (p. ej. "contraseña incorrecta" al
+  /// confirmar una acción). Llevan token y negocio, pero su 401 no refresca
+  /// el token, no borra la sesión ni manda al inicio de sesión.
+  static const String keepSessionOn401 = 'keep_session_on_401';
+
+  static bool keepsSessionOn401(RequestOptions options) =>
+      options.extra[keepSessionOn401] == true;
+
   @override
   void onRequest(
     RequestOptions options,
@@ -363,8 +372,8 @@ class ApiInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     _recordUncertainWrite(err);
 
-    final skipAuthInterceptor =
-        err.requestOptions.extra['skip_auth_interceptor'] == true;
+    final skipAuthInterceptor = isPublicRequest(err.requestOptions) ||
+        keepsSessionOn401(err.requestOptions);
 
     if (err.response?.statusCode == 401 && !skipAuthInterceptor) {
       final refreshToken = await _storageService.getRefreshToken();

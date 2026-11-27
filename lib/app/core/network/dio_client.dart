@@ -456,7 +456,9 @@ class DioClient {
             // Token expirado o inválido
             // NOTA: ApiInterceptor ya maneja refresh + limpieza de auth.
             // Solo notificar al AuthController para redirigir si auth data ya fue limpiada.
-            final skipAuthInterceptor = error.requestOptions.extra['skip_auth_interceptor'] == true;
+            final skipAuthInterceptor =
+                ApiInterceptor.isPublicRequest(error.requestOptions) ||
+                    ApiInterceptor.keepsSessionOn401(error.requestOptions);
             if (!skipAuthInterceptor) {
               _handleUnauthorizedRedirect();
             }

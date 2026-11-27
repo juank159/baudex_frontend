@@ -60,8 +60,9 @@ class _ConfirmPasswordDialogState extends State<_ConfirmPasswordDialog> {
   }
 
   Future<void> _confirm() async {
-    final password = _passwordController.text.trim();
-    if (password.isEmpty) {
+    // Se valida tal cual se escribió (sin quitar espacios).
+    final password = _passwordController.text;
+    if (password.trim().isEmpty) {
       setState(() => _errorMessage = 'Ingrese su contraseña');
       return;
     }
@@ -81,14 +82,14 @@ class _ConfirmPasswordDialogState extends State<_ConfirmPasswordDialog> {
         Navigator.of(context).pop(true);
       } else {
         setState(() {
-          _errorMessage = 'Contraseña incorrecta. Verifique e intente de nuevo.';
+          _errorMessage = wrongPasswordMessage;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Error al validar: ${e.toString()}';
+        _errorMessage = passwordValidationErrorMessage(e);
         _isLoading = false;
       });
     }

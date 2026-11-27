@@ -425,6 +425,78 @@ class InventoryOfflineRepository implements InventoryRepository {
         warehouseId: warehouseId, stockUnconfirmed: unconfirmed);
   }
 
+  /// Saldo del equipo para ACTUAR sobre un almacén (ajustar o trasladar).
+  ///
+  /// A diferencia de [getBalanceByProduct], no afirma una cifra que el
+  /// equipo no puede asegurar. Las versiones anteriores a la 1.0.14
+  /// guardaron los lotes SIN almacén, y solo se reparan cuando termina la
+  /// re-descarga que sigue a una actualización; mientras tanto, filtrar por
+  /// almacén daba 0 con el producto lleno. Aquí:
+  /// - lotes sin almacén y UN solo almacén en el negocio
+  ///   ([onlyWarehouseId] == [warehouseId]): son de ese almacén, se cuentan;
+  /// - lotes sin almacén y varios almacenes (o no se sabe cuántos): saldo
+  ///   sin confirmar;
+  /// - el producto dice tener más unidades que la suma de sus lotes (faltan
+  ///   lotes por descargar): saldo sin confirmar.
+  ///
+  /// [hasUnsyncedChanges]: el equipo tiene cambios de este producto que el
+  /// servidor aún no conoce (su cifra va por delante de la del servidor).
+  Future<
+      Either<Failure,
+          ({InventoryBalance balance, bool hasUnsyncedChanges})>>
+      getLocalBalanceForStockAction(
+    String productId, {
+    String? warehouseId,
+    String? onlyWarehouseId,
+  }) async {
+    try {
+      final product = await _isar.isarProducts
+          .filter()
+          .serverIdEqualTo(productId)
+          .findFirst();
+      if (product == null) return Left(CacheFailure('Producto no encontrado'));
+      final all = await _batchesFor([productId]);
+      final hasUnsyncedChanges =
+          !product.isSynced || all.any((b) => !b.isSynced);
+      if (warehouseId == null || warehouseId.isEmpty) {
+        final balance = await _calculateProductBalance(productId);
+        return Right((balance: balance!, hasUnsyncedChanges: hasUnsyncedChanges));
+      }
+
+      bool orphan(IsarInventoryBatch b) =>
+          b.warehouseId == null || b.warehouseId!.isEmpty;
+      final inWarehouse = all.where((b) => b.warehouseId == warehouseId).toList();
+      final orphansWithStock =
+          all.where((b) => orphan(b) && b.currentQuantity > 0).toList();
+      final singleWarehouse = onlyWarehouseId == warehouseId;
+      final total = all.fold<int>(0, (sum, b) => sum + b.currentQuantity);
+      final missingLots = product.stock.round() > total;
+
+      final unconfirmed =
+          missingLots || (orphansWithStock.isNotEmpty && !singleWarehouse);
+      final counted = [
+        ...inWarehouse,
+        if (singleWarehouse) ...all.where(orphan),
+      ];
+      return Right((
+        balance: _balanceFrom(product, counted,
+            warehouseId: warehouseId, stockUnconfirmed: unconfirmed),
+        hasUnsyncedChanges: hasUnsyncedChanges,
+      ));
+    } catch (e) {
+      return Left(CacheFailure('Error loading product balance: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, InventoryBalance>> getBalanceForStockAction(
+    String productId, {
+    String? warehouseId,
+    bool serverOnlyIfDoubtful = false,
+  }) async =>
+      (await getLocalBalanceForStockAction(productId, warehouseId: warehouseId))
+          .map((r) => r.balance);
+
   /// ¿El equipo tiene algún lote (de cualquier almacén) de este producto?
   Future<bool> _hasAnyBatch(String productId) async =>
       await _isar.isarInventoryBatchs

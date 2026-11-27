@@ -339,6 +339,8 @@ class InventoryAdjustmentsController extends GetxController {
 
     // Load current inventory balance first
     await loadCurrentBalance();
+    // Mientras se leía se eligió otro producto: este ya no cuenta.
+    if (selectedProductId.value != product.id) return;
 
     // Set default unit cost - PRIORITY: costo promedio > costo del producto > dejar vacío
     double? defaultCost;
@@ -363,8 +365,14 @@ class InventoryAdjustmentsController extends GetxController {
     }
   }
 
+  /// Número de la lectura de saldo en curso: si mientras el servidor
+  /// responde se elige otro producto o almacén, la respuesta vieja se ignora.
+  int _balanceRequest = 0;
+
   Future<void> loadCurrentBalance() async {
     if (selectedProductId.value.isEmpty) return;
+    final request = ++_balanceRequest;
+    bool stale() => request != _balanceRequest;
 
     try {
       isLoadingBalance.value = true;
@@ -383,6 +391,7 @@ class InventoryAdjustmentsController extends GetxController {
         selectedProductId.value,
         warehouseId: warehouseIdForBalance,
       );
+      if (stale()) return;
 
       result.fold(
         (failure) {
@@ -397,13 +406,16 @@ class InventoryAdjustmentsController extends GetxController {
         },
       );
     } catch (e) {
+      if (stale()) return;
       error.value = 'Error inesperado: $e';
       balanceError.value = 'Error inesperado: $e';
       currentBalance.value = null;
       currentStock.value = 0;
     } finally {
-      isLoadingBalance.value = false;
-      _recompute();
+      if (!stale()) {
+        isLoadingBalance.value = false;
+        _recompute();
+      }
     }
   }
 
@@ -544,6 +556,9 @@ class InventoryAdjustmentsController extends GetxController {
   }
 
   void _clearForm() {
+    // Una lectura de saldo en curso ya no aplica al formulario vacío.
+    _balanceRequest++;
+    isLoadingBalance.value = false;
     selectedProduct.value = null;
     selectedProductId.value = '';
     selectedProductName.value = '';

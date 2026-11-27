@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import '../../core/utils/responsive_text.dart';
 import '../../config/themes/app_colors.dart';
+import '../../services/password_validation_service.dart'
+    show passwordValidationErrorMessage, wrongPasswordMessage;
 
 class PasswordValidationDialog extends StatefulWidget {
   final String title;
@@ -48,15 +50,17 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
         if (mounted) {
           Navigator.of(context).pop(true); // Contraseña válida
         }
-      } else {
+      } else if (mounted) {
         setState(() {
-          _errorMessage = 'Contraseña incorrecta';
+          _errorMessage = wrongPasswordMessage;
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Error al validar contraseña: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = passwordValidationErrorMessage(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {

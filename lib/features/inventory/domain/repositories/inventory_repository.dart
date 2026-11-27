@@ -52,6 +52,18 @@ abstract class InventoryRepository {
     String? warehouseId,
   });
 
+  /// Saldo de un producto en un almacén para ACTUAR sobre él (ajustar o
+  /// trasladar): con internet se le pregunta al servidor en ese momento;
+  /// sin internet se lee del equipo y, si el equipo no puede asegurar la
+  /// cifra, llega marcado `isStockUnconfirmed` en vez de afirmar 0.
+  /// Con [serverOnlyIfDoubtful] solo se consulta al servidor cuando el
+  /// equipo duda (para lecturas en serie, p. ej. la búsqueda de traslados).
+  Future<Either<Failure, InventoryBalance>> getBalanceForStockAction(
+    String productId, {
+    String? warehouseId,
+    bool serverOnlyIfDoubtful = false,
+  });
+
   Future<Either<Failure, List<InventoryBalance>>> getLowStockProducts({
     String? warehouseId,
   });

@@ -1,6 +1,7 @@
 import 'dart:convert';
 // lib/features/inventory/data/repositories/inventory_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
@@ -718,6 +719,133 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } else {
       // Sin conexión, obtener desde cache
       return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
+    }
+  }
+
+  // ---------- Saldo para ajustar o trasladar ----------
+
+  /// Tope de espera al servidor al elegir un producto para ajustar.
+  @visibleForTesting
+  static Duration stockActionServerWait = const Duration(seconds: 4);
+
+  /// Tras un fallo del servidor, las lecturas en serie (búsqueda de
+  /// traslados) no insisten durante este rato: usan lo del equipo.
+  static const Duration _stockActionServerPause = Duration(seconds: 20);
+  static DateTime? _stockActionServerPausedUntil;
+
+  @visibleForTesting
+  static void debugResetStockActionPause() =>
+      _stockActionServerPausedUntil = null;
+
+  @override
+  Future<Either<Failure, InventoryBalance>> getBalanceForStockAction(
+    String productId, {
+    String? warehouseId,
+    bool serverOnlyIfDoubtful = false,
+  }) async {
+    // 1. Lo que el equipo puede asegurar (sin afirmar un 0 dudoso).
+    Either<Failure, ({InventoryBalance balance, bool hasUnsyncedChanges})>?
+        local;
+    try {
+      if (await _batchesReady()) {
+        local = await _localInventory.getLocalBalanceForStockAction(
+          productId,
+          warehouseId: warehouseId,
+          onlyWarehouseId: await _onlyWarehouseId(),
+        );
+      }
+    } catch (_) {
+      local = null;
+    }
+    final localBalance = local?.fold((_) => null, (r) => r.balance);
+    final hasUnsyncedChanges =
+        local?.fold((_) => false, (r) => r.hasUnsyncedChanges) ?? false;
+
+    // Sin lectura del equipo (instalación nueva, producto que aún no baja):
+    // el camino de siempre, que ya va al servidor.
+    if (localBalance == null) {
+      return getBalanceByProduct(productId, warehouseId: warehouseId);
+    }
+    // El equipo tiene cambios de este producto sin subir: su cifra va por
+    // delante de la del servidor.
+    if (hasUnsyncedChanges) return Right(localBalance);
+
+    final paused = serverOnlyIfDoubtful &&
+        _stockActionServerPausedUntil != null &&
+        DateTime.now().isBefore(_stockActionServerPausedUntil!);
+    final askServer = !paused &&
+        (!serverOnlyIfDoubtful || localBalance.isStockUnconfirmed) &&
+        await networkInfo.isConnected;
+    if (!askServer) return Right(localBalance);
+
+    // 2. Con internet: la cifra real, ahora. En paralelo se traen los lotes
+    // del producto para dejar el equipo al día (se guardan por `serverId`:
+    // la descarga posterior los pisa, no se cuentan doble).
+    final wait = stockActionServerWait;
+    final batchesFuture = _fetchProductBatchesQuietly(productId, wait);
+    try {
+      final remote = await remoteDataSource
+          .getBalanceByProduct(productId, warehouseId: warehouseId)
+          .timeout(wait);
+      final serverBatches = await batchesFuture;
+      if (serverBatches != null) {
+        try {
+          await _localInventory.reflectServerAdjustments(
+            productId,
+            const [],
+            serverBatches: serverBatches,
+          );
+        } catch (e) {
+          AppLogger.w('No se pudieron guardar los lotes de $productId: $e');
+        }
+      }
+      _stockActionServerPausedUntil = null;
+      return Right(InventoryBalance(
+        productId: productId,
+        // Si el almacén no tiene unidades el servidor no manda la fila: el
+        // nombre y el mínimo salen del producto del equipo.
+        productName: localBalance.productName,
+        productSku: localBalance.productSku,
+        categoryName: localBalance.categoryName,
+        minStock: localBalance.minStock,
+        totalQuantity: remote.totalQuantity,
+        averageCost: remote.averageCost,
+        totalValue: remote.totalValue,
+        isLowStock: remote.isLowStock,
+        isOutOfStock: remote.totalQuantity <= 0,
+        warehouseId: warehouseId,
+        lastUpdated: DateTime.now(),
+      ));
+    } catch (e) {
+      // Servidor lento o caído: lo del equipo (sin confirmar si duda).
+      AppLogger.w('Saldo de $productId no llegó del servidor ($e): se usa el del equipo');
+      _stockActionServerPausedUntil =
+          DateTime.now().add(_stockActionServerPause);
+      return Right(localBalance);
+    }
+  }
+
+  /// El único almacén del negocio (según la última lista conocida), o
+  /// `null` si hay varios o no se sabe.
+  Future<String?> _onlyWarehouseId() async {
+    try {
+      final warehouses = await localDataSource.getCachedWarehouses();
+      return warehouses.length == 1 ? warehouses.single.id : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>?> _fetchProductBatchesQuietly(
+    String productId,
+    Duration wait,
+  ) async {
+    try {
+      return await remoteDataSource
+          .getBatches(productId: productId)
+          .timeout(wait);
+    } catch (_) {
+      return null;
     }
   }
 

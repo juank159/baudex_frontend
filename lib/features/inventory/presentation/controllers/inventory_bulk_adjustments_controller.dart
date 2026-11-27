@@ -216,6 +216,9 @@ class InventoryBulkAdjustmentsController extends GetxController {
     }
   }
 
+  /// Productos cuyo saldo se está leyendo para agregarlos a la lista.
+  final Set<String> _readingStockOf = <String>{};
+
   Future<void> addProductToAdjustment(Product product) async {
     // Check if warehouse is selected
     if (selectedWarehouseId.value.isEmpty) {
@@ -235,14 +238,20 @@ class InventoryBulkAdjustmentsController extends GetxController {
       return;
     }
 
+    // El saldo se le pregunta al servidor: mientras llega, el mismo producto
+    // no se agrega dos veces.
+    if (!_readingStockOf.add(product.id)) return;
+    final warehouseId = selectedWarehouseId.value;
     try {
       isLoading.value = true;
 
       // Get current balance for the product in the selected warehouse
       final balanceResult = await getInventoryBalanceByProductUseCase(
         product.id,
-        warehouseId: selectedWarehouseId.value,
+        warehouseId: warehouseId,
       );
+      // Mientras se leía se cambió de almacén: ese saldo ya no aplica.
+      if (selectedWarehouseId.value != warehouseId) return;
 
       InventoryBalance? currentBalance;
       balanceResult.fold(
@@ -268,7 +277,8 @@ class InventoryBulkAdjustmentsController extends GetxController {
     } catch (e) {
       error.value = 'Error agregando producto: $e';
     } finally {
-      isLoading.value = false;
+      _readingStockOf.remove(product.id);
+      isLoading.value = _readingStockOf.isNotEmpty;
     }
   }
 

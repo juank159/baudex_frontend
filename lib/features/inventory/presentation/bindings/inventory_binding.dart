@@ -15,6 +15,7 @@ import '../../domain/usecases/confirm_inventory_movement_usecase.dart';
 import '../../domain/usecases/cancel_inventory_movement_usecase.dart';
 import '../../domain/usecases/get_inventory_movement_by_id_usecase.dart';
 import '../../domain/usecases/search_inventory_movements_usecase.dart';
+import '../../domain/usecases/get_balance_for_stock_action_usecase.dart';
 import '../../domain/usecases/get_inventory_balance_by_product_usecase.dart';
 import '../../domain/usecases/calculate_fifo_consumption_usecase.dart';
 import '../../domain/usecases/process_outbound_movement_fifo_usecase.dart';
@@ -255,7 +256,9 @@ class InventoryBinding extends Bindings {
     _safePut<InventoryAdjustmentsController>(
       InventoryAdjustmentsController(
         createStockAdjustmentUseCase: Get.find(),
-        getInventoryBalanceByProductUseCase: Get.find(),
+        // Al elegir el producto se le pregunta al servidor el saldo real.
+        getInventoryBalanceByProductUseCase:
+            GetBalanceForStockActionUseCase(Get.find()),
         searchProductsUseCase: Get.find(),
         getWarehousesUseCase: Get.find(),
       ),
@@ -264,7 +267,8 @@ class InventoryBinding extends Bindings {
     _safePut<InventoryBulkAdjustmentsController>(
       InventoryBulkAdjustmentsController(
         createBulkStockAdjustmentsUseCase: Get.find<CreateBulkStockAdjustmentsUseCase>(),
-        getInventoryBalanceByProductUseCase: Get.find<GetInventoryBalanceByProductUseCase>(),
+        getInventoryBalanceByProductUseCase:
+            GetBalanceForStockActionUseCase(Get.find()),
         searchProductsUseCase: Get.find(),
         getWarehousesUseCase: Get.find(),
       ),
@@ -297,7 +301,8 @@ class InventoryBinding extends Bindings {
         cancelInventoryMovementUseCase: Get.find(),
         getWarehousesUseCase: Get.find(),
         searchProductsUseCase: Get.find(),
-        getInventoryBalanceByProductUseCase: Get.find(),
+        getInventoryBalanceByProductUseCase:
+            GetBalanceForStockActionUseCase(Get.find(), forTransfer: true),
       ),
     );
 
