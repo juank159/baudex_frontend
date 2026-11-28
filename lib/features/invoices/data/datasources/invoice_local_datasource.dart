@@ -73,6 +73,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   Future<void> cacheInvoice(InvoiceModel invoice) async {
     try {
       // ✅ GUARDAR EN ISAR PRIMERO (persistencia offline real)
+      var savedInIsar = false;
       try {
         final isar = IsarDatabase.instance.database;
         await isar.writeTxn(() async {
@@ -123,10 +124,17 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
           // Guardar factura con items y payments embebidos
           await isar.isarInvoices.put(isarInvoice);
         });
+        savedInIsar = true;
       } catch (e) {
       }
 
-      // Guardar en SecureStorage (fallback legacy)
+      // La base del equipo ya tiene el detalle completo (y de ahí se lee):
+      // no se escribe además una copia por factura en el almacén de sesión.
+      // En Windows esa copia era un archivo cifrado nuevo por cada venta y
+      // el botón de Procesar esperaba a que el almacén la escribiera.
+      if (savedInIsar) return;
+
+      // Solo si la base del equipo falló: copia de respaldo (como antes).
       final invoiceJson = invoice.toJson();
       final cacheData = {
         'invoice': invoiceJson,

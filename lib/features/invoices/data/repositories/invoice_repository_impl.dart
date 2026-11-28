@@ -258,7 +258,18 @@ class InvoiceRepositoryImpl
           return Right(finalInvoice);
         } catch (e) {
 
-          // Intento 1: SecureStorage cache
+          // Intento 1: base del equipo (ISAR), que es donde queda el
+          // detalle al día.
+          try {
+            final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+            final result = await offlineRepo.getInvoiceById(id);
+            final found = result.fold<Invoice?>((_) => null, (invoice) => invoice);
+            if (found != null) return Right(found);
+          } catch (isarError) {
+          }
+
+          // Intento 2: copia antigua del almacén de sesión (versiones
+          // anteriores guardaban ahí una copia por factura).
           try {
             final cachedInvoice = await localDataSource.getCachedInvoice(id);
             if (cachedInvoice != null) {
@@ -267,47 +278,27 @@ class InvoiceRepositoryImpl
           } catch (cacheError) {
           }
 
-          // Intento 2: ISAR offline repository
-          try {
-            final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
-            final result = await offlineRepo.getInvoiceById(id);
-
-            return result.fold(
-              (failure) => Left(_mapExceptionToFailure(e)),
-              (invoice) {
-                return Right(invoice);
-              },
-            );
-          } catch (isarError) {
-          }
-
           return Left(_mapExceptionToFailure(e));
         }
       } else {
 
-        // Intento 1: SecureStorage cache
+        // Intento 1: base del equipo (ISAR), que es donde queda el detalle
+        // al día.
+        try {
+          final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+          final result = await offlineRepo.getInvoiceById(id);
+          final found = result.fold<Invoice?>((_) => null, (invoice) => invoice);
+          if (found != null) return Right(found);
+        } catch (isarError) {
+        }
+
+        // Intento 2: copia antigua del almacén de sesión.
         try {
           final cachedInvoice = await localDataSource.getCachedInvoice(id);
           if (cachedInvoice != null) {
             return Right(cachedInvoice);
           }
         } catch (cacheError) {
-        }
-
-        // Intento 2: ISAR offline repository (siempre intentar si SecureStorage no encontró)
-        try {
-          final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
-          final result = await offlineRepo.getInvoiceById(id);
-
-          return result.fold(
-            (failure) {
-              return const Left(ConnectionFailure('Sin conexión a internet'));
-            },
-            (invoice) {
-              return Right(invoice);
-            },
-          );
-        } catch (isarError) {
         }
 
         return const Left(ConnectionFailure('Sin conexión a internet'));
