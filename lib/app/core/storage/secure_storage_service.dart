@@ -270,8 +270,41 @@ class SecureStorageService {
   @visibleForTesting
   static void debugResetQueue() => _QueuedSecureStorage._queue = SerialQueue();
 
+  // ===================== TOKEN EN MEMORIA =====================
+  //
+  // Cada petición al servidor lleva el token. Leerlo del almacén en cada
+  // una pasa por la fila del almacén (Windows): si una escritura lenta la
+  // tiene ocupada, la petición —p. ej. la venta que el cajero está
+  // procesando— espera detrás. Por eso el token vigente de ESTA ejecución
+  // se guarda aquí: se carga del almacén una vez y se actualiza al iniciar
+  // sesión, al renovar el token y al cerrar sesión.
+  //
+  // `_tokenMemoryKnown == false`: todavía no se sabe (se lee del almacén).
+  // `true` con token: sesión abierta. `true` sin token: sesión cerrada en
+  // esta ejecución (aunque el almacén, lento o roto, aún conserve el viejo).
+  static bool _tokenMemoryKnown = false;
+  static String? _tokenMemory;
+  static int _tokenMemoryChange = 0;
+
+  /// Token de sesión en memoria. `known == false`: hay que leer el almacén.
+  static ({bool known, String? token}) get tokenInMemory =>
+      (known: _tokenMemoryKnown, token: _tokenMemory);
+
+  static void _setTokenMemory(String? token) {
+    _tokenMemoryChange++;
+    _tokenMemoryKnown = true;
+    _tokenMemory = (token == null || token.isEmpty) ? null : token;
+  }
+
+  static void _forgetTokenMemory() {
+    _tokenMemoryChange++;
+    _tokenMemoryKnown = false;
+    _tokenMemory = null;
+  }
+
   @visibleForTesting
   static void debugSimulateRestart() {
+    _forgetTokenMemory();
     _QueuedSecureStorage.invalidateCache();
     _vaultSeeded.clear();
     _vaultInstance = null;
@@ -670,6 +703,27 @@ class SecureStorageService {
   /// Si SharedPreferences falla (datos corruptos/demasiado grandes),
   /// intenta recuperarse limpiando el storage y reintentando con keychain.
   static Future<void> _writeSecure(String key, String value) async {
+    if (key != ApiConstants.tokenKey) return _writeSecureToStore(key, value);
+    // Token nuevo (inicio de sesión o renovación): vale desde ya para las
+    // peticiones, sin esperar a que el almacén termine de escribirlo.
+    final before = tokenInMemory;
+    _setTokenMemory(value);
+    final change = _tokenMemoryChange;
+    try {
+      await _writeSecureToStore(key, value);
+    } catch (_) {
+      // No quedó guardado: la memoria vuelve a como estaba (si la sesión
+      // estaba cerrada, sigue cerrada), salvo que ya haya cambiado otra vez.
+      if (change == _tokenMemoryChange) {
+        _tokenMemoryChange++;
+        _tokenMemoryKnown = before.known;
+        _tokenMemory = before.token;
+      }
+      rethrow;
+    }
+  }
+
+  static Future<void> _writeSecureToStore(String key, String value) async {
     // Primero la copia protegida: si el almacén principal falla o pierde
     // el dato, la sesión no depende de él.
     await _vaultWrite(key, value);
@@ -704,6 +758,23 @@ class SecureStorageService {
   static final Map<String, MapEntry<String, String?>> _decryptedCache = {};
 
   static Future<String?> _readSecure(String key) async {
+    if (key != ApiConstants.tokenKey) return _readSecureFromStore(key);
+    final change = _tokenMemoryChange;
+    final value = await _readSecureFromStore(key);
+    // Se recuerda solo un token realmente leído, y solo si mientras se leía
+    // nadie inició, renovó ni cerró la sesión (esa lectura ya sería vieja).
+    // Un "no hay" no se recuerda: puede ser el almacén que aún no responde.
+    if (value != null &&
+        value.isNotEmpty &&
+        !_tokenMemoryKnown &&
+        change == _tokenMemoryChange) {
+      _tokenMemoryKnown = true;
+      _tokenMemory = value;
+    }
+    return value;
+  }
+
+  static Future<String?> _readSecureFromStore(String key) async {
     if (await _shouldUseSharedPreferences()) {
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -795,6 +866,9 @@ class SecureStorageService {
 
   /// Wrapper para eliminar datos con fallback
   static Future<void> _deleteSecure(String key) async {
+    // Sesión cerrada: ninguna petición vuelve a llevar el token, aunque el
+    // almacén tarde o falle al borrarlo.
+    if (key == ApiConstants.tokenKey) _setTokenMemory(null);
     try {
       await _deleteSecureNow(key);
     } finally {
@@ -1021,6 +1095,7 @@ class SecureStorageService {
   /// Usa borrado selectivo para evitar race conditions.
   /// Si SharedPreferences está corrupto, resetea los flags y limpia el keychain.
   Future<void> clearAll() async {
+    _setTokenMemory(null);
     // Siempre resetear el flag de keychain-tested para que el próximo acceso
     // re-evalúe el estado del storage limpio.
     _keychainTested = false;
@@ -1331,6 +1406,8 @@ class SecureStorageService {
 
   /// Limpiar todos los datos de autenticación y datos de negocio del tenant
   Future<void> clearAuthData() async {
+    // Cerrar sesión: el token deja de usarse antes de tocar el almacén.
+    _setTokenMemory(null);
     try {
       // Limpiar tenant data + cache del interceptor
       await clearTenantData();

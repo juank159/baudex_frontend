@@ -80,6 +80,19 @@ class ApiInterceptor extends Interceptor {
 
   ApiInterceptor(this._storageService);
 
+  /// Token de sesión que el almacén ya tiene en memoria en esta ejecución
+  /// (cargado una vez; actualizado al iniciar sesión, renovar y cerrar
+  /// sesión). `null` = todavía no se sabe: se lee del almacén, como antes.
+  /// Con sesión cerrada devuelve `token == null`: la petición sale sin token.
+  ///
+  /// Solo vale para el almacén real de la app: un almacén de prueba que
+  /// reemplaza `getToken()` se sigue consultando en cada petición.
+  ({bool known, String? token})? _tokenInMemory() {
+    if (_storageService.runtimeType != SecureStorageService) return null;
+    final memory = SecureStorageService.tokenInMemory;
+    return memory.known ? memory : null;
+  }
+
   /// Cuánto espera una petición pública al almacén de sesión del equipo.
   static Duration publicStorageWait = const Duration(seconds: 5);
 
@@ -113,8 +126,18 @@ class ApiInterceptor extends Interceptor {
     Future<T> bounded<T>(Future<T> read) =>
         public ? read.timeout(publicStorageWait) : read;
     try {
-      // I/O paralelo en primera request, cache en las siguientes
-      if (!_cacheInitialized) {
+      final memory = _tokenInMemory();
+      if (memory != null) {
+        // El token de esta ejecución ya está en memoria: la petición no
+        // pasa por el almacén de sesión (ni espera su fila si está ocupada
+        // con una escritura lenta). Solo falta el id del equipo, una vez.
+        _cachedToken = memory.token;
+        if (!_cacheInitialized) {
+          _cachedDeviceId =
+              await bounded(_storageService.getOrCreateDeviceId());
+          _cacheInitialized = true;
+        }
+      } else if (!_cacheInitialized) {
         final results = await bounded(Future.wait([
           _storageService.getToken(),
           _storageService.getOrCreateDeviceId(),
@@ -151,7 +174,10 @@ class ApiInterceptor extends Interceptor {
         options.headers.remove(ApiConstants.authorization);
       } else {
         try {
-          final token = await _storageService.getToken();
+          final memory = _tokenInMemory();
+          final token = memory != null
+              ? memory.token
+              : await _storageService.getToken();
           if (token != null && token.isNotEmpty) {
             options.headers[ApiConstants.authorization] =
                 '${ApiConstants.bearerPrefix}$token';
