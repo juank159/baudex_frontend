@@ -306,6 +306,11 @@ class InvoiceTabsController extends GetxController
           getCustomerByIdUseCase: _tryFindOptional<GetCustomerByIdUseCase>(),
           getProductsUseCase: _tryFindOptional<GetProductsUseCase>(),
           searchProductsUseCase: _tryFindOptional<SearchProductsUseCase>(),
+          // Cada pestaña es independiente de la ruta: una pestaña nueva es
+          // siempre una factura nueva, aunque antes se haya visitado una
+          // pantalla de detalle (su `id` queda en `Get.parameters`).
+          readInvoiceIdFromRoute: false,
+          editInvoiceId: invoiceId,
         ),
         tag: tabId,
       );

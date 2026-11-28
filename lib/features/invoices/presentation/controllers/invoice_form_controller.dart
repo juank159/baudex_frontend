@@ -82,6 +82,27 @@ import 'package:baudex_desktop/features/invoices/data/models/invoice_form_models
 import '../../../settings/presentation/controllers/user_preferences_controller.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
+/// Qué factura edita un formulario. Las pestañas pasan `readFromRoute: false`
+/// y solo editan la que se les indica; la pantalla suelta lee la de la ruta.
+String? resolveInvoiceIdToEdit({
+  required bool readFromRoute,
+  String? explicitId,
+  String? routeId,
+}) {
+  final id = (explicitId != null && explicitId.isNotEmpty)
+      ? explicitId
+      : (readFromRoute ? routeId : null);
+  return (id == null || id.isEmpty) ? null : id;
+}
+
+/// El guardado falló porque la factura a actualizar no está en la base local
+/// de este equipo (mensajes del repositorio sin internet). Un "no encontrada"
+/// del servidor NO cuenta: ahí la factura puede seguir viva en el equipo.
+bool isInvoiceMissingFailure(String message) => RegExp(
+      r'factura no encontrada en (isar|el equipo)',
+      caseSensitive: false,
+    ).hasMatch(message);
+
 class InvoiceFormController extends GetxController {
   // ==================== DEPENDENCIES ====================
 
@@ -94,6 +115,14 @@ class InvoiceFormController extends GetxController {
   GetProductsUseCase? _getProductsUseCase;
   SearchProductsUseCase? _searchProductsUseCase;
   GetCustomerByIdUseCase? _getCustomerByIdUseCase;
+
+  /// La pantalla de una sola factura (`/invoices/edit/:id`) toma la factura a
+  /// editar de la ruta. Las pestañas NO: `Get.parameters` es global y guarda
+  /// el `id` de la última pantalla de detalle visitada (un producto, un
+  /// cliente, otra factura), así que una pestaña nueva abría como
+  /// "Editar Factura" de algo que no existe.
+  final bool _readInvoiceIdFromRoute;
+  final String? _explicitEditInvoiceId;
 
   // ✅ NUEVO: Controlador de impresión térmica
   late final ThermalPrinterController _thermalPrinterController;
@@ -118,7 +147,11 @@ class InvoiceFormController extends GetxController {
     GetProductsUseCase? getProductsUseCase,
     SearchProductsUseCase? searchProductsUseCase,
     GetCustomerByIdUseCase? getCustomerByIdUseCase,
-  }) : _createInvoiceUseCase = createInvoiceUseCase,
+    bool readInvoiceIdFromRoute = true,
+    String? editInvoiceId,
+  }) : _readInvoiceIdFromRoute = readInvoiceIdFromRoute,
+       _explicitEditInvoiceId = editInvoiceId,
+       _createInvoiceUseCase = createInvoiceUseCase,
        _updateInvoiceUseCase = updateInvoiceUseCase,
        _getInvoiceByIdUseCase = getInvoiceByIdUseCase,
        _getCustomersUseCase = getCustomersUseCase,
@@ -444,7 +477,11 @@ class InvoiceFormController extends GetxController {
     _dueDate.value = dtService.now();
     termsController.text = 'Venta de contado';
 
-    final invoiceId = Get.parameters['id'];
+    final invoiceId = resolveInvoiceIdToEdit(
+      readFromRoute: _readInvoiceIdFromRoute,
+      explicitId: _explicitEditInvoiceId,
+      routeId: _readInvoiceIdFromRoute ? Get.parameters['id'] : null,
+    );
     if (invoiceId != null && invoiceId.isNotEmpty) {
       _isEditMode.value = true;
       _editingInvoiceId.value = invoiceId;
@@ -2740,7 +2777,21 @@ class InvoiceFormController extends GetxController {
 
         if (!handled) {
           // Solo mostrar error genérico si no fue un error de suscripción
-          _showError('Error al actualizar factura', failure.message);
+          if (isInvoiceMissingFailure(failure.message)) {
+            // La factura que se editaba ya no existe en este equipo. Lo
+            // digitado se conserva y pasa a ser una factura nueva: sin esto
+            // el cajero quedaba atascado sin poder cobrar.
+            _isEditMode.value = false;
+            _editingInvoiceId.value = null;
+            _showError(
+              'Este borrador ya no existe',
+              'La factura que estaba editando ya no está en este equipo '
+                  '(pudo procesarse o eliminarse). Lo que digitó sigue en '
+                  'pantalla como factura nueva: vuelva a procesarla.',
+            );
+          } else {
+            _showError('Error al actualizar factura', failure.message);
+          }
         }
         return null;
       },
