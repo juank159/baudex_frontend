@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/screens/invoice_form_screen.dart
+import 'package:baudex_desktop/app/core/diagnostics/action_timings.dart';
 import 'package:baudex_desktop/app/core/diagnostics/paint_probe.dart';
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
 import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
@@ -1422,6 +1423,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     BuildContext context,
     InvoiceFormController controller,
   ) {
+    // Solo mide: de tocar Procesar a que el diálogo de pago ya se ve.
+    final opening = ActionTimings.instance.start('Abrir diálogo de pago');
+    WidgetsBinding.instance.addPostFrameCallback((_) => opening.end());
     showDialog(
       context: context,
       barrierDismissible: false,

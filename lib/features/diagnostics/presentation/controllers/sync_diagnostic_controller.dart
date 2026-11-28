@@ -1,6 +1,8 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
 import 'package:baudex_desktop/app/core/theme/performance_mode.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
+import 'package:baudex_desktop/app/core/diagnostics/action_timings.dart';
+import 'package:baudex_desktop/app/core/diagnostics/speed_test.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../../../../app/core/services/audio_notification_service.dart';
 import '../../../../app/core/errors/automatic_work.dart';
@@ -482,6 +484,20 @@ class SyncDiagnosticController extends GetxController {
         (b) {
           b.write(StartupTrace.instance.report());
           b.writeln('  ${PerformanceMode.describe()}');
+          b.writeln();
+        },
+      ),
+      (
+        'Prueba de velocidad',
+        (b) {
+          b.write(SpeedTestHistory.report());
+          b.writeln();
+        },
+      ),
+      (
+        'Tiempos de las acciones',
+        (b) {
+          b.write(ActionTimings.instance.report());
           b.writeln();
         },
       ),

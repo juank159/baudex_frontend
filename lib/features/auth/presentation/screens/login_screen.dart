@@ -9,6 +9,8 @@ import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
+import '../../../breb/presentation/widgets/breb_ui.dart';
+import '../../../diagnostics/presentation/widgets/speed_test_dialog.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/auth_header_widget.dart';
 import '../widgets/email_autocomplete_field.dart';
@@ -265,6 +267,16 @@ class LoginScreen extends GetView<AuthController> {
         ],
         const SizedBox(height: 6),
         const AppVersionLabel(),
+        // Sin sesión: para saber por qué la app va lenta en este equipo.
+        TextButton.icon(
+          style: brebTextButtonStyle(color: ElegantLightTheme.textSecondary),
+          onPressed: () => showSpeedTestDialog(context),
+          icon: const Icon(Icons.speed, size: 16),
+          label: const Text(
+            '¿La app va lenta? Probar la velocidad de este equipo',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
       ],
     );
   }

@@ -1,4 +1,5 @@
 // lib/app/shared/widgets/app_drawer.dart
+import 'package:baudex_desktop/app/core/diagnostics/action_timings.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
@@ -938,7 +939,15 @@ class AppDrawer extends GetWidget<AppDrawerController> {
       Navigator.pop(context);
       // La caja abierta (para vender) la exige AppNav.openModule, igual
       // que en la paleta de comandos y los atajos Alt+número.
-      WidgetsBinding.instance.addPostFrameCallback((_) => AppNav.openModule(route));
+      // Solo mide: de tocar el menú a que la pantalla destino ya se ve.
+      final nav = ActionTimings.instance.start('Menú → $route');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppNav.openModule(route);
+        // Dos cuadros: el que monta la pantalla nueva y el siguiente.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => nav.end());
+        });
+      });
     } else {
       Navigator.pop(context);
       Get.snackbar(

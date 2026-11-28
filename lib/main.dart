@@ -1,6 +1,8 @@
 import 'app/core/session/user_activity.dart';
 import 'package:flutter/scheduler.dart';
 import 'app/core/theme/performance_mode.dart';
+import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:baudex_desktop/app/app_binding.dart';
@@ -20,6 +22,7 @@ import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
 import 'app/core/navigation/route_stack_observer.dart';
 import 'app/core/network/bundled_roots.dart';
+import 'app/core/diagnostics/action_timings.dart';
 import 'app/core/diagnostics/startup_trace.dart';
 import 'app/core/diagnostics/startup_trace_binding.dart';
 import 'app/core/ops/ops_reporter.dart';
@@ -110,6 +113,15 @@ void main() async {
 
     // PASO 3: Inicializar base de datos ISAR
     await trace.task('abrir la base local', IsarDatabase.instance.initialize);
+
+    // Tiempos reales de las acciones (iniciar sesión, procesar, menú): se
+    // conservan los últimos en un archivo pequeño. Sin esperar.
+    final dataDir = IsarDatabase.databaseDirectory;
+    if (dataDir != null) {
+      unawaited(ActionTimings.instance.attach(
+        File('$dataDir${Platform.pathSeparator}tiempos_acciones.json'),
+      ));
+    }
 
     // PASO 3.1: Si las preferencias estaban dañadas y hubo que recuperarlas,
     // dejarlo en Diagnóstico y en la central de errores.

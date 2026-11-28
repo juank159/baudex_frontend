@@ -1,4 +1,5 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
+import 'package:baudex_desktop/app/core/diagnostics/action_timings.dart';
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
@@ -46,7 +47,10 @@ class AuthRepositoryImpl implements AuthRepository {
     // pero el servidor puede responder bien a requests reales.
     try {
       final request = LoginRequestModel(email: email, password: password);
-      final response = await remoteDataSource.login(request);
+      final response = await ActionTimings.instance.measure(
+        'Iniciar sesión: respuesta del servidor',
+        () => remoteDataSource.login(request),
+      );
 
       // Login exitoso - resetear reachability para que el resto de la app funcione
       networkInfo.resetServerReachability();
@@ -54,9 +58,12 @@ class AuthRepositoryImpl implements AuthRepository {
       // Guardar la sesión en este equipo. Si falla, el servidor YA aceptó el
       // ingreso: se dice eso, nunca "credenciales incorrectas".
       try {
-        await localDataSource
-            .saveAuthData(response)
-            .timeout(LoginDeadlines.saveSession);
+        await ActionTimings.instance.measure(
+          'Iniciar sesión: guardar la sesión en el equipo',
+          () => localDataSource
+              .saveAuthData(response)
+              .timeout(LoginDeadlines.saveSession),
+        );
       } on TimeoutException catch (e, st) {
         // El almacén de sesión del equipo no respondió: se corta la espera
         // (antes el botón se quedaba cargando sin fin) y se dice qué pasó.
@@ -87,11 +94,14 @@ class AuthRepositoryImpl implements AuthRepository {
       // nueva). Es opcional: si no se puede guardar, el ingreso en línea
       // sigue y solo se pierde entrar sin internet hasta el próximo ingreso.
       try {
-        await (() async => localDataSource.saveOfflineCredentials(
-              email,
-              await OfflinePasswordHasher.hash(password),
-            ))()
-            .timeout(LoginDeadlines.saveOfflineAccess);
+        await ActionTimings.instance.measure(
+          'Iniciar sesión: huella para entrar sin internet',
+          () => (() async => localDataSource.saveOfflineCredentials(
+                email,
+                await OfflinePasswordHasher.hash(password),
+              ))()
+              .timeout(LoginDeadlines.saveOfflineAccess),
+        );
       } catch (e, st) {
         OpsReporter.capture(
           e,

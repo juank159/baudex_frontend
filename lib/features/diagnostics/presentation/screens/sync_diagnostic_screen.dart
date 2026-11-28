@@ -12,6 +12,7 @@ import '../../../../app/data/local/sync_event_log.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../domain/system_health_analyzer.dart';
 import '../controllers/sync_diagnostic_controller.dart';
+import '../widgets/speed_test_dialog.dart';
 
 class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
   const SyncDiagnosticScreen({super.key});
@@ -807,6 +808,11 @@ class _DiagnosticHeader extends GetView<SyncDiagnosticController> {
                   onPressed: controller.refreshAll,
                   tooltip: 'Refrescar',
                 )),
+          IconButton(
+            icon: const Icon(Icons.speed, color: Colors.white),
+            onPressed: () => showSpeedTestDialog(context),
+            tooltip: 'Probar la velocidad de este equipo',
+          ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: Colors.white),
             onPressed: () => _exportReport(),
@@ -2123,6 +2129,23 @@ class _FixedFooter extends GetView<SyncDiagnosticController> {
                 isLoading: controller.isLoading.value,
               );
             }),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: OutlinedButton.icon(
+              onPressed: () => showSpeedTestDialog(context),
+              icon: const Icon(Icons.speed, size: 16),
+              label: const Text('Velocidad', overflow: TextOverflow.ellipsis),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                foregroundColor: ElegantLightTheme.primaryBlue,
+                side: const BorderSide(color: ElegantLightTheme.primaryBlue),
+              ),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(

@@ -1,3 +1,4 @@
+import 'package:baudex_desktop/app/core/diagnostics/action_timings.dart';
 import 'dart:async';
 // lib/features/auth/presentation/controllers/auth_controller.dart
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
@@ -555,6 +556,9 @@ class AuthController extends GetxController {
     try {
       final trace = StartupTrace.instance;
       trace.mark('iniciar sesión: botón');
+      // Solo mide (Diagnóstico → tiempos de las acciones).
+      final timings = ActionTimings.instance;
+      final loginTotal = timings.start('Iniciar sesión: total (botón → pantalla principal)');
       // Tope general: pase lo que pase (red, almacén de sesión del equipo),
       // el botón deja de cargar y se dice qué pasó.
       final result = await trace.task<Either<Failure, AuthResult>>(
@@ -641,10 +645,13 @@ class AuthController extends GetxController {
           // se diera por permitida antes de terminar, se saltaría el bloqueo
           // por operaciones sin subir o se vaciarían los datos a mitad de la
           // descarga. Si no termina, NO se entra y se dice qué pasó.
-          final businessCheck = await trace.task(
-            'iniciar sesión: revisar negocio del equipo',
-            () => awaitBusinessCheck(
-              _handleTenantSwitchIfNeeded(authResult.user),
+          final businessCheck = await timings.measure(
+            'Iniciar sesión: revisar datos del equipo',
+            () => trace.task(
+              'iniciar sesión: revisar negocio del equipo',
+              () => awaitBusinessCheck(
+                _handleTenantSwitchIfNeeded(authResult.user),
+              ),
             ),
           );
           if (businessCheck == BusinessCheckResult.unfinished) {
@@ -687,15 +694,18 @@ class AuthController extends GetxController {
           }
 
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
-          await _setTenantAfterLogin(authResult.user).timeout(
-            LoginDeadlines.afterLoginStep,
-            onTimeout: () {
-              // El negocio queda en memoria para las peticiones de esta
-              // sesión aunque el equipo no haya terminado de guardarlo.
-              TenantInterceptor.updateCachedSlug(
-                authResult.user.organizationSlug,
-              );
-            },
+          await timings.measure(
+            'Iniciar sesión: guardar el negocio',
+            () => _setTenantAfterLogin(authResult.user).timeout(
+              LoginDeadlines.afterLoginStep,
+              onTimeout: () {
+                // El negocio queda en memoria para las peticiones de esta
+                // sesión aunque el equipo no haya terminado de guardarlo.
+                TenantInterceptor.updateCachedSlug(
+                  authResult.user.organizationSlug,
+                );
+              },
+            ),
           );
 
           _loadCashRegisterForSession();
@@ -709,16 +719,20 @@ class AuthController extends GetxController {
           // cachea en memoria; las pantallas usarán PermissionsService.to
           // para verificar acceso a módulos y acciones.
           try {
-            await trace.task(
-              'iniciar sesión: permisos',
-              () => Get.find<PermissionsService>()
-                  .loadCurrentUserPermissions(authResult.user.role)
-                  .timeout(LoginDeadlines.afterLoginStep, onTimeout: () {}),
+            await timings.measure(
+              'Iniciar sesión: permisos',
+              () => trace.task(
+                'iniciar sesión: permisos',
+                () => Get.find<PermissionsService>()
+                    .loadCurrentUserPermissions(authResult.user.role)
+                    .timeout(LoginDeadlines.afterLoginStep, onTimeout: () {}),
+              ),
             );
           } catch (e) {
           }
 
           // Guardar el correo para recordarlo en futuros logins
+          final remember = timings.start('Iniciar sesión: recordar correo y negocio');
           try {
             await _saveEmailAfterSuccessfulLogin(
               loginEmailController.text.trim(),
@@ -741,9 +755,11 @@ class AuthController extends GetxController {
             } catch (_) {}
           }
 
+          remember.end();
           _clearLoginForm();
 
           // Navegar al dashboard
+          loginTotal.end();
           trace.mark('iniciar sesión: entra a la pantalla principal');
           startStartupPhase('tras iniciar sesión');
           AppNav.offAllNamed(AppRoutes.dashboard);

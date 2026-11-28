@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
+import 'package:baudex_desktop/app/core/diagnostics/action_timings.dart';
 import 'dart:async';
 import 'package:baudex_desktop/app/core/utils/snackbar_policy.dart';
 import 'package:isar/isar.dart';
@@ -1997,6 +1998,40 @@ class InvoiceFormController extends GetxController {
     String? paymentCurrency,
     double? paymentCurrencyAmount,
     double? exchangeRate,
+  }) =>
+      // Solo mide (Diagnóstico → tiempos de las acciones); no cambia nada.
+      ActionTimings.instance.measure(
+        'Procesar venta: total (botón cargando)',
+        () => _saveInvoiceWithPayment(
+          receivedAmount,
+          change,
+          paymentMethod,
+          status,
+          shouldPrint,
+          bankAccountId: bankAccountId,
+          multiplePayments: multiplePayments,
+          createCreditForRemaining: createCreditForRemaining,
+          balanceApplied: balanceApplied,
+          paymentCurrency: paymentCurrency,
+          paymentCurrencyAmount: paymentCurrencyAmount,
+          exchangeRate: exchangeRate,
+        ),
+      );
+
+  Future<bool> _saveInvoiceWithPayment(
+    double receivedAmount,
+    double change,
+    PaymentMethod paymentMethod,
+    InvoiceStatus status,
+    bool shouldPrint, {
+    String? bankAccountId,
+    List<MultiplePaymentData>? multiplePayments,
+    bool createCreditForRemaining = false,
+    double? balanceApplied,
+    // Multi-moneda
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     if (!_validateForm()) return false;
 
@@ -2033,7 +2068,10 @@ class InvoiceFormController extends GetxController {
         (multiplePayments?.any((p) => p.method == PaymentMethod.cash) ??
             false);
     if (hasCashPayment) {
-      final blocked = await _ensureCashRegisterOpenOrPrompt();
+      final blocked = await ActionTimings.instance.measure(
+        'Procesar venta: revisar caja',
+        _ensureCashRegisterOpenOrPrompt,
+      );
       if (blocked) return false;
     }
 
@@ -2086,15 +2124,18 @@ class InvoiceFormController extends GetxController {
         savedInvoice = await _updateExistingInvoice(status);
       } else {
 
-        savedInvoice = await _createNewInvoice(
-          status,
-          bankAccountId: bankAccountId,
-          multiplePayments: multiplePayments,
-          createCreditForRemaining: createCreditForRemaining,
-          balanceApplied: balanceApplied,
-          paymentCurrency: paymentCurrency,
-          paymentCurrencyAmount: paymentCurrencyAmount,
-          exchangeRate: exchangeRate,
+        savedInvoice = await ActionTimings.instance.measure(
+          'Procesar venta: guardar la factura',
+          () => _createNewInvoice(
+            status,
+            bankAccountId: bankAccountId,
+            multiplePayments: multiplePayments,
+            createCreditForRemaining: createCreditForRemaining,
+            balanceApplied: balanceApplied,
+            paymentCurrency: paymentCurrency,
+            paymentCurrencyAmount: paymentCurrencyAmount,
+            exchangeRate: exchangeRate,
+          ),
         );
       }
 

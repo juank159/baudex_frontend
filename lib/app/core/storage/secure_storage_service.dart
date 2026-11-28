@@ -264,6 +264,10 @@ class SecureStorageService {
   /// almacén seguro falla antes de confirmarse.
   static bool _mirrorToPrefs = false;
 
+  /// Para la prueba de velocidad del equipo: el almacén seguro de verdad
+  /// (sin memoria intermedia), por la misma fila que usa la app.
+  static SecureKeyValueStore get speedProbeStore => _rawStorage;
+
   /// Solo para pruebas: simula un arranque nuevo de la app.
   /// Solo para pruebas: fila nueva (una prueba anterior pudo dejarla
   /// esperando en otra zona de tiempo simulado).
