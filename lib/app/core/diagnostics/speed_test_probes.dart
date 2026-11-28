@@ -278,6 +278,15 @@ Future<DeviceFacts> collectDeviceFacts(Directory dataDir) async {
       lowSpace,
     ),
     ('Sesión guardada en', SessionStartupTrace.storageMode, false),
+    // Cada preferencia que se guarda reescribe este archivo entero.
+    _sizeFact('Archivo de preferencias', '${dataDir.path}${Platform.pathSeparator}shared_preferences.json',
+        alertOver: 2 * 1024 * 1024),
+    _sizeFact(
+      'Base de datos local',
+      '${IsarDatabase.databaseDirectory ?? dataDir.path}${Platform.pathSeparator}'
+          '${IsarDatabase.databaseName}.isar',
+      alertOver: 2 * 1024 * 1024 * 1024,
+    ),
   ]);
 }
 
@@ -296,5 +305,19 @@ int? freeDiskBytes(String path) {
     }
   } catch (_) {
     return null;
+  }
+}
+
+(String, String, bool) _sizeFact(String name, String path, {required int alertOver}) {
+  try {
+    final file = File(path);
+    if (!file.existsSync()) return (name, 'no existe en esta carpeta', false);
+    final bytes = file.lengthSync();
+    final text = bytes < 1024 * 1024
+        ? '${(bytes / 1024).toStringAsFixed(0)} KB'
+        : formatBytes(bytes);
+    return (name, '$text${bytes > alertOver ? ' — muy grande' : ''}', bytes > alertOver);
+  } catch (_) {
+    return (name, 'no disponible', false);
   }
 }
