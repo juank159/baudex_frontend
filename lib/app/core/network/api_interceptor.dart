@@ -455,9 +455,17 @@ class ApiInterceptor extends Interceptor {
         // Somos el primer 401 → iniciar el refresh
         _isRefreshing = true;
         try {
+          final session = SecureStorageService.sessionGeneration;
           final result = await _refreshToken(refreshToken);
 
-          if (result.token != null) {
+          if (session != SecureStorageService.sessionGeneration) {
+            // La sesión se cerró (o se abrió otra) mientras se renovaba:
+            // el token renovado ya no es de nadie y no se guarda.
+            for (final c in _refreshWaiters) {
+              if (!c.isCompleted) c.complete(null);
+            }
+            _refreshWaiters.clear();
+          } else if (result.token != null) {
             // ✅ Refresh exitoso: guardar token y desbloquear waiters
             await _storageService.saveToken(result.token!);
             _cachedToken = result.token;

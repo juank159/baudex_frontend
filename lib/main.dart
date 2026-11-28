@@ -1,4 +1,6 @@
 import 'app/core/session/user_activity.dart';
+import 'app/core/session/app_idle.dart';
+import 'app/core/storage/secure_storage_service.dart';
 import 'package:flutter/scheduler.dart';
 import 'app/core/theme/performance_mode.dart';
 import 'dart:async';
@@ -156,6 +158,9 @@ void main() async {
   // Semáforo de interacción: el trabajo de fondo se aparta mientras el
   // usuario teclea o hace clic.
   UserActivity.install();
+  // La prueba por detrás del almacén seguro (equipos con almacén lento)
+  // solo corre con la app ociosa: nunca en plena venta ni con un pago abierto.
+  SecureStorageService.slowStoreProbeMayRun = AppIdle.now;
 
   // En "Automático": si este equipo tarda en pintar, la app pasa sola al
   // tema liviano. El motor entrega los tiempos en tandas, una vez por

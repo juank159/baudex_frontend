@@ -15,6 +15,12 @@ class RouteStackObserver extends NavigatorObserver {
 
   final List<Route<dynamic>> _stack = [];
 
+  /// Diálogos y menús emergentes abiertos (pago, Bre-B, confirmaciones…).
+  final Set<Route<dynamic>> _popups = {};
+
+  /// ¿Hay un diálogo o emergente abierto?
+  bool get hasOpenPopup => _popups.isNotEmpty;
+
   /// Nombres de las pantallas abiertas, de abajo hacia arriba.
   List<String?> get names => [for (final r in _stack) r.settings.name];
 
@@ -28,20 +34,25 @@ class RouteStackObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     if (route is PageRoute) _stack.add(route);
+    if (route is PopupRoute) _popups.add(route);
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _stack.remove(route);
+    _popups.remove(route);
   }
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _stack.remove(route);
+    _popups.remove(route);
   }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    if (oldRoute != null) _popups.remove(oldRoute);
+    if (newRoute is PopupRoute) _popups.add(newRoute);
     final index = oldRoute == null ? -1 : _stack.indexOf(oldRoute);
     if (index == -1) {
       if (newRoute is PageRoute) _stack.add(newRoute);
@@ -56,5 +67,8 @@ class RouteStackObserver extends NavigatorObserver {
 
   /// Solo para pruebas.
   @visibleForTesting
-  void reset() => _stack.clear();
+  void reset() {
+    _stack.clear();
+    _popups.clear();
+  }
 }

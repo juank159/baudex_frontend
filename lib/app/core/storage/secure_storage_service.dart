@@ -290,6 +290,11 @@ class SecureStorageService {
   static String? _tokenMemory;
   static int _tokenMemoryChange = 0;
 
+  /// Cambia cada vez que se cierra o se abre una sesión. Una renovación del
+  /// token que empezó antes y termina después no debe guardar su token.
+  static int _sessionGeneration = 0;
+  static int get sessionGeneration => _sessionGeneration;
+
   /// Token de sesión en memoria. `known == false`: hay que leer el almacén.
   static ({bool known, String? token}) get tokenInMemory =>
       (known: _tokenMemoryKnown, token: _tokenMemory);
@@ -595,6 +600,16 @@ class SecureStorageService {
   static bool _slowStoreFastPath = false;
   static Timer? _slowStoreProbeTimer;
 
+  /// ¿Se puede probar el almacén ahora? La lectura de prueba corre en el
+  /// hilo de la ventana y en un equipo lento la congela: solo con la app
+  /// ociosa (sin vender, sin diálogo de pago, 30 s sin teclado ni ratón).
+  /// La app lo conecta a `AppIdle.now` al arrancar; por defecto, siempre.
+  static bool Function() slowStoreProbeMayRun = () => true;
+
+  /// Si no es momento, cada cuánto se vuelve a mirar (se pospone).
+  @visibleForTesting
+  static Duration slowStoreProbeRetry = const Duration(seconds: 30);
+
   /// true = en este arranque no se usa el almacén seguro del sistema
   /// (lento, sin responder o en modo preferencias). Quien tenga datos
   /// viejos allí (cachés) no debe ir a buscarlos: congelaría la ventana.
@@ -622,10 +637,21 @@ class SecureStorageService {
   /// lectura, sin que nadie la espere. Si responde rápido suma un arranque
   /// sano; si no, vuelve a cero y deja pasar más arranques antes de probar
   /// otra vez (cada prueba lenta congela la ventana lo que tarde).
-  static void _scheduleSlowStoreProbe(SharedPreferences prefs) {
+  static void _scheduleSlowStoreProbe(SharedPreferences prefs,
+      {Duration? after}) {
     _slowStoreProbeTimer?.cancel();
-    _slowStoreProbeTimer = Timer(slowStoreProbeDelay, () async {
+    _slowStoreProbeTimer = Timer(after ?? slowStoreProbeDelay, () async {
       _slowStoreProbeTimer = null;
+      var mayRun = false;
+      try {
+        mayRun = slowStoreProbeMayRun();
+      } catch (_) {}
+      if (!mayRun) {
+        // Venta en curso, diálogo abierto o el cajero está usando la app:
+        // se pospone (si nunca hay un rato ocioso, este arranque no prueba).
+        _scheduleSlowStoreProbe(prefs, after: slowStoreProbeRetry);
+        return;
+      }
       try {
         final skip = prefs.getInt(storeProbeSkipKey) ?? 0;
         if (skip > 0) {
@@ -1517,6 +1543,7 @@ class SecureStorageService {
     String? tenantSlug,
     Map<String, dynamic>? organization,
   }) async {
+    _sessionGeneration++;
     try {
       // Sesión nueva: la copia protegida empieza de cero, para que no
       // quede nada del usuario o negocio anterior.
@@ -1541,7 +1568,12 @@ class SecureStorageService {
       // Con el almacén seguro siguen de uno en uno, como siempre.
       final together = await _shouldUseSharedPreferences();
       final rest = <Future<void> Function()>[
-        if (refreshToken != null) () => saveRefreshToken(refreshToken),
+        // Sin refresh token en la respuesta: se borra el anterior, para que
+        // no quede el del usuario o negocio que estaba antes.
+        if (refreshToken != null)
+          () => saveRefreshToken(refreshToken)
+        else
+          () => deleteRefreshToken(),
         () => saveUserData(userData),
         // Guardar datos de tenant si se proporcionan
         if (tenantSlug != null) () => saveTenantSlug(tenantSlug),
@@ -1579,6 +1611,7 @@ class SecureStorageService {
   /// Limpiar todos los datos de autenticación y datos de negocio del tenant
   Future<void> clearAuthData() async {
     // Cerrar sesión: el token deja de usarse antes de tocar el almacén.
+    _sessionGeneration++;
     _setTokenMemory(null);
     try {
       // Limpiar tenant data + cache del interceptor

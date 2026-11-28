@@ -90,16 +90,25 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   Future<List<CustomerCreditModel>>? _localCreditsInFlight;
 
   Future<List<CustomerCreditModel>> _localCredits() async {
-    final running = _localCreditsInFlight ??= () async {
-      try {
-        return withoutReplacedProvisionalCredits(
-            await localDataSource.getCachedCredits());
-      } catch (_) {
-        return const <CustomerCreditModel>[];
-      } finally {
-        _localCreditsInFlight = null;
-      }
-    }();
+    var running = _localCreditsInFlight;
+    if (running == null) {
+      final started = () async {
+        try {
+          return withoutReplacedProvisionalCredits(
+              await localDataSource.getCachedCredits());
+        } catch (_) {
+          return const <CustomerCreditModel>[];
+        }
+      }();
+      _localCreditsInFlight = running = started;
+      // Se suelta al terminar, fuera del cuerpo: aunque la fuente falle de
+      // inmediato, la lectura terminada no queda guardada para siempre.
+      started.whenComplete(() {
+        if (identical(_localCreditsInFlight, started)) {
+          _localCreditsInFlight = null;
+        }
+      });
+    }
     return List<CustomerCreditModel>.of(await running);
   }
 

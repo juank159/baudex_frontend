@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
-import '../../config/routes/app_routes.dart';
+import '../session/app_idle.dart';
 import '../../data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/automatic_work.dart';
 
@@ -50,12 +50,7 @@ mixin SyncAutoRefreshMixin on GetxController {
   bool get deferRefreshWhileSelling => false;
 
   /// La pantalla visible es facturación (punto de venta).
-  static bool get isSellingScreenVisible {
-    final route = Get.currentRoute;
-    return route.startsWith(AppRoutes.invoicesWithTabs) ||
-        route.startsWith(AppRoutes.invoicesCreate) ||
-        route.startsWith(AppRoutes.invoicesEdit);
-  }
+  static bool get isSellingScreenVisible => AppIdle.sellingScreenVisible;
 
   /// Configurar el listener. Llamar desde onInit().
   void setupSyncListener() {
@@ -118,22 +113,37 @@ mixin SyncAutoRefreshMixin on GetxController {
   /// Separación entre una recarga aplazada y la siguiente.
   static const Duration deferredGap = Duration(milliseconds: 500);
 
-  static DateTime? _nextDeferredSlot;
+  /// Los turnos se miden con un reloj monotónico (no la hora de Windows):
+  /// si el reloj del equipo se atrasa (sincronización de hora, el cajero la
+  /// corrige, cambio de zona) las recargas aplazadas no esperan ese atraso.
+  static final Stopwatch _clock = Stopwatch()..start();
+  static Duration? _nextDeferredSlot;
+  static Duration? _lastClaimAt;
 
   /// Turno de la próxima recarga aplazada (cuánto falta desde ahora).
+  /// [now] solo para pruebas; en la app se usa el reloj monotónico.
   @visibleForTesting
   static Duration claimDeferredSlot({DateTime? now}) {
-    final at = now ?? DateTime.now();
+    final at = now != null
+        ? Duration(microseconds: now.microsecondsSinceEpoch)
+        : _clock.elapsed;
     var slot = _nextDeferredSlot;
-    if (slot == null || slot.isBefore(at.add(deferredFirstDelay))) {
-      slot = at.add(deferredFirstDelay);
+    final last = _lastClaimAt;
+    // El tiempo retrocedió: el turno guardado ya no sirve.
+    if (last != null && at < last) slot = null;
+    _lastClaimAt = at;
+    if (slot == null || slot < at + deferredFirstDelay) {
+      slot = at + deferredFirstDelay;
     }
-    _nextDeferredSlot = slot.add(deferredGap);
-    return slot.difference(at);
+    _nextDeferredSlot = slot + deferredGap;
+    return slot - at;
   }
 
   @visibleForTesting
-  static void debugResetDeferredSlots() => _nextDeferredSlot = null;
+  static void debugResetDeferredSlots() {
+    _nextDeferredSlot = null;
+    _lastClaimAt = null;
+  }
 
   /// Recarga tras una sincronización: trabajo automático (si falla, no
   /// avisa en pantalla; queda en Diagnóstico).
