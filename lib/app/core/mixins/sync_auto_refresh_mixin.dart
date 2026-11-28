@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
 import '../../data/local/sync_service.dart';
@@ -92,10 +93,47 @@ mixin SyncAutoRefreshMixin on GetxController {
       if (!isSellingScreenVisible) {
         timer.cancel();
         _deferredRefresh = null;
-        _refreshAfterSync();
+        // Al salir de facturación TODAS las pantallas que esperaban
+        // recargaban en el mismo instante, justo cuando se abre la
+        // pantalla nueva (el menú se quedaba pegado). Ahora recargan de
+        // una en una, después de que la pantalla nueva ya se ve.
+        _staggered = Timer(claimDeferredSlot(), () {
+          _staggered = null;
+          if (isClosed) return;
+          if (isSellingScreenVisible) {
+            requestSyncRefresh(); // volvió a vender: sigue esperando
+          } else {
+            _refreshAfterSync();
+          }
+        });
       }
     });
   }
+
+  Timer? _staggered;
+
+  /// Primera recarga aplazada: cuánto después de salir de facturación.
+  static const Duration deferredFirstDelay = Duration(milliseconds: 1200);
+
+  /// Separación entre una recarga aplazada y la siguiente.
+  static const Duration deferredGap = Duration(milliseconds: 500);
+
+  static DateTime? _nextDeferredSlot;
+
+  /// Turno de la próxima recarga aplazada (cuánto falta desde ahora).
+  @visibleForTesting
+  static Duration claimDeferredSlot({DateTime? now}) {
+    final at = now ?? DateTime.now();
+    var slot = _nextDeferredSlot;
+    if (slot == null || slot.isBefore(at.add(deferredFirstDelay))) {
+      slot = at.add(deferredFirstDelay);
+    }
+    _nextDeferredSlot = slot.add(deferredGap);
+    return slot.difference(at);
+  }
+
+  @visibleForTesting
+  static void debugResetDeferredSlots() => _nextDeferredSlot = null;
 
   /// Recarga tras una sincronización: trabajo automático (si falla, no
   /// avisa en pantalla; queda en Diagnóstico).
@@ -111,6 +149,8 @@ mixin SyncAutoRefreshMixin on GetxController {
     _syncWorker = null;
     _deferredRefresh?.cancel();
     _deferredRefresh = null;
+    _staggered?.cancel();
+    _staggered = null;
     _coalescedRefresh?.cancel();
     _coalescedRefresh = null;
   }

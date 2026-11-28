@@ -84,13 +84,23 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
     return Right(_applyQuery(local, query));
   }
 
+  /// Lectura en curso: la lista y las estadísticas se piden a la vez al
+  /// abrir Créditos y cada una leía (y decodificaba) TODOS los créditos.
+  /// Las que coinciden comparten una sola lectura; cada una recibe su copia.
+  Future<List<CustomerCreditModel>>? _localCreditsInFlight;
+
   Future<List<CustomerCreditModel>> _localCredits() async {
-    try {
-      return withoutReplacedProvisionalCredits(
-          await localDataSource.getCachedCredits());
-    } catch (_) {
-      return const [];
-    }
+    final running = _localCreditsInFlight ??= () async {
+      try {
+        return withoutReplacedProvisionalCredits(
+            await localDataSource.getCachedCredits());
+      } catch (_) {
+        return const <CustomerCreditModel>[];
+      } finally {
+        _localCreditsInFlight = null;
+      }
+    }();
+    return List<CustomerCreditModel>.of(await running);
   }
 
   /// Una venta a crédito hecha sin conexión crea en el equipo un crédito
@@ -565,8 +575,10 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
   @override
   Future<Either<Failure, CreditStats>> getCreditStats() async {
     // Local-first: calculadas con los mismos créditos que muestra la lista.
-    if ((await _localCredits()).isNotEmpty && await _creditsReady()) {
-      return _getStatsFromCache();
+    final local = await _localCredits();
+    if (local.isNotEmpty && await _creditsReady()) {
+      // Con la misma lectura (antes se leían todos los créditos otra vez).
+      return _getStatsFromCache(credits: local);
     }
 
     final isConnected = await networkInfo.isConnected;
@@ -590,9 +602,11 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
 
   /// Calcular estadísticas desde créditos en cache local con desglose por tipo
   /// Consistente con el backend: totalPaid = originalAmount de créditos PAID
-  Future<Either<Failure, CreditStats>> _getStatsFromCache() async {
+  Future<Either<Failure, CreditStats>> _getStatsFromCache({
+    List<CustomerCreditModel>? credits,
+  }) async {
     try {
-      final cachedCredits = await _localCredits();
+      final cachedCredits = credits ?? await _localCredits();
 
       double totalPending = 0, totalOverdue = 0, totalPaid = 0;
       int countPending = 0, countOverdue = 0;
