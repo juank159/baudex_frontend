@@ -2,6 +2,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'secure_storage_service.dart';
+
 /// Almacén para CACHÉS de datos no sensibles (listas de inventario, reportes),
 /// sobre SharedPreferences, con la misma forma de uso que
 /// `FlutterSecureStorage` (read / write / delete).
@@ -19,6 +21,12 @@ class LocalCacheStore {
   static const FlutterSecureStorage _legacyKeychain = FlutterSecureStorage();
   static final Set<String> _legacyChecked = <String>{};
 
+  /// Tope de la consulta al llavero viejo (una caché no vale la espera).
+  static Duration legacyReadTimeout = const Duration(seconds: 3);
+
+  /// Solo para pruebas.
+  static void debugForgetLegacyChecks() => _legacyChecked.clear();
+
   Future<String?> read({required String key}) async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString('$_prefix$key');
@@ -27,8 +35,14 @@ class LocalCacheStore {
     // en Windows cada consulta abre y descifra el archivo entero de la
     // sesión, y una caché que aún no existe se pedía una y otra vez.
     if (!_legacyChecked.add('$_prefix$key')) return null;
+    // En un equipo donde el almacén seguro es lento o no responde, ir a
+    // buscar una caché vieja allí congela la ventana (el complemento
+    // trabaja en el hilo de la ventana): una caché se vuelve a llenar sola.
+    if (SecureStorageService.avoidsSystemStore || SecureStorageService.isMarkedSlow(prefs)) {
+      return null;
+    }
     try {
-      final legacy = await _legacyKeychain.read(key: key);
+      final legacy = await _legacyKeychain.read(key: key).timeout(legacyReadTimeout);
       if (legacy != null) {
         await prefs.setString('$_prefix$key', legacy);
         try {

@@ -230,6 +230,23 @@ class SessionVault {
     if (!await _persist(sessionEntry, map)) _revoke();
   }
 
+  /// Inicio de sesión: toda la sesión nueva en UNA sola escritura (cada
+  /// escritura reescribe el archivo de preferencias entero; en un disco
+  /// lento, cinco seguidas eran varios segundos de espera).
+  Future<void> writeSession(Map<String, String> values) async {
+    if (_isRevoked) return;
+    final map = await _sessionMap();
+    var changed = false;
+    values.forEach((key, value) {
+      if (sessionKeys.contains(key) && map[key] != value) {
+        map[key] = value;
+        changed = true;
+      }
+    });
+    if (!changed) return;
+    if (!await _persist(sessionEntry, map)) _revoke();
+  }
+
   /// Valor de la copia, o null. Las claves de sesión solo se devuelven si
   /// la copia entera es coherente.
   Future<String?> read(String key) async {

@@ -314,6 +314,9 @@ class SecureStorageService {
     _vaultInstance = null;
     _windowsDecision = null;
     _windowsDecisionTimedOut = false;
+    _slowStoreFastPath = false;
+    _slowStoreProbeTimer?.cancel();
+    _slowStoreProbeTimer = null;
     _useSharedPreferences = false;
     _keychainTested = false;
     _mirrorToPrefs = false;
@@ -547,8 +550,152 @@ class SecureStorageService {
   static Duration windowsDecisionTimeout = const Duration(seconds: 12);
   static bool _windowsDecisionTimedOut = false;
 
-  static Future<bool> _decideWindowsStorageInTime() {
+  // ============ EQUIPO DONDE EL ALMACÉN SEGURO ES LENTO ============
+  //
+  // El complemento del almacén seguro de Windows trabaja en el hilo de la
+  // VENTANA: mientras una operación suya no termina, la ventana entera no
+  // responde (ni clics, ni menú, ni botones), por mucho tope que tenga la
+  // espera en la app. En un equipo donde ese almacén tarda o no contesta,
+  // decidir en cada arranque costaba hasta 12 s con la app quieta.
+  //
+  // Por eso se recuerda en preferencias que en ESTE equipo el almacén no
+  // respondió a tiempo. En los arranques siguientes la sesión va directo a
+  // preferencias (el mismo modo de respaldo de siempre, con las mismas
+  // garantías: copia protegida, marca de sesión cerrada, traslado pendiente)
+  // SIN tocar el almacén. Por detrás, bien después de abrir, se prueba el
+  // almacén de vez en cuando; solo tras [slowStoreHealthyBoots] arranques
+  // seguidos en que respondió rápido se vuelve a decidir como siempre.
+
+  /// No empiezan por `secure_`: cerrar sesión no las borra.
+  @visibleForTesting
+  static const storeSlowKey = 'baudex_secure_store_slow_v1';
+  @visibleForTesting
+  static const storeHealthyBootsKey = 'baudex_secure_store_healthy_boots_v1';
+  @visibleForTesting
+  static const storeProbeSkipKey = 'baudex_secure_store_probe_skip_v1';
+  static const _storeProbeBackoffKey = 'baudex_secure_store_probe_backoff_v1';
+
+  /// Arranques sanos seguidos para volver a usar el almacén.
+  static const int slowStoreHealthyBoots = 3;
+
+  /// Cuánto después de abrir se prueba el almacén (lejos del arranque y
+  /// del inicio de sesión).
+  @visibleForTesting
+  static Duration slowStoreProbeDelay = const Duration(seconds: 90);
+
+  /// Hasta cuánto se considera que el almacén respondió rápido.
+  @visibleForTesting
+  static Duration slowStoreHealthyLimit = const Duration(milliseconds: 1500);
+
+  /// La decisión terminó, pero tardó tanto que el equipo se marca lento
+  /// (solo si ya quedó en preferencias: ahí no hay nada que trasladar).
+  @visibleForTesting
+  static Duration slowStoreDecisionLimit = const Duration(seconds: 4);
+
+  static bool _slowStoreFastPath = false;
+  static Timer? _slowStoreProbeTimer;
+
+  /// true = en este arranque no se usa el almacén seguro del sistema
+  /// (lento, sin responder o en modo preferencias). Quien tenga datos
+  /// viejos allí (cachés) no debe ir a buscarlos: congelaría la ventana.
+  static bool get avoidsSystemStore => _inPrefsMode || _slowStoreFastPath;
+
+  /// ¿Quedó anotado que en este equipo el almacén seguro es lento?
+  static bool isMarkedSlow(SharedPreferences prefs) {
+    try {
+      return prefs.getBool(storeSlowKey) == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _markStoreSlow(SharedPreferences prefs) async {
+    try {
+      await prefs.setBool(storeSlowKey, true);
+      if ((prefs.getInt(storeHealthyBootsKey) ?? 0) != 0) {
+        await prefs.setInt(storeHealthyBootsKey, 0);
+      }
+    } catch (_) {}
+  }
+
+  /// Arranque en un equipo marcado: prueba el almacén por detrás, una sola
+  /// lectura, sin que nadie la espere. Si responde rápido suma un arranque
+  /// sano; si no, vuelve a cero y deja pasar más arranques antes de probar
+  /// otra vez (cada prueba lenta congela la ventana lo que tarde).
+  static void _scheduleSlowStoreProbe(SharedPreferences prefs) {
+    _slowStoreProbeTimer?.cancel();
+    _slowStoreProbeTimer = Timer(slowStoreProbeDelay, () async {
+      _slowStoreProbeTimer = null;
+      try {
+        final skip = prefs.getInt(storeProbeSkipKey) ?? 0;
+        if (skip > 0) {
+          await prefs.setInt(storeProbeSkipKey, skip - 1);
+          return;
+        }
+        final watch = Stopwatch()..start();
+        var healthy = false;
+        try {
+          await _rawStorage.read('baudex_secure_store_probe');
+          healthy = watch.elapsed <= slowStoreHealthyLimit;
+        } catch (_) {}
+        if (!healthy) {
+          final backoff = ((prefs.getInt(_storeProbeBackoffKey) ?? 1) * 2).clamp(2, 16);
+          await prefs.setInt(_storeProbeBackoffKey, backoff);
+          await prefs.setInt(storeProbeSkipKey, backoff);
+          await prefs.setInt(storeHealthyBootsKey, 0);
+          return;
+        }
+        final boots = (prefs.getInt(storeHealthyBootsKey) ?? 0) + 1;
+        if (boots >= slowStoreHealthyBoots) {
+          // El próximo arranque decide como siempre (traslado incluido).
+          await prefs.remove(storeSlowKey);
+          await prefs.remove(storeHealthyBootsKey);
+          await prefs.remove(storeProbeSkipKey);
+          await prefs.remove(_storeProbeBackoffKey);
+        } else {
+          await prefs.setInt(storeHealthyBootsKey, boots);
+        }
+      } catch (_) {}
+    });
+  }
+
+  static Future<bool> _decideWindowsStorageInTime() async {
     _windowsDecisionTimedOut = false;
+    _slowStoreFastPath = false;
+    SharedPreferences? knownPrefs;
+    try {
+      knownPrefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    if (knownPrefs != null && isMarkedSlow(knownPrefs)) {
+      // Mismo estado que deja el tope de 12 s, pero sin esperar ni tocar
+      // el almacén: preferencias son la fuente de verdad de este arranque.
+      _slowStoreFastPath = true;
+      _windowsDecisionTimedOut = true;
+      _useSharedPreferences = true;
+      _mirrorToPrefs = false;
+      if (knownPrefs.getBool(PrefsToSecureStoreMigration.doneFlag) != false) {
+        unawaited(PrefsToSecureStoreMigration.markPending(knownPrefs));
+      }
+      SessionStartupTrace.storageMode =
+          'preferencias del equipo (en este equipo el almacén seguro de Windows es lento; '
+          'se prueba por detrás)';
+      _scheduleSlowStoreProbe(knownPrefs);
+      return true;
+    }
+    final decisionWatch = Stopwatch()..start();
+    final usePrefs = await _decideWindowsStorageWithCap();
+    // Terminó en preferencias y además tardó: que el próximo arranque no
+    // vuelva a pagar esa espera.
+    if (usePrefs &&
+        !_windowsDecisionTimedOut &&
+        decisionWatch.elapsed >= slowStoreDecisionLimit &&
+        knownPrefs != null) {
+      unawaited(_markStoreSlow(knownPrefs));
+    }
+    return usePrefs;
+  }
+
+  static Future<bool> _decideWindowsStorageWithCap() {
     // Cada decisión lleva su propia marca: un traslado que quedó corriendo
     // por detrás sabe que a ÉL ya no lo esperan y no borra ni marca nada.
     final run = _WindowsDecisionRun();
@@ -562,9 +709,11 @@ class SecureStorageService {
         _windowsDecisionTimedOut = true;
         _useSharedPreferences = true;
         _mirrorToPrefs = false;
-        unawaited(SharedPreferences.getInstance()
-            .then(PrefsToSecureStoreMigration.markPending)
-            .catchError((Object _) {}));
+        unawaited(SharedPreferences.getInstance().then((prefs) async {
+          await PrefsToSecureStoreMigration.markPending(prefs);
+          // Los próximos arranques no vuelven a esperar al almacén.
+          await _markStoreSlow(prefs);
+        }).catchError((Object _) {}));
         SessionStartupTrace.storageMode =
             'preferencias del equipo (el almacén seguro de Windows no respondió a tiempo)';
         OpsReporter.capture(
@@ -1374,19 +1523,38 @@ class SecureStorageService {
       try {
         await (await _vault())?.resetSession();
       } catch (_) {}
+      // La copia protegida recibe toda la sesión en una sola escritura; los
+      // guardados de abajo la encuentran ya al día y no la reescriben.
+      try {
+        await (await _vault())?.writeSession({
+          ApiConstants.tokenKey: token,
+          if (refreshToken != null) ApiConstants.refreshTokenKey: refreshToken,
+          ApiConstants.userKey: jsonEncode(userData),
+          if (tenantSlug != null) 'tenant_slug': tenantSlug,
+          if (organization != null) 'current_organization': jsonEncode(organization),
+        });
+      } catch (_) {}
       await saveToken(token);
-      if (refreshToken != null) {
-        await saveRefreshToken(refreshToken);
-      }
-      await saveUserData(userData);
-      
-      // Guardar datos de tenant si se proporcionan
-      if (tenantSlug != null) {
-        await saveTenantSlug(tenantSlug);
-      }
-      if (organization != null) {
-        await saveCurrentOrganization(organization);
+      // En modo preferencias cada guardado reescribe el archivo entero y
+      // espera al disco: los que siguen al token se piden juntos y salen
+      // en una sola escritura (el valor ya queda en memoria al pedirlo).
+      // Con el almacén seguro siguen de uno en uno, como siempre.
+      final together = await _shouldUseSharedPreferences();
+      final rest = <Future<void> Function()>[
+        if (refreshToken != null) () => saveRefreshToken(refreshToken),
+        () => saveUserData(userData),
+        // Guardar datos de tenant si se proporcionan
+        if (tenantSlug != null) () => saveTenantSlug(tenantSlug),
+        if (organization != null) () => saveCurrentOrganization(organization),
+      ];
+      if (together) {
+        await Future.wait([for (final save in rest) save()]);
       } else {
+        for (final save in rest) {
+          await save();
+        }
+      }
+      if (organization == null) {
         // El inicio de sesión no trajo el negocio: si el guardado es de
         // OTRO negocio (sesión anterior), no puede quedar junto al token
         // nuevo.
