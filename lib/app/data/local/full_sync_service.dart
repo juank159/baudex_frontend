@@ -1,4 +1,5 @@
 // lib/app/data/local/full_sync_service.dart
+import '../../core/mixins/sync_auto_refresh_mixin.dart';
 import 'package:baudex_desktop/app/core/diagnostics/startup_trace.dart';
 import 'package:baudex_desktop/app/core/session/user_activity.dart';
 import 'dart:async';
@@ -973,6 +974,15 @@ class FullSyncService extends GetxService {
   /// pantallas siguen mostrando lo del equipo; al terminar, cada registro
   /// queda como en el servidor y se quita lo que ya no existe. Antes había
   /// que ir a Diagnóstico → "Forzar sincronización completa".
+  /// Cuánto espera, como mucho, cada página de la descarga a que el cajero
+  /// deje de teclear. La re-descarga tras instalar una versión ([refresh])
+  /// no trae nada urgente (los datos ya están en el equipo): mientras se
+  /// está facturando cede mucho más, para no pelear por el disco con la
+  /// venta. Basta 1,5 s de calma para que avance.
+  @visibleForTesting
+  static Duration pageMaxWait({required bool refresh, required bool selling}) =>
+      refresh && selling ? const Duration(seconds: 45) : const Duration(seconds: 8);
+
   Future<void> _refreshIfAppUpdated() async {
     if (_installChecked) return;
     final organization = await _organizationKey();
@@ -1211,7 +1221,10 @@ class FullSyncService extends GetxService {
       // que no para de facturar igual termine de descargar).
       await UserActivity.waitForQuiet(
         const Duration(milliseconds: 1500),
-        maxWait: const Duration(seconds: 8),
+        maxWait: pageMaxWait(
+          refresh: progress?.refresh ?? false,
+          selling: SyncAutoRefreshMixin.isSellingScreenVisible,
+        ),
         poll: const Duration(milliseconds: 100),
       );
       while (true) {
