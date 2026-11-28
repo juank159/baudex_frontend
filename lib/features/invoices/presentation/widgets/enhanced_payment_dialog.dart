@@ -13,6 +13,8 @@ import '../../../bank_accounts/presentation/controllers/bank_accounts_controller
 import '../../../bank_accounts/presentation/bindings/bank_accounts_binding.dart';
 import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
 import '../../../customer_credits/presentation/bindings/customer_credit_binding.dart';
+import '../../../customer_credits/domain/repositories/customer_credit_repository.dart';
+import '../../../customer_credits/data/models/customer_credit_model.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../../../app/data/local/isar_database.dart';
@@ -539,21 +541,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     setState(() => _isLoadingBalance = true);
 
     try {
-      // Intentar obtener el controlador de créditos
-      CustomerCreditController? creditController;
-
-      if (Get.isRegistered<CustomerCreditController>()) {
-        creditController = Get.find<CustomerCreditController>();
-      } else {
-        // Inicializar el binding si no está registrado
-        CustomerCreditBinding().dependencies();
-        if (Get.isRegistered<CustomerCreditController>()) {
-          creditController = Get.find<CustomerCreditController>();
-        }
-      }
-
-      if (creditController != null) {
-        final balance = await creditController.getClientBalance(widget.customerId!);
+      // El saldo se pide al repositorio. Antes se creaba aquí el controlador
+      // de la pantalla de Créditos, que al nacer carga TODOS los créditos y
+      // sus estadísticas: eso frenaba la apertura de este diálogo. Si esa
+      // pantalla ya está viva, se usa su controlador como siempre.
+      final balance = await loadClientBalanceForPayment(widget.customerId!);
+      {
         if (mounted && balance != null && balance.balance > 0) {
           setState(() {
             _availableBalance = balance.balance;
@@ -4313,4 +4306,21 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       balanceApplied: _applyBalance ? _balanceToApply : null,
     );
   }
+}
+
+
+/// Saldo a favor del cliente para el diálogo de pago, sin crear el
+/// controlador de la pantalla de Créditos si todavía no existe.
+Future<ClientBalanceModel?> loadClientBalanceForPayment(String customerId) async {
+  final controllerAlive = Get.isRegistered<CustomerCreditController>() &&
+      !Get.isPrepared<CustomerCreditController>();
+  if (controllerAlive) {
+    return Get.find<CustomerCreditController>().getClientBalance(customerId);
+  }
+  if (!Get.isRegistered<CustomerCreditRepository>()) {
+    CustomerCreditBinding().dependencies();
+  }
+  final result =
+      await Get.find<CustomerCreditRepository>().getClientBalance(customerId);
+  return result.fold((_) => null, (data) => data);
 }
