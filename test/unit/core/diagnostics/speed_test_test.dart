@@ -52,6 +52,31 @@ void main() {
       expect(result.timeLabel, 'normal 12 ms · peor 900 ms');
     });
 
+    test('textos: un solo valor si normal y peor son iguales, coma decimal y segundos', () {
+      final check = _check('x', () async => 1);
+      SpeedResult r(double median, double worst, {int runs = 5}) => SpeedResult(
+          check: check, grade: SpeedGrade.fast, medianMs: median, worstMs: worst, runs: runs);
+      expect(r(12, 12).timeLabel, '12 ms');
+      expect(r(1.5, 1.5).timeLabel, '1,5 ms');
+      expect(r(1.2, 6.4).timeLabel, 'normal 1,2 ms · peor 6,4 ms');
+      expect(r(1850, 1850, runs: 1).timeLabel, 'tarda 1,9 segundos');
+      expect(r(400, 2300).timeLabel, 'normal 400 ms · peor 2,3 segundos');
+    });
+
+    test('si el equipo va lento, el veredicto pide copiar el reporte para soporte', () {
+      final check = _check('disco', () async => 1);
+      SpeedReport report(SpeedGrade g) => SpeedReport(
+            at: DateTime(2026, 11, 28),
+            results: [SpeedResult(check: check, grade: g, medianMs: 900, runs: 1)],
+            facts: const DeviceFacts([]),
+            totalMs: 1,
+          );
+      const ask = ' Toque "Copiar reporte" y péguelo en el chat o correo de soporte.';
+      expect(report(SpeedGrade.slow).verdict, endsWith(ask));
+      expect(report(SpeedGrade.verySlow).verdict, endsWith(ask));
+      expect(report(SpeedGrade.fast).verdict, isNot(contains('Copiar reporte')));
+    });
+
     test('lo que no responde no deja la prueba colgada', () async {
       final result = await SpeedTestRunner.runCheck(_check(
         'almacén',
@@ -106,7 +131,7 @@ void main() {
       expect(report.verdict, contains('muy lento en: medición disco'));
       final text = report.toText();
       expect(text, contains('Resultado general: MUY LENTO'));
-      expect(text, contains('[MUY LENTO] Medición disco: 1800 ms'));
+      expect(text, contains('[MUY LENTO] Medición disco: tarda 1,8 segundos'));
       expect(text, contains('[RÁPIDO] Medición servidor: 30 ms'));
       expect(text, contains('<-- revisar'));
       expect(text, contains('Versión de la app: 1.0.24 (25)'));

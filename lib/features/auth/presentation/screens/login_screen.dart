@@ -254,6 +254,19 @@ class LoginScreen extends GetView<AuthController> {
             ),
           ],
         ),
+        // Sin sesión: para saber por qué la app va lenta en este equipo.
+        // Justo debajo de "Regístrate" para que se vea sin bajar, también
+        // en ventanas bajas y en celular.
+        TextButton.icon(
+          style: brebTextButtonStyle(color: ElegantLightTheme.textSecondary),
+          onPressed: () => showSpeedTestDialog(context),
+          icon: const Icon(Icons.speed, size: 16),
+          label: const Text(
+            '¿La app va lenta? Probar la velocidad de este equipo',
+            style: TextStyle(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
         if (context.isDesktop) ...[
           SizedBox(height: context.verticalSpacing),
           const Text(
@@ -267,16 +280,6 @@ class LoginScreen extends GetView<AuthController> {
         ],
         const SizedBox(height: 6),
         const AppVersionLabel(),
-        // Sin sesión: para saber por qué la app va lenta en este equipo.
-        TextButton.icon(
-          style: brebTextButtonStyle(color: ElegantLightTheme.textSecondary),
-          onPressed: () => showSpeedTestDialog(context),
-          icon: const Icon(Icons.speed, size: 16),
-          label: const Text(
-            '¿La app va lenta? Probar la velocidad de este equipo',
-            style: TextStyle(fontSize: 12),
-          ),
-        ),
       ],
     );
   }

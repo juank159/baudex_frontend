@@ -20,8 +20,8 @@ const _fonts = '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts';
 const _titles = <(String, String, int, int, int)>[
   ('disk_write', 'Guardar un archivo en el disco', 40, 250, 20),
   ('disk_read', 'Leer un archivo del disco', 20, 150, 20),
-  ('prefs_write', 'Guardar una preferencia', 80, 500, 5),
-  ('prefs_read', 'Leer una preferencia', 20, 150, 5),
+  ('prefs_write', 'Guardar un ajuste de la app', 80, 500, 5),
+  ('prefs_read', 'Leer un ajuste de la app', 20, 150, 5),
   ('secure_write', 'Guardar en el almacén seguro del sistema', 150, 1000, 1),
   ('secure_read', 'Leer del almacén seguro del sistema', 150, 1000, 1),
   ('isar_open', 'Abrir la base de datos local', 300, 1500, 1),
@@ -150,8 +150,24 @@ void main() {
       await tester.pump(const Duration(milliseconds: 10));
     }
     if (tapCopy) {
+      // Portapapeles simulado: en la prueba no hay sistema que lo reciba y,
+      // sin esto, el aviso "Reporte copiado" no aparecía en la imagen.
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform,
+          (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
       await tester.tap(find.text('Copiar reporte'));
-      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(copied, contains('Prueba de velocidad de este equipo'));
+      expect(find.textContaining('Reporte copiado'), findsOneWidget);
     }
     expect(tester.takeException(), isNull);
     await tester.runAsync(() async {

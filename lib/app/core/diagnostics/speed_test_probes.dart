@@ -103,7 +103,7 @@ SpeedTestRunner buildDeviceSpeedTest({
       ),
       SpeedCheck(
         id: 'prefs_write',
-        title: 'Guardar una preferencia',
+        title: 'Guardar un ajuste de la app',
         hint: 'Guardar ajustes tarda: la app guarda la sesión y los ajustes '
             'en el disco de este equipo, y ese disco está lento.',
         fastMs: 80,
@@ -118,7 +118,7 @@ SpeedTestRunner buildDeviceSpeedTest({
       ),
       SpeedCheck(
         id: 'prefs_read',
-        title: 'Leer una preferencia',
+        title: 'Leer un ajuste de la app',
         hint: 'Leer ajustes debería ser inmediato; si tarda, la app está '
             'ocupada con otra cosa.',
         fastMs: 20,

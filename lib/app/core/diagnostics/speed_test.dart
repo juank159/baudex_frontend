@@ -79,14 +79,24 @@ class SpeedResult {
   final int runs;
   final String? error;
 
-  static String ms(double? v) =>
-      v == null ? '—' : '${v < 10 ? v.toStringAsFixed(1) : v.toStringAsFixed(0)} ms';
+  /// "1,5 ms", "12 ms" o, desde 1000 ms, "1,9 segundos" (coma decimal).
+  static String ms(double? v) {
+    if (v == null) return '—';
+    if (v >= 1000) {
+      return '${(v / 1000).toStringAsFixed(1).replaceAll('.', ',')} segundos';
+    }
+    return '${v < 10 ? v.toStringAsFixed(1).replaceAll('.', ',') : v.toStringAsFixed(0)} ms';
+  }
 
-  /// "12 ms" o "normal 12 ms · peor 340 ms".
+  /// "12 ms", "tarda 1,9 segundos" o "normal 12 ms · peor 340 ms" (un solo
+  /// valor cuando el normal y el peor se ven iguales).
   String get timeLabel {
     if (medianMs == null) return grade == SpeedGrade.skipped ? '—' : (error ?? '—');
-    if (runs <= 1) return ms(medianMs);
-    return 'normal ${ms(medianMs)} · peor ${ms(worstMs)}';
+    final normal = ms(medianMs);
+    if (runs <= 1 || worstMs == null || ms(worstMs) == normal) {
+      return medianMs! >= 1000 ? 'tarda $normal' : normal;
+    }
+    return 'normal $normal · peor ${ms(worstMs)}';
   }
 }
 
@@ -124,6 +134,9 @@ class SpeedReport {
     return worst;
   }
 
+  static const _askSupport =
+      ' Toque "Copiar reporte" y péguelo en el chat o correo de soporte.';
+
   /// Una frase para el cliente.
   String get verdict {
     final bad = [
@@ -140,10 +153,10 @@ class SpeedReport {
     }
 
     if (bad.isNotEmpty) {
-      return 'Este equipo va muy lento en: ${names(bad)}. ${bad.first.check.hint}';
+      return 'Este equipo va muy lento en: ${names(bad)}. ${bad.first.check.hint}$_askSupport';
     }
     if (slow.isNotEmpty) {
-      return 'Este equipo va lento en: ${names(slow)}. ${slow.first.check.hint}';
+      return 'Este equipo va lento en: ${names(slow)}. ${slow.first.check.hint}$_askSupport';
     }
     return 'Este equipo responde rápido en todo lo que la app necesita.';
   }

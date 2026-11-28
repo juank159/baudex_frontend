@@ -56,8 +56,8 @@ void main() {
     await load('MaterialIcons', ['MaterialIcons-Regular.otf']);
   });
 
-  Future<void> mount(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1366, 768);
+  Future<void> mount(WidgetTester tester, {Size size = const Size(1366, 768)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     Get.reset();
@@ -144,6 +144,54 @@ void main() {
     expect(tester.widget<EditableText>(passwordField()).controller.text, 'Clave#2026');
     await unmount(tester);
   });
+
+  // El enlace del medidor va justo debajo de "Regístrate" (antes del © y la
+  // versión). En una ventana baja (1280×720) el formulario entero ya pide
+  // bajar: al llegar al botón de entrar, el enlace queda a la vista.
+  for (final (name, size) in const [
+    ('login_1280x720', Size(1280, 720)),
+    ('login_celular', Size(390, 844)),
+  ]) {
+    testWidgets('el enlace de la prueba de velocidad va debajo de Regístrate ($name)',
+        (tester) async {
+      await mount(tester, size: size);
+      Future<void> save(String file) async {
+        if (_out == null) return;
+        await tester.runAsync(() async {
+          final boundary =
+              boundaryKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+          final image = await boundary.toImage(pixelRatio: 1.5);
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          File('$_out/$file.png')
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(data!.buffer.asUint8List());
+        });
+      }
+
+      await save(name);
+      final link = find.text('¿La app va lenta? Probar la velocidad de este equipo');
+      expect(link, findsOneWidget);
+      final register = tester.getRect(find.text('Regístrate'));
+      final linkRect = tester.getRect(link);
+      expect(linkRect.top, greaterThan(register.top),
+          reason: 'el enlace debe ir después de "Regístrate"');
+      expect(linkRect.top - register.bottom, lessThan(60),
+          reason: 'el enlace debe ir pegado a "Regístrate"');
+      final copyright = find.textContaining('© 2026 Baudex');
+      if (copyright.evaluate().isNotEmpty) {
+        expect(linkRect.bottom, lessThanOrEqualTo(tester.getRect(copyright).top),
+            reason: 'el enlace debe ir antes del ©');
+      }
+      // Bajando hasta "Regístrate", el enlace también se ve.
+      await tester.ensureVisible(find.text('Regístrate'));
+      await tester.pump(const Duration(milliseconds: 300));
+      final after = tester.getRect(link);
+      expect(after.bottom, lessThanOrEqualTo(size.height),
+          reason: 'con "Regístrate" a la vista, el enlace queda bajo el borde');
+      await save('${name}_abajo');
+      await unmount(tester);
+    });
+  }
 
   testWidgets('imagen de la pantalla de iniciar sesión', (tester) async {
     await mount(tester);

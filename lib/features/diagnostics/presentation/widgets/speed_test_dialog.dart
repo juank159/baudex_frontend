@@ -170,7 +170,7 @@ class _SpeedTestDialogState extends State<SpeedTestDialog> {
             const Padding(
               padding: EdgeInsets.fromLTRB(22, 4, 22, 10),
               child: Text(
-                'Mide lo que la app necesita de este computador. No cambia ni '
+                'Mide lo que la app necesita de este equipo. No cambia ni '
                 'borra ningún dato del negocio.',
                 style: TextStyle(color: ElegantLightTheme.textSecondary, fontSize: 13, height: 1.35),
               ),
@@ -218,44 +218,60 @@ class _SpeedTestDialogState extends State<SpeedTestDialog> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  TextButton(
-                    style: brebTextButtonStyle(color: ElegantLightTheme.textSecondary),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    child: const Text('Cerrar'),
-                  ),
-                  if (!_running)
-                    TextButton.icon(
-                      style: brebTextButtonStyle(),
-                      onPressed: _run,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Repetir'),
+              child: narrow
+                  // Celular: botones a todo el ancho, uno debajo del otro,
+                  // con "Copiar reporte" primero.
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (i, b) in _actions(report).reversed.indexed) ...[
+                          if (i > 0) const SizedBox(height: 8),
+                          b,
+                        ],
+                      ],
+                    )
+                  : Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _actions(report),
                     ),
-                  OutlinedButton.icon(
-                    style: brebSecondaryButtonStyle(),
-                    onPressed: report == null ? null : _save,
-                    icon: const Icon(Icons.save_alt, size: 18),
-                    label: const Text('Guardar como texto'),
-                  ),
-                  ElevatedButton.icon(
-                    style: brebPrimaryButtonStyle(),
-                    onPressed: report == null ? null : _copy,
-                    icon: const Icon(Icons.copy_outlined, size: 18),
-                    label: const Text('Copiar reporte'),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  /// Botones de abajo, de menos a más importante (en escritorio el
+  /// principal queda a la derecha).
+  List<Widget> _actions(SpeedReport? report) => [
+        TextButton(
+          style: brebTextButtonStyle(color: ElegantLightTheme.textSecondary),
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Text('Cerrar'),
+        ),
+        if (!_running)
+          TextButton.icon(
+            style: brebTextButtonStyle(),
+            onPressed: _run,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Repetir'),
+          ),
+        OutlinedButton.icon(
+          style: brebSecondaryButtonStyle(),
+          onPressed: report == null ? null : _save,
+          icon: const Icon(Icons.save_alt, size: 18),
+          label: const Text('Guardar como texto'),
+        ),
+        ElevatedButton.icon(
+          style: brebPrimaryButtonStyle(),
+          onPressed: report == null ? null : _copy,
+          icon: const Icon(Icons.copy_outlined, size: 18),
+          label: const Text('Copiar reporte'),
+        ),
+      ];
 
   Widget _verdict(SpeedReport report) {
     final grade = report.overall;
