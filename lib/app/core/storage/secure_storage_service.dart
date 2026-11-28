@@ -570,6 +570,15 @@ class SecureStorageService {
   // SIN tocar el almacén. Por detrás, bien después de abrir, se prueba el
   // almacén de vez en cuando; solo tras [slowStoreHealthyBoots] arranques
   // seguidos en que respondió rápido se vuelve a decidir como siempre.
+  //
+  // La marca además CADUCA por arranques: en modo preferencias la sesión no
+  // tiene la protección del almacén (DPAPI), y la prueba por detrás necesita
+  // la app abierta y ociosa; con una sola demora pasajera (equipo ocupado al
+  // encender) un equipo SANO quedaba en preferencias sin plazo. Tras
+  // [slowStoreMarkedBoots] arranques rápidos, el siguiente decide otra vez
+  // con el almacén: si responde, se quita la marca; si no, la marca dura el
+  // doble (hasta [slowStoreMarkedBootsMax]), para que el equipo de verdad
+  // lento pague esa espera cada vez menos.
 
   /// No empiezan por `secure_`: cerrar sesión no las borra.
   @visibleForTesting
@@ -579,6 +588,16 @@ class SecureStorageService {
   @visibleForTesting
   static const storeProbeSkipKey = 'baudex_secure_store_probe_skip_v1';
   static const _storeProbeBackoffKey = 'baudex_secure_store_probe_backoff_v1';
+  @visibleForTesting
+  static const storeSlowBootsUsedKey = 'baudex_secure_store_slow_boots_used_v1';
+  @visibleForTesting
+  static const storeSlowBootsLifeKey = 'baudex_secure_store_slow_boots_life_v1';
+
+  /// Arranques que la marca vale antes de volver a decidir con el almacén.
+  static const int slowStoreMarkedBoots = 3;
+
+  /// Tope de esa duración cuando el almacén sigue sin responder.
+  static const int slowStoreMarkedBootsMax = 24;
 
   /// Arranques sanos seguidos para volver a usar el almacén.
   static const int slowStoreHealthyBoots = 3;
@@ -633,6 +652,21 @@ class SecureStorageService {
     } catch (_) {}
   }
 
+  static Future<void> _clearStoreSlow(SharedPreferences prefs) async {
+    for (final key in const [
+      storeSlowKey,
+      storeHealthyBootsKey,
+      storeProbeSkipKey,
+      _storeProbeBackoffKey,
+      storeSlowBootsUsedKey,
+      storeSlowBootsLifeKey,
+    ]) {
+      try {
+        if (prefs.containsKey(key)) await prefs.remove(key);
+      } catch (_) {}
+    }
+  }
+
   /// Arranque en un equipo marcado: prueba el almacén por detrás, una sola
   /// lectura, sin que nadie la espere. Si responde rápido suma un arranque
   /// sano; si no, vuelve a cero y deja pasar más arranques antes de probar
@@ -674,10 +708,7 @@ class SecureStorageService {
         final boots = (prefs.getInt(storeHealthyBootsKey) ?? 0) + 1;
         if (boots >= slowStoreHealthyBoots) {
           // El próximo arranque decide como siempre (traslado incluido).
-          await prefs.remove(storeSlowKey);
-          await prefs.remove(storeHealthyBootsKey);
-          await prefs.remove(storeProbeSkipKey);
-          await prefs.remove(_storeProbeBackoffKey);
+          await _clearStoreSlow(prefs);
         } else {
           await prefs.setInt(storeHealthyBootsKey, boots);
         }
@@ -692,7 +723,31 @@ class SecureStorageService {
     try {
       knownPrefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
     } catch (_) {}
+    var retrial = false;
     if (knownPrefs != null && isMarkedSlow(knownPrefs)) {
+      var life = slowStoreMarkedBoots;
+      var used = 0;
+      try {
+        life = (knownPrefs.getInt(storeSlowBootsLifeKey) ?? slowStoreMarkedBoots)
+            .clamp(slowStoreMarkedBoots, slowStoreMarkedBootsMax);
+        used = knownPrefs.getInt(storeSlowBootsUsedKey) ?? 0;
+      } catch (_) {}
+      if (used >= life) {
+        // La marca caducó: este arranque decide con el almacén, como
+        // siempre. Antes de tocarlo queda anotado que la marca sigue y dura
+        // el doble: si el almacén congela la ventana y cierran la app, el
+        // próximo arranque no vuelve a esperar.
+        retrial = true;
+        try {
+          await knownPrefs.setInt(storeSlowBootsUsedKey, 0);
+          await knownPrefs.setInt(
+              storeSlowBootsLifeKey, (life * 2).clamp(slowStoreMarkedBoots, slowStoreMarkedBootsMax));
+        } catch (_) {}
+      } else {
+        unawaited(knownPrefs.setInt(storeSlowBootsUsedKey, used + 1).catchError((Object _) => false));
+      }
+    }
+    if (knownPrefs != null && !retrial && isMarkedSlow(knownPrefs)) {
       // Mismo estado que deja el tope de 12 s, pero sin esperar ni tocar
       // el almacén: preferencias son la fuente de verdad de este arranque.
       _slowStoreFastPath = true;
@@ -717,6 +772,9 @@ class SecureStorageService {
         decisionWatch.elapsed >= slowStoreDecisionLimit &&
         knownPrefs != null) {
       unawaited(_markStoreSlow(knownPrefs));
+    } else if (retrial && !_windowsDecisionTimedOut && knownPrefs != null) {
+      // El almacén respondió a tiempo: el equipo ya no está marcado.
+      await _clearStoreSlow(knownPrefs);
     }
     return usePrefs;
   }
