@@ -204,16 +204,18 @@ class _SpeedTestDialogState extends State<SpeedTestDialog> {
                       for (final (name, value, alert) in report.facts.rows)
                         _fact(name, value, alert),
                     ],
-                    if (_notice != null) ...[
-                      const SizedBox(height: 12),
-                      _noticeIsError
-                          ? BrebNotice.error(_notice!)
-                          : BrebNotice.success(_notice!),
-                    ],
                   ],
                 ),
               ),
             ),
+            // Fuera de la lista: que se vea sin tener que bajar.
+            if (_notice != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 0),
+                child: _noticeIsError
+                    ? BrebNotice.error(_notice!)
+                    : BrebNotice.success(_notice!),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Wrap(
