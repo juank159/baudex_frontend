@@ -24,6 +24,7 @@ import '../datasources/invoice_remote_datasource.dart';
 import '../models/invoice_model.dart';
 import '../models/isar/isar_invoice.dart';
 import 'invoice_offline_repository_simple.dart';
+import 'sale_server_down_rule.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../products/data/models/isar/isar_product.dart';
 
@@ -788,6 +789,10 @@ class InvoiceRepositoryImpl
           e.statusCode == 408 ||
           e.statusCode == 429;
       if (shouldFallbackOffline && offlineRepository != null) {
+        // Sin respuesta útil del servidor (5xx / 408): las ventas siguientes
+        // se guardan en el equipo de una vez, sin volver a esperar el tope.
+        // La marca se levanta sola cuando el servidor vuelve a contestar.
+        if (saleFailureMeansServerDown(e)) networkInfo.markServerUnreachable();
         return offlineRepository!.createInvoice(
           customerId: customerId,
           items: items,
@@ -810,6 +815,9 @@ class InvoiceRepositoryImpl
       // Cualquier excepción NO-ServerException la tratamos como red caída
       // (DioException de timeout/conexión, errores de parse, etc.).
       if (offlineRepository != null) {
+        // Tope de tiempo o sin conexión: no volver a esperarlo en la venta
+        // siguiente (un error de lectura de la respuesta no cuenta).
+        if (saleFailureMeansServerDown(e)) networkInfo.markServerUnreachable();
         return offlineRepository!.createInvoice(
           customerId: customerId,
           items: items,
