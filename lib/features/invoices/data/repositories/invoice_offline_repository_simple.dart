@@ -650,6 +650,54 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     Map<String, dynamic>? metadata,
     String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
   }) async {
+    // La venta encola varias operaciones (factura + un movimiento por
+    // producto): la cola se cuenta una sola vez, al terminar de guardar.
+    SyncService? burst;
+    try {
+      final sync = Get.find<SyncService>();
+      sync.beginQueueBurst();
+      burst = sync;
+    } catch (_) {}
+    try {
+      return await _createInvoiceLocal(
+        customerId: customerId,
+        items: items,
+        number: number,
+        date: date,
+        dueDate: dueDate,
+        paymentMethod: paymentMethod,
+        status: status,
+        taxPercentage: taxPercentage,
+        discountPercentage: discountPercentage,
+        discountAmount: discountAmount,
+        notes: notes,
+        terms: terms,
+        metadata: metadata,
+        bankAccountId: bankAccountId,
+      );
+    } finally {
+      try {
+        await burst?.endQueueBurst();
+      } catch (_) {}
+    }
+  }
+
+  Future<Either<Failure, Invoice>> _createInvoiceLocal({
+    required String customerId,
+    required List items,
+    String? number,
+    DateTime? date,
+    DateTime? dueDate,
+    PaymentMethod paymentMethod = PaymentMethod.cash,
+    InvoiceStatus? status,
+    double taxPercentage = 0,
+    double discountPercentage = 0,
+    double discountAmount = 0,
+    String? notes,
+    String? terms,
+    Map<String, dynamic>? metadata,
+    String? bankAccountId,
+  }) async {
     AppLogger.d('InvoiceOfflineRepository: Creando factura offline para cliente: $customerId');
 
     // 🔒 VALIDACIÓN DE SUSCRIPCIÓN (Segunda capa de defensa - ASYNC para ISAR)
@@ -2151,7 +2199,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
 
       for (final productId in productIds) {
         final product = await _isar.isarProducts
-            .filter()
+            .where()
             .serverIdEqualTo(productId)
             .findFirst();
         if (product != null) {

@@ -79,7 +79,7 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
         await isar.writeTxn(() async {
           // Buscar si existe
           var isarInvoice = await isar.isarInvoices
-              .filter()
+              .where()
               .serverIdEqualTo(invoice.id)
               .findFirst();
 

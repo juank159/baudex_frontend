@@ -1239,6 +1239,27 @@ class SyncService extends GetxService {
     _syncState.value = SyncState.idle;
   }
 
+  // ── Una venta = un solo conteo de la cola ────────────────────────────────
+  // Guardar una venta en el equipo encola varias operaciones seguidas (la
+  // factura y un movimiento por producto). Contar la cola después de cada
+  // una leía todas las pendientes una y otra vez mientras el cajero espera.
+  // Entre [beginQueueBurst] y [endQueueBurst] el conteo se hace una vez, al
+  // final.
+  int _queueBurstDepth = 0;
+  bool _queueBurstDirty = false;
+
+  /// Empieza una ráfaga de operaciones: el conteo de la cola se aplaza.
+  void beginQueueBurst() => _queueBurstDepth++;
+
+  /// Termina la ráfaga: cuenta la cola una vez si se encoló algo.
+  Future<void> endQueueBurst() async {
+    if (_queueBurstDepth > 0) _queueBurstDepth--;
+    if (_queueBurstDepth == 0 && _queueBurstDirty) {
+      _queueBurstDirty = false;
+      await _updatePendingCount();
+    }
+  }
+
   /// Actualizar conteo de operaciones pendientes
   Future<void> _updatePendingCount() async {
     try {
@@ -2651,7 +2672,12 @@ class SyncService extends GetxService {
         );
       }
 
-      await _updatePendingCount();
+      if (_queueBurstDepth > 0) {
+        // Dentro de una venta: se cuenta una sola vez al terminar.
+        _queueBurstDirty = true;
+      } else {
+        await _updatePendingCount();
+      }
 
       AppLogger.i(
         'Operación agregada a cola: $entityType ${operationType.name} (ID: $entityId)',

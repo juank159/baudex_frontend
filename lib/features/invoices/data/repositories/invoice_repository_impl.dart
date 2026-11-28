@@ -1729,11 +1729,12 @@ class InvoiceRepositoryImpl
       if (qty <= 0) continue;
 
       // 1) Consumir batches FIFO (más antiguos primero, igual que backend)
+      // Por el índice de producto (antes recorría todos los lotes del negocio).
       final batches = await isar.isarInventoryBatchs
+          .where()
+          .productIdEqualTo(productId)
           .filter()
           .deletedAtIsNull()
-          .and()
-          .productIdEqualTo(productId)
           .findAll();
       batches.sort((a, b) => a.entryDate.compareTo(b.entryDate));
 
@@ -1762,7 +1763,7 @@ class InvoiceRepositoryImpl
       final productsToUpdate = <IsarProduct>[];
       for (final entry in stockDeductions.entries) {
         final p = await isar.isarProducts
-            .filter()
+            .where()
             .serverIdEqualTo(entry.key)
             .findFirst();
         if (p == null) continue;
