@@ -1,4 +1,5 @@
 // lib/features/cash_register/data/repositories/cash_register_repository_impl.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -71,7 +72,9 @@ class CashRegisterRepositoryImpl implements CashRegisterRepository {
     if (!hasPendingLocalChange && await networkInfo.isConnected) {
       try {
         base = await remoteDataSource.getCurrent();
-        await _writeCache(base);
+        // Sin esperar al disco: esto corre tras cada venta y cada minuto, y
+        // el estado ya está en `base`.
+        unawaited(_writeCache(base));
       } catch (e) {
         AppLogger.w('Caja: no se pudo leer del servidor, uso el estado guardado: $e',
             tag: 'CASH');
@@ -556,6 +559,9 @@ class CashRegisterRepositoryImpl implements CashRegisterRepository {
 
   // ==================== ALMACENAMIENTO LOCAL ====================
 
+  String? _lastCachePayload;
+  DateTime? _lastCacheWrite;
+
   Future<void> _writeCache(CashRegisterCurrentStateModel state) async {
     if (secureStorage == null) return;
     try {
@@ -578,9 +584,27 @@ class CashRegisterRepositoryImpl implements CashRegisterRepository {
                 creditNotesTotal: 0,
               ).toJson(),
         'expectedAmount': state.expectedAmount,
-        'cachedAt': DateTime.now().toIso8601String(),
       };
-      await secureStorage!.write(_cacheKey, jsonEncode(json));
+      // Si la caja no cambió desde el último guardado (lo normal en la
+      // revisión de cada minuto), no se reescribe el almacén de sesión:
+      // cada escritura reescribe su archivo entero.
+      final payload = jsonEncode(json);
+      final now = DateTime.now();
+      final last = _lastCacheWrite;
+      if (payload == _lastCachePayload &&
+          last != null &&
+          now.difference(last) < const Duration(minutes: 10)) {
+        return;
+      }
+      json['cachedAt'] = now.toIso8601String();
+      _lastCachePayload = payload;
+      _lastCacheWrite = now;
+      try {
+        await secureStorage!.write(_cacheKey, jsonEncode(json));
+      } catch (_) {
+        _lastCachePayload = null;
+        rethrow;
+      }
     } catch (_) {
       // No bloquear flujo por error de cache.
     }
